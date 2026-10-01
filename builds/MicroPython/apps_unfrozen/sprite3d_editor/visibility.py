@@ -1,21 +1,14 @@
 """Sparse vertex depth tests, without a full-screen depth buffer."""
 from array import array
 from struct import unpack_from
-from gc import collect
 try:
-    from gc import mem_free
+    from time import ticks_us, ticks_diff
 except ImportError:
-    # CPython geometry tests have automatic memory management.
-    def mem_free():
-        return 1 << 30
-
-
-def collect_if_needed():
-    # MicroPython also collects automatically on allocation pressure. Avoid a
-    # full heap scan for every small batch when there is ample free memory.
-    # Even mem_free scans the heap, so callers check only every 256 faces.
-    if mem_free() < 32768:
-        collect()
+    from time import monotonic_ns
+    def ticks_us():
+        return monotonic_ns()//1000
+    def ticks_diff(a,b):
+        return a-b
 
 
 def visible_vertices(*args,**kwargs):
@@ -25,21 +18,41 @@ def visible_vertices(*args,**kwargs):
             return result
 
 
-def visibility_steps(records,center,basis,distance,box,screen,ortho,triangles=False,near=.11,samples=None):
-    left,top,width,height = box
-    cx,cy,focal = screen
-    right,up,forward = basis
-    lookup,camera,projected,bins = {},[],[],{}
-    corners = array('H')
-    def project(p):
-        depth = distance if ortho else p[2]
-        return (cx+p[0]*focal/depth,cy-p[1]*focal/depth,p[2])
+def geometry_steps(records):
+    """Share camera-independent corner topology across panes and camera moves."""
+    lookup,points,corners = {},[],array('H')
+    started = ticks_us()
     for i in range(len(records)//40*3):
         point = unpack_from('<3f',records,(i//3)*40+(i%3)*12)
         index = lookup.get(point)
         if index is None:
-            index = len(camera)
+            index = len(points)
             lookup[point] = index
+            points.append(point)
+        corners.append(index)
+        if i%8==0 and ticks_diff(ticks_us(),started)>=1500:
+            yield None
+            started = ticks_us()
+    yield corners,points
+
+
+def visibility_steps(records,center,basis,distance,box,screen,ortho,triangles=False,near=.11,samples=None,geometry=None):
+    started = ticks_us()
+    left,top,width,height = box
+    cx,cy,focal = screen
+    right,up,forward = basis
+    lookup,camera,projected,bins = {},[],[],{}
+    corners = array('H') if geometry is None else geometry[0]
+    def project(p):
+        depth = distance if ortho else p[2]
+        return (cx+p[0]*focal/depth,cy-p[1]*focal/depth,p[2])
+    for i in range(len(records)//40*3 if geometry is None else len(geometry[1])):
+        point = unpack_from('<3f',records,(i//3)*40+(i%3)*12) if geometry is None else geometry[1][i]
+        index = lookup.get(point) if geometry is None else None
+        if index is None:
+            index = len(camera)
+            if geometry is None:
+                lookup[point] = index
             x,y,z = (point[k]-center[k] for k in range(3))
             p = (x*right[0]+y*right[1]+z*right[2],
                  x*up[0]+y*up[1]+z*up[2],
@@ -54,11 +67,11 @@ def visibility_steps(records,center,basis,distance,box,screen,ortho,triangles=Fa
             else:
                 pixel = None
             projected.append(pixel)
-        corners.append(index)
-        if i%96==0:
+        if geometry is None:
+            corners.append(index)
+        if i%8==0 and ticks_diff(ticks_us(),started)>=1500:
             yield None
-        if i%768==0:
-            collect_if_needed()
+            started = ticks_us()
     triangle_start = len(projected)
     if triangles or samples is not None:
         for face in range(len(samples) if samples is not None else len(records)//40):
@@ -79,12 +92,16 @@ def visibility_steps(records,center,basis,distance,box,screen,ortho,triangles=Fa
             else:
                 pixel = None
             projected.append(pixel)
-            if face%16==0:
+            if face%2==0 and ticks_diff(ticks_us(),started)>=1500:
                 yield None
-            if face%256==0:
-                collect_if_needed()
+                started = ticks_us()
     del lookup
-    visible = bytearray(int(p is not None) for p in projected)
+    visible = bytearray(len(projected))
+    for i,p in enumerate(projected):
+        visible[i] = int(p is not None)
+        if i%32==0 and ticks_diff(ticks_us(),started)>=1500:
+            yield None
+            started = ticks_us()
     tolerance = max(abs(distance),1e-6)*1e-5
     work = 0
     for face in range(len(records)//40):
@@ -112,10 +129,14 @@ def visibility_steps(records,center,basis,distance,box,screen,ortho,triangles=Fa
                 continue
             for by in range(int(miny-top)//16,int(maxy-top)//16+1):
                 for bx in range(int(minx-left)//16,int(maxx-left)//16+1):
+                    if ticks_diff(ticks_us(),started)>=1500:
+                        yield None
+                        started = ticks_us()
                     for index in bins.get((bx,by),()):
                         work += 1
-                        if work%128==0:
+                        if work%8==0 and ticks_diff(ticks_us(),started)>=1500:
                             yield None
+                            started = ticks_us()
                         if not visible[index]:
                             continue
                         px,py,z = projected[index]
@@ -129,8 +150,16 @@ def visibility_steps(records,center,basis,distance,box,screen,ortho,triangles=Fa
                         depth = u*a[2]+v*b[2]+w*c[2] if ortho else 1/(u/a[2]+v/b[2]+w/c[2])
                         if depth<z-tolerance:
                             visible[index] = 0
-        if face%16==0:
+        if ticks_diff(ticks_us(),started)>=1500:
             yield None
-        if face%256==0:
-            collect_if_needed()
-    yield visible[triangle_start:] if triangles or samples is not None else bytearray(visible[i] for i in corners)
+            started = ticks_us()
+    if triangles or samples is not None:
+        yield visible[triangle_start:]
+    else:
+        result = bytearray(len(corners))
+        for i,corner in enumerate(corners):
+            result[i] = visible[corner]
+            if i%32==0 and ticks_diff(ticks_us(),started)>=1500:
+                yield None
+                started = ticks_us()
+        yield result

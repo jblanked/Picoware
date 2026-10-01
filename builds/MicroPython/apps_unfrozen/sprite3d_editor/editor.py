@@ -4,32 +4,58 @@ from math import sqrt, floor, log10
 from struct import unpack_from
 from time import ticks_ms,ticks_diff
 from picoware.system.vector import Vector
-from .assets import load_sprite, record_bounds, save_sprite
-from .viewport import ViewportMixin, PreviewInput, preview_mesh, view_basis
 from .ui import EditorUI
 from .history import History
-from .transforms import TransformTools
-from .selection import SelectionTools
-from .editing import GeometryEditing
-from .booleans import BooleanTools
-from .normals import NormalTools
-from .decimate import DecimateTools
-from .colors import ColorTools
-from .edges import EdgeTools
-from .edge_selection import EdgeSelection
 from .preferences import PreferenceTools
+from .tools import LazyTools
+
+
+def load_sprite(*args, **kwargs):
+    from .assets import load_sprite as load
+    return load(*args, **kwargs)
+
+
+def record_bounds(*args, **kwargs):
+    from .assets import record_bounds as bounds
+    return bounds(*args, **kwargs)
+
+
+def save_sprite(*args, **kwargs):
+    from .assets import save_sprite as save
+    return save(*args, **kwargs)
+
+
+def preview_mesh(*args, **kwargs):
+    from .viewport import preview_mesh as build
+    return build(*args, **kwargs)
 
 _app = None
 
 
-class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, GeometryEditing, BooleanTools, NormalTools, DecimateTools, ColorTools, EdgeTools, EdgeSelection, PreferenceTools):
+class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
     """Own the document, file selector, and editing tools."""
 
     def __init__(self, vm):
         self.vm = vm
         self._camera_pending = False
+        self._transform_pending = False
+        self._transform_finished = 0
+        self._geometry_revision = 0
+        self._transform_hud = None
         self._camera_finished = 0
         self._frame_drawn = False
+        self._pixels = None
+        self._hud_keys = [None,None,None]
+        self._frame_info = None
+        self._scene_keys = {}
+        self._scene_stamps = {}
+        self._selection_blank = {}
+        self._visibility_geometry = None
+        self._selection_recover = False
+        self._scene_layout = None
+        self._scene_popup = None
+        self._overlay_pending = {}
+        self._overlay_worker = None
         self._drawn_status = None
         self._last_frame_ms = 0
         self._line_cache = {}
@@ -78,6 +104,7 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
         self.pending_save = ""
         self.status = ""
         self.transform = None
+        self.viewer = None
         self.numeric = False
         self.history = History(vm.storage)
         self.steps = {"Move": 1.0, "Scale": .1, "Rotate": 5.0}
@@ -98,6 +125,15 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
         self.boolean_job = None
 
         self.load_preferences()
+
+    @property
+    def four_zoom(self):
+        """Zoom of the highlighted pane; other panes retain their own values."""
+        return self.pane_zooms[self.active_pane]
+
+    @four_zoom.setter
+    def four_zoom(self, value):
+        self.pane_zooms[self.active_pane] = value
 
     @property
     def dirty(self):
@@ -137,6 +173,7 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
 
     def install_document(self, mesh, records, low, high, path):
         """Install a prepared document for both Open and New."""
+        from .viewport import view_basis, PreviewInput
         from picoware.engine.camera import Camera, CAMERA_THIRD_PERSON
         from picoware.engine.game import Game
         from picoware.engine.level import Level
@@ -224,37 +261,45 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
             self.vm.back()
 
 
-    def replace_records(self, records):
+    def replace_records(self, records, preview=False, bounds=None):
         """Prepare canonical and view meshes before committing a geometry edit."""
         from picoware.engine.sprite3d import Sprite3D
         if len(records)%40 or len(records)//40 > Sprite3D.MAX_TRIANGLES_PER_SPRITE:
             raise ValueError("Triangle limit exceeded")
-        mesh = Sprite3D()
+        mesh = self.mesh if preview else Sprite3D()
         rendered = None
         try:
-            bounds = record_bounds(records)
-            for offset in range(0, len(records), 40):
-                mesh.add_triangle(*unpack_from("<9fHB", records, offset))
+            load = getattr(mesh, 'load_buffer', None)
+            if preview:
+                if bounds is None:
+                    bounds = record_bounds(records)
+            elif load is not None:
+                bounds = load(records)
+            else:
+                bounds = record_bounds(records)
+                for offset in range(0, len(records), 40):
+                    mesh.add_triangle(*unpack_from("<9fHB", records, offset))
             if mesh.triangle_count != len(records)//40:
                 raise MemoryError("Could not build transformed model")
             mesh.set_active(True)
             if self.four_view:
                 self.set_four(force=True, records=records)
-            else:
+            elif self.shading != 'Wireframe':
                 rendered = preview_mesh(records, self.center, self.basis,
                                         ortho_distance=self.distance if self.is_ortho() else None,
                                         wireframe=self.shading_wireframe(),
                                         perspective_scale=self.perspective_scale(),
                                         culling=self.backface_culling, camera_distance=self.distance)
         except Exception:
-            mesh.clear_triangles()
+            if not preview:
+                mesh.clear_triangles()
             if rendered is not None:
                 rendered.clear_triangles()
             raise
         old, old_view = self.mesh, self.render_mesh
         self.islands = None
         from .rendercache import clear
-        clear(self)
+        clear(self,geometry_only=preview)
         self.vertex_visibility_cache = {}
         self.edge_label_cache = {}
         if self.selection_mode != "Edges" or len(records)!=len(self.records):
@@ -268,7 +313,8 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
             self._preview_angles = (self.angle,self.pitch,self.distance,self.shading,
                                     self.perspective_scale(),self.backface_culling)
             old_view.clear_triangles()
-        old.clear_triangles()
+        if old is not mesh:
+            old.clear_triangles()
 
 
     def begin_save_as(self):
@@ -345,7 +391,9 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
             else:
                 self.request_action("new")
         elif menu == 1:
-            if row < 5:
+            if not child and row in (4,5):
+                self.begin_viewer(isometric=row==5)
+            elif row < 5:
                 self.set_view(("Front", "Side", "Back", "Top", "Bottom")[row])
             elif row == 5:
                 if self.maximized:
@@ -416,12 +464,17 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
                 self.create_geometry((PRIMITIVES+("Face from vertices",))[row-1])
         elif row == 0:
             self.dialog = ("Controls", "Enter/Tab/F10: menus\nF/V/M/L/C/H: menus\nArrows: navigate menus\nEnter: select  Esc: close\nComponents: arrows pick P camera\nSpace Pick  , Prev . Next I Index\nA All N None  Del Delete\nArrows: orbit/zoom  R: fit\n1-4: active pane  F5: full\nZ Undo  Y Redo  W Shading\nG: Transform  O: Selection mode\nTools: E value T step S snap\n-/+: step size  Enter: Apply")
+        elif row == 2:
+            self.dialog = ("Model viewers", "View > Model viewer\nView > Isometric viewer\nSpace: pause/resume rotation\nEsc/Back: return to editor\nOne full turn every 20 seconds")
         else:
             self.dialog = ("Sprite3D Editor", "Sprite3D asset editor\nPico Game Engine\nOpen, Save and Save As\nGrid and XYZ orientation")
 
 
     def run(self):
         """Route input to the active dropdown, dialog, or preview."""
+        if self.viewer is not None:
+            self.run_viewer()
+            return
         from picoware.system.buttons import (
             BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER, BUTTON_LEFT,
             BUTTON_RIGHT, BUTTON_UP, BUTTON_DOWN, BUTTON_R, BUTTON_TAB,
@@ -429,13 +482,19 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
         )
         inputs = self.vm.input_manager
         self._interactive_visibility = True
-        # Wait through the initial keyboard repeat gap before rebuilding
-        # visibility and disposable overlays. New input always takes priority.
+        # Wait through the initial held-key repeat gap before starting work
+        # that the next camera input would invalidate.
         if self._camera_pending and ticks_diff(ticks_ms(),self._camera_finished)>=350:
             self._camera_pending = False
             self._frame_drawn = False
-        if self._visibility_pending and inputs.button < 0 and not self._camera_pending:
+        if self._transform_pending and ticks_diff(ticks_ms(),self._transform_finished)>=350:
+            self._transform_pending = False
+            self._frame_drawn = False
+        if self._visibility_pending and inputs.button < 0 and not (self._camera_pending or self._transform_pending):
             from .visibilityjobs import poll
+            poll(self)
+        elif self._overlay_pending and inputs.button < 0 and not (self._camera_pending or self._transform_pending):
+            from .overlayjobs import poll
             poll(self)
         if (inputs.button < 0 and self._frame_drawn and self.status == self._drawn_status
                 and not self.error and self.browser is None and not self.save_as
@@ -444,6 +503,7 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
                 and self.decimation_job is None):
             return
         if self.color_picker is not None:
+            self._scene_keys.clear()
             self.run_color_picker(inputs)
             return
         if self.edit_prompt is not None:
@@ -462,6 +522,7 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
             self.run_transform(inputs)
             return
         if self.save_as:
+            self._scene_keys.clear()
             keyboard = self.vm.keyboard
             if keyboard.is_finished:
                 path = keyboard.response.strip()
@@ -482,6 +543,7 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
                 self.save_as = False
             return
         if self.browser is not None:
+            self._scene_keys.clear()
             if self.browser.run():
                 return
             selected = self.browser.mode == self.browser.MODE_SELECT
@@ -512,7 +574,10 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
                     self.save(pending)
             self.draw_frame()
             return
-        if (self.menu < 0 or button == BUTTON_F5) and self.pane_control(button):
+        if button < 0:
+            self.draw_frame()
+            return
+        if self.mesh is not None and (self.menu < 0 or button == BUTTON_F5) and self.pane_control(button):
             self.menu = -1
             self.submenu = False
             self.draw_frame()
@@ -533,7 +598,7 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
             self.history_action(redo=button == BUTTON_Y)
             self.draw_frame()
             return
-        if self.menu < 0 and self.selection_control(button):
+        if self.mesh is not None and self.menu < 0 and self.selection_control(button):
             if self.edit_prompt is None:
                 self.draw_frame()
             return
@@ -618,13 +683,16 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
     def close(self):
         """Stop the preview and release its resources."""
         self.persist_preferences(force=True)
+        if self.viewer is not None:
+            self.end_viewer(False)
         self.browser = None
         self.decimation_job = None
         self.boolean_job = None
         if self.save_as or self.numeric or self.edit_prompt is not None or (self.color_picker and self.color_picker["hex"]):
             self.vm.keyboard.reset()
         self.color_picker = None
-        self.clear_four()
+        if self.panes:
+            self.clear_four()
         if self.engine is not None:
             self.engine.stop()
         self.engine = None
@@ -645,6 +713,9 @@ class SpriteEditor(ViewportMixin, EditorUI, TransformTools, SelectionTools, Geom
         self.records = None
         self.history.reset()
         self.transform = None
+        if self._pixels is not None:
+            self._pixels.close()
+            self._pixels = None
 
 
 def start(view_manager):
@@ -657,9 +728,15 @@ def start(view_manager):
 def run(_view_manager):
     """Run one editor frame."""
     if _app is not None:
+        # Input and modal work can change settings; idle frames only flush an
+        # already pending snapshot after its debounce expires.
+        check = (_view_manager.input_manager.button >= 0 or _app.browser is not None
+                 or _app.numeric or _app.edit_prompt is not None or _app.save_as
+                 or _app.color_picker is not None or _app.boolean_job is not None
+                 or _app.decimation_job is not None)
         _app.run()
         if _app is not None:
-            _app.persist_preferences()
+            _app.persist_preferences(check=check)
 
 
 def stop(_view_manager):

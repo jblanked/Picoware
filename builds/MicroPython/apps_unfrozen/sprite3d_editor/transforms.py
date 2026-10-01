@@ -1,14 +1,12 @@
 """Keyboard transform tools, precision steps, and grid snapping."""
 
 from math import isfinite, floor
-from .assets import transformed_records
+from .assets import transformed_records, record_bounds
+from time import ticks_ms
 from .ui import display_number
 
 
-def check_step(kind, value):
-    maximum = {"Move": 1e12, "Scale": 1e6, "Rotate": 360}[kind]
-    if not isfinite(value) or not 1e-9 <= value <= maximum:
-        raise ValueError("Step must be 1e-9 to %g" % maximum)
+from .preferences import check_step
 
 
 def snap_value(value, spacing, origin=0):
@@ -41,8 +39,9 @@ class TransformTools:
                 raise ValueError("Create geometry first")
             mask = self.selection_mask()
             low,high = self.selected_bounds(mask)
-            backup = self.history.store(self.records)
+            backup = (None,len(self.records),0,self.records)
             self.transform = {"kind": kind, "source": backup,
+                "original": self.records, "buffer": None, "gizmo": {},
                 "values": [1.0 if kind == "Scale" else 0.0]*3,
                 "axis": 0, "pivot": 0, "uniform": True, "low": low, "high": high,
                 "step": self.steps[kind], "snap": self.snap, "mask": mask}
@@ -70,10 +69,7 @@ class TransformTools:
                 self.dialog = None
             return
         try:
-            if not self.history.matches(previous["source"],self.records):
-                self.history.commit(previous["source"],previous["kind"])
-            else:
-                self.history.release(previous["source"])
+            self.commit_transform(previous)
         except Exception:
             self.history.release(following["source"])
             self.transform = previous
@@ -91,12 +87,61 @@ class TransformTools:
             pivot = [0,0,0]
         if t["kind"] == "Scale" and any(v <= 0 or v > 1e6 for v in t["values"]):
             raise ValueError("Scale must be > 0 and <= 1000000")
-        records = bytearray()
-        base_vertex = 0
-        for data in self.history.chunks(t["source"]):
-            records.extend(transformed_records(data,t["kind"],t["values"],pivot,t["mask"],base_vertex))
-            base_vertex += len(data)//40*3
-        self.replace_records(records)
+        original = t["original"]
+        records = t["buffer"]
+        if records is None:
+            records = bytearray(len(original))
+        native = getattr(self.mesh,'transform_buffer',None)
+        if native is not None:
+            bounds = native(original,records,("Move","Scale","Rotate").index(t["kind"]),
+                            t["values"],pivot,t["mask"])
+        else:
+            transformed_records(original,t["kind"],t["values"],pivot,t["mask"],
+                                result=records)
+            bounds = record_bounds(records)
+        if records == self.records:
+            t["buffer"] = records
+            return
+        old = self.records
+        pending = self._transform_pending
+        self._transform_pending = self._interactive_visibility
+        try:
+            self.replace_records(records,preview=True,bounds=bounds)
+        except Exception:
+            self._transform_pending = pending
+            raise
+        # Keep at most two working buffers; the source is never modified.
+        t["buffer"] = old if old is not original else None
+        self._transform_finished = ticks_ms()
+
+    def commit_transform(self,t):
+        """Write one verified Undo snapshot and build the canonical mesh on Apply."""
+        if self.records == t["original"]:
+            return
+        from picoware.engine.sprite3d import Sprite3D
+        mesh = Sprite3D()
+        snapshot = None
+        try:
+            load = getattr(mesh,'load_buffer',None)
+            if load is not None:
+                load(self.records)
+            else:
+                from struct import unpack_from
+                for offset in range(0,len(self.records),40):
+                    mesh.add_triangle(*unpack_from('<9fHB',self.records,offset))
+            if mesh.triangle_count != len(self.records)//40:
+                raise MemoryError('Could not commit transformed model')
+            mesh.set_active(True)
+            snapshot = self.history.store(t['original'])
+            self.history.commit(snapshot,t['kind'])
+        except Exception:
+            mesh.clear_triangles()
+            if snapshot is not None:
+                self.history.release(snapshot)
+            raise
+        old = self.mesh
+        self.mesh = mesh
+        old.clear_triangles()
 
 
     def run_transform(self, inputs):
@@ -111,6 +156,7 @@ class TransformTools:
         update = False
         try:
             if self.numeric:
+                self._scene_keys.clear()
                 keyboard = self.vm.keyboard
                 if keyboard.is_finished:
                     response = keyboard.response.strip()
@@ -144,15 +190,15 @@ class TransformTools:
                 elif self.pane_control(button):
                     self.ensure_transform_axis()
                 elif button in (BUTTON_BACK, BUTTON_ESCAPE):
-                    self.replace_records(self.history.read(t["source"]))
-                    self.history.release(t["source"])
+                    if self.records != t['original']:
+                        self.replace_records(t['original'],preview=True,
+                                             bounds=record_bounds(t['original']))
+                    self._transform_pending = False
                     self.transform = None
                     self.status = "Transform cancelled"
                 elif button == BUTTON_CENTER:
-                    if not self.history.matches(t["source"],self.records):
-                        self.history.commit(t["source"], t["kind"])
-                    else:
-                        self.history.release(t["source"])
+                    self.commit_transform(t)
+                    self._transform_pending = False
                     self.transform = None
                     self.status = "Transform applied"
                 elif button in (BUTTON_LEFT, BUTTON_RIGHT):

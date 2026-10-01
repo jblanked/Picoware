@@ -1,6 +1,7 @@
 """Face-normal display and transactional winding repair for connected islands."""
 from math import sqrt
-from struct import unpack_from, pack
+from time import ticks_us,ticks_diff
+from struct import unpack_from
 from .selection import clipped_line
 from .islands import detect_islands
 
@@ -101,45 +102,6 @@ class NormalTools:
         except (ValueError,OSError,MemoryError) as exc:
             self.dialog = ('Normals failed',str(exc) or 'Not enough memory')
 
-    def calculate_normal_points(self):
-        for i in range(len(self.records)//40):
-            points = points_at(self.records,i)
-            n = cross(sub(points[1],points[0]),sub(points[2],points[0]))
-            magnitude = sqrt(dot(n,n))
-            if magnitude:
-                yield tuple(sum(p[k] for p in points)/3 for k in range(3))+tuple(v/magnitude for v in n)
-
-    def normal_points(self):
-        """Cache face centers/unit normals on SD, without retaining float tuples."""
-        if self._normal_cache is None:
-            try:
-                data = bytearray()
-                for values in self.calculate_normal_points():
-                    data.extend(pack('<6d',*values))
-            except MemoryError:
-                data = None
-                yield from self.calculate_normal_points()
-                return
-            try:
-                self._normal_cache = self.history.store(data)
-            except (OSError,ValueError,MemoryError):
-                for offset in range(0,len(data),48):
-                    yield unpack_from('<6d',data,offset)
-                return
-            del data
-        pending = b''
-        try:
-            for chunk in self.history.chunks(self._normal_cache):
-                data = pending+chunk
-                end = len(data)//48*48
-                for offset in range(0,end,48):
-                    yield unpack_from('<6d',data,offset)
-                pending = data[end:]
-        except (OSError,ValueError):
-            self.history.release(self._normal_cache)
-            self._normal_cache = None
-            yield from self.calculate_normal_points()
-
     def draw_normals(self,draw,viewport=None,basis=None,distance=None):
         if self._camera_pending:
             return
@@ -156,11 +118,56 @@ class NormalTools:
         near = self.near_distance()
         from .rendercache import begin,finish
         key = (tuple(self.center),basis,distance,near,ortho,(cx,cy,focal),length)
+        cached = self._line_cache.get(('normals',box))
+        if self._interactive_visibility and (cached is None or cached[0]!=key):
+            from .overlayjobs import request
+            request(self,'normals',box,key,self._normal_cache_steps(viewport,basis,distance))
+            return
         lines = begin(self,'normals',box,key,draw,0x07E0)
         if lines is None:
             return
-        draw = lines
-        for values in self.normal_points():
+        for result in self._normal_command_steps(viewport,basis,distance):
+            if result is not None:
+                for offset in range(0,len(result),8):
+                    lines._line(*unpack_from('<4H',result,offset),0x07E0)
+        finish(self,'normals',box,key,lines)
+
+    def _normal_cache_steps(self,viewport,basis,distance):
+        from .overlayjobs import store_steps
+        for result in self._normal_command_steps(viewport,basis,distance):
+            if result is None:
+                yield None
+            else:
+                writer = store_steps(self.history,result)
+                try:
+                    yield from writer
+                finally:
+                    writer.close()
+
+    def _normal_command_steps(self,viewport,basis,distance):
+        draw = self.vm.draw
+        basis = self.basis if basis is None else basis
+        distance = self.distance if distance is None else distance
+        w,h = int(draw.size.x),int(draw.size.y)
+        box = (0,48,w,h-78) if viewport is None else viewport
+        x,y,pw,ph = box
+        cx,cy,focal = (w/2,h/2,h) if viewport is None else (x+pw/2,y+ph/2,ph)
+        length = max(self.bounds[1][k]-self.bounds[0][k] for k in range(3))*.12
+        ortho = self.is_ortho(basis)
+        near = self.near_distance()
+        from .rendercache import Lines
+        draw = Lines(None)
+        started = ticks_us()
+        for index in range(len(self.records)//40):
+            if ticks_diff(ticks_us(),started)>=1500:
+                yield None
+                started = ticks_us()
+            points = points_at(self.records,index)
+            n = cross(sub(points[1],points[0]),sub(points[2],points[0]))
+            magnitude = sqrt(dot(n,n))
+            if not magnitude:
+                continue
+            values = tuple(sum(p[k] for p in points)/3 for k in range(3))+tuple(v/magnitude for v in n)
             center = values[:3]
             tip = tuple(center[k]+values[k+3]*length for k in range(3))
             a,b = [self.view_point(*p,basis=basis,distance=distance) for p in (center,tip)]
@@ -185,4 +192,6 @@ class NormalTools:
                 for side in (-1,1):
                     wing = (end[0]-head*dx+side*half_width*dy,end[1]-head*dy-side*half_width*dx)
                     clipped_line(draw,end,wing,box,0x07E0)
-        finish(self,'normals',box,key,lines)
+        if draw.data is None:
+            raise MemoryError('Normal overlay is too large')
+        yield draw.data

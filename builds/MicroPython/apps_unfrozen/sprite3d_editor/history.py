@@ -78,35 +78,49 @@ class History:
             raise
 
     def chunks(self, snapshot):
+        if len(snapshot) == 4:
+            source = memoryview(snapshot[3])
+            for offset in range(0,len(source),800):
+                yield source[offset:offset+800]
+            return
         path,size,checksum = snapshot
         if path is None and size == 0:
             return
         if self.storage.size(path) != size:
             raise OSError("SD edit backup is missing or incomplete")
         crc = 0
-        for offset in range(0,size,800):
-            length = min(800,size-offset)
-            data = self.storage.read_chunked(path,offset,length)
-            if len(data) != length:
-                raise OSError("Cannot read SD edit backup")
-            crc = crc32(data,crc)
-            yield data
+        from .streams import chunks
+        reader = chunks(self.storage,path,size)
+        try:
+            for data in reader:
+                crc = crc32(data,crc)
+                yield data
+        finally:
+            reader.close()
         if crc != checksum:
             raise OSError("SD edit backup checksum failed")
 
     def read(self, snapshot):
         records = bytearray()
-        for data in self.chunks(snapshot):
-            records.extend(data)
+        reader = self.chunks(snapshot)
+        try:
+            for data in reader:
+                records.extend(data)
+        finally:
+            reader.close()
         return records
 
     def matches(self, snapshot, records):
         equal = len(records) == snapshot[1]
         offset = 0
-        for data in self.chunks(snapshot):
-            if data != records[offset:offset+len(data)]:
-                equal = False
-            offset += len(data)
+        reader = self.chunks(snapshot)
+        try:
+            for data in reader:
+                if data != records[offset:offset+len(data)]:
+                    equal = False
+                offset += len(data)
+        finally:
+            reader.close()
         return equal
 
     @property

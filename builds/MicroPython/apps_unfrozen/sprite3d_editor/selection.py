@@ -74,6 +74,9 @@ class SelectionTools:
             if box not in self.vertex_visibility_cache and len(self.vertex_visibility_cache)>=4:
                 del self.vertex_visibility_cache[next(iter(self.vertex_visibility_cache))]
             self.vertex_visibility_cache[box] = (key,mask)
+        elif box in self._visibility_pending:
+            from .visibilityjobs import cancel
+            cancel(self,box)
         return mask
 
     def active_visibility(self,projection=None):
@@ -84,6 +87,8 @@ class SelectionTools:
     def ensure_visible_vertex(self):
         if self.selection_mode in ("Vertices","Triangles","Edges") and self.selection:
             visible = self.active_visibility()
+            if self.selection_projection()[0] in self._visibility_pending:
+                self._selection_recover = True
             if visible is not None and not visible[self.selection_cursor]:
                 self.selection_cursor = next((i for i,v in enumerate(visible) if v),self.selection_cursor)
 
@@ -109,8 +114,8 @@ class SelectionTools:
         self.status = ""
 
     def selection_mode_set(self, mode):
-        self._visibility_pending.clear()
-        self._visibility_worker = None
+        from .visibilityjobs import cancel
+        cancel(self)
         if mode == "Islands":
             self.get_islands()
         count = len(self.records or b"")//40
@@ -121,6 +126,7 @@ class SelectionTools:
         self.selection_mode = mode
         self.selection = selection
         self.selection_cursor = 0
+        self._selection_recover = False
         self.selection_camera = False
         self.status = ""
         if mode == "Islands":
@@ -346,7 +352,11 @@ class SelectionTools:
             BUTTON_J, BUTTON_K, BUTTON_B, BUTTON_COMMA, BUTTON_PERIOD, BUTTON_SLASH)
         if self.selection_mode == "Model" or self.mesh is None:
             return False
-        if self.selection_mode == "Islands" and button in (BUTTON_LEFT,BUTTON_RIGHT):
+        if button == BUTTON_P:
+            self.selection_camera = not self.selection_camera
+            self.status = "Camera arrows" if self.selection_camera else self.selection_mode+" arrows"
+            return True
+        if self.selection_mode == "Islands" and not self.selection_camera and button in (BUTTON_LEFT,BUTTON_RIGHT):
             self.browse_island(1 if button == BUTTON_RIGHT else -1)
             return True
         if self.selection_mode == "Vertices":
@@ -357,10 +367,6 @@ class SelectionTools:
                 self.cycle_vertex_info(1 if button == BUTTON_K else -1)
                 return True
         if self.selection_mode in ("Vertices","Triangles","Edges"):
-            if button == BUTTON_P:
-                self.selection_camera = not self.selection_camera
-                self.status = "Camera arrows" if self.selection_camera else self.selection_mode+" arrows"
-                return True
             if not self.selection_camera and button in (BUTTON_LEFT,BUTTON_RIGHT,BUTTON_UP,BUTTON_DOWN):
                 if self.selection:
                     dx,dy = {BUTTON_LEFT:(-1,0),BUTTON_RIGHT:(1,0),BUTTON_UP:(0,-1),BUTTON_DOWN:(0,1)}[button]
@@ -396,6 +402,8 @@ class SelectionTools:
         return True
 
     def draw_selection(self, draw, viewport=None, basis=None, distance=None, wire_only=False):
+        if not wire_only and self._transform_pending:
+            return
         if not wire_only and (self.boolean_preview is not None or self.selection_mode == "Model" or not self.selection):
             return
         basis = self.basis if basis is None else basis
@@ -406,6 +414,22 @@ class SelectionTools:
         cx,cy,focal = (w/2,h/2,h) if viewport is None else (x+pw/2,y+ph/2,ph)
         ortho = self.is_ortho(basis)
         near = self.near_distance()
+        if not wire_only:
+            self._selection_blank.pop(box,None)
+            if self.selection_mode in ('Vertices','Triangles','Edges'):
+                projection = box,basis,distance,(cx,cy,focal)
+                # Queue a current mask before withholding stale or moving markers.
+                self.active_visibility(projection)
+                moving = (self._interactive_visibility and self._camera_pending and
+                          box==self.selection_projection()[0])
+                if moving or box in self._visibility_pending:
+                    stamp = self._scene_stamps.get(box)
+                    if stamp is not None:
+                        self._selection_blank[box] = stamp
+                    return
+            elif (self._interactive_visibility and self._camera_pending and
+                  box==self.selection_projection()[0]):
+                return
 
         def camera(point):
             a,b,c = self.view_point(*point,basis=basis,distance=distance)

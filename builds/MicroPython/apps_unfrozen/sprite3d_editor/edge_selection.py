@@ -62,6 +62,9 @@ class EdgeSelection:
             if box not in self.vertex_visibility_cache and len(self.vertex_visibility_cache)>=4:
                 del self.vertex_visibility_cache[next(iter(self.vertex_visibility_cache))]
             self.vertex_visibility_cache[box] = (key,mask)
+        elif box in self._visibility_pending:
+            from .visibilityjobs import cancel
+            cancel(self,box)
         return mask
 
     def projected_edge(self,index,projection):

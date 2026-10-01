@@ -6,6 +6,15 @@ static inline Triangle3D *triangle3d_get_context(triangle3d_mp_obj_t *self)
     return static_cast<Triangle3D *>(self->context);
 }
 
+mp_obj_t triangle3d_mp_init(void *context)
+{
+    triangle3d_mp_obj_t *self = mp_obj_malloc_with_finaliser(triangle3d_mp_obj_t, &triangle3d_mp_type);
+    self->base.type = &triangle3d_mp_type;
+    self->context = context ? context : new Triangle3D();
+    self->freed = false;
+    return MP_OBJ_FROM_PTR(self);
+}
+
 void triangle3d_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
     (void)kind;

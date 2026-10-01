@@ -672,6 +672,33 @@ class LCD:
         # The native Vector exposes its integer mode through coordinate types.
         return (int(x), int(y)) if isinstance(position.x, int) else (x, y)
 
+    def _check_region(self, box):
+        x,y,w,h = box
+        if x<0 or y<0 or w<=0 or h<=0 or x+w>self.width or y+h>self.height:
+            raise ValueError("Region outside framebuffer")
+
+    def frame_cache(self):
+        return bytearray(len(self._buffer))
+
+    def _cache_region(self, cache, box, restore):
+        self._check_region(box)
+        if len(cache)!=len(self._buffer):
+            raise ValueError("Invalid framebuffer cache")
+        source,target = (cache,self._buffer) if restore else (self._buffer,cache)
+        x,y,w,h=box
+        for row in range(y,y+h):
+            offset=(row*self.width+x)*2
+            target[offset:offset+w*2]=memoryview(source)[offset:offset+w*2]
+        return True
+
+    def swap_regions(self, regions):
+        if len(regions)>32:
+            raise ValueError("Too many display regions")
+        for box in regions:
+            self._check_region(box)
+        if regions:
+            self.swap()
+
     def swap(self):
         self.poll_events()
         if sim_runtime.viewer and sim_runtime.viewer_frame_path:

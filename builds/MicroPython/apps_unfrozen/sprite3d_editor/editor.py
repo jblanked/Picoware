@@ -1,7 +1,6 @@
 """Document state, editor input, transforms, and app lifecycle."""
 
 from math import sqrt, floor, log10
-from struct import unpack_from
 from time import ticks_ms,ticks_diff
 from picoware.system.vector import Vector
 from .ui import EditorUI
@@ -72,6 +71,9 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         self.camera = None
         self.mesh = None
         self.render_mesh = None
+        self._model_buffer = MeshBuffer()
+        self._preview_buffer = MeshBuffer()
+        self._pane_buffers = []
         self.islands = None
         self.vertex_visibility_cache = {}
         self.edge_label_cache = {}
@@ -183,9 +185,11 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         center = [(low[i] + high[i]) * 0.5 for i in range(3)]
         basis = view_basis(-0.7, 0.32)
         radius = max(1e-9, sqrt(sum((high[i]-low[i])**2 for i in range(3)))*.5)
+        model_buffer = MeshBuffer(mesh, records)
+        preview_buffer = MeshBuffer()
         try:
             rendered = preview_mesh(records, center, basis, wireframe=self.shading_wireframe(),
-                                    perspective_scale=max(1.0,.15/radius))
+                                    perspective_scale=max(1.0,.15/radius), buffer=preview_buffer)
         except Exception:
             mesh.clear_triangles()
             raise
@@ -206,6 +210,8 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         self.entity.sprite_3d = rendered
         self.entity.sprite_3d_type = SPRITE_3D_CUSTOM
         self.mesh = mesh
+        self._model_buffer = model_buffer
+        self._preview_buffer = preview_buffer
         self.render_mesh = rendered
         self.islands = None
         from .rendercache import clear
@@ -281,7 +287,6 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
                     mesh.add_triangle(*unpack_from("<9fHB", records, offset))
             if mesh.triangle_count != len(records)//40:
                 raise MemoryError("Could not build transformed model")
-            mesh.set_active(True)
             if self.four_view:
                 self.set_four(force=True, records=records)
             elif self.shading != 'Wireframe':
@@ -704,6 +709,9 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
             self.mesh.clear_triangles()
         self.mesh = None
         self.render_mesh = None
+        self._model_buffer = MeshBuffer()
+        self._preview_buffer = MeshBuffer()
+        self._pane_buffers = []
         self.islands = None
         from .rendercache import clear
         clear(self)

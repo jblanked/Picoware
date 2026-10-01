@@ -4,6 +4,7 @@ from math import isfinite, floor
 from .assets import transformed_records, record_bounds
 from time import ticks_ms
 from .ui import display_number
+from .meshes import apply_updates
 
 
 from .preferences import check_step

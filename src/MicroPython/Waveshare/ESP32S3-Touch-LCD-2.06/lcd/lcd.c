@@ -5,6 +5,9 @@
 #include "driver/spi_master.h"
 #include "esp_err.h"
 #include "esp_check.h"
+#if defined(CONFIG_SPIRAM) && CONFIG_SPIRAM
+#include "esp_heap_caps.h"
+#endif
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_vendor.h"
@@ -37,16 +40,26 @@ static esp_lcd_panel_io_handle_t s_panel_io;
 static esp_lcd_panel_handle_t s_panel;
 static bool s_spi_bus_owned;
 static const FontTable *s_current_font = &Font16;
+#if defined(CONFIG_SPIRAM) && CONFIG_SPIRAM
+static uint8_t *s_framebuffer;
+static uint16_t *s_swap_buffer;
+#else
 static uint8_t s_framebuffer[LCD_WIDTH * LCD_HEIGHT];
+#endif
 static uint16_t s_palette[256];
 
-#define LCD_SWAP_LINES 2U
 static const uint8_t LCD_TEXT_SPACING = 1;
 static const uint8_t LCD_LINE_SPACING = 2;
+#if !defined(CONFIG_SPIRAM) || !CONFIG_SPIRAM
+#define LCD_SWAP_LINES 2U
 static uint16_t s_swap_buffer[LCD_WIDTH * LCD_SWAP_LINES];
+#else
+#define LCD_SWAP_LINES 16U
+#endif
 
 static esp_err_t display_init(void);
 static esp_err_t lcd_swap_internal(void);
+static esp_err_t lcd_alloc_framebuffer(void);
 static void lcd_init_palette(void);
 static esp_err_t lcd_wait_for_color_tx_done(void);
 
@@ -246,6 +259,37 @@ static esp_err_t lcd_swap_internal(void)
     return ESP_OK;
 }
 
+static esp_err_t lcd_alloc_framebuffer(void)
+{
+#if defined(CONFIG_SPIRAM) && CONFIG_SPIRAM
+    if (s_framebuffer == NULL)
+    {
+        s_framebuffer = heap_caps_malloc((size_t)LCD_WIDTH * LCD_HEIGHT, MALLOC_CAP_SPIRAM);
+        if (s_framebuffer == NULL)
+        {
+            ESP_LOGE(TAG, "failed to allocate %u byte framebuffer in PSRAM",
+                     (unsigned)(LCD_WIDTH * LCD_HEIGHT));
+            return ESP_ERR_NO_MEM;
+        }
+    }
+
+    if (s_swap_buffer == NULL)
+    {
+        s_swap_buffer = heap_caps_malloc(
+            (size_t)LCD_WIDTH * LCD_SWAP_LINES * sizeof(*s_swap_buffer), MALLOC_CAP_SPIRAM);
+        if (s_swap_buffer == NULL)
+        {
+            ESP_LOGE(TAG, "failed to allocate %u byte swap buffer in PSRAM",
+                     (unsigned)(LCD_WIDTH * LCD_SWAP_LINES * sizeof(*s_swap_buffer)));
+            heap_caps_free(s_framebuffer);
+            s_framebuffer = NULL;
+            return ESP_ERR_NO_MEM;
+        }
+    }
+#endif
+    return ESP_OK;
+}
+
 static esp_err_t display_init(void)
 {
     if (s_panel != NULL)
@@ -253,7 +297,13 @@ static esp_err_t display_init(void)
         return ESP_OK;
     }
 
-    esp_err_t err = display_setup_panel();
+    esp_err_t err = lcd_alloc_framebuffer();
+    if (err != ESP_OK)
+    {
+        return err;
+    }
+
+    err = display_setup_panel();
     if (err != ESP_OK)
     {
         lcd_deinit();
@@ -304,6 +354,19 @@ void lcd_deinit(void)
         spi_bus_free(WATCH_LCD_HOST);
         s_spi_bus_owned = false;
     }
+
+#if defined(CONFIG_SPIRAM) && CONFIG_SPIRAM
+    if (s_framebuffer != NULL)
+    {
+        heap_caps_free(s_framebuffer);
+        s_framebuffer = NULL;
+    }
+    if (s_swap_buffer != NULL)
+    {
+        heap_caps_free(s_swap_buffer);
+        s_swap_buffer = NULL;
+    }
+#endif
 }
 
 bool lcd_set_backlight(uint32_t brightness)

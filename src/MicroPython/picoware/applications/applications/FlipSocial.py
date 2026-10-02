@@ -333,12 +333,18 @@ class FlipSocialRun:
                     canvas._text(0, canvas.scale_y(10), "No comments found for this post.", TFT_WHITE)
                     canvas._text(0, canvas.scale_y(60), "Be the first, click DOWN", TFT_WHITE)
         elif self.comments_status == COMMENTS_REQUEST_ERROR:
-            canvas._text(0, canvas.scale_y(10), "Comments request failed!", TFT_WHITE)
-            canvas._text(0, canvas.scale_y(20), "Check your network and", TFT_WHITE)
-            canvas._text(0, canvas.scale_y(30), "try again later.", TFT_WHITE)
+            line_height = canvas.font_size.y
+            line_y = canvas.scale_y(10)
+            canvas._text(0, line_y, "Comments request failed!", TFT_WHITE)
+            line_y += line_height
+            canvas._text(0, line_y, "Check your network and", TFT_WHITE)
+            line_y += line_height
+            canvas._text(0, line_y, "try again later.", TFT_WHITE)
         elif self.comments_status == COMMENTS_PARSE_ERROR:
-            canvas._text(0, canvas.scale_y(10), "Failed to parse comments!", TFT_WHITE)
-            canvas._text(0, canvas.scale_y(20), "Try again...", TFT_WHITE)
+            line_y = canvas.scale_y(10)
+            canvas._text(0, line_y, "Failed to parse comments!", TFT_WHITE)
+            line_y += canvas.font_size.y
+            canvas._text(0, line_y, "Try again...", TFT_WHITE)
         elif self.comments_status == COMMENTS_NOT_STARTED:
             self.comments_status = COMMENTS_WAITING
             self.user_request(REQUEST_TYPE_COMMENT_FETCH)
@@ -1157,13 +1163,19 @@ class FlipSocialRun:
                 canvas._text(0, canvas.scale_y(30), "Failed to load messages.", TFT_WHITE)
 
         elif self.message_users_status == MESSAGE_USERS_REQUEST_ERROR:
-            canvas._text(0, canvas.scale_x(10), "Messages request failed!", TFT_WHITE)
-            canvas._text(0, canvas.scale_x(20), "Check your network and", TFT_WHITE)
-            canvas._text(0, canvas.scale_x(30), "try again later.", TFT_WHITE)
+            line_height = canvas.font_size.y
+            line_y = canvas.scale_y(10)
+            canvas._text(0, line_y, "Messages request failed!", TFT_WHITE)
+            line_y += line_height
+            canvas._text(0, line_y, "Check your network and", TFT_WHITE)
+            line_y += line_height
+            canvas._text(0, line_y, "try again later.", TFT_WHITE)
 
         elif self.message_users_status == MESSAGE_USERS_PARSE_ERROR:
-            canvas._text(0, canvas.scale_x(10), "Error parsing messages!", TFT_WHITE)
-            canvas._text(0, canvas.scale_x(20), "Try again...", TFT_WHITE)
+            line_y = canvas.scale_y(10)
+            canvas._text(0, line_y, "Error parsing messages!", TFT_WHITE)
+            line_y += canvas.font_size.y
+            canvas._text(0, line_y, "Try again...", TFT_WHITE)
 
         elif self.message_users_status == MESSAGE_USERS_NOT_STARTED:
             self.message_users_status = MESSAGE_USERS_WAITING

@@ -849,22 +849,23 @@ def __draw_settings_menu(view_manager) -> None:
 
     vec_x, vec_y = draw.scale(10, 5)
     draw._text(vec_x, vec_y, "App Store Settings", fg)
+    line_height = draw.font_size.y
 
-    vec_y = draw.scale_y(30)
+    vec_y += line_height
     name_display = _submitter_name if _submitter_name else "(not set)"
     draw._text(vec_x, vec_y, f"Name:  {name_display[:30]}", fg)
 
-    vec_y = draw.scale_y(50)
+    vec_y += line_height
     email_display = _submitter_email if _submitter_email else "(not set)"
     draw._text(vec_x, vec_y, f"Email: {email_display[:30]}", fg)
 
-    vec_y = draw.scale_y(80)
+    vec_y += line_height
     draw._text(vec_x, vec_y, "CENTER = Edit Name", fg)
-    vec_y = draw.scale_y(95)
+    vec_y += line_height
     draw._text(vec_x, vec_y, "RIGHT  = Edit Email", fg)
-    vec_y = draw.scale_y(110)
+    vec_y += line_height
     draw._text(vec_x, vec_y, "LEFT/DOWN = Clear All", fg)
-    vec_y = draw.scale_y(130)
+    vec_y += line_height
     draw._text(vec_x, vec_y, "BACK = Return", fg)
 
     draw.swap()

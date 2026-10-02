@@ -581,13 +581,27 @@ class Input:
             self._poll_touch()
             return (self._last_point != (0, 0)) | key_available()
         if self._current_board_id == BOARD_CARDPUTER:
-            from cardputer_keyboard import key_available
+            from cardputer_keyboard import is_pressed
 
-            return key_available()
+            pressed = is_pressed()
+            if pressed:
+                self._was_pressed = True
+                self._elapsed_time += 1
+            else:
+                self._was_pressed = False
+                self._elapsed_time = 0
+            return pressed
         if self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_input import key_available
+            from flipper_input import is_pressed
 
-            return key_available()
+            pressed = is_pressed()
+            if pressed:
+                self._was_pressed = True
+                self._elapsed_time += 1
+            else:
+                self._was_pressed = False
+                self._elapsed_time = 0
+            return pressed
         if self._current_board_id == BOARD_POOM:
             from poom_input import key_available
 
@@ -606,6 +620,8 @@ class Input:
         Returns:
             bool: True if the button is held for the duration.
         """
+        if self._current_board_id in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO):
+            self.is_pressed()
         return self._was_pressed and self._elapsed_time >= duration
 
     def on_key_callback(self, _=None) -> None:

@@ -1,5 +1,7 @@
 #include "keyboard.h"
 
+#include <stddef.h>
+
 #include "board_config.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
@@ -12,6 +14,7 @@ static i2c_master_bus_handle_t s_i2c_bus;
 static i2c_master_dev_handle_t s_tca_dev;
 static bool s_fn_pressed;
 static bool s_caps_lock;
+static uint8_t s_pressed_keycodes[16];
 
 enum
 {
@@ -320,6 +323,11 @@ esp_err_t keyboard_init(void)
         return ESP_OK;
     }
 
+    for (size_t i = 0; i < sizeof(s_pressed_keycodes); ++i)
+    {
+        s_pressed_keycodes[i] = 0;
+    }
+
     if (s_i2c_bus == NULL)
     {
         i2c_master_bus_config_t bus_cfg = {
@@ -369,6 +377,18 @@ bool keyboard_irq_asserted(void)
     return gpio_get_level(CARDPUTER_KEYBOARD_INT_GPIO) == 0;
 }
 
+bool keyboard_is_pressed(void)
+{
+    for (size_t i = 0; i < sizeof(s_pressed_keycodes); ++i)
+    {
+        if (s_pressed_keycodes[i] != 0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 esp_err_t keyboard_read_event(keyboard_event_t *out_event, bool *has_event)
 {
     if (out_event == NULL || has_event == NULL)
@@ -396,6 +416,16 @@ esp_err_t keyboard_read_event(keyboard_event_t *out_event, bool *has_event)
 
     out_event->pressed = (event_byte & 0x80) != 0;
     out_event->keycode = (event_byte & 0x7F);
+    uint8_t keycode_byte = out_event->keycode / 8;
+    uint8_t keycode_mask = (uint8_t)(1U << (out_event->keycode % 8));
+    if (out_event->pressed)
+    {
+        s_pressed_keycodes[keycode_byte] |= keycode_mask;
+    }
+    else
+    {
+        s_pressed_keycodes[keycode_byte] &= (uint8_t)~keycode_mask;
+    }
     out_event->ascii = map_keycode_to_ascii(out_event->keycode, out_event->pressed);
     *has_event = true;
 

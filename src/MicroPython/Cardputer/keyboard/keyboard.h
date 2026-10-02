@@ -46,4 +46,5 @@ typedef struct
 
 esp_err_t keyboard_init(void);
 bool keyboard_irq_asserted(void);
+bool keyboard_is_pressed(void);
 esp_err_t keyboard_read_event(keyboard_event_t *out_event, bool *has_event);

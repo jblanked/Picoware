@@ -60,7 +60,7 @@
 #define LCD_MP_POLYGON lcd_polygon
 #define LCD_MP_FILL_POLYGON lcd_fill_polygon
 #define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
-#elif defined(WAVESHARE_2_06)
+#elif defined(WAVESHARE_2_06) || defined(WAVESHARE_C6_2_06)
 #define LCD_INCLUDE "../Waveshare/ESP32S3-Touch-LCD-2.06/lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
 #define LCD_MP_DEINIT lcd_deinit

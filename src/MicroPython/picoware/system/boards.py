@@ -13,6 +13,7 @@ Attributes:
     BOARD_CROWPANEL_10_1 (int): Board ID for CrowPanel 10.1.
     BOARD_CARDPUTER (int): Board ID for Cardputer.
     BOARD_WAVESHARE_2_06 (int): Board ID for Waveshare 2.06.
+    BOARD_WAVESHARE_C6_2_06 (int): Board ID for Waveshare C6 2.06.
     BOARD_PANCAKE (int): Board ID for Pancake.
     BOARD_V8 (int): Board ID for V8.
     BOARD_FLIPPER_ZERO (int): Board ID for Flipper Zero.
@@ -49,6 +50,7 @@ BOARD_PICOCALC_PIMORONI_2W = picoware_boards.BOARD_PICOCALC_PIMORONI_2W
 BOARD_CROWPANEL_10_1 = picoware_boards.BOARD_CROWPANEL_10_1
 BOARD_CARDPUTER = picoware_boards.BOARD_CARDPUTER
 BOARD_WAVESHARE_2_06 = picoware_boards.BOARD_WAVESHARE_2_06
+BOARD_WAVESHARE_C6_2_06 = picoware_boards.BOARD_WAVESHARE_C6_2_06
 BOARD_PANCAKE = picoware_boards.BOARD_PANCAKE
 BOARD_V8 = picoware_boards.BOARD_V8
 BOARD_FLIPPER_ZERO = picoware_boards.BOARD_FLIPPER_ZERO

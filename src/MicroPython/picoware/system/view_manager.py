@@ -404,6 +404,8 @@ class ViewManager:
             color (int): The selected color value.
         """
         self._selected_color = color
+        if self._keyboard is not None:
+            _ = self._keyboard
         self._keyboard.selected_color = color
 
     @property
@@ -659,10 +661,14 @@ class ViewManager:
             BOARD_PICOCALC_PICOW,
             BOARD_PICOCALC_PIMORONI_2W,
             BOARD_HAS_ESP32,
-            BOARD_FLIPPER_ZERO
+            BOARD_FLIPPER_ZERO,
+            BOARD_WAVESHARE_C6_2_06
         )
         if self._current_board_id == BOARD_FLIPPER_ZERO:
             return
+
+        if self._current_board_id == BOARD_WAVESHARE_C6_2_06:
+            return freq(160000000)
 
         if BOARD_HAS_ESP32 == 1:
             return freq(240000000)

@@ -379,6 +379,9 @@ bash "$picoware_dir"/tools/micropython-cardputer.sh
 echo "Starting Waveshare 2.06 build process..."
 bash "$picoware_dir"/tools/micropython-waveshare-2.06.sh
 
+echo "Starting Waveshare C6 2.06 build process..."
+bash "$picoware_dir"/tools/micropython-waveshare-c6-2.06.sh
+
 echo "Starting Pancake build process..."
 bash "$picoware_dir"/tools/micropython-pancake.sh
 

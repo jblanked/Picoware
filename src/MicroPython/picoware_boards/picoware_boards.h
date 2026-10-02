@@ -29,6 +29,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_DESKTOP 15
 #define BOARD_PICO_DUO 16
 #define BOARD_POOM 17
+#define BOARD_WAVESHARE_C6_2_06 18
 
 #if defined(DESKTOP)
 #define BOARD_ID BOARD_DESKTOP
@@ -90,6 +91,15 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_BLUETOOTH 1 // has bluetooth
 #define BOARD_HAS_IR 1        // has infrared transmitter
 #define BOARD_HAS_IR_RX 0     // no infrared receiver
+#elif defined(WAVESHARE_C6_2_06)
+// Waveshare ESP32-C6-Touch-AMOLED-2.06
+#define BOARD_ID BOARD_WAVESHARE_C6_2_06
+#define BOARD_HAS_PSRAM 0
+#define BOARD_HAS_SD 0
+#define BOARD_HAS_TOUCH 1
+#define BOARD_HAS_WIFI 1
+#define BOARD_HAS_AUDIO 0
+#define BOARD_HAS_BLUETOOTH 1
 #elif defined(WAVESHARE_2_06)
 // Waveshare ESP32-S3-Touch-AMOLED-2.06
 #define BOARD_ID BOARD_WAVESHARE_2_06
@@ -247,7 +257,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_RP2350 0
 #endif
 
-#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM)
+#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06)
 #define BOARD_HAS_ESP32 1
 #else
 #define BOARD_HAS_ESP32 0

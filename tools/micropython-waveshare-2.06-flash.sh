@@ -41,6 +41,25 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 picoware_dir="$(cd "$script_dir/.." && pwd)"
 esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.2/esp-idf}"
 build_dir="${WATCH_BUILD_DIR:-$picoware_dir/builds/MicroPython}"
+watch_variant="${WATCH_VARIANT:-s3}"
+case "$watch_variant" in
+    s3)
+        board_label="Waveshare ESP32-S3-Touch-AMOLED-2.06"
+        chip_name="esp32s3"
+        output_stem="Picoware-Waveshare-2.06"
+        flash_size="32MB"
+        ;;
+    c6)
+        board_label="Waveshare ESP32-C6-Touch-AMOLED-2.06"
+        chip_name="esp32c6"
+        output_stem="Picoware-Waveshare-C6-2.06"
+        flash_size="16MB"
+        ;;
+    *)
+        echo "ERROR: WATCH_VARIANT must be 's3' or 'c6'."
+        exit 1
+        ;;
+esac
 
 port="${WATCH_PORT:-}"
 baud="${WATCH_BAUD:-460800}"
@@ -91,7 +110,7 @@ if [ -z "$port" ]; then
     echo "ERROR: No serial port provided."
     echo "Pass --port /dev/cu.usbmodemXXXX or set WATCH_PORT."
     echo
-    echo "Hint (macOS): unplug Waveshare ESP32-S3-Touch-AMOLED-2.06, run 'ls /dev/cu.*', plug it back in, run again to find the new port."
+    echo "Hint (macOS): unplug $board_label, run 'ls /dev/cu.*', plug it back in, run again to find the new port."
     exit 1
 fi
 
@@ -100,18 +119,22 @@ require_dir "$esp_idf_dir"
 require_dir "$build_dir"
 require_file "$esp_idf_dir/export.sh"
 
-bootloader_bin="$build_dir/Picoware-Waveshare-2.06-bootloader.bin"
-partition_bin="$build_dir/Picoware-Waveshare-2.06-partition-table.bin"
-firmware_bin="$build_dir/Picoware-Waveshare-2.06.bin"
+bootloader_bin="$build_dir/$output_stem-bootloader.bin"
+partition_bin="$build_dir/$output_stem-partition-table.bin"
+firmware_bin="$build_dir/$output_stem.bin"
 
 if [ ! -f "$bootloader_bin" ] || [ ! -f "$partition_bin" ] || [ ! -f "$firmware_bin" ]; then
-    echo "ERROR: Waveshare ESP32-S3-Touch-AMOLED-2.06 flash artifacts were not found in $build_dir"
+    echo "ERROR: $board_label flash artifacts were not found in $build_dir"
     echo "Expected files:"
     echo "  - $bootloader_bin"
     echo "  - $partition_bin"
     echo "  - $firmware_bin"
     echo "Build first:"
-    echo "  bash tools/micropython-waveshare-2.06.sh"
+    if [ "$watch_variant" = "c6" ]; then
+        echo "  bash tools/micropython-waveshare-c6-2.06.sh"
+    else
+        echo "  bash tools/micropython-waveshare-2.06.sh"
+    fi
     exit 1
 fi
 
@@ -124,13 +147,13 @@ echo "Partition image: $partition_bin"
 echo "Firmware image: $firmware_bin"
 
 esptool_args=(
-    --chip esp32s3
+    --chip "$chip_name"
     --port "$port"
 )
 
 chip_id_args=(
     --port "$port"
-    --chip esp32s3
+    --chip "$chip_name"
     --baud 115200
     chip_id
 )
@@ -157,7 +180,7 @@ run_esptool "${chip_id_args[@]}"
 if [ "$do_erase" -eq 1 ]; then
     echo "Erasing flash..."
     erase_args=(
-        --chip esp32s3
+        --chip "$chip_name"
         --port "$port"
         erase_flash
     )
@@ -171,26 +194,26 @@ esptool_args+=(
     --after hard_reset
     write_flash
     --flash_mode dio
-    --flash_size 32MB
+    --flash_size "$flash_size"
     --flash_freq 80m
     0x0 "$bootloader_bin"
     0x8000 "$partition_bin"
     0x20000 "$firmware_bin"
 )
 
-echo "Flashing Waveshare ESP32-S3-Touch-AMOLED-2.06 firmware..."
+echo "Flashing $board_label firmware..."
 run_esptool "${esptool_args[@]}"
 
 if [ "$do_verify" -eq 1 ]; then
     echo "Verifying flashed regions with esptool verify_flash..."
     # verify_flash accounts for bootloader header/digest updates applied during write_flash.
     verify_args=(
-        --chip esp32s3
+        --chip "$chip_name"
         --port "$port"
         -b "$baud"
         verify_flash
         --flash_mode dio
-        --flash_size 32MB
+        --flash_size "$flash_size"
         --flash_freq 80m
         0x0 "$bootloader_bin"
         0x8000 "$partition_bin"
@@ -200,4 +223,4 @@ if [ "$do_verify" -eq 1 ]; then
     run_esptool "${verify_args[@]}"
 fi
 
-echo "Waveshare ESP32-S3-Touch-AMOLED-2.06 flash complete."
+echo "$board_label flash complete."

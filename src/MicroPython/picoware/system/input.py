@@ -12,6 +12,7 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_1_69_RP2350,
     BOARD_WAVESHARE_3_49_RP2350,
     BOARD_WAVESHARE_2_06,
+    BOARD_WAVESHARE_C6_2_06,
     BOARD_PANCAKE,
     BOARD_V8,
     BOARD_HAS_TOUCH,
@@ -136,7 +137,7 @@ class Input:
             self._last_point = (0, 0)
             self._delay_ms = 120
 
-        elif self._current_board_id == BOARD_WAVESHARE_2_06:
+        elif self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
             from touch import Touch
             from gpio_buttons import init
 
@@ -436,7 +437,7 @@ class Input:
             del self._touch
             self._touch = None
 
-        if self._current_board_id == BOARD_WAVESHARE_2_06:
+        if self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
             from gpio_buttons import deinit
 
             deinit()
@@ -459,6 +460,7 @@ class Input:
             BOARD_WAVESHARE_3_49_RP2350,
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
+            BOARD_WAVESHARE_C6_2_06,
             BOARD_PANCAKE,
             BOARD_V8,
         ):
@@ -479,7 +481,7 @@ class Input:
             self._poll_touch()
         elif self._current_board_id == BOARD_WAVESHARE_1_69_RP2350:
             self._poll_touch_1_69()
-        elif self._current_board_id == BOARD_WAVESHARE_2_06:
+        elif self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
             from gpio_buttons import key_available
 
             if key_available():
@@ -574,7 +576,7 @@ class Input:
         ):
             self._poll_touch()
             return self._last_point != (0, 0)
-        if self._current_board_id == BOARD_WAVESHARE_2_06:
+        if self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
             from gpio_buttons import key_available
             self._poll_touch()
             return (self._last_point != (0, 0)) | key_available()
@@ -635,7 +637,7 @@ class Input:
         Warning:
             This is a blocking call and should not be used in callback contexts.
         """
-        if self._current_board_id == BOARD_WAVESHARE_2_06:
+        if self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
             from gpio_buttons import get_key
 
             return get_key()
@@ -660,7 +662,7 @@ class Input:
 
     def read_non_blocking(self) -> int:
         """Returns the key code as integer, or -1 if no key is pressed."""
-        if self._current_board_id == BOARD_WAVESHARE_2_06:
+        if self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
             from gpio_buttons import get_key
 
             return get_key()

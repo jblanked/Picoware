@@ -9,6 +9,7 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_1_69_RP2350,
     BOARD_WAVESHARE_3_49_RP2350,
     BOARD_WAVESHARE_2_06,
+    BOARD_WAVESHARE_C6_2_06,
     BOARD_PANCAKE,
     BOARD_V8,
     BOARD_FLIPPER_ZERO,
@@ -25,7 +26,7 @@ class Battery:
             from flipper_battery import init 
 
             init()
-        elif BOARD_ID == BOARD_WAVESHARE_2_06:
+        elif BOARD_ID in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
             from cardputer_battery import init
 
             init()
@@ -46,6 +47,7 @@ class Battery:
             BOARD_WAVESHARE_3_49_RP2350,
             BOARD_CARDPUTER,
             BOARD_WAVESHARE_2_06,
+            BOARD_WAVESHARE_C6_2_06,
             BOARD_PANCAKE,
             BOARD_V8,
             BOARD_FLIPPER_ZERO
@@ -70,6 +72,7 @@ class Battery:
         if BOARD_ID in (
             BOARD_CARDPUTER,
             BOARD_WAVESHARE_2_06,
+            BOARD_WAVESHARE_C6_2_06,
         ):
             from cardputer_battery import get_percentage
 
@@ -110,6 +113,7 @@ class Battery:
         if BOARD_ID in (
             BOARD_CARDPUTER,
             BOARD_WAVESHARE_2_06,
+            BOARD_WAVESHARE_C6_2_06,
         ):
             from cardputer_battery import get_voltage
 

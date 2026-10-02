@@ -60,6 +60,7 @@ Open-source custom firmware for PicoCalc, Cardputer ADV, Flipper Zero, POOM, and
 - [Elecrow CrowPanel 10.1 inch](https://www.elecrow.com/crowpanel-advanced-10-1inch-esp32-p4-hmi-ai-display-1024x600-ips-touch-screen-wifi-6.html?idd=5)
 - [Marauder Pancake (ESP32-C5)](https://github.com/jblanked/Picoware/tree/main/guides/Pancake.md)
 - [Waveshare ESP32 2.06inch Touch Watch](https://www.waveshare.com/esp32-s3-touch-amoled-2.06.htm)
+- [Waveshare ESP32-C6 2.06inch Touch Watch](https://www.waveshare.com/esp32-c6-touch-amoled-2.06.htm)
 - [PicoDuo](https://github.com/jblanked/PicoDuo)
 - [POOM](https://poom.stellar-iot.com)
 

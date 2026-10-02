@@ -161,11 +161,13 @@ mp_obj_t sprite3d_mp_get_triangle(mp_obj_t self_in, mp_obj_t index_obj)
 {
     sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
     Sprite3D *ctx = sprite3d_get_context(self);
-    Triangle3D triangle;
+    Triangle3D *triangle = new Triangle3D();
+    if (!triangle)
+        mp_raise_ValueError(MP_ERROR_TEXT("failed to allocate triangle"));
     mp_int_t index = mp_obj_get_int(index_obj);
-    if (index < 0 || index >= ctx->getTriangleCount() || !ctx->getTriangle(static_cast<uint16_t>(index), triangle))
+    if (index < 0 || index >= ctx->getTriangleCount() || !ctx->getTriangle(static_cast<uint16_t>(index), *triangle))
         mp_raise_ValueError(MP_ERROR_TEXT("triangle index out of range"));
-    return triangle3d_mp_init(&triangle);
+    return triangle3d_mp_init(triangle);
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_mp_get_triangle_obj, sprite3d_mp_get_triangle);
 

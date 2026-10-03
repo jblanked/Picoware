@@ -10,6 +10,7 @@
 #if ENABLE_SOUND
 #define AUDIO_DMA_BUF_SIZE 549                 // ceiling of (32768 / (4194304/70224))
 static int16_t stream[AUDIO_DMA_BUF_SIZE * 2]; // Audio sample buffer for one frame (stereo interleaved)
+static bool audio_stream_started;
 
 #define AUDIO_CMD_RING_SIZE 8 // must be power of 2
 static volatile uint32_t audio_cmd_ring[AUDIO_CMD_RING_SIZE];
@@ -22,7 +23,7 @@ void audio_init_thread(void)
 #if ENABLE_SOUND
     memset(stream, 0, sizeof(stream));     // Clear the audio stream buffer
     minigb_audio_init(&apu_ctx);           // Initialize the APU emulator state
-    audio_start_stream(AUDIO_SAMPLE_RATE); // Start PCM streaming at GB sample rate
+    audio_stream_started = audio_start_stream(AUDIO_SAMPLE_RATE);
 #endif
 }
 
@@ -48,7 +49,8 @@ void audio_handle_cmd(uint32_t raw_cmd)
     case AUDIO_CMD_PLAYBACK:
         // Advance APU state and push mixed PCM samples to the streaming driver
         audio_callback(&apu_ctx, stream);
-        audio_push_samples(stream, AUDIO_DMA_BUF_SIZE);
+        if (audio_stream_started)
+            audio_push_samples(stream, AUDIO_DMA_BUF_SIZE);
         break;
     case AUDIO_CMD_VOLUME_UP:
     {

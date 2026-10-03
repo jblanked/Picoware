@@ -156,7 +156,7 @@ extern "C"
 
     void audio_push_samples(const int16_t *samples, int count); // Push PCM samples to the audio output buffer
     void audio_set_volume(uint8_t volume);                      // Set the audio volume (0-100)
-    void audio_start_stream(uint32_t sample_rate);              // Start streaming PCM audio at the given sample rate (in Hz)
+    bool audio_start_stream(uint32_t sample_rate);              // Start DMA-paced PCM streaming; false if setup fails
     void audio_stop(void);                                      // Stop any currently playing audio
     void audio_stop_stream(void);                               // Stop streaming PCM audio
 

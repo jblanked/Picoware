@@ -1,0 +1,10 @@
+[
+    {
+        "title": "Clock",
+        "description": "A Clock program",
+        "file_structure": [
+            "picoware/mmbasic/clock.bas"
+        ],
+        "version": "1.0"
+    }
+]

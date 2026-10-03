@@ -1,0 +1,30 @@
+{
+    "ghouls": [
+        ["kill", 50, 0, "Defeat 50 ghouls"],
+        ["kill_fast", 3, 30, "Defeat 3 ghouls in 30s"],
+        ["report", 0, 0, "Escort the traitor to the Wizard"],
+        ["find", 0, 0, "Find the wooden house"],
+        ["clear", 12, 0, "Clear the wooden house"]
+    ],
+    "goblins": [
+        ["kill", 50, 0, "Defeat 50 goblins"],
+        ["kill_low", 5, 60, "Defeat 5 goblins in 60s below half health"],
+        ["kill", 100, 0, "Defeat 100 goblins"],
+        ["kill", 15, 0, "Recover the stolen supplies"],
+        ["kill_fast", 3, 20, "Track the fleeing scout"],
+        ["find", 0, 0, "Find the underground manor"],
+        ["clear", 15, 0, "Clear the underground manor"]
+    ],
+    "soldiers": [
+        ["kill", 500, 0, "Defeat 500 soldiers"],
+        ["kill_fast", 5, 30, "Defeat 5 soldiers in 30s"],
+        ["report", 0, 0, "Escort the Wizard's son"],
+        ["kill_low", 5, 50, "Defeat 5 soldiers in 50s below half health"],
+        ["kill", 25, 0, "Rescue the Nolands villagers"],
+        ["report", 0, 0, "Carry the warning unseen"],
+        ["kill", 30, 0, "Defeat the fortress captain"],
+        ["find", 0, 0, "Find the wooden fortress"],
+        ["kill", 40, 0, "Disable the gate defenses"],
+        ["clear", 20, 0, "Clear the fortress"]
+    ]
+}

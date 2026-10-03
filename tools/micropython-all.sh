@@ -373,6 +373,9 @@ echo "MicroPython Picoware Waveshare 3.49 build completed successfully!"
 echo "Starting CrowPanel 10.1 build process..."
 bash "$picoware_dir"/tools/micropython-crowpanel.sh
 
+echo "Starting CrowPanel Watch 2.01 build process..."
+bash "$picoware_dir"/tools/micropython-crowpanel-watch.sh
+
 echo "Starting Cardputer-ADV build process..."
 bash "$picoware_dir"/tools/micropython-cardputer.sh
 

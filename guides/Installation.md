@@ -5,7 +5,7 @@ The installation process for Picoware varies depending on the device you are usi
 ## Online Flasher
 Every supported device except the Flipper Zero can use the online flasher to install Picoware. Before the installation, it is still recommended to copy the `apps`, `scripts`, `mmbasic`, and `c` folders from the `builds/MicroPython` directory into the `picoware` folder on the root of your SD card. You can access the online flasher at [https://www.jblanked.com/picoware/flash/](https://www.jblanked.com/picoware/flash/)
 
-## PicoCalc, Waveshare, and other Raspberry Pi Pico-based boards
+## PicoCalc, Waveshare (rp2350/rp2040), PicoDuo, and other Raspberry Pi Pico-based boards
 1. Download the appropriate build from the `builds` directory.
 2. Press and hold the `BOOT` button on your Raspberry Pi Pico/W or Pico 2/2W.
 3. While holding the `BOOT` button, connect the Pico to your computer using a USB cable (that supports data transfer) until your computer recognizes a new storage device.
@@ -67,6 +67,30 @@ The third option is to just download the `Picoware-Cardputer.bin` file from the 
 
 The fourth option is to download (and extract) this repository as a ZIP file, then update the environment variables within the `tools/micropython-cardputer-flash.sh` script to match your setup, and run the script. You need to pass the port that your Cardputer is connected to as an argument when running the script (`--port COM3` for example).
 
+## POOM
+1. Download this repository as a ZIP file and extract it.
+2. Update the environment variables within the `tools/micropython-poom-flash.sh` script to match your setup.
+3. Hold the `Boot` button (upper-right button) on your POOM while connecting it to your computer using a USB-C cable until your computer recognizes a new storage device (at least 3 seconds).
+4. Run the `tools/micropython-poom-flash.sh` script, passing the port your board is on (`--port /dev/ttyUSB0` for example).
+
+Optionally, you can also download the `Picoware-POOM.bin` file from the `builds/MicroPython` directory and flash it with your favorite flashing tool.
+
+## Waveshare ESP32S3 OLED Touch 2.06
+1. Download this repository as a ZIP file and extract it.
+2. Update the environment variables within the `tools/micropython-waveshare-2.06-flash.sh` script to match your setup.
+3. Hold the `Boot` button on your Waveshare ESP32S3 OLED Touch while connecting it to your computer using a USB-C cable until your computer recognizes a new storage device.
+4. Run the `tools/micropython-waveshare-2.06-flash.sh` script, passing the port your board is on (`--port /dev/ttyUSB0` for example).
+
+Optionally, you can also download the `Picoware-Waveshare-2.06.bin` file from the `builds/MicroPython` directory and flash it with your favorite flashing tool.
+
+## Waveshare ESP32C6 OLED Touch 2.06
+1. Download this repository as a ZIP file and extract it.
+2. Update the environment variables within the `tools/micropython-waveshare-c6-2.06-flash.sh` script to match your setup.
+3. Hold the `Boot` button on your Waveshare ESP32C6 OLED Touch while connecting it to your computer using a USB-C cable until your computer recognizes a new storage device.
+4. Run the `tools/micropython-waveshare-c6-2.06-flash.sh` script, passing the port your board is on (`--port /dev/ttyUSB0` for example).
+
+Optionally, you can also download the `Picoware-Waveshare-C6-2.06.bin` file from the `builds/MicroPython` directory and flash it with your favorite flashing tool.
+
 ## Marauder Pancake
 1. Download this repository as a ZIP file and extract it.
 2. Update the environment variables within the `tools/micropython-pancake-flash.sh` script to match your setup.
@@ -85,7 +109,7 @@ See the [Pancake guide](https://github.com/jblanked/Picoware/tree/main/guides/Pa
 
 Optionally, you can also download the `Picoware-V8.bin` file from the `builds/MicroPython` directory and flash it with your favorite flashing tool. The ESP32-C5 expects the bootloader at `0x2000`, the partition table at `0x8000`, and the firmware at `0x20000`.
 
-## Elecrow CrowPanel
+## Elecrow CrowPanel 10.1
 1. Download this repository as a ZIP file and extract it.
 2. Update the environment variables within the `tools/micropython-crowpanel-flash.sh` script to match your setup.
 3. Connect a USB-C cable to your `USB 2.0` port on your CrowPanel and connect the other end to a power source. Do not connect the cable to your computer, as the `USB 2.0` port is for power only.
@@ -93,6 +117,14 @@ Optionally, you can also download the `Picoware-V8.bin` file from the `builds/Mi
 5. Run the `tools/micropython-crowpanel-flash.sh` script.
 
 Optionally, you can also download the `Picoware-CrowPanel-10.1.bin` file from the `builds/MicroPython` directory and flash it to your CrowPanel using your favorite flashing tool.
+
+## Elecrow CrowPanel 2.01
+1. Download this repository as a ZIP file and extract it.
+2. Update the environment variables within the `tools/micropython-crowpanel-watch-flash.sh` script to match your setup.
+3. Connect a USB-C cable to your CrowPanel and connect the other end to your computer.
+4. Run the `tools/micropython-crowpanel-watch-flash.sh` script.
+
+Optionally, you can also download the `Picoware-CrowPanel-Watch-2.01.bin` file from the `builds/MicroPython` directory and flash it to your CrowPanel using your favorite flashing tool.
 
 ## Flipper Zero
 > [!NOTE]

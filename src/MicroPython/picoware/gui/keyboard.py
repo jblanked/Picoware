@@ -858,9 +858,6 @@ class Keyboard:
             lines.append(current_line)
             line_positions.append(char_pos - len(current_line))
 
-        # Show only the last few lines that fit
-        start_line = max(0, len(lines) - self.max_lines)
-
         # Find which line and column the cursor is on
         cursor_line = 0
         cursor_col = self.text_cursor_position
@@ -871,6 +868,13 @@ class Keyboard:
                 cursor_col = self.text_cursor_position - line_start_pos
             else:
                 break
+
+        # Keep the cursor's wrapped line in the visible portion of the textbox.
+        start_line = min(
+            max(0, cursor_line - self.max_lines + 1),
+            max(0, len(lines) - self.max_lines),
+        )
+        end_line = min(len(lines), start_line + self.max_lines)
 
         # Horizontal scroll so the cursor stays visible on long lines.
         char_w = self.draw.font_size.x
@@ -892,7 +896,7 @@ class Keyboard:
 
         _start_y = self._text_y
         _distance = self.draw.font_size.y + 1
-        for i in range(start_line, len(lines)):
+        for i in range(start_line, end_line):
             line = lines[i]
             self.text_vec.y = _start_y + (i - start_line) * _distance
             if not line:
@@ -905,7 +909,7 @@ class Keyboard:
                                 line[start:end], self.text_color)
 
         # Draw cursor at the current position
-        if cursor_line >= start_line:
+        if start_line <= cursor_line < end_line:
             display_line = cursor_line - start_line
             self.cursor.x = self.text_vec.x + (cursor_col - self.text_scroll_x) * char_w
             self.cursor.y = _start_y + display_line * _distance

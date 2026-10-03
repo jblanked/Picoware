@@ -123,7 +123,7 @@
         "title": "Grocery Companion",
         "description": "An application to help manage your grocery shopping and pantry (by @slasher006)",
         "file_structure": [
-            "picoware/apps/groceryCompanion.mpy",
+            "picoware/apps/GroceryCompanion.mpy",
             "picoware/apps/grocery_lib/__init__.py",
             "picoware/apps/grocery_lib/add_view.mpy",
             "picoware/apps/grocery_lib/aisle_editor_view.mpy",

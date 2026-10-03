@@ -6,6 +6,7 @@ from picoware_boards import (
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_69_RP2350,
     BOARD_WAVESHARE_C6_2_06,
+    BOARD_CROWPANEL_WATCH_2_01,
     BOARD_HAS_ESP32,
     BOARD_FLIPPER_ZERO,
     BOARD_PICO_DUO,
@@ -62,6 +63,7 @@ class Storage:
             BOARD_CROWPANEL_10_1,
             BOARD_PICO_DUO,
             BOARD_WAVESHARE_C6_2_06,
+            BOARD_CROWPANEL_WATCH_2_01,
         ):
             self._has_storage = False
         else:
@@ -92,7 +94,7 @@ class Storage:
     def free_space(self) -> int:
         """Returns the free space on the SD card in bytes."""
         if not self._has_storage:
-            return 0 
+            return 0
         return sd_mp.get_free_space()
 
     @property

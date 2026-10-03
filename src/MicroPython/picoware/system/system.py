@@ -78,6 +78,13 @@ class System:
         return BOARD_HAS_SD == 1
 
     @property
+    def has_storage(self) -> bool:
+        """Return True if the device has persistent file storage."""
+        from picoware_boards import BOARD_HAS_SD
+
+        return BOARD_HAS_SD == 1
+
+    @property
     def has_touch(self):
         """Return True if the device has touch capabilities."""
         from picoware_boards import BOARD_HAS_TOUCH

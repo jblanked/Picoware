@@ -1,0 +1,6 @@
+{
+    "name": "Elecrow CrowPanel Watch 2.01",
+    "mcu": "ESP32-S3",
+    "product": "CrowPanel 2.01-inch-HMI ESP32 Watch Display",
+    "vendor": "Elecrow"
+}

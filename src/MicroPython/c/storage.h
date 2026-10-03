@@ -1,6 +1,9 @@
 #pragma once
 
-#if defined(CARDPUTER)
+#if defined(CROWPANEL_WATCH_2_01)
+#include "../CrowPanel/ESP32S3-Watch-2.01/storage.h"
+#define C_STORAGE_ENABLED
+#elif defined(CARDPUTER)
 #include "../Cardputer/sd/storage.h"
 #elif defined(V8)
 #include "../V8/sd/storage.h"

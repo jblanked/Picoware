@@ -7,7 +7,7 @@
 #define SD_SCK (18)    // serial clock (SCK)
 #define SD_MOSI (19)   // master out, slave in (MOSI)
 #define SD_DETECT (22) // card detect (CD)
-#elif defined(WAVESHARE_1_28) || defined(WAVESHARE_1_69) || defined(PICO_DUO) || defined(WAVESHARE_C6_2_06)
+#elif defined(WAVESHARE_1_28) || defined(WAVESHARE_1_69) || defined(PICO_DUO) || defined(WAVESHARE_C6_2_06) || defined(CROWPANEL_WATCH_2_01)
 // no sd card....
 #elif defined(WAVESHARE_1_43)
 #define SD_SPI (spi0)

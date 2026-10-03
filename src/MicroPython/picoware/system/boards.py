@@ -11,6 +11,7 @@ Attributes:
     BOARD_WAVESHARE_3_49_RP2350 (int): Board ID for Waveshare 3.49" RP2350.
     BOARD_PICOCALC_PIMORONI_2W (int): Board ID for PicoCalc with a Pimoroni 2 W.
     BOARD_CROWPANEL_10_1 (int): Board ID for CrowPanel 10.1.
+    BOARD_CROWPANEL_WATCH_2_01 (int): Board ID for Elecrow CrowPanel Watch 2.01
     BOARD_CARDPUTER (int): Board ID for Cardputer.
     BOARD_WAVESHARE_2_06 (int): Board ID for Waveshare 2.06.
     BOARD_WAVESHARE_C6_2_06 (int): Board ID for Waveshare C6 2.06.
@@ -48,6 +49,7 @@ BOARD_WAVESHARE_1_69_RP2350 = picoware_boards.BOARD_WAVESHARE_1_69_RP2350
 BOARD_WAVESHARE_3_49_RP2350 = picoware_boards.BOARD_WAVESHARE_3_49_RP2350
 BOARD_PICOCALC_PIMORONI_2W = picoware_boards.BOARD_PICOCALC_PIMORONI_2W
 BOARD_CROWPANEL_10_1 = picoware_boards.BOARD_CROWPANEL_10_1
+BOARD_CROWPANEL_WATCH_2_01 = picoware_boards.BOARD_CROWPANEL_WATCH_2_01
 BOARD_CARDPUTER = picoware_boards.BOARD_CARDPUTER
 BOARD_WAVESHARE_2_06 = picoware_boards.BOARD_WAVESHARE_2_06
 BOARD_WAVESHARE_C6_2_06 = picoware_boards.BOARD_WAVESHARE_C6_2_06

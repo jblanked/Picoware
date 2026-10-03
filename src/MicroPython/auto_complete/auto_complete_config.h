@@ -31,6 +31,10 @@
 #define STORAGE_INCLUDE "../Flipper/sd/storage.h"
 #define STORAGE_READ storage_read
 #define STORAGE_MAX_READ_SIZE 4096
+#elif defined(CROWPANEL_WATCH_2_01)
+#define STORAGE_INCLUDE "../CrowPanel/ESP32S3-Watch-2.01/storage.h"
+#define STORAGE_READ storage_file_read
+#define STORAGE_MAX_READ_SIZE 4096
 #elif defined(DESKTOP)
 #define STORAGE_INCLUDE "desktop_bridge.h"
 #define STORAGE_READ desktop_storage_file_read

@@ -30,6 +30,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_PICO_DUO 16
 #define BOARD_POOM 17
 #define BOARD_WAVESHARE_C6_2_06 18
+#define BOARD_CROWPANEL_WATCH_2_01 19
 
 #if defined(DESKTOP)
 #define BOARD_ID BOARD_DESKTOP
@@ -109,6 +110,15 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_WIFI 1      // has wifi
 #define BOARD_HAS_AUDIO 0     // no audio module in esp32 build yet
 #define BOARD_HAS_BLUETOOTH 1 // has bluetooth
+#elif defined(CROWPANEL_WATCH_2_01)
+// Elecrow CrowPanel 2.01-inch HMI ESP32-S3 watch display
+#define BOARD_ID BOARD_CROWPANEL_WATCH_2_01
+#define BOARD_HAS_PSRAM 0 // no external psram
+#define BOARD_HAS_SD 0    // no SD-card slot
+#define BOARD_HAS_TOUCH 1
+#define BOARD_HAS_WIFI 1
+#define BOARD_HAS_AUDIO 0 // audio APIs are not enabled for this target
+#define BOARD_HAS_BLUETOOTH 1
 #elif defined(PANCAKE)
 // Marauder Pancake ESP32-C5
 #define BOARD_ID BOARD_PANCAKE
@@ -257,7 +267,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_RP2350 0
 #endif
 
-#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06)
+#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(CROWPANEL_WATCH_2_01) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06)
 #define BOARD_HAS_ESP32 1
 #else
 #define BOARD_HAS_ESP32 0

@@ -60,6 +60,33 @@
 #define LCD_MP_POLYGON lcd_polygon
 #define LCD_MP_FILL_POLYGON lcd_fill_polygon
 #define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
+#elif defined(CROWPANEL_WATCH_2_01)
+#define LCD_INCLUDE "../CrowPanel/ESP32S3-Watch-2.01/lcd/lcd.h"
+#define LCD_MP_INIT lcd_init
+#define LCD_MP_DEINIT lcd_deinit
+#define LCD_MP_WIDTH LCD_WIDTH
+#define LCD_MP_HEIGHT LCD_HEIGHT
+#define LCD_MP_CHAR lcd_draw_char
+#define LCD_MP_CIRCLE lcd_draw_circle
+#define LCD_MP_CLEAR lcd_fill
+#define LCD_MP_FILL_CIRCLE lcd_fill_circle
+#define LCD_MP_FILL_RECTANGLE lcd_fill_rect
+#define LCD_MP_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
+#define LCD_MP_FILL_TRIANGLE lcd_fill_triangle
+#define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
+#define LCD_MP_BLIT lcd_blit
+#define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_LINE lcd_draw_line
+#define LCD_MP_PIXEL lcd_draw_pixel
+#define LCD_MP_READ_ROW lcd_read_row
+#define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight
+#define LCD_SWAP lcd_swap
+#define LCD_MP_TEXT lcd_draw_text
+#define LCD_MP_TRIANGLE lcd_draw_triangle
+#define LCD_MP_POLYGON lcd_polygon
+#define LCD_MP_FILL_POLYGON lcd_fill_polygon
+#define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
 #elif defined(WAVESHARE_2_06) || defined(WAVESHARE_C6_2_06)
 #define LCD_INCLUDE "../Waveshare/ESP32S3-Touch-LCD-2.06/lcd/lcd.h"
 #define LCD_MP_INIT lcd_init

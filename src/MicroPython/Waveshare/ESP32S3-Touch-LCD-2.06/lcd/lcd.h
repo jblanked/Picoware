@@ -5,8 +5,13 @@
 
 #include "../../font/font_mp.h"
 
+#if defined(CROWPANEL_WATCH_2_01)
+#define LCD_WIDTH 240
+#define LCD_HEIGHT 296
+#else
 #define LCD_WIDTH 410    // Horizontal resolution
 #define LCD_HEIGHT 502   // Vertical resolution
+#endif
 #define BITS_PER_PIXEL 8 // Number of image display bits of the display screen
 
 #define LCD_DEFAULT_BRIGHTNESS 50 // Default brightness (0-100)

@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#if defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(WAVESHARE_C6_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(POOM)
+#if defined(CARDPUTER) || defined(CROWPANEL_WATCH_2_01) || defined(WAVESHARE_2_06) || defined(WAVESHARE_C6_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(POOM)
 #include "../lcd/lcd_config.h"
 #elif defined(PICOCALC) || defined(PIMORONI_PICO_PLUS2W_RP2350) || defined(PICO_DUO)
 #include "../../lcd/lcd_config.h"
@@ -44,6 +44,8 @@ mp_obj_t picoware_boards_get_current_name(void)
     return mp_obj_new_str("Cardputer", strlen("Cardputer"));
 #elif defined(WAVESHARE_C6_2_06)
     return mp_obj_new_str("Waveshare C6 2.06", strlen("Waveshare C6 2.06"));
+#elif defined(CROWPANEL_WATCH_2_01)
+    return mp_obj_new_str("CrowPanel Watch 2.01", strlen("CrowPanel Watch 2.01"));
 #elif defined(WAVESHARE_2_06)
     return mp_obj_new_str("Waveshare 2.06", strlen("Waveshare 2.06"));
 #elif defined(PANCAKE)
@@ -92,6 +94,8 @@ mp_obj_t picoware_boards_get_device_name(void)
     return mp_obj_new_str("Flipper Zero STM32WB55RG", strlen("Flipper Zero STM32WB55RG"));
 #elif defined(CROWPANEL_10_1)
     return mp_obj_new_str("CrowPanel 10.1 ESP32-P4", strlen("CrowPanel 10.1 ESP32-P4"));
+#elif defined(CROWPANEL_WATCH_2_01)
+    return mp_obj_new_str("ESP32-S3", strlen("ESP32-S3"));
 #elif defined(PANCAKE)
     return mp_obj_new_str("ESP32-C5", strlen("ESP32-C5"));
 #elif defined(V8)
@@ -158,6 +162,9 @@ mp_obj_t picoware_boards_get_name(mp_obj_t board_id_obj)
         break;
     case BOARD_CROWPANEL_10_1:
         snprintf(board_name, sizeof(board_name), "CrowPanel 10.1");
+        break;
+    case BOARD_CROWPANEL_WATCH_2_01:
+        snprintf(board_name, sizeof(board_name), "CrowPanel Watch 2.01");
         break;
     case BOARD_CARDPUTER:
         snprintf(board_name, sizeof(board_name), "Cardputer");
@@ -231,6 +238,10 @@ mp_obj_t picoware_boards_get_display_size(mp_obj_t board_id_obj)
         width = 1024;
         height = 600;
         break;
+    case BOARD_CROWPANEL_WATCH_2_01:
+        width = 240;
+        height = 296;
+        break;
     case BOARD_PANCAKE:
         width = 320;
         height = 480;
@@ -287,11 +298,7 @@ mp_obj_t picoware_boards_has_psram(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PIMORONI_2W:
         has_psram = true;
         break;
-    case BOARD_POOM:
-        has_psram = true;
-        break;
     default:
-        has_psram = false;
         break;
     }
 
@@ -346,6 +353,7 @@ mp_obj_t picoware_boards_has_touch(mp_obj_t board_id_obj)
     case BOARD_WAVESHARE_3_49_RP2350:
     case BOARD_WAVESHARE_2_06:
     case BOARD_CROWPANEL_10_1:
+    case BOARD_CROWPANEL_WATCH_2_01:
     case BOARD_WAVESHARE_C6_2_06:
     case BOARD_PANCAKE:
     case BOARD_V8:
@@ -372,6 +380,7 @@ mp_obj_t picoware_boards_has_wifi(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PIMORONI_2W:
     case BOARD_CARDPUTER:
     case BOARD_WAVESHARE_2_06:
+    case BOARD_CROWPANEL_WATCH_2_01:
     case BOARD_WAVESHARE_C6_2_06:
     case BOARD_PANCAKE:
     case BOARD_V8:
@@ -425,6 +434,7 @@ mp_obj_t picoware_boards_has_bluetooth(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PIMORONI_2W:
     case BOARD_CARDPUTER:
     case BOARD_WAVESHARE_2_06:
+    case BOARD_CROWPANEL_WATCH_2_01:
     case BOARD_WAVESHARE_C6_2_06:
     case BOARD_PANCAKE:
     case BOARD_V8:
@@ -493,6 +503,7 @@ mp_obj_t picoware_boards_is_circular(mp_obj_t board_id_obj)
     case BOARD_WAVESHARE_1_43_RP2350:
     case BOARD_WAVESHARE_2_06:
     case BOARD_WAVESHARE_C6_2_06:
+    case BOARD_CROWPANEL_WATCH_2_01:
         is_circular = true;
         break;
     default:
@@ -531,6 +542,7 @@ static const mp_rom_map_elem_t picoware_boards_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_3_49_RP2350), MP_ROM_INT(BOARD_WAVESHARE_3_49_RP2350)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_PICOCALC_PIMORONI_2W), MP_ROM_INT(BOARD_PICOCALC_PIMORONI_2W)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_CROWPANEL_10_1), MP_ROM_INT(BOARD_CROWPANEL_10_1)},
+    {MP_ROM_QSTR(MP_QSTR_BOARD_CROWPANEL_WATCH_2_01), MP_ROM_INT(BOARD_CROWPANEL_WATCH_2_01)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_CARDPUTER), MP_ROM_INT(BOARD_CARDPUTER)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_2_06), MP_ROM_INT(BOARD_WAVESHARE_2_06)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_C6_2_06), MP_ROM_INT(BOARD_WAVESHARE_C6_2_06)},

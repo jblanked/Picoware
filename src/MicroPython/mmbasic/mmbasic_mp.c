@@ -32,7 +32,7 @@ typedef int FontSize;
 #include "../log/storage.h"
 #endif
 
-#if defined(DESKTOP) || defined(PANCAKE) || defined(WAVESHARE_2_06) || defined(V8) || defined(CARDPUTER) || defined(POOM) || defined(WAVESHARE_C6_2_06)
+#if defined(DESKTOP) || defined(ESP_PLATFORM) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(WAVESHARE_2_06) || defined(V8) || defined(CARDPUTER) || defined(POOM) || defined(WAVESHARE_C6_2_06)
 static time_t host_rtc_now(void)
 {
     return time(NULL);

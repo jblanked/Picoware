@@ -9,6 +9,7 @@ class GameEngine(engine.Engine):
     Args:
         game (Game): Game instance to run.
         fps (int): Target frame rate.
+        clamp (bool): Whether to clamp the rendering.
 
     Attributes:
         game (Game): Game instance managed by the engine.
@@ -30,5 +31,7 @@ class GameEngine(engine.Engine):
         """
         if name == "input":
             self.update_game_input(value)
+        elif name == "clamp":
+            self.set_clamp(value)
         else:
             super().__setattr__(name, value)

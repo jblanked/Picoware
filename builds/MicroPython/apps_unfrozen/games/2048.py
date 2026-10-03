@@ -343,11 +343,11 @@ def move_grid(grid, direction: int):
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.vector import Vector
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
 
     global SCREEN_WIDTH, SCREEN_HEIGHT, GRID_OFFSET_X, GRID_OFFSET_Y, TILE_SIZE_X, TILE_SIZE_Y, grid_vector, size_vector, color_map, is_flipper, COLOR_EMPTY, COLOR_WIN, COLOR_LOSE
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     draw = view_manager.draw
     SCREEN_WIDTH = draw.size.x

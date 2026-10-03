@@ -213,9 +213,6 @@ void picocalc_lcd_init(void)
     if (!module_initialized)
     {
         lcd_init();
-        lcd_set_background(0x0000); // black
-        lcd_set_underscore(false);
-        lcd_enable_cursor(false);
 
         for (int i = 0; i < 256; i++)
         {

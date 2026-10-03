@@ -100,10 +100,10 @@ def start(view_manager) -> bool:
         bool: True if the app started, False if no credentials are saved.
     """
     from picoware.applications.wifi.utils import load_wifi_password, load_wifi_ssid
-    from picoware.system.boards import BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_CARDPUTER, BOARD_POOM
 
     global _connect, _ssid, _password, _is_flipper
-    _is_flipper = view_manager.board_id == BOARD_FLIPPER_ZERO
+    _is_flipper = view_manager.board_id in (BOARD_FLIPPER_ZERO, BOARD_CARDPUTER, BOARD_POOM)
 
     _ssid = load_wifi_ssid(view_manager)
     _password = load_wifi_password(view_manager)

@@ -101,12 +101,54 @@ def _ensure_extension(filename, extension):
     return directory + separator + name
 
 
-def _run_file(view_manager, filename):
+def _run_file(view_manager, filename) -> bool:
+    """Execute the specified file based on its extension.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        filename (str): The file to execute.
+
+    Returns:
+        bool: True if the file was successfully executed, False otherwise.
+    """
     global _runner
 
     extension = filename.lower().rsplit(".", 1)[-1]
     if extension == "py":
-        view_manager.storage.execute_script(filename)
+        _data = view_manager.storage.read(filename)
+        if ("start(" in _data and "run(" in _data and "stop(" in _data):
+            # execute as picoware app
+            from picoware.system.app_loader import AppLoader
+            from picoware.system.view import View
+            _loader = AppLoader(view_manager)
+            _app_path = filename.replace("\\", "/")
+            if _app_path.startswith("/sd/"):
+                _app_path = _app_path[4:]
+            elif _app_path.startswith("/"):
+                _app_path = _app_path[1:]
+            _apps_root = "picoware/apps/"
+            if _app_path.startswith(_apps_root):
+                _app_path = _app_path[len(_apps_root):]
+            _subdirectory = "/".join(_app_path.split("/")[:-1])
+            _file_without_extension = _app_path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+            _files = _loader.list_available_apps(_subdirectory)
+            if _file_without_extension in _files:
+                _app = _loader.load_app(_file_without_extension, _subdirectory)
+                if _app is None:
+                    view_manager.alert(f'Failed to load: {_loader.error}')
+                    return False
+                app_view_name = f"{_file_without_extension}_view"
+                # Check if view already exists
+                if view_manager.get_view(app_view_name) is None:
+                    app_view = View(
+                        app_view_name, _app.run, _app.start, _app.stop
+                    )
+                    view_manager.add(app_view)
+                view_manager.switch_to(app_view_name)
+            else:
+                view_manager.alert('Make sure the app is in picoware/apps/*')
+        else:
+            view_manager.storage.execute_script(filename)
     elif extension == "js":
         from picoware.system.js import JS
 

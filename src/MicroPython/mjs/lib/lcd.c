@@ -8,7 +8,7 @@
 #include LCD_INCLUDE
 #endif
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(V8) || defined(POOM)
 #include "../../sd/storage.h"
 #elif defined(FLIPPER_ZERO)
 #include "../../Flipper/sd/storage.h"
@@ -201,7 +201,7 @@ void lcd_js_triangle(struct mjs *mjs)
 void lcd_js_screenshot(struct mjs *mjs)
 {
 #ifdef LCD_MP_READ_ROW
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(DESKTOP)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(DESKTOP) || defined(POOM)
     char *path = mjs_copy_string_arg(mjs, 0);
     if (!path)
     {

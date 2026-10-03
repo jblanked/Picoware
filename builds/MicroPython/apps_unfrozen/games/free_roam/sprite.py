@@ -79,7 +79,7 @@ class Sprite(Entity):
                     move_x = dx
                     move_y = dy
 
-                self.position = Vector(
+                self.position_set(
                     self.position.x + move_x, self.position.y + move_y
                 )
             else:
@@ -101,7 +101,7 @@ class Sprite(Entity):
                     move_x = dx
                     move_y = dy
 
-                self.position = Vector(
+                self.position_set(
                     self.position.x + move_x, self.position.y + move_y
                 )
 

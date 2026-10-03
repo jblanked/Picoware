@@ -1,7 +1,7 @@
 /*
-Author: Blair Leduc
-License: MIT License
-Source: https://github.com/BlairLeduc/picocalc-text-starter
+Author: Blair Leduc, JBlanked
+License: MIT License, GPL 3.0
+Source: https://github.com/jblanked/Picoware/blob/dev/src/MicroPython/PicoCalc/picoware_lcd/lcd.h
 */
 
 #pragma once
@@ -80,15 +80,6 @@ extern "C"
 {
 #endif
 
-    // colour and display state functions
-    void lcd_set_foreground(uint16_t colour);
-    void lcd_set_background(uint16_t colour);
-    void lcd_set_reverse(bool reverse_on);
-    void lcd_set_underscore(bool underscore_on);
-    void lcd_set_bold(bool bold_on);
-    uint8_t lcd_get_columns(void);
-    uint8_t lcd_get_glyph_width(void);
-
     // Display control functions
     void lcd_reset(void);
     bool lcd_available(void);
@@ -107,21 +98,6 @@ extern "C"
     void lcd_set_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
     void lcd_blit(uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
     void lcd_solid_rectangle(uint16_t colour, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
-
-    // Scrolling functions
-    void lcd_define_scrolling(uint16_t top_fixed_area, uint16_t bottom_fixed_area);
-    void lcd_scroll_reset();
-    void lcd_scroll_clear();
-    void lcd_scroll_up(void);
-    void lcd_scroll_down(void);
-
-    // Character and cursor functions
-    void lcd_putc(uint8_t column, uint8_t row, uint8_t c);
-    void lcd_move_cursor(uint8_t x, uint8_t y);
-    void lcd_draw_cursor(void);
-    void lcd_erase_cursor(void);
-    void lcd_enable_cursor(bool cursor_on);
-    bool lcd_cursor_enabled(void);
 
     // Initialization
     void lcd_clear_screen(void);

@@ -1,0 +1,936 @@
+[
+    {
+        "title": "Drill Speed",
+        "description": "Drill Speed application created by @slasher006",
+        "file_structure": [
+            "picoware/apps/bohrgesch_v2.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Calculator",
+        "description": "An iPhone-like calculator app",
+        "file_structure": [
+            "picoware/apps/Calculator.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Cat Fact",
+        "description": "Fetches a random cat fact using HTTP",
+        "file_structure": [
+            "picoware/apps/cat-fact.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "CCTV",
+        "description": "CCTV app! Requires Picoware v1.7.0+ and users need a word list of CCTV stream URLs in 'picoware/cctv/list.txt' on the device's storage, with one URL per line.\n\nThe app connects to each URL in turn and displays the MJPEG stream.\nUse the UP/DOWN or LEFT/RIGHT buttons to switch between cameras, and BACK to exit.\n\nIn my testing I saw 300kb frames so its possible on the Pico2W and Pimoroni 2W only... although some endpoints may have smaller frames",
+        "file_structure": [
+            "picoware/apps/CCTV.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Composer",
+        "description": "A music composer app",
+        "file_structure": [
+            "picoware/apps/composer.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Counter",
+        "description": "A simple counter app. Press up/down to increase or decrease the count, or Enter to reset it.",
+        "file_structure": [
+            "picoware/apps/counter.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Download Test",
+        "description": "Choose between 3 files to test stream requests that save the returned data to your SD card",
+        "file_structure": [
+            "picoware/apps/download-test.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Egg Timer",
+        "description": "An Egg Timer application created by @slasher006",
+        "file_structure": [
+            "picoware/apps/eggtimer.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Forecast",
+        "description": "A a lightweight weather application by @C0n57an71n",
+        "file_structure": [
+            "picoware/apps/Forecast.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "FTP Server",
+        "description": "An FTP server application for managing files over the network (by @morecoffee1)",
+        "file_structure": [
+            "picoware/apps/ftp-server.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Fuel Log",
+        "description": "A fuel log application for tracking fuel consumption (by @INSCCOIN)",
+        "file_structure": [
+            "picoware/apps/fuel_log.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Github Downloader",
+        "description": "An app to download files from Github repositories",
+        "file_structure": [
+            "picoware/apps/Github Downloader.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "GPS",
+        "description": "A GPS application for tracking location",
+        "file_structure": [
+            "picoware/apps/GPS.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Graph",
+        "description": "A graph plotting application",
+        "file_structure": [
+            "picoware/apps/Graph.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Graph3D",
+        "description": "A 3D graph plotting application (by @INSCCOIN)",
+        "file_structure": [
+            "picoware/apps/Graph3D.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Grocery Companion",
+        "description": "An application to help manage your grocery shopping and pantry (by @slasher006)",
+        "file_structure": [
+            "picoware/apps/GroceryCompanion.mpy",
+            "picoware/apps/grocery_lib/__init__.py",
+            "picoware/apps/grocery_lib/add_view.mpy",
+            "picoware/apps/grocery_lib/aisle_editor_view.mpy",
+            "picoware/apps/grocery_lib/aisle_select_view.mpy",
+            "picoware/apps/grocery_lib/app.mpy",
+            "picoware/apps/grocery_lib/base_view.mpy",
+            "picoware/apps/grocery_lib/bulk_calc_view.mpy",
+            "picoware/apps/grocery_lib/calculators_menu_view.mpy",
+            "picoware/apps/grocery_lib/compare_view.mpy",
+            "picoware/apps/grocery_lib/config.mpy",
+            "picoware/apps/grocery_lib/dialog_view.mpy",
+            "picoware/apps/grocery_lib/format_utils.mpy",
+            "picoware/apps/grocery_lib/help/de/add_item.txt",
+            "picoware/apps/grocery_lib/help/de/bulk_calc.txt",
+            "picoware/apps/grocery_lib/help/de/calculators.txt",
+            "picoware/apps/grocery_lib/help/de/compare_price.txt",
+            "picoware/apps/grocery_lib/help/de/item_properties.txt",
+            "picoware/apps/grocery_lib/help/de/list_items.txt",
+            "picoware/apps/grocery_lib/help/de/list_properties.txt",
+            "picoware/apps/grocery_lib/help/de/main_menu.txt",
+            "picoware/apps/grocery_lib/help/de/pantry.txt",
+            "picoware/apps/grocery_lib/help/de/pantry_edit.txt",
+            "picoware/apps/grocery_lib/help/de/quick_calc.txt",
+            "picoware/apps/grocery_lib/help/de/reset_menu.txt",
+            "picoware/apps/grocery_lib/help/de/settings.txt",
+            "picoware/apps/grocery_lib/help/de/settings_aisles.txt",
+            "picoware/apps/grocery_lib/help/de/shopping_list.txt",
+            "picoware/apps/grocery_lib/help/en/add_item.txt",
+            "picoware/apps/grocery_lib/help/en/bulk_calc.txt",
+            "picoware/apps/grocery_lib/help/en/calculators.txt",
+            "picoware/apps/grocery_lib/help/en/compare_price.txt",
+            "picoware/apps/grocery_lib/help/en/item_properties.txt",
+            "picoware/apps/grocery_lib/help/en/list_items.txt",
+            "picoware/apps/grocery_lib/help/en/list_properties.txt",
+            "picoware/apps/grocery_lib/help/en/main_menu.txt",
+            "picoware/apps/grocery_lib/help/en/pantry.txt",
+            "picoware/apps/grocery_lib/help/en/pantry_edit.txt",
+            "picoware/apps/grocery_lib/help/en/quick_calc.txt",
+            "picoware/apps/grocery_lib/help/en/reset_menu.txt",
+            "picoware/apps/grocery_lib/help/en/settings.txt",
+            "picoware/apps/grocery_lib/help/en/settings_aisles.txt",
+            "picoware/apps/grocery_lib/help/en/shopping_list.txt",
+            "picoware/apps/grocery_lib/i18n.mpy",
+            "picoware/apps/grocery_lib/item_properties_view.mpy",
+            "picoware/apps/grocery_lib/language/de.json",
+            "picoware/apps/grocery_lib/language/en.json",
+            "picoware/apps/grocery_lib/list_properties_view.mpy",
+            "picoware/apps/grocery_lib/list_view.mpy",
+            "picoware/apps/grocery_lib/lists_view.mpy",
+            "picoware/apps/grocery_lib/loading.mpy",
+            "picoware/apps/grocery_lib/main_menu_view.mpy",
+            "picoware/apps/grocery_lib/menu_view.mpy",
+            "picoware/apps/grocery_lib/pantry_edit_view.mpy",
+            "picoware/apps/grocery_lib/pantry_view.mpy",
+            "picoware/apps/grocery_lib/quick_add_view.mpy",
+            "picoware/apps/grocery_lib/quick_calc_view.mpy",
+            "picoware/apps/grocery_lib/reset_menu_view.mpy",
+            "picoware/apps/grocery_lib/search_mixin.mpy",
+            "picoware/apps/grocery_lib/settings_view.mpy",
+            "picoware/apps/grocery_lib/storage.mpy",
+            "picoware/apps/grocery_lib/ui_utils.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "INMP441",
+        "description": "An application for testing the INMP441 microphone",
+        "file_structure": [
+            "picoware/apps/INMP441.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "JB News",
+        "description": "A news reader application",
+        "file_structure": [
+            "picoware/apps/JB-News.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Lathe Calculator",
+        "description": "A lathe calculation application",
+        "file_structure": [
+            "picoware/apps/LatheCalc.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "MicroBrowser",
+        "description": "A lightweight web browser application",
+        "file_structure": [
+            "picoware/apps/MicroBrowser.mpy",
+            "picoware/apps/micro_browser/__init__.py",
+            "picoware/apps/micro_browser/browser_store.mpy",
+            "picoware/apps/micro_browser/config.mpy",
+            "picoware/apps/micro_browser/htmlparser.mpy",
+            "picoware/apps/micro_browser/micro_browser_app.mpy",
+            "picoware/apps/micro_browser/textcodec.mpy",
+            "picoware/apps/micro_browser/urltools.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Observeagotchi",
+        "description": "An Observeagotchi virtual pet application",
+        "file_structure": [
+            "picoware/apps/Observeagotchi.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "OnosoTGW",
+        "description": "The OnosoTGW application",
+        "file_structure": [
+            "picoware/apps/OnosoTGW.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "PiBrowser",
+        "description": "A web browser application",
+        "file_structure": [
+            "picoware/apps/PiBrowser.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "PicoCAD",
+        "description": "A PicoCAD application",
+        "file_structure": [
+            "picoware/apps/PicoCad.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Simple RPN",
+        "description": "A compact reverse Polish notation calculator",
+        "file_structure": [
+            "picoware/apps/SimpleRPN.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Sprite3D Editor",
+        "description": "A 3D sprite editor",
+        "file_structure": [
+            "picoware/apps/Sprite3D Editor.mpy",
+            "picoware/apps/sprite3d_editor/__init__.py",
+            "picoware/apps/sprite3d_editor/assets.mpy",
+            "picoware/apps/sprite3d_editor/booleans.mpy",
+            "picoware/apps/sprite3d_editor/cleanup.mpy",
+            "picoware/apps/sprite3d_editor/colors.mpy",
+            "picoware/apps/sprite3d_editor/creation.mpy",
+            "picoware/apps/sprite3d_editor/csg.mpy",
+            "picoware/apps/sprite3d_editor/decimate.mpy",
+            "picoware/apps/sprite3d_editor/edge_selection.mpy",
+            "picoware/apps/sprite3d_editor/edges.mpy",
+            "picoware/apps/sprite3d_editor/editing.mpy",
+            "picoware/apps/sprite3d_editor/editor.mpy",
+            "picoware/apps/sprite3d_editor/framecache.mpy",
+            "picoware/apps/sprite3d_editor/history.mpy",
+            "picoware/apps/sprite3d_editor/islands.mpy",
+            "picoware/apps/sprite3d_editor/meshcleanup.mpy",
+            "picoware/apps/sprite3d_editor/meshes.mpy",
+            "picoware/apps/sprite3d_editor/normals.mpy",
+            "picoware/apps/sprite3d_editor/overlayjobs.mpy",
+            "picoware/apps/sprite3d_editor/preferences.mpy",
+            "picoware/apps/sprite3d_editor/rendercache.mpy",
+            "picoware/apps/sprite3d_editor/selection.mpy",
+            "picoware/apps/sprite3d_editor/streams.mpy",
+            "picoware/apps/sprite3d_editor/tools.mpy",
+            "picoware/apps/sprite3d_editor/transforms.mpy",
+            "picoware/apps/sprite3d_editor/ui.mpy",
+            "picoware/apps/sprite3d_editor/viewer.mpy",
+            "picoware/apps/sprite3d_editor/viewport.mpy",
+            "picoware/apps/sprite3d_editor/visibility.mpy",
+            "picoware/apps/sprite3d_editor/visibilityjobs.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Telegram",
+        "description": "A Telegram client application",
+        "file_structure": [
+            "picoware/apps/Telegram.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "VibesMP",
+        "description": "A music player application",
+        "file_structure": [
+            "picoware/apps/VibesMP.mpy",
+            "picoware/apps/vibesmp_lib/__init__.py",
+            "picoware/apps/vibesmp_lib/app.mpy",
+            "picoware/apps/vibesmp_lib/id3.mpy",
+            "picoware/apps/vibesmp_lib/loading.mpy",
+            "picoware/apps/vibesmp_lib/metadata_engine.mpy",
+            "picoware/apps/vibesmp_lib/player.mpy",
+            "picoware/apps/vibesmp_lib/resources.mpy",
+            "picoware/apps/vibesmp_lib/settings.mpy",
+            "picoware/apps/vibesmp_lib/ui_player.mpy",
+            "picoware/apps/vibesmp_lib/ui_playlist.mpy",
+            "picoware/apps/vibesmp_lib/ui_utils.mpy",
+            "picoware/apps/vibesmp_lib/utils.mpy",
+            "picoware/apps/vibesmp_lib/vibes_library.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Weather",
+        "description": "A weather application",
+        "file_structure": [
+            "picoware/apps/Weather.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "WebSocket Echo",
+        "description": "A WebSocket echo test application",
+        "file_structure": [
+            "picoware/apps/WebSocket-Echo.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Hello Color",
+        "description": "A simple color display demo",
+        "file_structure": [
+            "picoware/apps/hello_color.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Keyboard Simple",
+        "description": "A simple keyboard input demo",
+        "file_structure": [
+            "picoware/apps/keyboard-simple.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Loading Simple",
+        "description": "A simple loading screen demo",
+        "file_structure": [
+            "picoware/apps/loading-simple.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Menu Simple",
+        "description": "A simple menu demo",
+        "file_structure": [
+            "picoware/apps/menu-simple.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "PSRAM Test",
+        "description": "A PSRAM test application",
+        "file_structure": [
+            "picoware/apps/psram-test.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Random Object",
+        "description": "A random object demo",
+        "file_structure": [
+            "picoware/apps/random-object.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Search Bar Simple",
+        "description": "A simple search bar demo",
+        "file_structure": [
+            "picoware/apps/search-bar-simple.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Storage Simple",
+        "description": "A simple storage demo",
+        "file_structure": [
+            "picoware/apps/storage-simple.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "TextBox Simple",
+        "description": "A simple text box demo",
+        "file_structure": [
+            "picoware/apps/textbox-simple.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Unit Converter",
+        "description": "A unit conversion application",
+        "file_structure": [
+            "picoware/apps/unitconverter.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "WikiReader",
+        "description": "A Wikipedia reader for searching and reading articles",
+        "file_structure": [
+            "picoware/apps/wikireader.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "2048",
+        "description": "A 2048 puzzle game",
+        "file_structure": [
+            "picoware/apps/games/2048.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Breakout",
+        "description": "A Breakout game",
+        "file_structure": [
+            "picoware/apps/games/Breakout.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "City Racing V1",
+        "description": "A city racing game",
+        "file_structure": [
+            "picoware/apps/games/CityRacingV1.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "City V1",
+        "description": "A city simulation game",
+        "file_structure": [
+            "picoware/apps/games/CityV1.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "City V2",
+        "description": "A city simulation game",
+        "file_structure": [
+            "picoware/apps/games/CityV2.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Flappy Bird",
+        "description": "A Flappy Bird game",
+        "file_structure": [
+            "picoware/apps/games/Flappy Bird.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Flip World",
+        "description": "A platform game",
+        "file_structure": [
+            "picoware/apps/games/FlipWorld.mpy",
+            "picoware/apps/games/flip_world/__init__.py",
+            "picoware/apps/games/flip_world/assets.mpy",
+            "picoware/apps/games/flip_world/colorize.mpy",
+            "picoware/apps/games/flip_world/dragon.mpy",
+            "picoware/apps/games/flip_world/dragon_assets.mpy",
+            "picoware/apps/games/flip_world/general.mpy",
+            "picoware/apps/games/flip_world/icons_extra.mpy",
+            "picoware/apps/games/flip_world/maps.mpy",
+            "picoware/apps/games/flip_world/player.mpy",
+            "picoware/apps/games/flip_world/run.mpy",
+            "picoware/apps/games/flip_world/sprite.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Free Roam",
+        "description": "A free-roaming exploration game",
+        "file_structure": [
+            "picoware/apps/games/Free Roam.mpy",
+            "picoware/apps/games/free_roam/__init__.py",
+            "picoware/apps/games/free_roam/dynamic_map.mpy",
+            "picoware/apps/games/free_roam/game.mpy",
+            "picoware/apps/games/free_roam/maps.mpy",
+            "picoware/apps/games/free_roam/password.mpy",
+            "picoware/apps/games/free_roam/player.mpy",
+            "picoware/apps/games/free_roam/settings.mpy",
+            "picoware/apps/games/free_roam/sprite.mpy",
+            "picoware/apps/games/free_roam/username.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Gorillas",
+        "description": "A Gorillas artillery game",
+        "file_structure": [
+            "picoware/apps/games/Gorillas.mpy",
+            "picoware/apps/games/gorillas_game/__init__.py",
+            "picoware/apps/games/gorillas_game/assets.mpy",
+            "picoware/apps/games/gorillas_game/game.mpy",
+            "picoware/apps/games/gorillas_game/sound.mpy",
+            "picoware/apps/games/gorillas_game/sprites.mpy",
+            "picoware/apps/games/gorillas_game/art.bin",
+            "picoware/apps/games/gorillas_game/audio/explosion.bin",
+            "picoware/apps/games/gorillas_game/audio/hit.bin",
+            "picoware/apps/games/gorillas_game/audio/impact.bin",
+            "picoware/apps/games/gorillas_game/audio/lose.bin",
+            "picoware/apps/games/gorillas_game/audio/throw.bin",
+            "picoware/apps/games/gorillas_game/audio/ui.bin",
+            "picoware/apps/games/gorillas_game/audio/win.bin",
+            "picoware/apps/games/gorillas_game/effects-0.bin",
+            "picoware/apps/games/gorillas_game/effects-1.bin",
+            "picoware/apps/games/gorillas_game/effects-2.bin",
+            "picoware/apps/games/gorillas_game/effects-3.bin",
+            "picoware/apps/games/gorillas_game/effects-4.bin",
+            "picoware/apps/games/gorillas_game/effects-5.bin",
+            "picoware/apps/games/gorillas_game/loading-logo-compact.bin",
+            "picoware/apps/games/gorillas_game/loading-logo.bin",
+            "picoware/apps/games/gorillas_game/loading-scene-fall.bin",
+            "picoware/apps/games/gorillas_game/loading-scene-spring.bin",
+            "picoware/apps/games/gorillas_game/loading-scene-summer.bin",
+            "picoware/apps/games/gorillas_game/loading-scene-winter.bin",
+            "picoware/apps/games/gorillas_game/loading-scene.bin",
+            "picoware/apps/games/gorillas_game/music-autumn.bin",
+            "picoware/apps/games/gorillas_game/music-fallback.bin",
+            "picoware/apps/games/gorillas_game/music-spring.bin",
+            "picoware/apps/games/gorillas_game/music-summer.bin",
+            "picoware/apps/games/gorillas_game/music-winter.bin"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Maze Runner",
+        "description": "A maze exploration game",
+        "file_structure": [
+            "picoware/apps/games/Maze Runner.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Minesweeper",
+        "description": "A Minesweeper puzzle game",
+        "file_structure": [
+            "picoware/apps/games/Minesweeper.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "PGE Adventure",
+        "description": "A 3D adventure game",
+        "file_structure": [
+            "picoware/apps/games/PGE Adventure.mpy",
+            "picoware/apps/games/pge_adventure/barren-land.sprite3d",
+            "picoware/apps/games/pge_adventure/beast.sprite3d",
+            "picoware/apps/games/pge_adventure/bird.sprite3d",
+            "picoware/apps/games/pge_adventure/blue-halo.sprite3d",
+            "picoware/apps/games/pge_adventure/classes.json",
+            "picoware/apps/games/pge_adventure/dragon.sprite3d",
+            "picoware/apps/games/pge_adventure/fire-ball.sprite3d",
+            "picoware/apps/games/pge_adventure/fire-blast.sprite3d",
+            "picoware/apps/games/pge_adventure/forestland.sprite3d",
+            "picoware/apps/games/pge_adventure/ghoul.sprite3d",
+            "picoware/apps/games/pge_adventure/goblin.sprite3d",
+            "picoware/apps/games/pge_adventure/grassland.sprite3d",
+            "picoware/apps/games/pge_adventure/green-halo.sprite3d",
+            "picoware/apps/games/pge_adventure/knight.sprite3d",
+            "picoware/apps/games/pge_adventure/lightning.sprite3d",
+            "picoware/apps/games/pge_adventure/mage.sprite3d",
+            "picoware/apps/games/pge_adventure/orb.sprite3d",
+            "picoware/apps/games/pge_adventure/quests.json",
+            "picoware/apps/games/pge_adventure/red-halo.sprite3d",
+            "picoware/apps/games/pge_adventure/soldier.sprite3d",
+            "picoware/apps/games/pge_adventure/wizard.sprite3d"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "PicoCity",
+        "description": "A city-building game",
+        "file_structure": [
+            "picoware/apps/games/PicoCity.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Pico Bomber",
+        "description": "A Bomberman-style game",
+        "file_structure": [
+            "picoware/apps/games/Pico Bomber.mpy",
+            "picoware/apps/games/pico_bomber/__init__.py",
+            "picoware/apps/games/pico_bomber/app.mpy",
+            "picoware/apps/games/pico_bomber/leaderboard.mpy",
+            "picoware/apps/games/pico_bomber/model.mpy",
+            "picoware/apps/games/pico_bomber/render.mpy",
+            "picoware/apps/games/pico_bomber/sound.mpy",
+            "picoware/apps/games/pico_bomber/audio/battle_bounce.wav",
+            "picoware/apps/games/pico_bomber/audio/battle_midnight.wav",
+            "picoware/apps/games/pico_bomber/audio/battle_pursuit.wav",
+            "picoware/apps/games/pico_bomber/audio/battle_theme.wav",
+            "picoware/apps/games/pico_bomber/audio/battle_voltage.wav",
+            "picoware/apps/games/pico_bomber/audio/bomb_place.wav",
+            "picoware/apps/games/pico_bomber/audio/brick.wav",
+            "picoware/apps/games/pico_bomber/audio/chain.wav",
+            "picoware/apps/games/pico_bomber/audio/courier.wav",
+            "picoware/apps/games/pico_bomber/audio/enemy_down.wav",
+            "picoware/apps/games/pico_bomber/audio/explosion.wav",
+            "picoware/apps/games/pico_bomber/audio/extra_life.wav",
+            "picoware/apps/games/pico_bomber/audio/game_over.wav",
+            "picoware/apps/games/pico_bomber/audio/hot_pass.wav",
+            "picoware/apps/games/pico_bomber/audio/menu_theme.wav",
+            "picoware/apps/games/pico_bomber/audio/pickup.wav",
+            "picoware/apps/games/pico_bomber/audio/player_hit.wav",
+            "picoware/apps/games/pico_bomber/audio/shield.wav",
+            "picoware/apps/games/pico_bomber/audio/slime_split.wav",
+            "picoware/apps/games/pico_bomber/audio/stage_clear.wav",
+            "picoware/apps/games/pico_bomber/audio/teleport.wav",
+            "picoware/apps/games/pico_bomber/audio/treasure.wav",
+            "picoware/apps/games/pico_bomber/audio/warning.wav",
+            "picoware/apps/games/pico_bomber/picobomber.jpg",
+            "picoware/apps/games/pico_bomber/picobomber.rgb332"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Pico Hanse",
+        "description": "A Hanseatic trading and strategy game",
+        "file_structure": [
+            "picoware/apps/games/Pico Hanse.mpy",
+            "picoware/apps/games/pico_hanse/__init__.py",
+            "picoware/apps/games/pico_hanse/app.mpy",
+            "picoware/apps/games/pico_hanse/model.mpy",
+            "picoware/apps/games/pico_hanse/persistence.mpy",
+            "picoware/apps/games/pico_hanse/render.mpy",
+            "picoware/apps/games/pico_hanse/sound.mpy",
+            "picoware/apps/games/pico_hanse/audio/bell.wav",
+            "picoware/apps/games/pico_hanse/audio/build.wav",
+            "picoware/apps/games/pico_hanse/audio/coin.wav",
+            "picoware/apps/games/pico_hanse/audio/election.wav",
+            "picoware/apps/games/pico_hanse/audio/guild_theme.wav",
+            "picoware/apps/games/pico_hanse/audio/harbor_autumn.wav",
+            "picoware/apps/games/pico_hanse/audio/harbor_spring.wav",
+            "picoware/apps/games/pico_hanse/audio/harbor_summer.wav",
+            "picoware/apps/games/pico_hanse/audio/harbor_winter.wav",
+            "picoware/apps/games/pico_hanse/audio/menu_theme.wav",
+            "picoware/apps/games/pico_hanse/audio/mission.wav",
+            "picoware/apps/games/pico_hanse/audio/sail.wav",
+            "picoware/apps/games/pico_hanse/audio/sea_theme.wav",
+            "picoware/apps/games/pico_hanse/audio/tavern_theme.wav",
+            "picoware/apps/games/pico_hanse/audio/warning.wav"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Pong",
+        "description": "A Pong game",
+        "file_structure": [
+            "picoware/apps/games/Pong.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Racing V1",
+        "description": "A racing game",
+        "file_structure": [
+            "picoware/apps/games/RacingV1.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Snake",
+        "description": "A Snake game",
+        "file_structure": [
+            "picoware/apps/games/Snake.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Sudoku",
+        "description": "A Sudoku puzzle game",
+        "file_structure": [
+            "picoware/apps/games/Soduko.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Space Invaders",
+        "description": "A Space Invaders game",
+        "file_structure": [
+            "picoware/apps/games/Space Invaders.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Tetris",
+        "description": "A Tetris game",
+        "file_structure": [
+            "picoware/apps/games/Tetris.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Tower Defense",
+        "description": "A tower defense game",
+        "file_structure": [
+            "picoware/apps/games/Tower Defense.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "V2 Elite",
+        "description": "A 3D action game",
+        "file_structure": [
+            "picoware/apps/games/V2-Elite.mpy",
+            "picoware/apps/games/ghouls/assets/ambience.wav",
+            "picoware/apps/games/ghouls/assets/arrow.sprite3d",
+            "picoware/apps/games/ghouls/assets/bullet.sprite3d",
+            "picoware/apps/games/ghouls/assets/bully.sprite3d",
+            "picoware/apps/games/ghouls/assets/creeper.sprite3d",
+            "picoware/apps/games/ghouls/assets/crossbow.sprite3d",
+            "picoware/apps/games/ghouls/assets/crossbow.wav",
+            "picoware/apps/games/ghouls/assets/forest.ghoulsmap",
+            "picoware/apps/games/ghouls/assets/ghouls-growl-loud.wav",
+            "picoware/apps/games/ghouls/assets/ghouls-growl-medium.wav",
+            "picoware/apps/games/ghouls/assets/ghouls-growl-soft.wav",
+            "picoware/apps/games/ghouls/assets/ghouls-growling.wav",
+            "picoware/apps/games/ghouls/assets/graveyard.ghoulsmap",
+            "picoware/apps/games/ghouls/assets/home.ghoulsmap",
+            "picoware/apps/games/ghouls/assets/maze.ghoulsmap",
+            "picoware/apps/games/ghouls/assets/menu-click.wav",
+            "picoware/apps/games/ghouls/assets/punk.sprite3d",
+            "picoware/apps/games/ghouls/assets/rifle.sprite3d",
+            "picoware/apps/games/ghouls/assets/rifle.wav",
+            "picoware/apps/games/ghouls/assets/rocket-launcher.sprite3d",
+            "picoware/apps/games/ghouls/assets/rocket-launcher.wav",
+            "picoware/apps/games/ghouls/assets/rocket.sprite3d",
+            "picoware/apps/games/ghouls/assets/shell.sprite3d",
+            "picoware/apps/games/ghouls/assets/shotgun.sprite3d",
+            "picoware/apps/games/ghouls/assets/shotgun.wav",
+            "picoware/apps/games/ghouls/assets/tron.ghoulsmap",
+            "picoware/apps/games/ghouls/assets/weapon-pickup.wav"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Example Game",
+        "description": "A sample game demonstrating the game app interface",
+        "file_structure": [
+            "picoware/apps/games/example.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Game of Life",
+        "description": "A Conway's Game of Life application",
+        "file_structure": [
+            "picoware/apps/games/game_of_life.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Aurora Borealis",
+        "description": "An Aurora Borealis screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Aurora Borealis.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Bubble Universe",
+        "description": "A Bubble Universe screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Bubble Universe.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Clock Screensaver",
+        "description": "A Clock screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Clock.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Color Tunnel",
+        "description": "A Color Tunnel screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Color Tunnel.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Cube",
+        "description": "A 3D cube screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Cube.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "DVI Bounce",
+        "description": "A DVI logo bounce screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/DVI Bounce.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Fire Effect",
+        "description": "A fire effect screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Fire Effect.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Floating Orbs",
+        "description": "A floating orbs screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Floating Orbs.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Lissajous",
+        "description": "A Lissajous curve screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Lissajous.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Matrix Rain",
+        "description": "A Matrix-style rain screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Matrix Rain.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Nostromo",
+        "description": "A Nostromo screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Nostromo.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Patterns",
+        "description": "A geometric patterns screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Patterns.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "PicoFlower",
+        "description": "A PicoFlower screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/PicoFlower.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Plasma Wave",
+        "description": "A plasma wave screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Plasma Wave.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Starfield",
+        "description": "A starfield screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Starfield.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Yin-Yang",
+        "description": "A Yin-Yang screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Yin-Yang.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Big Buck Bunny",
+        "description": "A Big Buck Bunny media demo",
+        "file_structure": [
+            "picoware/apps/screensavers/big-buck-bunny.mpy"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Spiro",
+        "description": "A spirograph screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/spiro.mpy"
+        ],
+        "version": "1.0"
+    }
+]

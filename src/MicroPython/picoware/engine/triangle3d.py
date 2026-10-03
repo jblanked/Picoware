@@ -17,6 +17,7 @@ class Triangle3D(engine.Triangle3D):
         y3 (float): Third vertex Y coordinate. Defaults to 0.0.
         z3 (float): Third vertex Z coordinate. Defaults to 0.0.
         color (int): Triangle color. Defaults to 0x0000.
+        wireframe (bool): Whether to render a wireframe with the triangle. Defaults to False.
 
     Attributes:
         x1 (float): First vertex X coordinate. Writable.
@@ -28,9 +29,8 @@ class Triangle3D(engine.Triangle3D):
         x3 (float): Third vertex X coordinate. Writable.
         y3 (float): Third vertex Y coordinate. Writable.
         z3 (float): Third vertex Z coordinate. Writable.
-        visible (bool): Whether the triangle is visible. Writable.
-        distance (float): Depth-sorting distance. Writable.
         color (int): Triangle color. Writable.
+        wireframe (bool): Whether to render a wireframe with the triangle. Writable.
 
     Methods:
         - get_center(): Return the triangle center.
@@ -44,9 +44,8 @@ class Triangle3D(engine.Triangle3D):
         - set_x3(x3): Set the third vertex X coordinate.
         - set_y3(y3): Set the third vertex Y coordinate.
         - set_z3(z3): Set the third vertex Z coordinate.
-        - set_visible(visible): Set whether the triangle is visible.
-        - set_distance(distance): Set the depth-sorting distance.
         - set_color(color): Set the triangle color.
+        - set_wireframe(wireframe): Set whether to render a wireframe with the triangle.
         - __del__(): Release the native triangle resources.
     """
 
@@ -75,11 +74,9 @@ class Triangle3D(engine.Triangle3D):
             self.set_y3(value)
         elif name == "z3":
             self.set_z3(value)
-        elif name == "visible":
-            self.set_visible(value)
-        elif name == "distance":
-            self.set_distance(value)
         elif name == "color":
             self.set_color(value)
+        elif name == "wireframe":
+            self.set_wireframe(value)
         else:
             super().__setattr__(name, value)

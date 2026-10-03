@@ -22,7 +22,7 @@ typedef enum
 class Sprite3D
 {
 private:
-    Triangle3D *triangles[ENGINE_MAX_TRIANGLES_PER_SPRITE];
+    Triangle3D *triangles;
     uint16_t triangle_count;
     Vector position;
     float rotation_y;
@@ -30,12 +30,16 @@ private:
     SpriteType type;
     bool active;
 
+    void transformVertex(float x, float y, float z, float cos_a, float sin_a,
+                         float &out_x, float &out_y, float &out_z) const;
+
 public:
     Sprite3D();
     ~Sprite3D();
 
     bool addTriangle(const Triangle3D &triangle);
     bool addTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, uint16_t color = 0x0000, bool wireframe = true);
+    bool bakeTransform();
     void clearTriangles();
     bool createHumanoid(float height = 1.8f, uint16_t color = 0x0000, bool wireframe = true);
     bool createTree(float height = 2.0f, uint16_t color = 0x0000, bool wireframe = true);
@@ -48,6 +52,11 @@ public:
     bool createTriangularPrism(float x, float y, float z, float width, float height, float depth, uint16_t color = 0x0000, bool wireframe = true);
     bool fromPath(const char *path, bool wireframe = true);
     Vector getPosition() const { return position; }
+    bool getTriangle(uint16_t index, Triangle3D &out) const;
+    bool getTriangle(uint16_t index, float &x1, float &y1, float &z1,
+                     float &x2, float &y2, float &z2,
+                     float &x3, float &y3, float &z3, uint16_t &color, bool &wireframe) const;
+    bool getWorldTriangle(uint16_t index, Triangle3D &out) const;
     float getRotation() const { return rotation_y; }
     float getScale() const { return scale_factor; }
     bool getTransformedTriangle(uint16_t index, const Vector &camera_pos, Triangle3D &out) const;
@@ -63,6 +72,9 @@ public:
     void setRotation(float rot) { rotation_y = rot; }
     void setScale(float scale) { scale_factor = scale; }
     void setWireframe(bool wireframe);
-    bool bakeTransform(); // bake rotation/scale into stored triangles
     bool toPath(const char *path) const;
+    bool updateTriangle(uint16_t index, const Triangle3D &triangle);
+    bool updateTriangle(uint16_t index, float x1, float y1, float z1,
+                        float x2, float y2, float z2,
+                        float x3, float y3, float z3, uint16_t color = 0x0000, bool wireframe = true);
 };

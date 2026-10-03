@@ -89,7 +89,7 @@ def run(view_manager) -> None:
             # Try to load the apps
             app_module = _app_loader.load_app(selected_app)
             if app_module is None:
-                view_manager.alert(f'Could not load application "{selected_app}".')
+                view_manager.alert(f'Failed to load: {_app_loader.error}')
                 _applications.draw()
                 return
             # Create a view for the app and switch to it

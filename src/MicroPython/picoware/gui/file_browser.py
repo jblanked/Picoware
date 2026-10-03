@@ -108,7 +108,7 @@ class FileBrowser:
         """
         import json
         from picoware.system.vector import Vector
-        from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER
+        from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM
 
         # Link to system managers
         self._vm = view_manager
@@ -163,7 +163,9 @@ class FileBrowser:
         self._screen_h = draw.size.y
         self._five = max(1, self._screen_h // 64)
 
-        self._add_info = BOARD_ID != BOARD_CARDPUTER
+        self._add_info = BOARD_ID not in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM)
+
+        self._is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
         _start = start_directory if start_directory else "/"
 
@@ -548,7 +550,7 @@ class FileBrowser:
         char_w = max(1, draw.font_size.x)
         color_fg = self._vm.foreground_color
         color_bg = self._vm.background_color
-        color_sel = self._vm.selected_color
+        color_sel = self._vm.selected_color if not self._is_flipper else self._vm.background_color
 
         # 1. Image Viewer Overlay (State Machine for Loading Animation)
         if self._is_viewing_image:
@@ -774,9 +776,14 @@ class FileBrowser:
         mk_len = len(self._app_state["marked"])
         mk_str = f" [Sel:{mk_len}]" if mk_len > 0 else ""
 
-        draw._text(
-            text_pad_x, text_line_y, f"File Browser [Dir:{dm}]{mk_str}", color_fg
-        )
+        if self._add_info:
+            draw._text(
+                text_pad_x, text_line_y, f"File Browser [Dir:{dm}]{mk_str}", color_fg
+            )
+        else:
+            draw._text(
+                text_pad_x, text_line_y, "File Browser", color_fg
+            )
         draw._fill_rectangle(
             mx,
             top_bar_h,
@@ -832,15 +839,15 @@ class FileBrowser:
                         fz = storage.size(fp)
                         self._stat_cache[fp] = (isd, fz)
 
-                if ap == pn:
-                    if ai == ix:
-                        draw._fill_rectangle(
-                            xb + (0 if il else splitter_w),
-                            yo - sy(1),
-                            max(1, pane_w - sx(2)),
-                            max(1, row_h - sy(2)),
-                            color_sel,
-                        )
+                sel = ap == pn and ai == ix
+                if sel:
+                    draw._fill_rectangle(
+                        xb + (0 if il else splitter_w),
+                        yo - sy(1),
+                        max(1, pane_w - sx(2)),
+                        max(1, row_h - sy(2)),
+                        color_fg if self._is_flipper else color_sel,
+                    )
 
                 szs = ""
                 if self._add_info:
@@ -857,30 +864,32 @@ class FileBrowser:
                 dn = f"{mk_char}/{fn}" if isd else f"{mk_char}{fn}"
 
                 pl = max(0, c_lim - len(dn[:n_lim]) - len(szs))
+                tc = color_bg if (self._is_flipper and sel) else color_fg
                 if self._add_info:
                     draw._text(
-                        xb + text_pad_x, yo, dn[:n_lim] + (" " * pl) + szs, color_fg
+                        xb + text_pad_x, yo, dn[:n_lim] + (" " * pl) + szs, tc
                     )
                 else:
                     n_lim = min(c_lim, 14)
-                    draw._text(xb + text_pad_x, yo, dn[:n_lim], color_fg)
+                    draw._text(xb + text_pad_x, yo, dn[:n_lim], tc)
                 yo += row_h
 
         draw._fill_rectangle(0, sh - bottom_bar_h, sw, bottom_bar_h, color_sel)
-        if self._mode == FILE_BROWSER_SELECTOR:
-            draw._text(
-                text_pad_x,
-                sh - bottom_bar_h + text_line_y,
-                "ENT:Sel M:DirMode O:Opt",
-                color_fg,
-            )
-        else:
-            draw._text(
-                text_pad_x,
-                sh - bottom_bar_h + text_line_y,
-                "ENT:Menu SPC:Mark N:New M:DirMode O:Opt H:Help",
-                color_fg,
-            )
+        if self._add_info:
+            if self._mode == FILE_BROWSER_SELECTOR:
+                draw._text(
+                    text_pad_x,
+                    sh - bottom_bar_h + text_line_y,
+                    "ENT:Sel M:DirMode O:Opt",
+                    color_fg,
+                )
+            else:
+                draw._text(
+                    text_pad_x,
+                    sh - bottom_bar_h + text_line_y,
+                    "ENT:Menu SPC:Mark N:New M:DirMode O:Opt H:Help",
+                    color_fg,
+                )
         draw.swap()
         self._needs_redraw = False
 

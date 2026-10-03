@@ -26,6 +26,7 @@ extern "C"
 
     extern const mp_obj_type_t triangle3d_mp_type;
 
+    mp_obj_t triangle3d_mp_init(void *context);
     void triangle3d_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);
     mp_obj_t triangle3d_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args);
     mp_obj_t triangle3d_mp_del(mp_obj_t self_in);
@@ -42,9 +43,8 @@ extern "C"
     mp_obj_t triangle3d_mp_set_x3(mp_obj_t self_in, mp_obj_t x3_obj);
     mp_obj_t triangle3d_mp_set_y3(mp_obj_t self_in, mp_obj_t y3_obj);
     mp_obj_t triangle3d_mp_set_z3(mp_obj_t self_in, mp_obj_t z3_obj);
-    mp_obj_t triangle3d_mp_set_visible(mp_obj_t self_in, mp_obj_t visible_obj);
-    mp_obj_t triangle3d_mp_set_distance(mp_obj_t self_in, mp_obj_t distance_obj);
     mp_obj_t triangle3d_mp_set_color(mp_obj_t self_in, mp_obj_t color_obj);
+    mp_obj_t triangle3d_mp_set_wireframe(mp_obj_t self_in, mp_obj_t wireframe_obj);
 
 #ifdef __cplusplus
 }

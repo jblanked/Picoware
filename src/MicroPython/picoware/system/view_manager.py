@@ -58,7 +58,7 @@ class ViewManager:
         from picoware.system.log import Log, LOG_MODE_ALL, LOG_MODE_REPL
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
         from picoware.system.buttons import BUTTON_ESCAPE
-        from picoware.system.boards import BOARD_CARDPUTER, BOARD_FLIPPER_ZERO
+        from picoware.system.boards import BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM
         from picoware.system.app_loader import AppLoader
 
         self._active = True
@@ -110,7 +110,7 @@ class ViewManager:
 
         # exit button
         _back_button = settings.exit_button
-        if syst.board_id in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO):
+        if syst.board_id in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM):
             _back_button = BUTTON_ESCAPE
 
         # Initialize input manager
@@ -404,6 +404,8 @@ class ViewManager:
             color (int): The selected color value.
         """
         self._selected_color = color
+        if self._keyboard is not None:
+            _ = self._keyboard
         self._keyboard.selected_color = color
 
     @property
@@ -429,6 +431,9 @@ class ViewManager:
     @property
     def uart(self):
         """Return the UART instance."""
+        if self._uart is None:
+            from picoware.system.uart import UART
+            self._uart = UART()
         return self._uart
     
     @property
@@ -656,10 +661,14 @@ class ViewManager:
             BOARD_PICOCALC_PICOW,
             BOARD_PICOCALC_PIMORONI_2W,
             BOARD_HAS_ESP32,
-            BOARD_FLIPPER_ZERO
+            BOARD_FLIPPER_ZERO,
+            BOARD_WAVESHARE_C6_2_06
         )
         if self._current_board_id == BOARD_FLIPPER_ZERO:
             return
+
+        if self._current_board_id == BOARD_WAVESHARE_C6_2_06:
+            return freq(160000000)
 
         if BOARD_HAS_ESP32 == 1:
             return freq(240000000)

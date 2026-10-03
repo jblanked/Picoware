@@ -6,6 +6,7 @@
 #include "py/nlr.h"
 #include "py/qstr.h"
 #include "py/objstr.h"
+#include "py/objtuple.h"
 #include "py/runtime.h"
 
 #define DESKTOP_QSTR(name) qstr_from_strn_static(name, sizeof(name) - 1)
@@ -65,6 +66,44 @@ void desktop_lcd_clear(uint16_t color)
 {
     mp_obj_t arguments[] = {mp_obj_new_int(color)};
     desktop_call_lcd(MP_QSTR__clear, 1, arguments);
+}
+
+static mp_obj_t desktop_polygon_points(uint16_t x[], uint16_t y[], int count)
+{
+    mp_obj_t result = mp_obj_new_tuple(count, NULL);
+    mp_obj_tuple_t *points = MP_OBJ_TO_PTR(result);
+    for (int i = 0; i < count; i++)
+    {
+        mp_obj_t pair[] = {mp_obj_new_int(x[i]), mp_obj_new_int(y[i])};
+        points->items[i] = mp_obj_new_tuple(2, pair);
+    }
+    return result;
+}
+
+void desktop_lcd_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
+{
+    if (count < 2)
+        return;
+    mp_obj_t arguments[] = {desktop_polygon_points(x, y, count), mp_obj_new_int(color)};
+    desktop_call_lcd(DESKTOP_QSTR("_polygon"), 2, arguments);
+}
+
+void desktop_lcd_fill_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
+{
+    if (count < 3)
+        return;
+    mp_obj_t arguments[] = {desktop_polygon_points(x, y, count), mp_obj_new_int(color)};
+    desktop_call_lcd(DESKTOP_QSTR("_fill_polygon"), 2, arguments);
+}
+
+void desktop_lcd_fill_polygon_alpha(uint16_t x[], uint16_t y[], int count,
+                                    uint16_t color, uint8_t alpha)
+{
+    if (count < 3 || alpha == 0)
+        return;
+    mp_obj_t arguments[] = {desktop_polygon_points(x, y, count),
+                            mp_obj_new_int(color), mp_obj_new_int(alpha)};
+    desktop_call_lcd(DESKTOP_QSTR("_fill_polygon_alpha"), 3, arguments);
 }
 
 uint16_t desktop_lcd_width(void)

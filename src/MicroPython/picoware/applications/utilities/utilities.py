@@ -30,6 +30,7 @@ def start(view_manager) -> bool:
             2,
         )
         _utilities.add_item("Email")
+        _utilities.add_item("ESP Flasher")
         _utilities.add_item("File Manager")
         _utilities.add_item("PicoIDE")
         _utilities.add_item("Python REPL")
@@ -86,6 +87,18 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("email")
+        elif _utilities.current_item == "ESP Flasher":
+            from picoware.applications.utilities import espflasher
+
+            view_manager.add(
+                View(
+                    "espflasher",
+                    espflasher.run,
+                    espflasher.start,
+                    espflasher.stop,
+                )
+            )
+            view_manager.switch_to("espflasher")
         elif _utilities.current_item == "File Manager":
             from picoware.applications.utilities import file_manager
 

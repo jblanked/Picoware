@@ -3,6 +3,9 @@
 #include "hardware/clocks.h"
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
+#include "hardware/dma.h"
+#include "hardware/irq.h"
+#include "hardware/structs/pwm.h"
 #include "pico/time.h"
 #include "../log/log_mp.h"
 
@@ -60,26 +63,41 @@ static volatile int mp3_seek_status = 0;
 
 #define AUDIO_STREAM_RING_SIZE 2048 // must be power of 2
 #define AUDIO_STREAM_RING_MASK (AUDIO_STREAM_RING_SIZE - 1)
-#define AUDIO_STREAM_PWM_WRAP 255
-#define STREAM_TIMER_HZ 50000u // base timer rate for WAV/MP3 streaming
-// stream implementation from https://github.com/jeffory/PicOS/blob/09651310b59ae079a8563aea1d230192a03532d7/src/drivers/audio.c#L190
+#define AUDIO_STREAM_PWM_WRAP 1023
+#define AUDIO_STREAM_PWM_LEVELS (AUDIO_STREAM_PWM_WRAP + 1u)
+#define AUDIO_STREAM_PWM_MIDPOINT (AUDIO_STREAM_PWM_LEVELS / 2u)
+#define STREAM_DMA_BLOCK_SIZE 128u
+#define STREAM_FADE_MS 5u
+#define STREAM_GAIN_MAX 32768u
 #if AUDIO_IS_MICROPYTHON
-MP_REGISTER_ROOT_POINTER(uint8_t *audio_stream_ring_left);
-MP_REGISTER_ROOT_POINTER(uint8_t *audio_stream_ring_right);
-#define stream_ring_left MP_STATE_VM(audio_stream_ring_left)
-#define stream_ring_right MP_STATE_VM(audio_stream_ring_right)
+MP_REGISTER_ROOT_POINTER(uint32_t *audio_stream_ring);
+#define stream_ring MP_STATE_VM(audio_stream_ring)
 #else
-static uint8_t *stream_ring_left;
-static uint8_t *stream_ring_right;
+static uint32_t *stream_ring;
 #endif
 static volatile uint32_t stream_ring_write = 0;
 static volatile uint32_t stream_ring_read = 0;
-static repeating_timer_t stream_timer;
 static bool streaming = false;
-static unsigned int stream_pwm_slice_l = 0;
-static unsigned int stream_pwm_slice_r = 0;
-static uint32_t stream_phase_acc = 0;
-static uint32_t stream_phase_step = 0;
+static unsigned int stream_pwm_slice = 0;
+static int stream_dma_channel = -1;
+static int stream_dma_timer = -1;
+static dma_channel_config_t stream_dma_config;
+static bool stream_dma_irq_installed = false;
+static bool stream_dma_active_from_ring = false;
+static bool stream_dma_active_fade = false;
+static bool stream_dma_fade_finishes = false;
+static bool stream_pwm_active = false;
+static uint32_t stream_dma_active_count = 0;
+static volatile bool stream_dma_discard_requested = false;
+static volatile bool stream_stop_requested = false;
+static volatile bool stream_end_requested = false;
+static volatile bool stream_fade_complete = false;
+static uint32_t stream_dma_block_size = STREAM_DMA_BLOCK_SIZE;
+static uint32_t stream_gain_step = 0;
+static uint32_t stream_gain = 0;
+static uint16_t stream_last_left = AUDIO_STREAM_PWM_MIDPOINT;
+static uint16_t stream_last_right = AUDIO_STREAM_PWM_MIDPOINT;
+static uint32_t stream_dma_buffer[STREAM_DMA_BLOCK_SIZE];
 
 // WAV streaming (up to 4 simultaneous files decoded on core 1)
 #define MAX_WAV_STREAMS 4
@@ -183,6 +201,19 @@ static void audio_apply_volume(void)
 // Set frequency with volume-scaled duty cycle via PIO
 static void set_pwm_frequency(uint8_t channel, uint32_t frequency)
 {
+    if (audio_pwm_is_not_silence(frequency))
+    {
+        if (streaming)
+            audio_stop_stream();
+        if (stream_pwm_active)
+        {
+            pwm_set_enabled(stream_pwm_slice, false);
+            pio_gpio_init(pio, AUDIO_LEFT_PIN);
+            pio_gpio_init(pio, AUDIO_RIGHT_PIN);
+            stream_pwm_active = false;
+        }
+    }
+
     pio_sm_set_enabled(pio, channel, false);
     if (audio_pwm_is_not_silence(frequency))
     {
@@ -203,34 +234,187 @@ static void set_pwm_frequency(uint8_t channel, uint32_t frequency)
     is_playing = true;
 }
 
-static bool stream_tick_callback(repeating_timer_t *rt)
+static bool stream_get_dma_rate(uint32_t sample_rate, uint16_t *numerator_out, uint16_t *denominator_out)
 {
-    (void)rt;
-    // advance phase and only consume a sample when it overflows
-    stream_phase_acc += stream_phase_step;
-    if (stream_phase_acc < 0x10000u)
-        return true;
-    stream_phase_acc -= 0x10000u;
+    uint32_t system_clock = clock_get_hz(clk_sys);
+    if (sample_rate == 0 || sample_rate > system_clock)
+        return false;
 
-    if (!stream_ring_left || !stream_ring_right)
+    uint32_t best_numerator = 0;
+    uint32_t best_denominator = 0;
+    uint64_t best_error = UINT64_MAX;
+    for (uint32_t numerator = 1; numerator <= UINT16_MAX; numerator++)
     {
-        pwm_set_gpio_level(AUDIO_LEFT_PIN, 128);
-        pwm_set_gpio_level(AUDIO_RIGHT_PIN, 128);
+        uint64_t denominator = ((uint64_t)numerator * system_clock + sample_rate / 2u) / sample_rate;
+        if (denominator > UINT16_MAX)
+            break;
+        if (denominator < numerator)
+            continue;
+
+        uint64_t generated = (uint64_t)numerator * system_clock;
+        uint64_t target = denominator * sample_rate;
+        uint64_t error = generated > target ? generated - target : target - generated;
+        if (best_numerator == 0 || error * best_denominator < best_error * denominator)
+        {
+            best_numerator = numerator;
+            best_denominator = (uint32_t)denominator;
+            best_error = error;
+        }
+    }
+
+    if (best_numerator == 0)
+        return false;
+
+    *numerator_out = (uint16_t)best_numerator;
+    *denominator_out = (uint16_t)best_denominator;
+    return true;
+}
+
+static uint16_t stream_apply_gain(uint16_t sample, uint32_t gain)
+{
+    int32_t centered = (int32_t)sample - (int32_t)AUDIO_STREAM_PWM_MIDPOINT;
+    int32_t scaled = (centered * (int32_t)gain) / (int32_t)STREAM_GAIN_MAX;
+    return (uint16_t)((int32_t)AUDIO_STREAM_PWM_MIDPOINT + scaled);
+}
+
+static void stream_dma_schedule_next(void)
+{
+    if (!streaming || stream_dma_channel < 0)
+        return;
+
+    uint32_t write = stream_ring_write;
+    uint32_t read = stream_ring_read;
+    uint32_t available = write - read;
+    uint32_t count = stream_dma_block_size;
+    if (available > AUDIO_STREAM_RING_SIZE)
+    {
+        stream_ring_read = write;
+        available = 0;
+    }
+    if (available > 0)
+    {
+        uint32_t index = read & AUDIO_STREAM_RING_MASK;
+        uint32_t contiguous = AUDIO_STREAM_RING_SIZE - index;
+        count = available < stream_dma_block_size ? available : stream_dma_block_size;
+        if (count > contiguous)
+            count = contiguous;
+        stream_dma_active_from_ring = true;
+        stream_dma_active_count = count;
+        stream_dma_active_fade = false;
+        stream_dma_fade_finishes = false;
+        for (uint32_t i = 0; i < count; i++)
+        {
+            uint32_t sample = stream_ring[index + i];
+            stream_last_left = (uint16_t)(sample & 0xffffu);
+            stream_last_right = (uint16_t)(sample >> 16);
+            if (stream_gain < STREAM_GAIN_MAX)
+            {
+                stream_gain += stream_gain_step;
+                if (stream_gain > STREAM_GAIN_MAX)
+                    stream_gain = STREAM_GAIN_MAX;
+            }
+            uint16_t left = stream_apply_gain(stream_last_left, stream_gain);
+            uint16_t right = stream_apply_gain(stream_last_right, stream_gain);
+            stream_dma_buffer[i] = (uint32_t)left | ((uint32_t)right << 16);
+        }
+    }
+    else
+    {
+        stream_dma_active_from_ring = false;
+        stream_dma_active_count = 0;
+        bool fading = stream_end_requested && stream_gain > 0;
+        for (uint32_t i = 0; i < count; i++)
+        {
+            if (stream_end_requested)
+            {
+                if (stream_gain > stream_gain_step)
+                    stream_gain -= stream_gain_step;
+                else
+                    stream_gain = 0;
+            }
+            uint16_t left = stream_apply_gain(stream_last_left, stream_gain);
+            uint16_t right = stream_apply_gain(stream_last_right, stream_gain);
+            stream_dma_buffer[i] = (uint32_t)left | ((uint32_t)right << 16);
+        }
+        stream_dma_active_fade = fading;
+        stream_dma_fade_finishes = fading && stream_gain == 0;
+        if (stream_stop_requested && !fading)
+            stream_fade_complete = true;
+    }
+
+    __dmb();
+    dma_channel_configure((uint)stream_dma_channel,
+                          &stream_dma_config,
+                          &pwm_hw->slice[stream_pwm_slice].cc,
+                          stream_dma_buffer,
+                          count,
+                          true);
+}
+
+static void stream_dma_irq_handler(void)
+{
+    if (stream_dma_channel < 0 ||
+        !dma_channel_get_irq0_status((uint)stream_dma_channel))
+        return;
+
+    dma_channel_acknowledge_irq0((uint)stream_dma_channel);
+    if (!streaming)
+        return;
+
+    if (stream_dma_active_fade && stream_dma_fade_finishes && stream_stop_requested)
+        stream_fade_complete = true;
+
+    if (stream_dma_active_from_ring)
+    {
+        stream_ring_read += stream_dma_active_count;
+        __dmb();
+    }
+    stream_dma_active_from_ring = false;
+    stream_dma_active_fade = false;
+    stream_dma_fade_finishes = false;
+    stream_dma_active_count = 0;
+
+    if (stream_dma_discard_requested)
+    {
+        stream_ring_read = stream_ring_write;
+        stream_gain = 0;
+        stream_last_left = AUDIO_STREAM_PWM_MIDPOINT;
+        stream_last_right = AUDIO_STREAM_PWM_MIDPOINT;
+        __dmb();
+        stream_dma_discard_requested = false;
+    }
+    if (stream_stop_requested)
+    {
+        stream_ring_read = stream_ring_write;
+        __dmb();
+    }
+    stream_dma_schedule_next();
+}
+
+static bool stream_discard_pending_samples(void)
+{
+    if (!streaming)
+    {
+        stream_ring_read = stream_ring_write;
+        stream_gain = 0;
+        stream_last_left = AUDIO_STREAM_PWM_MIDPOINT;
+        stream_last_right = AUDIO_STREAM_PWM_MIDPOINT;
         return true;
     }
-    uint32_t w = stream_ring_write;
-    uint32_t r = stream_ring_read;
-    if (r == w)
+
+    stream_dma_discard_requested = true;
+    __dmb();
+    uint64_t start_time = time_us_64();
+    while (stream_dma_discard_requested)
     {
-        // Underrun — hold at midpoint (silence)
-        pwm_set_gpio_level(AUDIO_LEFT_PIN, 128);
-        pwm_set_gpio_level(AUDIO_RIGHT_PIN, 128);
-        return true;
+        if (time_us_64() - start_time > 100000u)
+        {
+            stream_dma_discard_requested = false;
+            __dmb();
+            return false;
+        }
+        tight_loop_contents();
     }
-    uint32_t idx = r & AUDIO_STREAM_RING_MASK;
-    pwm_set_gpio_level(AUDIO_LEFT_PIN, stream_ring_left[idx]);
-    pwm_set_gpio_level(AUDIO_RIGHT_PIN, stream_ring_right[idx]);
-    stream_ring_read = r + 1;
     return true;
 }
 
@@ -246,15 +430,10 @@ static int64_t tone_stop_callback(alarm_id_t id, void *user_data)
 void audio_deinit(void)
 {
     audio_stop();
-    if (stream_ring_left)
+    if (stream_ring)
     {
-        AUDIO_MEMORY_FREE(stream_ring_left);
-        stream_ring_left = NULL;
-    }
-    if (stream_ring_right)
-    {
-        AUDIO_MEMORY_FREE(stream_ring_right);
-        stream_ring_right = NULL;
+        AUDIO_MEMORY_FREE(stream_ring);
+        stream_ring = NULL;
     }
 #if SD_AVAILABLE
     if (mp3_io_buf_root_ptr)
@@ -285,21 +464,18 @@ bool audio_init(void)
     wav_active_sample_rate = 0;
     mutex_init(&wav_sd_mutex);
 
-    stream_ring_left = (uint8_t *)AUDIO_MEMORY_MALLOC(AUDIO_STREAM_RING_SIZE);
-    stream_ring_right = (uint8_t *)AUDIO_MEMORY_MALLOC(AUDIO_STREAM_RING_SIZE);
+    stream_ring = (uint32_t *)AUDIO_MEMORY_MALLOC(AUDIO_STREAM_RING_SIZE * sizeof(*stream_ring));
 #if SD_AVAILABLE
     mp3_io_buf_root_ptr = (uint8_t *)AUDIO_MEMORY_MALLOC(MINIMP3_IO_SIZE);
 #endif
-    if (!stream_ring_left || !stream_ring_right
+    if (!stream_ring
 #if SD_AVAILABLE
         || !mp3_io_buf_root_ptr
 #endif
     )
     {
-        AUDIO_MEMORY_FREE(stream_ring_left);
-        stream_ring_left = NULL;
-        AUDIO_MEMORY_FREE(stream_ring_right);
-        stream_ring_right = NULL;
+        AUDIO_MEMORY_FREE(stream_ring);
+        stream_ring = NULL;
 #if SD_AVAILABLE
         AUDIO_MEMORY_FREE(mp3_io_buf_root_ptr);
         mp3_io_buf_root_ptr = NULL;
@@ -312,6 +488,7 @@ bool audio_init(void)
     audio_pwm_program_init(pio, LEFT_CHANNEL, offset, AUDIO_LEFT_PIN);
     audio_pwm_program_init(pio, RIGHT_CHANNEL, offset, AUDIO_RIGHT_PIN);
 
+    stream_pwm_active = false;
     audio_initialised = true;
     audio_set_volume(100);
     return true;
@@ -373,8 +550,12 @@ static void audio_mp3_core1_entry(void)
             if (target_byte >= file_size && file_size > 0)
                 target_byte = file_size - 1;
 
-            stream_ring_write = stream_ring_read;
-            stream_phase_acc = 0;
+            if (!stream_discard_pending_samples())
+            {
+                mp3_seek_status = -1;
+                mp3_seek_done_serial = seek_serial;
+                continue;
+            }
 
             int seek_result = mp3dec_ex_seek(&mp3_dec, target_byte);
             if (seek_result == 0)
@@ -403,6 +584,8 @@ static void audio_mp3_core1_entry(void)
                 mp3_seek_done_serial = seek_serial;
             }
             // End of stream or error
+            stream_end_requested = true;
+            __dmb();
             mp3_core1_running = false;
             is_playing = false;
             break;
@@ -539,7 +722,11 @@ bool audio_play_mp3(const char *filename)
     if (sample_rate == 0)
         sample_rate = 44100;
 
-    audio_start_stream(sample_rate);
+    if (!audio_start_stream(sample_rate))
+    {
+        audio_mp3_close();
+        return false;
+    }
 
     mp3_core1_running = true;
     multicore_reset_core1();
@@ -892,6 +1079,8 @@ static void audio_wav_core1_entry(void)
 
         if (!any_active)
         {
+            stream_end_requested = true;
+            __dmb();
             wav_core1_running = false;
             is_playing = false;
             break;
@@ -997,7 +1186,15 @@ bool audio_play_wav(const char *filename)
     {
         // First stream: configure PWM at this file's sample rate
         wav_active_sample_rate = sample_rate;
-        audio_start_stream(sample_rate);
+        if (!audio_start_stream(sample_rate))
+        {
+            wav_streams[slot].active = false;
+            mutex_enter_blocking(&wav_sd_mutex);
+            fat32_close(f);
+            mutex_exit(&wav_sd_mutex);
+            wav_active_sample_rate = 0;
+            return false;
+        }
     }
 
     if (!wav_core1_running)
@@ -1018,7 +1215,7 @@ bool audio_play_wav(const char *filename)
 
 void audio_push_samples(const int16_t *samples, int count)
 {
-    if (!stream_ring_left || !stream_ring_right)
+    if (!stream_ring)
     {
         return;
     }
@@ -1037,9 +1234,11 @@ void audio_push_samples(const int16_t *samples, int count)
         r = (int16_t)(((int32_t)r * (int32_t)audio_volume) / 100);
 
         uint32_t idx = stream_ring_write & AUDIO_STREAM_RING_MASK;
-        // int16_t [-32768,32767] → uint8_t [0,255] for PWM
-        stream_ring_left[idx] = (uint8_t)((l + 32768) >> 8);
-        stream_ring_right[idx] = (uint8_t)((r + 32768) >> 8);
+        // int16_t [-32768,32767] → 10-bit PWM duty cycle
+        uint32_t left = ((((uint32_t)((int32_t)l + 32768)) * AUDIO_STREAM_PWM_LEVELS) >> 16);
+        uint32_t right = ((((uint32_t)((int32_t)r + 32768)) * AUDIO_STREAM_PWM_LEVELS) >> 16);
+        stream_ring[idx] = left | (right << 16);
+        __dmb();
         stream_ring_write++;
     }
 }
@@ -1052,13 +1251,55 @@ void audio_set_volume(uint8_t volume)
     audio_apply_volume();
 }
 
-void audio_start_stream(uint32_t sample_rate)
+bool audio_start_stream(uint32_t sample_rate)
 {
-    if (!stream_ring_left || !stream_ring_right)
-        return;
+    if (!stream_ring)
+    {
+        PRINT("Audio stream buffers are not initialized\n");
+        return false;
+    }
 
     if (streaming)
         audio_stop_stream();
+
+    uint16_t timer_numerator, timer_denominator;
+    if (!stream_get_dma_rate(sample_rate, &timer_numerator, &timer_denominator))
+    {
+        PRINT("Unsupported audio stream sample rate: %lu Hz\n", (unsigned long)sample_rate);
+        return false;
+    }
+
+    unsigned int left_slice = pwm_gpio_to_slice_num(AUDIO_LEFT_PIN);
+    unsigned int right_slice = pwm_gpio_to_slice_num(AUDIO_RIGHT_PIN);
+    if (left_slice != right_slice ||
+        pwm_gpio_to_channel(AUDIO_LEFT_PIN) == pwm_gpio_to_channel(AUDIO_RIGHT_PIN))
+    {
+        PRINT("Audio output pins must use separate channels of the same PWM slice\n");
+        return false;
+    }
+
+    int dma_channel = dma_claim_unused_channel(false);
+    if (dma_channel < 0)
+    {
+        PRINT("Failed to allocate DMA channel for audio streaming\n");
+        return false;
+    }
+    int dma_timer = dma_claim_unused_timer(false);
+    if (dma_timer < 0)
+    {
+        dma_channel_unclaim((uint)dma_channel);
+        PRINT("Failed to allocate DMA timer for audio streaming\n");
+        return false;
+    }
+
+    stream_dma_channel = dma_channel;
+    stream_dma_timer = dma_timer;
+    dma_timer_set_fraction((uint)stream_dma_timer, timer_numerator, timer_denominator);
+    stream_dma_config = dma_channel_get_default_config((uint)stream_dma_channel);
+    channel_config_set_transfer_data_size(&stream_dma_config, DMA_SIZE_32);
+    channel_config_set_read_increment(&stream_dma_config, true);
+    channel_config_set_write_increment(&stream_dma_config, false);
+    channel_config_set_dreq(&stream_dma_config, dma_get_timer_dreq((uint)stream_dma_timer));
 
     // Stop PIO tone output so we can reuse the pins for PWM
     pio_sm_set_enabled(pio, LEFT_CHANNEL, false);
@@ -1069,26 +1310,46 @@ void audio_start_stream(uint32_t sample_rate)
     gpio_set_function(AUDIO_LEFT_PIN, GPIO_FUNC_PWM);
     gpio_set_function(AUDIO_RIGHT_PIN, GPIO_FUNC_PWM);
 
-    stream_pwm_slice_l = pwm_gpio_to_slice_num(AUDIO_LEFT_PIN);
-    stream_pwm_slice_r = pwm_gpio_to_slice_num(AUDIO_RIGHT_PIN);
+    stream_pwm_slice = left_slice;
 
     pwm_config cfg = pwm_get_default_config();
     pwm_config_set_wrap(&cfg, AUDIO_STREAM_PWM_WRAP);
-    pwm_init(stream_pwm_slice_l, &cfg, true);
-    pwm_init(stream_pwm_slice_r, &cfg, true);
+    pwm_init(stream_pwm_slice, &cfg, true);
+    stream_pwm_active = true;
 
-    pwm_set_gpio_level(AUDIO_LEFT_PIN, 128);
-    pwm_set_gpio_level(AUDIO_RIGHT_PIN, 128);
+    pwm_set_gpio_level(AUDIO_LEFT_PIN, AUDIO_STREAM_PWM_MIDPOINT);
+    pwm_set_gpio_level(AUDIO_RIGHT_PIN, AUDIO_STREAM_PWM_MIDPOINT);
 
     stream_ring_read = 0;
     stream_ring_write = 0;
-    // step = sample_rate * 65536 / STREAM_TIMER_HZ
-    stream_phase_step = (uint32_t)(((uint64_t)sample_rate << 16) / STREAM_TIMER_HZ);
-    stream_phase_acc = 0;
-    streaming = true;
+    stream_dma_discard_requested = false;
+    stream_stop_requested = false;
+    stream_end_requested = false;
+    stream_fade_complete = false;
+    stream_dma_active_from_ring = false;
+    stream_dma_active_fade = false;
+    stream_dma_fade_finishes = false;
+    stream_dma_active_count = 0;
+    stream_gain = 0;
+    stream_last_left = AUDIO_STREAM_PWM_MIDPOINT;
+    stream_last_right = AUDIO_STREAM_PWM_MIDPOINT;
+    uint32_t fade_samples = sample_rate / (1000u / STREAM_FADE_MS);
+    if (fade_samples == 0)
+        fade_samples = 1;
+    stream_gain_step = (STREAM_GAIN_MAX + fade_samples - 1) / fade_samples;
+    stream_dma_block_size = fade_samples < STREAM_DMA_BLOCK_SIZE
+                                ? fade_samples
+                                : STREAM_DMA_BLOCK_SIZE;
 
-    // fixed base-rate timer (matches sample rate)
-    add_repeating_timer_us(-(int32_t)(1000000u / STREAM_TIMER_HZ), stream_tick_callback, NULL, &stream_timer);
+    irq_add_shared_handler(DMA_IRQ_0,
+                           stream_dma_irq_handler,
+                           PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY);
+    stream_dma_irq_installed = true;
+    dma_channel_set_irq0_enabled((uint)stream_dma_channel, true);
+    streaming = true;
+    irq_set_enabled(DMA_IRQ_0, true);
+    stream_dma_schedule_next();
+    return true;
 }
 
 // Stop audio output
@@ -1150,15 +1411,52 @@ void audio_stop(void)
 
 void audio_stop_stream(void)
 {
-    if (!streaming)
+    if (!streaming && stream_dma_channel < 0 && stream_dma_timer < 0)
         return;
-    cancel_repeating_timer(&stream_timer);
-    pwm_set_gpio_level(AUDIO_LEFT_PIN, 0);
-    pwm_set_gpio_level(AUDIO_RIGHT_PIN, 0);
-    pwm_set_enabled(stream_pwm_slice_l, false);
-    pwm_set_enabled(stream_pwm_slice_r, false);
-    // Restore pins to PIO function so tone output works after streaming
-    // pio_gpio_init(pio, AUDIO_LEFT_PIN);
-    // pio_gpio_init(pio, AUDIO_RIGHT_PIN);
+
+    if (streaming)
+    {
+        stream_end_requested = true;
+        stream_stop_requested = true;
+        stream_fade_complete = false;
+        __dmb();
+        uint64_t start_time = time_us_64();
+        while (!stream_fade_complete && time_us_64() - start_time < 25000u)
+            tight_loop_contents();
+        if (!stream_fade_complete)
+            PRINT("Audio stream fade-out timed out\n");
+    }
+
     streaming = false;
+    if (stream_dma_channel >= 0)
+    {
+        dma_channel_set_irq0_enabled((uint)stream_dma_channel, false);
+        dma_channel_abort((uint)stream_dma_channel);
+        if (dma_channel_get_irq0_status((uint)stream_dma_channel))
+            dma_channel_acknowledge_irq0((uint)stream_dma_channel);
+        if (stream_dma_irq_installed)
+        {
+            irq_remove_handler(DMA_IRQ_0, stream_dma_irq_handler);
+            stream_dma_irq_installed = false;
+        }
+        dma_channel_cleanup((uint)stream_dma_channel);
+        dma_channel_unclaim((uint)stream_dma_channel);
+        stream_dma_channel = -1;
+    }
+    if (stream_dma_timer >= 0)
+    {
+        dma_timer_unclaim((uint)stream_dma_timer);
+        stream_dma_timer = -1;
+    }
+    stream_dma_active_from_ring = false;
+    stream_dma_active_fade = false;
+    stream_dma_fade_finishes = false;
+    stream_dma_active_count = 0;
+    stream_dma_discard_requested = false;
+    stream_stop_requested = false;
+    stream_end_requested = false;
+    stream_fade_complete = false;
+
+    pwm_set_gpio_level(AUDIO_LEFT_PIN, AUDIO_STREAM_PWM_MIDPOINT);
+    pwm_set_gpio_level(AUDIO_RIGHT_PIN, AUDIO_STREAM_PWM_MIDPOINT);
 }

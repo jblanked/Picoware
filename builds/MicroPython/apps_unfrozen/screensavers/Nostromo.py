@@ -13,6 +13,7 @@ from picoware.system.buttons import BUTTON_NONE
 from picoware.system.boards import (
     BOARD_CROWPANEL_10_1,
     BOARD_FLIPPER_ZERO,
+    BOARD_POOM,
     BOARD_ID,
 )
 
@@ -93,7 +94,7 @@ _FONT_DATA = (
 # red, and blue CRT displays.
 _BLACK = const(0x0000)
 _CRT_BLACK = const(0x0020)
-if BOARD_ID == BOARD_FLIPPER_ZERO:
+if BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM):
     _GREEN_DIM = 0xFFFF
     _GREEN = 0xFFFF
     _GREEN_BRIGHT = 0xFFFF

@@ -95,9 +95,9 @@ def start(view_manager) -> bool:
     global screen_size, maze, player_x, player_y, exit_x, exit_y, cell_size
     global maze_width, maze_height, moves, game_won, offset_x, offset_y
     global pos, size, player_pos, player_size, is_flipper
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     draw = view_manager.draw
     screen_size = draw.size

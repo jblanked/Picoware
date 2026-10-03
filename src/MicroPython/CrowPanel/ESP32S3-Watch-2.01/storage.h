@@ -1,0 +1,18 @@
+#pragma once
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+bool storage_resolve_path(const char *filename, char *path, size_t path_size);
+size_t storage_file_read(const char *filename, void *buffer, size_t buffer_size);
+size_t storage_file_size(const char *filename);
+bool storage_file_write(const char *filename, const void *buffer, size_t buffer_size);
+size_t storage_file_read_chunk(const char *filename, void *buffer, size_t buffer_size, size_t offset);
+uint16_t storage_file_list(const char *pattern, char filenames[][256], uint16_t skip, uint16_t max_count);
+void *storage_file_open(const char *filename);
+void *storage_file_write_open(const char *filename);
+void storage_file_close(void *handle);
+bool storage_file_seek(void *handle, size_t offset);
+size_t storage_file_read_file_chunk(void *handle, void *buffer, size_t buffer_size);
+bool storage_file_write_file_chunk(void *handle, const void *data, size_t size);

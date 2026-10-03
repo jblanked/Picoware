@@ -157,7 +157,7 @@ class Choice:
             self._state = self._lvgl_choice.get_state()
             return
 
-        from picoware_boards import BOARD_ID, BOARD_FLIPPER_ZERO
+        from picoware_boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
 
         font_size = self.display.font_size
 
@@ -221,7 +221,7 @@ class Choice:
                 self.display._text(text_x, text_y, option, text_color)
         else:
             # Draw Title
-            title_font_int = 1 if BOARD_ID == BOARD_FLIPPER_ZERO else 2
+            title_font_int = 1 if BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM) else 2
             _font = self.display.get_font(title_font_int)
             title_width = self.display.len(self.title, title_font_int)
             title_x = self.position.x + (self.size.x // 2) - (title_width // 2)

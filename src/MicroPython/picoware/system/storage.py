@@ -5,8 +5,11 @@ from picoware_boards import (
     BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_69_RP2350,
+    BOARD_WAVESHARE_C6_2_06,
+    BOARD_CROWPANEL_WATCH_2_01,
     BOARD_HAS_ESP32,
     BOARD_FLIPPER_ZERO,
+    BOARD_PICO_DUO,
 )
 
 try:
@@ -58,11 +61,20 @@ class Storage:
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_69_RP2350,
             BOARD_CROWPANEL_10_1,
+            BOARD_PICO_DUO,
+            BOARD_WAVESHARE_C6_2_06,
+            BOARD_CROWPANEL_WATCH_2_01,
         ):
             self._has_storage = False
         else:
-            sd_mp.init()
-            sd_mp.mount()
+            try:
+                sd_mp.init()
+                sd_mp.mount()
+            except Exception as e:
+                # A missing or unreadable card must not abort startup: the rest
+                # of the storage API is already guarded by _has_storage.
+                print(f"SD card unavailable: {e}")
+                self._has_storage = False
 
     def __del__(self):
         """Destructor to ensure SD card is unmounted."""
@@ -82,7 +94,7 @@ class Storage:
     def free_space(self) -> int:
         """Returns the free space on the SD card in bytes."""
         if not self._has_storage:
-            return 0 
+            return 0
         return sd_mp.get_free_space()
 
     @property

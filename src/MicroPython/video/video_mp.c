@@ -5,7 +5,7 @@
 
 #include "py/mperrno.h"
 
-#if defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(FLIPPER_ZERO)
+#if defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(FLIPPER_ZERO) || defined(POOM)
 #define VIDEO_HAS_STORAGE 1
 #define VIDEO_HAS_JPEG 1
 #else
@@ -1212,7 +1212,12 @@ static int video_start_internal(video_mp_obj_t *self)
         self->audio_decoder = audio_state;
         if (movie->audio.sample_rate > 0)
         {
-            audio_start_stream(movie->audio.sample_rate);
+            if (!audio_start_stream(movie->audio.sample_rate))
+            {
+                video_stop_internal(self);
+                self->last_error = VIDEO_ERROR_AUDIO;
+                return VIDEO_ERROR_AUDIO;
+            }
             self->audio_stream_started = true;
         }
     }
@@ -1284,7 +1289,11 @@ static bool video_decode_audio_until(video_mp_obj_t *self, uint64_t target_time)
                     self->last_error = VIDEO_ERROR_AUDIO;
                     return false;
                 }
-                audio_start_stream(sample_rate);
+                if (!audio_start_stream(sample_rate))
+                {
+                    self->last_error = VIDEO_ERROR_AUDIO;
+                    return false;
+                }
                 self->audio_stream_started = true;
             }
             if (frame_info.channels == 1)

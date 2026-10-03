@@ -12,6 +12,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// The FAT cursor is ahead of the caller whenever read-ahead bytes remain.
+static uint32_t vfs_file_position(const vfs_mp_file_obj_t *self)
+{
+    return self->file.position - (self->buffer_len - self->buffer_pos);
+}
+
 // Helper to fill read buffer
 mp_uint_t vfs_file_fill_buffer(vfs_mp_file_obj_t *self, int *errcode)
 {
@@ -19,7 +25,9 @@ mp_uint_t vfs_file_fill_buffer(vfs_mp_file_obj_t *self, int *errcode)
     self->buffer_len = 0;
 
     size_t bytes_read = 0;
-    fat32_error_t err = fat32_read(&self->file, self->read_buffer, VFS_FILE_BUFFER_SIZE, &bytes_read);
+    // Finish the current sector first so subsequent fills stay aligned.
+    size_t amount = VFS_FILE_BUFFER_SIZE - self->file.position % VFS_FILE_BUFFER_SIZE;
+    fat32_error_t err = fat32_read(&self->file, self->read_buffer, amount, &bytes_read);
 
     if (err != FAT32_OK && bytes_read == 0)
     {
@@ -42,11 +50,31 @@ mp_uint_t vfs_file_read_buffered(vfs_mp_file_obj_t *self, void *buf, mp_uint_t s
         // If buffer is empty, refill it
         if (self->buffer_pos >= self->buffer_len)
         {
+            self->buffer_pos = self->buffer_len = 0;
+            size_t remaining = size - total_read;
+            if (remaining >= VFS_FILE_BUFFER_SIZE && self->file.position % VFS_FILE_BUFFER_SIZE == 0)
+            {
+                size_t count = 0;
+                fat32_error_t err = fat32_read(&self->file, dest + total_read,
+                                               remaining - remaining % VFS_FILE_BUFFER_SIZE, &count);
+                total_read += count;
+                if (err != FAT32_OK)
+                {
+                    *errcode = total_read ? 0 : MP_EIO;
+                    return total_read ? total_read : MP_STREAM_ERROR;
+                }
+                if (!count)
+                    break;
+                continue;
+            }
             mp_uint_t result = vfs_file_fill_buffer(self, errcode);
             if (result == MP_STREAM_ERROR)
             {
                 if (total_read > 0)
-                    return total_read; // Return what we have
+                {
+                    *errcode = 0; // Return partial data; retry the failed fill next time.
+                    return total_read;
+                }
                 return MP_STREAM_ERROR;
             }
             if (self->buffer_len == 0)
@@ -109,16 +137,8 @@ mp_uint_t vfs_file_read(mp_obj_t self_in, void *buf, mp_uint_t size, int *errcod
         return MP_STREAM_ERROR;
     }
 
-    size_t bytes_read = 0;
-    fat32_error_t err = fat32_read(&self->file, buf, size, &bytes_read);
-
-    if (err != FAT32_OK && bytes_read == 0)
-    {
-        *errcode = MP_EIO;
-        return MP_STREAM_ERROR;
-    }
-
-    return bytes_read;
+    *errcode = 0;
+    return vfs_file_read_buffered(self, buf, size, errcode);
 }
 
 mp_uint_t vfs_file_write(mp_obj_t self_in, const void *buf, mp_uint_t size, int *errcode)
@@ -137,6 +157,15 @@ mp_uint_t vfs_file_write(mp_obj_t self_in, const void *buf, mp_uint_t size, int 
         return MP_STREAM_ERROR;
     }
 
+    *errcode = 0;
+    uint32_t position = vfs_file_position(self);
+    if (position != self->file.position && fat32_seek(&self->file, position) != FAT32_OK)
+    {
+        *errcode = MP_EIO;
+        return MP_STREAM_ERROR;
+    }
+    self->buffer_pos = self->buffer_len = 0;
+
     size_t bytes_written = 0;
     fat32_error_t err = fat32_write(&self->file, buf, size, &bytes_written);
 
@@ -153,8 +182,17 @@ mp_uint_t vfs_file_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_t arg, int
 {
     vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
+    *errcode = 0;
+    if (!self->is_open && request != MP_STREAM_CLOSE)
+    {
+        *errcode = MP_EBADF;
+        return MP_STREAM_ERROR;
+    }
     switch (request)
     {
+    case MP_STREAM_GET_BUFFER_SIZE:
+        return VFS_FILE_BUFFER_SIZE;
+
     case MP_STREAM_FLUSH:
         // FAT32 writes are synchronous, nothing to flush
         return 0;
@@ -162,7 +200,7 @@ mp_uint_t vfs_file_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_t arg, int
     case MP_STREAM_SEEK:
     {
         struct mp_stream_seek_t *s = (struct mp_stream_seek_t *)(uintptr_t)arg;
-        uint32_t new_pos;
+        int64_t new_pos;
 
         switch (s->whence)
         {
@@ -170,22 +208,28 @@ mp_uint_t vfs_file_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_t arg, int
             new_pos = s->offset;
             break;
         case 1: // SEEK_CUR
-            new_pos = self->file.position + s->offset;
+            new_pos = (int64_t)vfs_file_position(self) + s->offset;
             break;
         case 2: // SEEK_END
-            new_pos = self->file.file_size + s->offset;
+            new_pos = (int64_t)self->file.file_size + s->offset;
             break;
         default:
             *errcode = MP_EINVAL;
             return MP_STREAM_ERROR;
         }
 
-        if (fat32_seek(&self->file, new_pos) != FAT32_OK)
+        if (new_pos < 0 || new_pos > UINT32_MAX)
+        {
+            *errcode = MP_EINVAL;
+            return MP_STREAM_ERROR;
+        }
+        if (fat32_seek(&self->file, (uint32_t)new_pos) != FAT32_OK)
         {
             *errcode = MP_EIO;
             return MP_STREAM_ERROR;
         }
 
+        self->buffer_pos = self->buffer_len = 0;
         s->offset = new_pos;
         return 0;
     }
@@ -218,7 +262,8 @@ mp_obj_t vfs_file_read_method(size_t n_args, const mp_obj_t *args)
     // If size is -1, read entire file from current position
     if (size < 0)
     {
-        size = self->file.file_size - self->file.position;
+        uint32_t position = vfs_file_position(self);
+        size = position < self->file.file_size ? self->file.file_size - position : 0;
     }
 
     if (size == 0)
@@ -299,7 +344,7 @@ mp_obj_t vfs_file_readline(size_t n_args, const mp_obj_t *args)
     while (max_size < 0 || total_read < (mp_uint_t)max_size)
     {
         // Use buffered read for efficiency
-        mp_uint_t bytes_read = vfs_file_read_buffered(self, &c, 1, &errcode);
+        mp_uint_t bytes_read = vfs_file_read(args[0], &c, 1, &errcode);
 
         if (bytes_read == MP_STREAM_ERROR)
         {
@@ -392,10 +437,6 @@ mp_obj_t vfs_file_seek(size_t n_args, const mp_obj_t *args)
         whence = mp_obj_get_int(args[2]);
     }
 
-    // Invalidate read buffer on seek
-    self->buffer_pos = 0;
-    self->buffer_len = 0;
-
     struct mp_stream_seek_t seek_s = {
         .offset = offset,
         .whence = whence,
@@ -417,7 +458,7 @@ mp_obj_t vfs_file_tell(mp_obj_t self_in)
 {
     vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
     file_ensure_open(self);
-    return mp_obj_new_int(self->file.position);
+    return mp_obj_new_int_from_uint(vfs_file_position(self));
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(vfs_file_tell_obj, vfs_file_tell);
 
@@ -1008,11 +1049,29 @@ static const mp_rom_map_elem_t vfs_mp_locals_dict_table[] = {
 };
 static MP_DEFINE_CONST_DICT(vfs_mp_locals_dict, vfs_mp_locals_dict_table);
 
+static mp_import_stat_t vfs_mp_import_stat(void *self_in, const char *path)
+{
+    vfs_mp_obj_t *vfs = self_in;
+    char full_path[FAT32_MAX_PATH_LEN];
+    build_path(vfs, path, full_path, sizeof(full_path));
+    fat32_file_t file;
+    if (fat32_open(&file, full_path) != FAT32_OK)
+        return MP_IMPORT_STAT_NO_EXIST;
+    bool directory = file.attributes & FAT32_ATTR_DIRECTORY;
+    fat32_close(&file);
+    return directory ? MP_IMPORT_STAT_DIR : MP_IMPORT_STAT_FILE;
+}
+
+static const mp_vfs_proto_t vfs_mp_proto = {
+    .import_stat = vfs_mp_import_stat,
+};
+
 MP_DEFINE_CONST_OBJ_TYPE(
     vfs_mp_type,
     MP_QSTR_VfsPicoware,
     MP_TYPE_FLAG_NONE,
     make_new, vfs_mp_make_new,
+    protocol, &vfs_mp_proto,
     locals_dict, &vfs_mp_locals_dict);
 
 // =============================================================================

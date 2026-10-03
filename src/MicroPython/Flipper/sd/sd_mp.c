@@ -568,7 +568,47 @@ static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_list_directory_obj, sd_mp_list_directory)
 
 mp_obj_t sd_mp_read_directory(mp_obj_t dirpath_obj)
 {
-    return sd_mp_list_directory(dirpath_obj);
+    mp_obj_t list = mp_obj_new_list(0, NULL);
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0)
+    {
+        mp_obj_t ilist_args[1] = {sd_path_obj(mp_obj_str_get_str(dirpath_obj))};
+        mp_obj_t iter = mp_vfs_ilistdir(1, ilist_args);
+        if (iter != mp_const_none)
+        {
+            mp_obj_t entry;
+            while ((entry = mp_iternext(iter)) != MP_OBJ_STOP_ITERATION)
+            {
+                mp_obj_t *items;
+                size_t len;
+                mp_obj_tuple_get(entry, &len, &items);
+                if (len >= 4)
+                {
+                    const char *fn = mp_obj_str_get_str(items[0]);
+                    if (!is_dot_entry(fn))
+                    {
+                        mp_int_t mode = mp_obj_get_int(items[1]);
+                        uint32_t size = (uint32_t)mp_obj_get_int(items[3]);
+                        mp_obj_t entry_dict = mp_obj_new_dict(6);
+                        mp_obj_dict_store(entry_dict, MP_OBJ_NEW_QSTR(MP_QSTR_filename), mp_obj_new_str(fn, strlen(fn)));
+                        mp_obj_dict_store(entry_dict, MP_OBJ_NEW_QSTR(MP_QSTR_size), mp_obj_new_int_from_uint(size));
+                        mp_obj_dict_store(entry_dict, MP_OBJ_NEW_QSTR(MP_QSTR_date), mp_obj_new_int(0));
+                        mp_obj_dict_store(entry_dict, MP_OBJ_NEW_QSTR(MP_QSTR_time), mp_obj_new_int(0));
+                        mp_obj_dict_store(entry_dict, MP_OBJ_NEW_QSTR(MP_QSTR_attributes),
+                                          mp_obj_new_int((mode == MP_S_IFDIR) ? FAT32_ATTR_DIRECTORY : FAT32_ATTR_ARCHIVE));
+                        mp_obj_dict_store(entry_dict, MP_OBJ_NEW_QSTR(MP_QSTR_is_directory), mp_obj_new_bool((mode & MP_S_IFDIR) != 0));
+                        mp_obj_list_append(list, entry_dict);
+                    }
+                }
+            }
+        }
+        nlr_pop();
+    }
+    else
+    {
+        nlr_pop();
+    }
+    return list;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_read_directory_obj, sd_mp_read_directory);
 

@@ -22,7 +22,7 @@ Source: https://github.com/jblanked/Picoware
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
 #include "../sd/fat32.h"
 #define SD_AVAILABLE 1
-#elif defined(CARDPUTER) || defined(PANCAKE) || defined(V8)
+#elif defined(CARDPUTER) || defined(PANCAKE) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06)
 /* Cardputer and Pancake use POSIX VFS */
 #include <stdio.h>
 #define SD_AVAILABLE 1
@@ -30,7 +30,7 @@ Source: https://github.com/jblanked/Picoware
 #define SD_AVAILABLE 0
 #endif
 
-#if defined(CARDPUTER) || (MICROPY_PY_LWIP && !defined(NO_QSTR)) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
+#if defined(CARDPUTER) || (MICROPY_PY_LWIP && !defined(NO_QSTR)) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06)
 /* URL / HTTP parsing helpers */
 
 static bool parse_url(const char *url,
@@ -197,7 +197,7 @@ static bool header_contains(const char *headers, size_t hdr_len, const char *nee
 }
 #endif
 
-#if (MICROPY_PY_LWIP && !defined(NO_QSTR)) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
+#if (MICROPY_PY_LWIP && !defined(NO_QSTR)) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06)
 
 static bool header_name_is(const char *name, size_t len, const char *needle)
 {
@@ -1280,7 +1280,7 @@ bool http_file_download(const char *url, const char *destination_path)
 }
 
 /* Cardputer and Pancake BSD sockets + FreeRTOS */
-#elif defined(CARDPUTER) || defined(PANCAKE) || defined(V8)
+#elif defined(CARDPUTER) || defined(PANCAKE) || defined(V8) || defined(POOM)
 
 #include "lwip/sockets.h"
 #include "lwip/netdb.h"
@@ -1372,7 +1372,8 @@ static void http_tls_cleanup(http_state_cardputer_t *st)
     mbedtls_ctr_drbg_free(&st->tls_ctx->ctr_drbg);
     mbedtls_entropy_free(&st->tls_ctx->entropy);
     mbedtls_net_free(&st->tls_ctx->net);
-    m_free(st->tls_ctx);
+    // calloc'd in the HTTP task: must not use m_free here
+    free(st->tls_ctx);
     st->tls_ctx = NULL;
 }
 
@@ -1849,7 +1850,8 @@ static void http_free_state(void)
     }
     m_free(s_state->hostname);
     m_free(s_state->request_buf);
-    m_free(s_state->response_data);
+    // malloc/realloc'd buffer
+    free(s_state->response_data);
     m_free(s_state->destination_path);
     m_free(s_state);
     MP_STATE_PORT(http_state_ptr) = NULL;

@@ -75,25 +75,29 @@ class _City:
     SCENE_ANCHOR_Z = -1000.0
     BACKGROUND_Z = 2000.0
     FIELD_OF_VIEW = 40.0
-    CHUNK_LAG = 4.0
-    WALK_SPEED = 0.35
+    CHUNK_LAG = 12.0
+    MINIMAP_SIZE = 60.0
+    MINIMAP_RANGE = 44.0
+    WALK_SPEED = 0.36
     WALK_TURN = 0.25
     CAR_ACCEL = 0.05
     CAR_BRAKE = 0.085
     CAR_FRICTION = 0.012
-    CAR_STEER = 0.15
+    CAR_STEER = 0.16
     CAR_MAX_SPEED = 1.0
     CAR_MAX_REVERSE = -0.35
     CAR_RADIUS = 0.72
     TRAFFIC_OFFSET = 1.2
     PERSON_COUNT = 6
     RECYCLE_DISTANCE = 56.0
-    TRAFFIC_COUNT = 8
+    TRAFFIC_COUNT = 6
     TRAFFIC_SPEED = 0.45
     TRAFFIC_TURN = 0.6
     TRAFFIC_DECISION = 30
     TRAVEL_SPEED = 0.45
     CAR_COLORS = (0xF800, 0xFD20, 0x001F, 0x07FF, 0xF81F, 0x001F)
+    CAMERA_DISTANCE = 8.2
+    CAMERA_INDOOR_DISTANCE = 2.6
 
     COLOR_BLACK = 0x0000
     COLOR_SKY = 0x5D9F
@@ -178,10 +182,11 @@ class _City:
                 direction=Vector(0, 1),
                 plane=Vector(-0.72, 0),
                 height=2.2,
-                distance=6.2,
+                distance=self.CAMERA_DISTANCE,
                 perspective=CAMERA_THIRD_PERSON,
             ),
         )
+        self.game = game
         self.level = Level("Downtown", self.draw.size, game)
         self.level.set_light_direction(-0.35, 1.0, -0.5)
         self.level.set_shadow_color(0)
@@ -491,7 +496,7 @@ class _City:
         self.traffic_line[index] = line
         self.traffic_dir[index] = direction
         car = self.traffic[index]
-        car.position = Vector(x, z)
+        car.position_set(x, z)
         self.traffic_speed[index] = self.TRAFFIC_SPEED
         car.is_visible = True
 
@@ -565,7 +570,7 @@ class _City:
             z = edge
         self.people_walk[index] = 12.0 + _next_random(17)
         person = self.people[index]
-        person.position = Vector(x, z)
+        person.position_set(x, z)
         person.set_3d_sprite_rotation(
             atan2(self.people_dir_z[index], self.people_dir_x[index]) - pi * 0.5
         )
@@ -573,11 +578,11 @@ class _City:
 
     def _build_background(self):
         """Create the sky and horizon entity."""
-        from picoware.engine.entity import ENTITY_TYPE_ICON, SPRITE_3D_NONE
+        from picoware.engine.entity import ENTITY_TYPE_3D_SPRITE, SPRITE_3D_NONE
 
         background = Entity(
             "Background",
-            ENTITY_TYPE_ICON,
+            ENTITY_TYPE_3D_SPRITE,
             Vector(0, self.BACKGROUND_Z),
             Vector(1, 1),
             None,
@@ -630,6 +635,8 @@ class _City:
 
     def _update_city(self):
         """Refill the city mesh when the player drifts from the anchor."""
+        if not self.player.has_changed_position():
+            return
         position = self.player.position
         offset_x = position.x - self.anchor_x
         offset_z = position.y - self.anchor_z
@@ -916,16 +923,17 @@ class _City:
         next_x = old_x + dx * self.speed
         next_z = old_z + dz * self.speed
         if not self._blocked(next_x, next_z, False) and not self._car_blocked(next_x, next_z, self.TRAFFIC_COUNT):
-            player.position = Vector(next_x, next_z)
+            player.position_set(next_x, next_z)
         else:
             if not self._blocked(next_x, old_z, False) and not self._car_blocked(next_x, old_z, self.TRAFFIC_COUNT):
-                player.position = Vector(next_x, old_z)
+                player.position_set(next_x, old_z)
             elif not self._blocked(old_x, next_z, False) and not self._car_blocked(old_x, next_z, self.TRAFFIC_COUNT):
-                player.position = Vector(old_x, next_z)
+                player.position_set(old_x, next_z)
             self.speed *= 0.25
 
-        player.direction = Vector(dx, dz)
+        player.direction_set(dx, dz)
         player.set_3d_sprite_rotation(atan2(dz, dx) - pi * 0.5)
+        self._update_camera_distance()
 
     def _drive_car(self, player, game):
         """Drive the player car with building collision."""
@@ -963,18 +971,19 @@ class _City:
         next_z = old_z + dz * self.speed
 
         if not self._blocked(next_x, next_z, True) and not self._car_blocked(next_x, next_z, self.TRAFFIC_COUNT):
-            player.position = Vector(next_x, next_z)
+            player.position_set(next_x, next_z)
         else:
             if not self._blocked(next_x, old_z, True) and not self._car_blocked(next_x, old_z, self.TRAFFIC_COUNT):
-                player.position = Vector(next_x, old_z)
+                player.position_set(next_x, old_z)
             elif not self._blocked(old_x, next_z, True) and not self._car_blocked(old_x, next_z, self.TRAFFIC_COUNT):
-                player.position = Vector(old_x, next_z)
+                player.position_set(old_x, next_z)
             self.speed *= 0.25
 
-        player.direction = Vector(dx, dz)
-        player.plane = Vector(-0.72, 0)
+        player.direction_set(dx, dz)
+        player.plane_set(-0.72, 0)
         player.set_3d_sprite_rotation(atan2(dz, dx) - pi * 0.5)
         self._sync_player_car(player)
+        self._update_camera_distance()
 
     def _toggle_car(self, player):
         """Toggle the player between walking and driving."""
@@ -1001,9 +1010,26 @@ class _City:
         dx = cos(self.heading)
         dz = sin(self.heading)
         self.player_car.position = player.position
-        self.player_car.direction = Vector(dx, dz)
-        self.player_car.plane = Vector(-0.72, 0)
+        self.player_car.direction_set(dx, dz)
+        self.player_car.plane_set(-0.72, 0)
         self.player_car.set_3d_sprite_rotation(atan2(dz, dx) - pi * 0.5)
+
+    def _update_camera_distance(self):
+        """Pull the camera closer when the player is inside a building."""
+        if self.game is None:
+            return
+        px = self.player.position.x
+        py = self.player.position.y
+        inside = False
+        for building in self.buildings:
+            if abs(px - building[0]) < building[2]:
+                if abs(py - building[1]) < building[3]:
+                    inside = True
+                    break
+        if inside:
+            self.game.camera.distance = self.CAMERA_INDOOR_DISTANCE
+        else:
+            self.game.camera.distance = self.CAMERA_DISTANCE
 
     def update_traffic(self, car):
         """Drive a traffic car along the street grid."""
@@ -1025,7 +1051,7 @@ class _City:
         next_z = old_z + dz * speed
 
         if not self._blocked(next_x, next_z, True) and not self._car_blocked(next_x, next_z, index):
-            car.position = Vector(next_x, next_z)
+            car.position_set(next_x, next_z)
         else:
             direction = -direction
             self.traffic_dir[index] = direction
@@ -1037,10 +1063,10 @@ class _City:
             dz = sin(heading)
             next_x = old_x + dx * speed
             next_z = old_z + dz * speed
-            car.position = Vector(next_x, next_z)
+            car.position_set(next_x, next_z)
 
-        car.direction = Vector(dx, dz)
-        car.plane = Vector(-0.72, 0)
+        car.direction_set(dx, dz)
+        car.plane_set(-0.72, 0)
         car.set_3d_sprite_rotation(atan2(dz, dx) - pi * 0.5)
 
         player = self.player.position
@@ -1080,7 +1106,7 @@ class _City:
                 atan2(self.people_dir_z[index], self.people_dir_x[index]) - pi * 0.5
             )
         self.people_walk[index] = walk
-        person.position = Vector(x, z)
+        person.position_set(x, z)
         car = self.player.position
         offset_x = x - car.x
         offset_z = z - car.y
@@ -1190,6 +1216,89 @@ class _City:
                 self.message,
                 self.COLOR_LINE,
             )
+        self._draw_minimap(draw)
+
+    def _draw_minimap(self, draw):
+        """Draw the local street and building overview."""
+        width = int(draw.size.x)
+        size = draw.scale_y(self.MINIMAP_SIZE)
+        left = width - size - draw.scale_x(3)
+        top = draw.scale_y(19)
+        car = self.player.position
+        step = size / (self.MINIMAP_RANGE * 2.0)
+        middle_x = left + size * 0.5
+        middle_z = top + size * 0.5
+        thickness = draw.scale_y(2)
+        if thickness < 1:
+            thickness = 1
+        draw._fill_rectangle(left, top, size, size, self.COLOR_BLACK)
+        first = int((car.x - self.MINIMAP_RANGE) // self.ROAD_SPACING)
+        last = int((car.x + self.MINIMAP_RANGE) // self.ROAD_SPACING)
+        for index in range(first, last + 1):
+            line = index * self.ROAD_SPACING
+            if line < -self.WORLD_HALF or line > self.WORLD_HALF:
+                continue
+            offset = int(middle_x + (line - car.x) * step) - thickness // 2
+            draw._fill_rectangle(offset, top, thickness, size, self.COLOR_HORIZON)
+        first = int((car.y - self.MINIMAP_RANGE) // self.ROAD_SPACING)
+        last = int((car.y + self.MINIMAP_RANGE) // self.ROAD_SPACING)
+        for index in range(first, last + 1):
+            line = index * self.ROAD_SPACING
+            if line < -self.WORLD_HALF or line > self.WORLD_HALF:
+                continue
+            offset = int(middle_z + (line - car.y) * step) - thickness // 2
+            draw._fill_rectangle(left, offset, size, thickness, self.COLOR_HORIZON)
+        for building in self.buildings:
+            start_x = middle_x + (building[0] - car.x) * step - building[2] * step
+            end_x = start_x + building[2] * step * 2.0
+            start_z = middle_z + (building[1] - car.y) * step - building[3] * step
+            end_z = start_z + building[3] * step * 2.0
+            if start_x < left:
+                start_x = left
+            if start_z < top:
+                start_z = top
+            if end_x > left + size:
+                end_x = left + size
+            if end_z > top + size:
+                end_z = top + size
+            if end_x - start_x < 1.0 or end_z - start_z < 1.0:
+                continue
+            draw._fill_rectangle(
+                int(start_x),
+                int(start_z),
+                int(end_x - start_x),
+                int(end_z - start_z),
+                self.COLOR_SIDEWALK,
+            )
+        draw._rectangle(left, top, size, size, self.COLOR_HORIZON)
+        dot = draw.scale_y(3)
+        if dot < 2:
+            dot = 2
+        tip = dot + draw.scale_y(3)
+        draw._fill_rectangle(
+            int(middle_x + cos(self.heading) * tip) - 1,
+            int(middle_z + sin(self.heading) * tip) - 1,
+            2,
+            2,
+            self.COLOR_LINE,
+        )
+        draw._fill_rectangle(
+            int(middle_x) - dot // 2,
+            int(middle_z) - dot // 2,
+            dot,
+            dot,
+            self.COLOR_PLAYER,
+        )
+        draw._text(
+            left,
+            top + size + draw.scale_y(2),
+            "%d,%d"
+            % (
+                int(car.x // self.ROAD_SPACING),
+                int(car.y // self.ROAD_SPACING),
+            ),
+            self.COLOR_LINE,
+        )
 
     def run(self):
         """Refill the local city and run one engine frame."""
@@ -1202,6 +1311,7 @@ class _City:
         if self.engine is not None:
             self.engine.stop()
             self.engine = None
+        self.game = None
         self.meshes = []
         self.city_mesh = None
         self.buildings = []
@@ -1230,13 +1340,8 @@ def run(view_manager) -> None:
     """Run one Pico City frame."""
     from picoware.system.buttons import BUTTON_BACK
 
-    if _city is None:
-        view_manager.back()
-        return
-
-    button = view_manager.input_manager.button
-    if button == BUTTON_BACK:
-        view_manager.input_manager.reset()
+    button = view_manager.button
+    if _city is None or button == BUTTON_BACK:
         view_manager.back()
         return
 
@@ -1251,5 +1356,6 @@ def stop(_view_manager) -> None:
 
     if _city is not None:
         _city.stop()
+        del _city
         _city = None
     collect()

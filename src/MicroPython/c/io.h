@@ -5,13 +5,14 @@
 #include <stdbool.h>
 
 #include "storage.h"
-#ifdef C_STORAGE_ENABLED
+#if defined(C_STORAGE_ENABLED) && !defined(CROWPANEL_WATCH_2_01)
 typedef fat32_file_t lfs_file_t;
 typedef fat32_file_t lfs_dir_t;
+#define C_IO_FILENAME_MAX FAT32_MAX_FILENAME_LEN
 #else
 typedef void *lfs_file_t;
 typedef void *lfs_dir_t;
-#define FAT32_MAX_FILENAME_LEN 255
+#define C_IO_FILENAME_MAX 255
 #endif
 typedef int32_t lfs_soff_t;
 typedef int32_t lfs_ssize_t;
@@ -20,7 +21,7 @@ struct lfs_info
 {
     uint8_t type;
     uint32_t size;
-    char name[FAT32_MAX_FILENAME_LEN + 1];
+    char name[C_IO_FILENAME_MAX + 1];
 };
 
 #define LFS_ERR_OK 0

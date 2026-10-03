@@ -57,6 +57,7 @@ Minus sign is the Select key
     global gb, _file_browser, _state
 
     _state = STATE_BROWSER
+    _ = view_manager.audio
     gb = GameBoy()
 
     _file_browser = FileBrowser(view_manager, allowed_extensions=["gb", "gbc"])

@@ -3,15 +3,19 @@
 from picoware.system.boards import (
     BOARD_CARDPUTER,
     BOARD_CROWPANEL_10_1,
+    BOARD_CROWPANEL_WATCH_2_01,
     BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_43_RP2350,
     BOARD_WAVESHARE_1_69_RP2350,
     BOARD_WAVESHARE_3_49_RP2350,
     BOARD_WAVESHARE_2_06,
+    BOARD_WAVESHARE_C6_2_06,
     BOARD_PANCAKE,
     BOARD_V8,
-    BOARD_FLIPPER_ZERO
+    BOARD_FLIPPER_ZERO,
+    BOARD_PICO_DUO,
+    BOARD_POOM
 )
 
 
@@ -23,8 +27,12 @@ class Battery:
             from flipper_battery import init 
 
             init()
-        elif BOARD_ID == BOARD_WAVESHARE_2_06:
+        elif BOARD_ID in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
             from cardputer_battery import init
+
+            init()
+        elif BOARD_ID == BOARD_CROWPANEL_WATCH_2_01:
+            from crowpanel_watch_battery import init
 
             init()
 
@@ -32,6 +40,10 @@ class Battery:
         """Destructor to clean up resources."""
         if BOARD_ID == BOARD_FLIPPER_ZERO:
             from flipper_battery import deinit 
+            deinit()
+        elif BOARD_ID == BOARD_CROWPANEL_WATCH_2_01:
+            from crowpanel_watch_battery import deinit
+
             deinit()
 
     @property
@@ -44,11 +56,13 @@ class Battery:
             BOARD_WAVESHARE_3_49_RP2350,
             BOARD_CARDPUTER,
             BOARD_WAVESHARE_2_06,
+            BOARD_WAVESHARE_C6_2_06,
+            BOARD_CROWPANEL_WATCH_2_01,
             BOARD_PANCAKE,
             BOARD_V8,
             BOARD_FLIPPER_ZERO
         )
-
+    
     @property
     def percentage(self) -> int:
         """Returns the current battery level as a percentage (0-100)."""
@@ -62,14 +76,20 @@ class Battery:
 
             return get_percentage()
 
-        if BOARD_ID == BOARD_CROWPANEL_10_1:
+        if BOARD_ID in (BOARD_CROWPANEL_10_1, BOARD_PICO_DUO, BOARD_POOM):
             return 100
 
         if BOARD_ID in (
             BOARD_CARDPUTER,
             BOARD_WAVESHARE_2_06,
+            BOARD_WAVESHARE_C6_2_06,
         ):
             from cardputer_battery import get_percentage
+
+            return get_percentage()
+
+        if BOARD_ID == BOARD_CROWPANEL_WATCH_2_01:
+            from crowpanel_watch_battery import get_percentage
 
             return get_percentage()
 
@@ -108,10 +128,16 @@ class Battery:
         if BOARD_ID in (
             BOARD_CARDPUTER,
             BOARD_WAVESHARE_2_06,
+            BOARD_WAVESHARE_C6_2_06,
         ):
             from cardputer_battery import get_voltage
 
             return get_voltage()
+
+        if BOARD_ID == BOARD_CROWPANEL_WATCH_2_01:
+            from crowpanel_watch_battery import get_voltage
+
+            return get_voltage() * 1000
 
         if BOARD_ID == BOARD_PANCAKE:
             from pancake_battery import get_voltage

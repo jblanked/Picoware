@@ -26,8 +26,4 @@ if(_picoware_idf_path)
     )
 endif()
 
-target_compile_definitions(usermod_touch INTERFACE
-  WAVESHARE_2_06
-)
-
 target_link_libraries(usermod INTERFACE usermod_touch)

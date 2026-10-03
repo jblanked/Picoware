@@ -5,6 +5,9 @@
 #include "driver/spi_master.h"
 #include "esp_err.h"
 #include "esp_check.h"
+#if defined(CONFIG_SPIRAM) && CONFIG_SPIRAM
+#include "esp_heap_caps.h"
+#endif
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_vendor.h"
@@ -15,10 +18,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(CROWPANEL_WATCH_2_01)
+#include "gc9309.h"
+#else
 #include "esp_lcd_sh8601.h"
+#endif
 
 static const char *TAG = "display";
 
+#if !defined(CROWPANEL_WATCH_2_01)
 static const sh8601_lcd_init_cmd_t lcd_init_cmds[] = {
     {0x11, (uint8_t[]){0x00}, 0, 120},
     {0xC4, (uint8_t[]){0x80}, 1, 0},
@@ -32,23 +40,38 @@ static const sh8601_lcd_init_cmd_t lcd_init_cmds[] = {
     {0x29, (uint8_t[]){0x00}, 0, 10},
     {0x51, (uint8_t[]){0xFF}, 1, 0},
 };
+#endif
 
+#if !defined(CROWPANEL_WATCH_2_01)
 static esp_lcd_panel_io_handle_t s_panel_io;
 static esp_lcd_panel_handle_t s_panel;
 static bool s_spi_bus_owned;
+#endif
 static const FontTable *s_current_font = &Font16;
+#if defined(CONFIG_SPIRAM) && CONFIG_SPIRAM
+static uint8_t *s_framebuffer;
+static uint16_t *s_swap_buffer;
+#else
 static uint8_t s_framebuffer[LCD_WIDTH * LCD_HEIGHT];
+#endif
 static uint16_t s_palette[256];
 
-#define LCD_SWAP_LINES 2U
 static const uint8_t LCD_TEXT_SPACING = 1;
 static const uint8_t LCD_LINE_SPACING = 2;
+#if !defined(CONFIG_SPIRAM) || !CONFIG_SPIRAM
+#define LCD_SWAP_LINES 2U
 static uint16_t s_swap_buffer[LCD_WIDTH * LCD_SWAP_LINES];
+#else
+#define LCD_SWAP_LINES 16U
+#endif
 
 static esp_err_t display_init(void);
 static esp_err_t lcd_swap_internal(void);
+static esp_err_t lcd_alloc_framebuffer(void);
 static void lcd_init_palette(void);
+#if !defined(CROWPANEL_WATCH_2_01)
 static esp_err_t lcd_wait_for_color_tx_done(void);
+#endif
 
 static uint8_t lcd_color565_to_332(uint16_t color)
 {
@@ -77,10 +100,12 @@ static void lcd_init_palette(void)
     }
 }
 
+#if !defined(CROWPANEL_WATCH_2_01)
 static esp_err_t lcd_wait_for_color_tx_done(void)
 {
     return esp_lcd_panel_io_tx_param(s_panel_io, -1, NULL, 0);
 }
+#endif
 
 static const FontTable *lcd_font_from_size(FontSize size)
 {
@@ -158,6 +183,9 @@ static int32_t lcd_edge_function(int32_t ax, int32_t ay, int32_t bx, int32_t by,
 
 static esp_err_t display_setup_panel(void)
 {
+#if defined(CROWPANEL_WATCH_2_01)
+    return gc9309_init();
+#else
     const spi_bus_config_t bus_cfg = SH8601_PANEL_BUS_QSPI_CONFIG(WATCH_LCD_SCLK_GPIO,
                                                                   WATCH_LCD_DATA0_GPIO,
                                                                   WATCH_LCD_DATA1_GPIO,
@@ -202,11 +230,16 @@ static esp_err_t display_setup_panel(void)
     ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(s_panel, true), TAG,
                         "failed to enable panel");
     return ESP_OK;
+#endif
 }
 
 static esp_err_t lcd_swap_internal(void)
 {
+#if defined(CROWPANEL_WATCH_2_01)
+    if (!gc9309_is_initialized())
+#else
     if (s_panel == NULL)
+#endif
     {
         return ESP_ERR_INVALID_STATE;
     }
@@ -229,31 +262,79 @@ static esp_err_t lcd_swap_internal(void)
             }
         }
 
-        esp_err_t err = esp_lcd_panel_draw_bitmap(s_panel, 0, y, LCD_WIDTH, y + chunk_height,
-                                                  s_swap_buffer);
+        esp_err_t err;
+#if defined(CROWPANEL_WATCH_2_01)
+        err = gc9309_draw_bitmap(0, y, LCD_WIDTH, chunk_height, s_swap_buffer);
+#else
+        err = esp_lcd_panel_draw_bitmap(s_panel, 0, y, LCD_WIDTH, y + chunk_height,
+                                        s_swap_buffer);
+#endif
         if (err != ESP_OK)
         {
             return err;
         }
 
+#if !defined(CROWPANEL_WATCH_2_01)
         err = lcd_wait_for_color_tx_done();
         if (err != ESP_OK)
         {
             return err;
         }
+#endif
     }
 
     return ESP_OK;
 }
 
+static esp_err_t lcd_alloc_framebuffer(void)
+{
+#if defined(CONFIG_SPIRAM) && CONFIG_SPIRAM
+    if (s_framebuffer == NULL)
+    {
+        s_framebuffer = heap_caps_malloc((size_t)LCD_WIDTH * LCD_HEIGHT, MALLOC_CAP_SPIRAM);
+        if (s_framebuffer == NULL)
+        {
+            ESP_LOGE(TAG, "failed to allocate %u byte framebuffer in PSRAM",
+                     (unsigned)(LCD_WIDTH * LCD_HEIGHT));
+            return ESP_ERR_NO_MEM;
+        }
+    }
+
+    if (s_swap_buffer == NULL)
+    {
+        s_swap_buffer = heap_caps_malloc(
+            (size_t)LCD_WIDTH * LCD_SWAP_LINES * sizeof(*s_swap_buffer), MALLOC_CAP_SPIRAM);
+        if (s_swap_buffer == NULL)
+        {
+            ESP_LOGE(TAG, "failed to allocate %u byte swap buffer in PSRAM",
+                     (unsigned)(LCD_WIDTH * LCD_SWAP_LINES * sizeof(*s_swap_buffer)));
+            heap_caps_free(s_framebuffer);
+            s_framebuffer = NULL;
+            return ESP_ERR_NO_MEM;
+        }
+    }
+#endif
+    return ESP_OK;
+}
+
 static esp_err_t display_init(void)
 {
+#if defined(CROWPANEL_WATCH_2_01)
+    if (gc9309_is_initialized())
+#else
     if (s_panel != NULL)
+#endif
     {
         return ESP_OK;
     }
 
-    esp_err_t err = display_setup_panel();
+    esp_err_t err = lcd_alloc_framebuffer();
+    if (err != ESP_OK)
+    {
+        return err;
+    }
+
+    err = display_setup_panel();
     if (err != ESP_OK)
     {
         lcd_deinit();
@@ -286,6 +367,9 @@ bool lcd_init(void)
 
 void lcd_deinit(void)
 {
+#if defined(CROWPANEL_WATCH_2_01)
+    gc9309_deinit();
+#else
     if (s_panel != NULL)
     {
         esp_lcd_panel_disp_on_off(s_panel, false);
@@ -298,16 +382,35 @@ void lcd_deinit(void)
         esp_lcd_panel_io_del(s_panel_io);
         s_panel_io = NULL;
     }
+#endif
 
+#if !defined(CROWPANEL_WATCH_2_01)
     if (s_spi_bus_owned)
     {
         spi_bus_free(WATCH_LCD_HOST);
         s_spi_bus_owned = false;
     }
+#endif
+
+#if defined(CONFIG_SPIRAM) && CONFIG_SPIRAM
+    if (s_framebuffer != NULL)
+    {
+        heap_caps_free(s_framebuffer);
+        s_framebuffer = NULL;
+    }
+    if (s_swap_buffer != NULL)
+    {
+        heap_caps_free(s_swap_buffer);
+        s_swap_buffer = NULL;
+    }
+#endif
 }
 
 bool lcd_set_backlight(uint32_t brightness)
 {
+#if defined(CROWPANEL_WATCH_2_01)
+    return gc9309_set_backlight(brightness);
+#else
     if (s_panel == NULL)
     {
         ESP_LOGE(TAG, "Panel handle is not initialized");
@@ -328,6 +431,7 @@ bool lcd_set_backlight(uint32_t brightness)
     esp_lcd_panel_io_tx_param(s_panel_io, lcd_cmd, &param, 1);
 
     return true;
+#endif
 }
 
 void lcd_swap(void)

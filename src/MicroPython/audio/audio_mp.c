@@ -32,6 +32,8 @@ mp_obj_t audio_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw
 mp_obj_t audio_mp_del(mp_obj_t self_in)
 {
     audio_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self || !self->initialized)
+        return mp_const_none;
     self->initialized = false;
     audio_stop_stream();
     audio_stop();
@@ -381,7 +383,8 @@ mp_obj_t audio_note_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t
 mp_obj_t audio_note_mp_del(mp_obj_t self_in)
 {
     audio_note_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    memset(&self->note, 0, sizeof(self->note));
+    if (self)
+        memset(&self->note, 0, sizeof(self->note));
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(audio_note_mp_del_obj, audio_note_mp_del);
@@ -435,7 +438,8 @@ void audio_note_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 mp_obj_t audio_note_mp_set_left_frequency(mp_obj_t self_in, mp_obj_t value)
 {
     audio_note_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    self->note.left_frequency = (uint16_t)mp_obj_get_int(value);
+    if (self)
+        self->note.left_frequency = (uint16_t)mp_obj_get_int(value);
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(audio_note_mp_set_left_frequency_obj, audio_note_mp_set_left_frequency);
@@ -443,7 +447,8 @@ static MP_DEFINE_CONST_FUN_OBJ_2(audio_note_mp_set_left_frequency_obj, audio_not
 mp_obj_t audio_note_mp_set_right_frequency(mp_obj_t self_in, mp_obj_t value)
 {
     audio_note_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    self->note.right_frequency = (uint16_t)mp_obj_get_int(value);
+    if (self)
+        self->note.right_frequency = (uint16_t)mp_obj_get_int(value);
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(audio_note_mp_set_right_frequency_obj, audio_note_mp_set_right_frequency);
@@ -451,7 +456,8 @@ static MP_DEFINE_CONST_FUN_OBJ_2(audio_note_mp_set_right_frequency_obj, audio_no
 mp_obj_t audio_note_mp_set_duration_ms(mp_obj_t self_in, mp_obj_t value)
 {
     audio_note_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    self->note.duration_ms = (uint32_t)mp_obj_get_int(value);
+    if (self)
+        self->note.duration_ms = (uint32_t)mp_obj_get_int(value);
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(audio_note_mp_set_duration_ms_obj, audio_note_mp_set_duration_ms);
@@ -520,6 +526,8 @@ mp_obj_t audio_song_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t
 mp_obj_t audio_song_mp_del(mp_obj_t self_in)
 {
     audio_song_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self)
+        return mp_const_none;
     if (self->song.name)
     {
         m_free((void *)self->song.name);

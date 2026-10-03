@@ -360,6 +360,8 @@ def _ticks_ms():
 
 
 class UART:
+    IRQ_RXIDLE = 1
+
     _endpoints = {}
 
     def __init__(self, *args, **kwargs):
@@ -368,6 +370,8 @@ class UART:
         self._buffer = bytearray()
         self._tx = bytearray()
         self._handler = None
+        self._irq_trigger = self.IRQ_RXIDLE
+        self._irq_hard = False
         self._initialized = True
         self._baudrate = kwargs.get("baudrate", kwargs.get("baud_rate", 115200))
         self._flipper_http = None
@@ -389,6 +393,7 @@ class UART:
 
     def deinit(self):
         self._initialized = False
+        self._handler = None
         return None
 
     def any(self):
@@ -401,7 +406,7 @@ class UART:
                 # The upstream scan client reads the status separately, then
                 # consumes the JSON payload and end marker in a second chunk.
                 n = len(b"[GET/SUCCESS]\n")
-        data = self._buffer[:n]
+        data = bytes(self._buffer[:n])
         self._buffer = self._buffer[n:]
         return data
 
@@ -436,8 +441,10 @@ class UART:
     def txdone(self):
         return True
 
-    def irq(self, handler=None, trigger=None):
+    def irq(self, handler=None, trigger=None, hard=False):
         self._handler = handler
+        self._irq_trigger = self.IRQ_RXIDLE if trigger is None else trigger
+        self._irq_hard = bool(hard)
         return None
 
     def inject_rx(self, data):
@@ -445,7 +452,7 @@ class UART:
             data = data.encode()
         self._buffer.extend(data)
         _append_log("uart_{}_rx.log".format(self.name), data)
-        if self._handler:
+        if self._initialized and self._handler and self._irq_trigger & self.IRQ_RXIDLE:
             self._handler(self)
         return len(data)
 

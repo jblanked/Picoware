@@ -27,7 +27,7 @@ class List:
             border_width (int): The border width. Defaults to 2.
         """
         from picoware.system.system import System
-        from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+        from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
         from picoware.system.vector import Vector
 
         syst = System()
@@ -100,7 +100,7 @@ class List:
             self.box_height = int(self.size.y // draw.font_size.y)
             self.box_x = int((self.size_x - self.box_width) // 2)
             self.dot_size = Vector(self._five.x * 2, self._five.y * 2)
-            self._draw_count = BOARD_ID != BOARD_FLIPPER_ZERO
+            self._draw_count = BOARD_ID not in (BOARD_FLIPPER_ZERO, BOARD_POOM)
         else:
             # For LVGL mode, we still need to track items in Python
             self.items = []

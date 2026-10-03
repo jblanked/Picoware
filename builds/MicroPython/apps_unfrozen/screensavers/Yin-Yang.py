@@ -209,9 +209,9 @@ def start(view_manager) -> bool:
     """Start the app"""
     global _yin_yang_data, _ball_black, _ball_white, _speed, _adder, is_flipper
     global FIELD_WIDTH, FIELD_HEIGHT, FIELD_CELL_SIZE_X, FIELD_CELL_SIZE_Y, BALL_RADIUS
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     d = view_manager.draw
 

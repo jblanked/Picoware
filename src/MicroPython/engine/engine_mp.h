@@ -8,7 +8,7 @@ Source: https://github.com/jblanked/Picoware
 
 #if defined(PICOCALC)
 #include "../../vector/vector_mp.h"
-#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM)
 #include "../vector/vector_mp.h"
 #else
 #include "../../../vector/vector_mp.h"
@@ -44,6 +44,7 @@ extern "C"
 
     mp_obj_t engine_mp_run(mp_obj_t self_in);
     mp_obj_t engine_mp_run_async(size_t n_args, const mp_obj_t *args);
+    mp_obj_t engine_mp_set_clamp(mp_obj_t self_in, mp_obj_t clamp);
     mp_obj_t engine_mp_stop(mp_obj_t self_in);
     mp_obj_t engine_mp_update_game_input(mp_obj_t self_in, mp_obj_t input);
 

@@ -317,6 +317,7 @@ static fat32_error_t get_next_free_cluster(uint32_t *cluster)
                 if (value == FAT32_FAT_ENTRY_FREE)
                 {
                     *cluster = c;
+                    fsinfo.next_free = c + 1;
                     return FAT32_OK;
                 }
             }

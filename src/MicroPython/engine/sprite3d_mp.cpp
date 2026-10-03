@@ -6,11 +6,11 @@ static inline Sprite3D *sprite3d_get_context(sprite3d_mp_obj_t *self)
     return static_cast<Sprite3D *>(self->context);
 }
 
-mp_obj_t sprite3d_mp_init(void)
+mp_obj_t sprite3d_mp_init(void *context)
 {
     sprite3d_mp_obj_t *sprite3d = mp_obj_malloc_with_finaliser(sprite3d_mp_obj_t, &sprite3d_mp_type);
     sprite3d->base.type = &sprite3d_mp_type;
-    sprite3d->context = new Sprite3D();
+    sprite3d->context = context ? context : new Sprite3D();
     sprite3d->freed = false;
     Sprite3D *ctx = sprite3d_get_context(sprite3d);
     Vector pos = ctx->getPosition();
@@ -49,7 +49,7 @@ void sprite3d_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_
 mp_obj_t sprite3d_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
     mp_arg_check_num(n_args, n_kw, 0, 0, false);
-    return sprite3d_mp_init();
+    return sprite3d_mp_init(nullptr);
 }
 
 mp_obj_t sprite3d_mp_del(mp_obj_t self_in)
@@ -156,6 +156,40 @@ mp_obj_t sprite3d_mp_add_triangle(size_t n_args, const mp_obj_t *args)
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_add_triangle_obj, 10, 12, sprite3d_mp_add_triangle);
+
+mp_obj_t sprite3d_mp_get_triangle(mp_obj_t self_in, mp_obj_t index_obj)
+{
+    sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Sprite3D *ctx = sprite3d_get_context(self);
+    Triangle3D *triangle = new Triangle3D();
+    if (!triangle)
+        mp_raise_ValueError(MP_ERROR_TEXT("failed to allocate triangle"));
+    mp_int_t index = mp_obj_get_int(index_obj);
+    if (index < 0 || index >= ctx->getTriangleCount() || !ctx->getTriangle(static_cast<uint16_t>(index), *triangle))
+        mp_raise_ValueError(MP_ERROR_TEXT("triangle index out of range"));
+    return triangle3d_mp_init(triangle);
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_mp_get_triangle_obj, sprite3d_mp_get_triangle);
+
+mp_obj_t sprite3d_mp_update_triangle(size_t n_args, const mp_obj_t *args)
+{
+    if (n_args < 11 || n_args > 13)
+        mp_raise_TypeError(MP_ERROR_TEXT("update_triangle requires 10 to 12 arguments"));
+    sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(args[0]));
+    Sprite3D *ctx = sprite3d_get_context(self);
+    mp_int_t index = mp_obj_get_int(args[1]);
+    if (index < 0 || index >= ctx->getTriangleCount())
+        mp_raise_ValueError(MP_ERROR_TEXT("triangle index out of range"));
+    uint16_t color = n_args > 11 ? static_cast<uint16_t>(mp_obj_get_int(args[11])) : 0x0000;
+    bool wireframe = n_args > 12 ? mp_obj_is_true(args[12]) : true;
+    if (!ctx->updateTriangle(static_cast<uint16_t>(index), mp_obj_get_float(args[2]), mp_obj_get_float(args[3]), mp_obj_get_float(args[4]),
+                             mp_obj_get_float(args[5]), mp_obj_get_float(args[6]), mp_obj_get_float(args[7]),
+                             mp_obj_get_float(args[8]), mp_obj_get_float(args[9]), mp_obj_get_float(args[10]),
+                             color, wireframe))
+        mp_raise_ValueError(MP_ERROR_TEXT("triangle index out of range"));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_update_triangle_obj, 11, 13, sprite3d_mp_update_triangle);
 
 mp_obj_t sprite3d_mp_clear_triangles(mp_obj_t self_in)
 {
@@ -458,6 +492,8 @@ static MP_DEFINE_CONST_FUN_OBJ_1(sprite3d_mp_bake_transform_obj, sprite3d_mp_bak
 
 static const mp_rom_map_elem_t sprite3d_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_add_triangle), MP_ROM_PTR(&sprite3d_mp_add_triangle_obj)},
+    {MP_ROM_QSTR(MP_QSTR_get_triangle), MP_ROM_PTR(&sprite3d_mp_get_triangle_obj)},
+    {MP_ROM_QSTR(MP_QSTR_update_triangle), MP_ROM_PTR(&sprite3d_mp_update_triangle_obj)},
     {MP_ROM_QSTR(MP_QSTR_clear_triangles), MP_ROM_PTR(&sprite3d_mp_clear_triangles_obj)},
     {MP_ROM_QSTR(MP_QSTR_create_humanoid), MP_ROM_PTR(&sprite3d_mp_create_humanoid_obj)},
     {MP_ROM_QSTR(MP_QSTR_create_tree), MP_ROM_PTR(&sprite3d_mp_create_tree_obj)},

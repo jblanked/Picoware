@@ -22,9 +22,38 @@ micropython_root="${MICROPYTHON_ROOT:-/Users/user/pico/micropython}"
 esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.2/esp-idf}"
 idf_tools_dir="${IDF_TOOLS_PATH:-$HOME/.espressif}"
 
-watch_src_dir="$picoware_dir/src/MicroPython/Waveshare/ESP32S3-Touch-LCD-2.06"
+watch_common_src_dir="$picoware_dir/src/MicroPython/Waveshare/ESP32S3-Touch-LCD-2.06"
+watch_variant="${WATCH_VARIANT:-s3}"
+case "$watch_variant" in
+    s3)
+        watch_src_dir="$watch_common_src_dir"
+        board_target="ESP32_GENERIC_S3"
+        board_label="Waveshare ESP32-S3-Touch-AMOLED-2.06"
+        output_stem="Picoware-Waveshare-2.06"
+        expected_flash_end="0x2000000"
+        flash_config="CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y"
+        require_psram=1
+        cflags_board="-DWAVESHARE_2_06"
+        user_module_name="ESP32S3-Touch-LCD-2.06"
+        ;;
+    c6)
+        watch_src_dir="$picoware_dir/src/MicroPython/Waveshare/ESP32C6-Touch-AMOLED-2.06"
+        board_target="ESP32_GENERIC_C6"
+        board_label="Waveshare ESP32-C6-Touch-AMOLED-2.06"
+        output_stem="Picoware-Waveshare-C6-2.06"
+        expected_flash_end="0x1000000"
+        flash_config="CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y"
+        require_psram=0
+        cflags_board="-DWAVESHARE_C6_2_06"
+        user_module_name="ESP32C6-Touch-AMOLED-2.06"
+        ;;
+    *)
+        echo "ERROR: WATCH_VARIANT must be 's3' or 'c6'."
+        exit 1
+        ;;
+esac
 output_dir="$picoware_dir/builds/MicroPython"
-build_dir="$micropython_dir/build-ESP32_GENERIC_S3"
+build_dir="$micropython_dir/build-$board_target"
 
 require_dir() {
     if [ ! -d "$1" ]; then
@@ -65,7 +94,7 @@ stage_optional_module_dir() {
     fi
 }
 
-echo "Initializing and preparing Waveshare ESP32-S3-Touch-AMOLED-2.06 build environment..."
+echo "Initializing and preparing $board_label build environment..."
 echo "Using Picoware directory: $picoware_dir"
 echo "Using MicroPython ESP32 port: $micropython_dir"
 echo "Using MicroPython root: $micropython_root"
@@ -83,9 +112,13 @@ require_file "$watch_src_dir/mpconfigboard.h"
 require_file "$watch_src_dir/partitions.csv"
 require_file "$watch_src_dir/sdkconfig.defaults"
 
-# Some ESP-IDF 5.5.2 installations ship a port CMakeLists that references an
-# esp32s3 include directory that may be missing. Create it if absent.
-mspi_include_dir="$esp_idf_dir/components/esp_hw_support/mspi_timing_tuning/port/esp32s3/include"
+# Some ESP-IDF installs omit this target include directory.
+if [ "$watch_variant" = "c6" ]; then
+    idf_target="esp32c6"
+else
+    idf_target="esp32s3"
+fi
+mspi_include_dir="$esp_idf_dir/components/esp_hw_support/mspi_timing_tuning/port/$idf_target/include"
 if [ ! -d "$mspi_include_dir" ]; then
     echo "Creating missing ESP-IDF include directory: $mspi_include_dir"
     mkdir -p "$mspi_include_dir"
@@ -94,9 +127,9 @@ fi
 mkdir -p "$output_dir"
 
 echo "Cleaning previous Waveshare outputs and build directory..."
-rm -f "$output_dir"/Picoware-Waveshare-2.06.bin
-rm -f "$output_dir"/Picoware-Waveshare-2.06-bootloader.bin
-rm -f "$output_dir"/Picoware-Waveshare-2.06-partition-table.bin
+rm -f "$output_dir/$output_stem.bin"
+rm -f "$output_dir/$output_stem-bootloader.bin"
+rm -f "$output_dir/$output_stem-partition-table.bin"
 rm -rf "$build_dir"
 
 echo "Cleaning staged MicroPython modules..."
@@ -134,27 +167,35 @@ for module_path in \
     rm -rf "$micropython_dir/modules/$module_path"
 done
 
-echo "Installing Picoware and Waveshare ESP32-S3-Touch-AMOLED-2.06 modules into MicroPython ports/esp32/modules..."
+echo "Installing Picoware and $board_label modules into MicroPython ports/esp32/modules..."
 cp "$picoware_dir/src/MicroPython/main.py" "$micropython_dir/modules/main.py"
 
 stage_required_module_dir "picoware"
 
-mkdir -p "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06"
-cp "$watch_src_dir/micropython.cmake" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/micropython.cmake"
-cp "$watch_src_dir/board_config.h" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/board_config.h"
-cp -r "$watch_src_dir/lcd" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/lcd"
-cp -r "$watch_src_dir/battery" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/battery"
-cp -r "$watch_src_dir/sd" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/sd"
-cp -r "$watch_src_dir/touch" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/touch"
+common_module_dir="$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06"
+mkdir -p "$common_module_dir"
+cp "$watch_common_src_dir/micropython.cmake" "$common_module_dir/micropython.cmake"
+cp "$watch_common_src_dir/board_config.h" "$common_module_dir/board_config.h"
+cp -r "$watch_common_src_dir/lcd" "$common_module_dir/lcd"
+cp -r "$watch_common_src_dir/battery" "$common_module_dir/battery"
+cp -r "$watch_common_src_dir/sd" "$common_module_dir/sd"
+cp -r "$watch_common_src_dir/touch" "$common_module_dir/touch"
+cp -r "$watch_common_src_dir/buttons" "$common_module_dir/buttons"
 
-echo "Staging shared C modules referenced by Waveshare ESP32-S3-Touch-AMOLED-2.06 CMake..."
+if [ "$watch_variant" = "c6" ]; then
+    c6_module_dir="$micropython_dir/modules/Waveshare/ESP32C6-Touch-AMOLED-2.06"
+    mkdir -p "$c6_module_dir"
+    cp "$watch_src_dir/micropython.cmake" "$c6_module_dir/micropython.cmake"
+fi
+
+echo "Staging shared C modules referenced by $board_label CMake..."
 shared_c_modules="$(sed -nE '
     s#^[[:space:]]*include\(\$\{CMAKE_CURRENT_LIST_DIR\}/\.\./\.\./([^/]+)/micropython\.cmake\).*#\1#p
     s#^[[:space:]]*include_directories\(\$\{CMAKE_CURRENT_LIST_DIR\}/\.\./\.\./([^/]+)(/[^)]*)?\).*#\1#p
-' "$watch_src_dir/micropython.cmake" | sort -u)"
+' "$watch_common_src_dir/micropython.cmake" | sort -u)"
 
 if [ -z "$shared_c_modules" ]; then
-    echo "ERROR: No shared C modules found in $watch_src_dir/micropython.cmake"
+    echo "ERROR: No shared C modules found in $watch_common_src_dir/micropython.cmake"
     exit 1
 fi
 
@@ -184,25 +225,27 @@ tmp_component_yml="$idf_component_yml.tmp"
 grep -v "esp_lcd_ek79007" "$idf_component_yml" | grep -v "esp_lcd_touch_gt911" > "$tmp_component_yml"
 mv "$tmp_component_yml" "$idf_component_yml"
 
-grep -v "esp_lcd_sh8601" "$idf_component_yml" | grep -v "esp_lcd_touch_ft5x06" > "$tmp_component_yml"
+grep -v "esp_lcd_sh8601" "$idf_component_yml" | grep -v "esp_lcd_touch_ft5x06" | grep -v "button" > "$tmp_component_yml"
 mv "$tmp_component_yml" "$idf_component_yml"
 
-echo "Configuring ESP-IDF managed dependencies for Waveshare ESP32-S3-Touch-AMOLED-2.06 modules..."
+echo "Configuring ESP-IDF managed dependencies for $board_label modules..."
 
 printf '%s\n' '  waveshare/esp_lcd_sh8601: "*"' >> "$idf_component_yml"
 printf '%s\n' '  espressif/esp_lcd_touch_ft5x06: "^1.1.0~1"' >> "$idf_component_yml"
+printf '%s\n' '  espressif/button: "*"' >> "$idf_component_yml"
 
-echo "Copying Waveshare ESP32-S3-Touch-AMOLED-2.06 flash/partition configuration overrides..."
+echo "Copying $board_label flash/partition configuration overrides..."
 cp "$watch_src_dir/partitions.csv" "$micropython_dir/partitions.csv"
-cp "$watch_src_dir/sdkconfig.defaults" "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"
-cp "$watch_src_dir/mpconfigboard.h" "$micropython_dir/boards/ESP32_GENERIC_S3/mpconfigboard.h"
+cp "$watch_src_dir/sdkconfig.defaults" "$micropython_dir/boards/$board_target/sdkconfig.board"
+cp "$watch_src_dir/mpconfigboard.h" "$micropython_dir/boards/$board_target/mpconfigboard.h"
 
-echo "Validating Waveshare ESP32-S3-Touch-AMOLED-2.06 partition table layout..."
-partition_validation="$(python3 - "$watch_src_dir/partitions.csv" <<'PY'
+echo "Validating $board_label partition table layout..."
+partition_validation="$(python3 - "$watch_src_dir/partitions.csv" "$expected_flash_end" <<'PY'
 import csv
 import sys
 
 path = sys.argv[1]
+expected_end = int(sys.argv[2], 16)
 max_end = 0
 factory_size = None
 
@@ -227,9 +270,9 @@ if factory_size is None:
     print("ERROR: partitions.csv is missing a factory app partition.", file=sys.stderr)
     sys.exit(1)
 
-if max_end != 0x2000000:
+if max_end != expected_end:
     print(
-        f"ERROR: partitions.csv ends at 0x{max_end:X}; expected 0x2000000 for full 32MB flash.",
+        f"ERROR: partitions.csv ends at 0x{max_end:X}; expected 0x{expected_end:X}.",
         file=sys.stderr,
     )
     sys.exit(1)
@@ -246,16 +289,16 @@ fi
 factory_partition_size="$partition_validation"
 echo "Factory app partition size: $factory_partition_size bytes"
 
-board_mpconfig_cmake="$micropython_dir/boards/ESP32_GENERIC_S3/mpconfigboard.cmake"
+board_mpconfig_cmake="$micropython_dir/boards/$board_target/mpconfigboard.cmake"
 require_file "$board_mpconfig_cmake"
 
-if ! grep -q "boards/ESP32_GENERIC_S3/sdkconfig.board" "$board_mpconfig_cmake"; then
-    echo "Patching ESP32_GENERIC_S3 board CMake to include Waveshare ESP32-S3-Touch-AMOLED-2.06 sdkconfig overrides..."
-    cat >> "$board_mpconfig_cmake" <<'EOF'
+if ! grep -q "boards/$board_target/sdkconfig.board" "$board_mpconfig_cmake"; then
+    echo "Patching $board_target board CMake to include $board_label sdkconfig overrides..."
+    cat >> "$board_mpconfig_cmake" <<EOF
 
-# Waveshare ESP32-S3-Touch-AMOLED-2.06 override injected by Picoware build script.
+# Waveshare board override injected by Picoware build script.
 list(APPEND SDKCONFIG_DEFAULTS
-    boards/ESP32_GENERIC_S3/sdkconfig.board)
+    boards/$board_target/sdkconfig.board)
 EOF
 fi
 
@@ -297,59 +340,72 @@ fi
 # shellcheck source=/dev/null
 source "$esp_idf_dir/export.sh"
 
-echo "Starting Waveshare ESP32-S3-Touch-AMOLED-2.06 firmware build..."
+echo "Starting $board_label firmware build..."
 cd "$micropython_dir"
 
 # Keep ESP-IDF warnings from failing the build, keep legacy I2C API checks permissive,
 # and force the Cardputer board define for preprocess-only qstr generation paths.
-export CFLAGS_EXTRA="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DWAVESHARE_2_06 -DESP32"
+if [ "$watch_variant" = "c6" ]; then
+export CFLAGS_EXTRA="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 $cflags_board -DESP32 -DWAVESHARE_C6_2_06"
+else
+export CFLAGS_EXTRA="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 $cflags_board -DESP32 -DWAVESHARE_2_06"
+fi
 
-make BOARD=ESP32_GENERIC_S3 \
-    USER_C_MODULES="$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/micropython.cmake" \
+user_c_modules="$micropython_dir/modules/Waveshare/$user_module_name/micropython.cmake"
+
+make BOARD="$board_target" \
+    USER_C_MODULES="$user_c_modules" \
     clean
 
 effective_sdkconfig="$build_dir/sdkconfig"
-if ! grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board" \
-    || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board" \
-    || ! grep -q '^CONFIG_SPIRAM_USE_MALLOC=y$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"; then
-    echo "ERROR: ESP32-S3 sdkconfig defaults are missing expected flash/partition settings."
-    echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y, CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\", and CONFIG_SPIRAM_USE_MALLOC=y in $micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"
+board_sdkconfig="$micropython_dir/boards/$board_target/sdkconfig.board"
+if ! grep -q "^$flash_config$" "$board_sdkconfig" \
+    || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$board_sdkconfig"; then
+    echo "ERROR: $board_target sdkconfig defaults are missing expected flash/partition settings."
+    echo "Expected $flash_config and CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\" in $board_sdkconfig"
+    exit 1
+fi
+if [ "$require_psram" = "1" ] && ! grep -q '^CONFIG_SPIRAM_USE_MALLOC=y$' "$board_sdkconfig"; then
+    echo "ERROR: $board_target sdkconfig defaults are missing CONFIG_SPIRAM_USE_MALLOC=y."
     exit 1
 fi
 
 if [ -f "$effective_sdkconfig" ]; then
-    if ! grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y$' "$effective_sdkconfig" \
-        || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$effective_sdkconfig" \
-        || ! grep -q '^CONFIG_SPIRAM_USE_MALLOC=y$' "$effective_sdkconfig"; then
-        echo "ERROR: ESP32-S3 flash/partition overrides were not applied."
-        echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y, CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\", and CONFIG_SPIRAM_USE_MALLOC=y in $effective_sdkconfig"
+    if ! grep -q "^$flash_config$" "$effective_sdkconfig" \
+        || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$effective_sdkconfig"; then
+        echo "ERROR: $board_target flash/partition overrides were not applied."
+        echo "Expected $flash_config and CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\" in $effective_sdkconfig"
         echo "Current effective values:"
         grep -E 'CONFIG_ESPTOOLPY_FLASHSIZE|CONFIG_PARTITION_TABLE_CUSTOM_FILENAME|CONFIG_PARTITION_TABLE_FILENAME|CONFIG_SPIRAM_USE_MALLOC' "$effective_sdkconfig" || true
+        exit 1
+    fi
+    if [ "$require_psram" = "1" ] && ! grep -q '^CONFIG_SPIRAM_USE_MALLOC=y$' "$effective_sdkconfig"; then
+        echo "ERROR: $board_target PSRAM overrides were not applied."
         exit 1
     fi
 else
     echo "Generated sdkconfig not present after clean; validation will rely on build output."
 fi
 
-make -j BOARD=ESP32_GENERIC_S3 \
-    USER_C_MODULES="$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/micropython.cmake"
+make -j BOARD="$board_target" \
+    USER_C_MODULES="$user_c_modules"
 
-cp "$build_dir/micropython.bin" "$output_dir/Picoware-Waveshare-2.06.bin"
+cp "$build_dir/micropython.bin" "$output_dir/$output_stem.bin"
 
 if [ -f "$build_dir/bootloader/bootloader.bin" ]; then
-    cp "$build_dir/bootloader/bootloader.bin" "$output_dir/Picoware-Waveshare-2.06-bootloader.bin"
+    cp "$build_dir/bootloader/bootloader.bin" "$output_dir/$output_stem-bootloader.bin"
 fi
 
 if [ -f "$build_dir/partition_table/partition-table.bin" ]; then
-    cp "$build_dir/partition_table/partition-table.bin" "$output_dir/Picoware-Waveshare-2.06-partition-table.bin"
+    cp "$build_dir/partition_table/partition-table.bin" "$output_dir/$output_stem-partition-table.bin"
 fi
 
-echo "Waveshare ESP32-S3-Touch-AMOLED-2.06 build complete."
+echo "$board_label build complete."
 echo "Artifacts:"
-echo "  $output_dir/Picoware-Waveshare-2.06.bin"
-if [ -f "$output_dir/Picoware-Waveshare-2.06-bootloader.bin" ]; then
-    echo "  $output_dir/Picoware-Waveshare-2.06-bootloader.bin"
+echo "  $output_dir/$output_stem.bin"
+if [ -f "$output_dir/$output_stem-bootloader.bin" ]; then
+    echo "  $output_dir/$output_stem-bootloader.bin"
 fi
-if [ -f "$output_dir/Picoware-Waveshare-2.06-partition-table.bin" ]; then
-    echo "  $output_dir/Picoware-Waveshare-2.06-partition-table.bin"
+if [ -f "$output_dir/$output_stem-partition-table.bin" ]; then
+    echo "  $output_dir/$output_stem-partition-table.bin"
 fi

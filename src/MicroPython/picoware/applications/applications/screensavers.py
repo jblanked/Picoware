@@ -1,10 +1,11 @@
 """Screensavers - Collection of screensaver animations."""
-
+from picoware.system.decorator import storage_required
 _screensavers = None
 _screensavers_index = 0
 _app_loader = None
 
 
+@storage_required
 def start(view_manager) -> bool:
     """Start the screensavers app.
 
@@ -15,10 +16,6 @@ def start(view_manager) -> bool:
         bool: True on success.
     """
     from picoware.gui.menu import Menu
-
-    if not view_manager.has_sd_card:
-        view_manager.alert("Screensavers app requires an SD card.", False)
-        return False
 
     # create screensavers folder if it doesn't exist
     view_manager.storage.mkdir("picoware/apps/screensavers")
@@ -95,7 +92,7 @@ def run(view_manager) -> None:
             )
             if screensaver_module is None:
                 view_manager.alert(
-                    f'Could not load screensaver "{selected_screensaver}".'
+                    f'Could not load: {_app_loader.error}'
                 )
                 return
             from utime import ticks_ms

@@ -40,6 +40,8 @@ extern "C"
         mp_obj_t sprite_obj;
         mp_obj_t sprite_left_obj;
         mp_obj_t sprite_right_obj;
+        //
+        mp_obj_t sprite_3d_obj;
     } entity_mp_obj_t;
 
     extern const mp_obj_type_t entity_mp_type;
@@ -59,6 +61,7 @@ extern "C"
     mp_obj_t entity_mp_set_name(mp_obj_t self_in, mp_obj_t name_obj);
     mp_obj_t entity_mp_set_type(mp_obj_t self_in, mp_obj_t type_obj);
     mp_obj_t entity_mp_set_position(mp_obj_t self_in, mp_obj_t position_obj);
+    mp_obj_t entity_mp_position_set(size_t n_args, const mp_obj_t *args);
     mp_obj_t entity_mp_set_old_position(mp_obj_t self_in, mp_obj_t old_position_obj);
     mp_obj_t entity_mp_set_size(mp_obj_t self_in, mp_obj_t size_obj);
     mp_obj_t entity_mp_set_is_8bit(mp_obj_t self_in, mp_obj_t is_8bit_obj);
@@ -66,7 +69,9 @@ extern "C"
     mp_obj_t entity_mp_set_is_visible(mp_obj_t self_in, mp_obj_t is_visible_obj);
     mp_obj_t entity_mp_set_is_player(mp_obj_t self_in, mp_obj_t is_player_obj);
     mp_obj_t entity_mp_set_direction(mp_obj_t self_in, mp_obj_t direction_obj);
+    mp_obj_t entity_mp_direction_set(size_t n_args, const mp_obj_t *args);
     mp_obj_t entity_mp_set_plane(mp_obj_t self_in, mp_obj_t plane_obj);
+    mp_obj_t entity_mp_plane_set(size_t n_args, const mp_obj_t *args);
     mp_obj_t entity_mp_set_state(mp_obj_t self_in, mp_obj_t state_obj);
     mp_obj_t entity_mp_set_start_position(mp_obj_t self_in, mp_obj_t start_position_obj);
     mp_obj_t entity_mp_set_end_position(mp_obj_t self_in, mp_obj_t end_position_obj);

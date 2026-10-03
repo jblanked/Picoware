@@ -309,12 +309,12 @@ def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.colors import TFT_BLACK, TFT_CYAN, TFT_WHITE, TFT_YELLOW
     from picoware.system.buttons import BUTTON_BACK, BUTTON_NONE
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
 
     global SCREEN_WIDTH, SCREEN_HEIGHT, PADDLE_WIDTH, PADDLE_HEIGHT, PADDLE_Y
     global BALL_SIZE, BRICK_WIDTH, BRICK_HEIGHT, BRICK_PADDING, BRICK_OFFSET_TOP, is_flipper
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     draw = view_manager.draw
 

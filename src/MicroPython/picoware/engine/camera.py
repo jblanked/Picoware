@@ -37,6 +37,9 @@ class Camera(engine.Camera):
         - set_height(height): Set the camera height.
         - set_distance(distance): Set the camera projection distance.
         - set_perspective(perspective): Set the camera perspective mode.
+        - position_set(x, y, z, integer): Set the camera position with individual components.
+        - direction_set(x, y, z, integer): Set the camera view direction with individual components.
+        - plane_set(x, y, z, integer): Set the camera projection plane with individual components.
         - __del__(): Release the native camera resources.
     """
 

@@ -1,8 +1,8 @@
 #include "buffer.h"
 #include "PicoCalc-GameBoy/src/config.h"
-#include "../../picoware_psram/psram_qspi.h"
-#include "../../picoware_psram/picoware_psram.h"
-#include "../../picoware_psram/picoware_psram_shared.h"
+#include "../picoware_psram/psram_qspi.h"
+#include "../picoware_psram/picoware_psram.h"
+#include "../picoware_psram/picoware_psram_shared.h"
 
 #define PSRAM_RAM_ADDR PSRAM_HEAP_START_ADDR + 1024
 #define PSRAM_ROM_ADDR PSRAM_RAM_ADDR + BUFFER_RAM_SIZE + 1024

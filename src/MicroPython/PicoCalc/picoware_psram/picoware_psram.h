@@ -53,7 +53,7 @@ typedef struct psram_alloc_block
 {
     uint32_t addr;
     uint32_t size;
-    mp_psram_data_obj_t *obj; // Pointer to the Python object
+    uintptr_t obj_bits;
     struct psram_alloc_block *next;
 } psram_alloc_block_t;
 
@@ -68,6 +68,7 @@ mp_obj_t mp_psram_data_get_length(mp_obj_t self_in);
 mp_obj_t mp_psram_data___del__(mp_obj_t self_in);
 mp_obj_t mp_psram_data_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args);
 
+mp_obj_t picoware_psram_alloc_buffer(uint32_t size);
 mp_obj_t picoware_psram_init(size_t n_args, const mp_obj_t *args);
 mp_obj_t picoware_psram_write8(mp_obj_t self_in, mp_obj_t addr_obj, mp_obj_t value_obj);
 mp_obj_t picoware_psram_read8(mp_obj_t self_in, mp_obj_t addr_obj);

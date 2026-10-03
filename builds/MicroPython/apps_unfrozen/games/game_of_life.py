@@ -133,10 +133,10 @@ def draw(display):
 
 def start(view_manager) -> bool:
     """Start the app"""
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
     global _current_grid, _next_grid, _neighbor_counts, _COLORS, GRID_PIXELS, CELL_SIZE, GRID_SIZE, GRID_BYTES, is_flipper
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     GRID_PIXELS = view_manager.draw.size.x  # 320 pixels
     CELL_SIZE = GRID_PIXELS // 53  # 6 pixels per cell (53x53 grid)

@@ -1,8 +1,11 @@
 #include "keyboard_mp.h"
 #include "keyboard.h"
 #include "esp_err.h"
+#include <stdint.h>
 
 #define CARDPUTER_KEYBOARD_QUEUE_SIZE (32)
+#define CARDPUTER_KEY_REPEAT_DELAY_MS 500
+#define CARDPUTER_KEY_REPEAT_INTERVAL_MS 100
 
 static mp_obj_t g_key_available_callback = mp_const_none;
 static bool g_background_poll = false;
@@ -10,6 +13,9 @@ static bool g_keyboard_ready = false;
 static uint8_t g_key_queue[CARDPUTER_KEYBOARD_QUEUE_SIZE];
 static uint8_t g_key_head = 0;
 static uint8_t g_key_tail = 0;
+static uint8_t g_repeat_keys[128];
+static uint8_t g_repeat_keycode = 0;
+static uint32_t g_repeat_at = 0;
 
 static bool cardputer_keyboard_queue_empty(void)
 {
@@ -20,6 +26,12 @@ static void cardputer_keyboard_queue_reset(void)
 {
     g_key_head = 0;
     g_key_tail = 0;
+    for (size_t keycode = 0; keycode < sizeof(g_repeat_keys); ++keycode)
+    {
+        g_repeat_keys[keycode] = 0;
+    }
+    g_repeat_keycode = 0;
+    g_repeat_at = 0;
 }
 
 static void cardputer_keyboard_queue_push(uint8_t key)
@@ -74,6 +86,41 @@ static uint8_t cardputer_keyboard_event_to_key(const keyboard_event_t *event)
     return 0;
 }
 
+static void cardputer_keyboard_release_repeat_key(uint8_t keycode)
+{
+    g_repeat_keys[keycode] = 0;
+    if (keycode != g_repeat_keycode)
+    {
+        return;
+    }
+
+    g_repeat_keycode = 0;
+    for (uint8_t candidate = 1; candidate < sizeof(g_repeat_keys); ++candidate)
+    {
+        if (g_repeat_keys[candidate] != 0)
+        {
+            g_repeat_keycode = candidate;
+            g_repeat_at = (uint32_t)mp_hal_ticks_ms() +
+                          CARDPUTER_KEY_REPEAT_DELAY_MS;
+        }
+    }
+}
+
+static void cardputer_keyboard_repeat_held_key(void)
+{
+    if (g_repeat_keycode == 0 || g_repeat_keys[g_repeat_keycode] == 0)
+    {
+        return;
+    }
+
+    uint32_t now = (uint32_t)mp_hal_ticks_ms();
+    if ((int32_t)(now - g_repeat_at) >= 0)
+    {
+        cardputer_keyboard_queue_push(g_repeat_keys[g_repeat_keycode]);
+        g_repeat_at = now + CARDPUTER_KEY_REPEAT_INTERVAL_MS;
+    }
+}
+
 static void cardputer_keyboard_poll_internal(void)
 {
     if (!g_keyboard_ready)
@@ -93,14 +140,21 @@ static void cardputer_keyboard_poll_internal(void)
 
         if (!event.pressed)
         {
+            cardputer_keyboard_release_repeat_key(event.keycode);
             continue;
         }
         uint8_t key = cardputer_keyboard_event_to_key(&event);
         if (key != 0)
         {
             cardputer_keyboard_queue_push(key);
+            g_repeat_keycode = event.keycode;
+            g_repeat_keys[event.keycode] = key;
+            g_repeat_at = (uint32_t)mp_hal_ticks_ms() +
+                          CARDPUTER_KEY_REPEAT_DELAY_MS;
         }
     }
+
+    cardputer_keyboard_repeat_held_key();
 }
 
 mp_obj_t cardputer_keyboard_init(void)
@@ -159,6 +213,14 @@ mp_obj_t cardputer_keyboard_poll(void)
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(cardputer_keyboard_poll_obj, cardputer_keyboard_poll);
 
+mp_obj_t cardputer_keyboard_is_pressed(void)
+{
+    cardputer_keyboard_poll_internal();
+    return mp_obj_new_bool(g_keyboard_ready && keyboard_is_pressed());
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(cardputer_keyboard_is_pressed_obj,
+                                 cardputer_keyboard_is_pressed);
+
 mp_obj_t cardputer_keyboard_key_available(void)
 {
     if (g_background_poll)
@@ -208,6 +270,7 @@ static const mp_rom_map_elem_t cardputer_keyboard_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_key_available_callback), MP_ROM_PTR(&cardputer_keyboard_set_key_available_callback_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_background_poll), MP_ROM_PTR(&cardputer_keyboard_set_background_poll_obj)},
     {MP_ROM_QSTR(MP_QSTR_poll), MP_ROM_PTR(&cardputer_keyboard_poll_obj)},
+    {MP_ROM_QSTR(MP_QSTR_is_pressed), MP_ROM_PTR(&cardputer_keyboard_is_pressed_obj)},
     {MP_ROM_QSTR(MP_QSTR_key_available), MP_ROM_PTR(&cardputer_keyboard_key_available_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_key), MP_ROM_PTR(&cardputer_keyboard_get_key_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_key_nonblocking), MP_ROM_PTR(&cardputer_keyboard_get_key_nonblocking_obj)},

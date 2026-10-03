@@ -8,10 +8,8 @@ add_library(usermod_picoware_psram INTERFACE)
 target_sources(usermod_picoware_psram INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/picoware_psram.c
     ${CMAKE_CURRENT_LIST_DIR}/psram_qspi.c
+    ${CMAKE_CURRENT_LIST_DIR}/psram_template.cpp
 )
-
-# Generate PIO header from PIO assembly file
-pico_generate_pio_header(usermod_picoware_psram ${CMAKE_CURRENT_LIST_DIR}/psram_qspi.pio)
 
 target_include_directories(usermod_picoware_psram INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}
@@ -23,11 +21,3 @@ target_compile_definitions(usermod_picoware_psram INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_picoware_psram)
-
-# Link against the required Pico SDK libraries
-target_link_libraries(usermod_picoware_psram INTERFACE
-    pico_stdlib
-    hardware_pio
-    hardware_dma
-    hardware_gpio
-)

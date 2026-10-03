@@ -1,0 +1,32 @@
+{
+    "Knight": {
+        "attribute": "speed",
+        "skills": [
+        ["Strike", "bolt", 1.0, 4.5, 16],
+        ["Might", "aoe", 2.0, 6.0, 42],
+        ["Vigor", "boost", 0.0, 0.0, 70, 100],
+        ["Stab", "bolt", 1.6, 9.0, 28],
+        ["Conquer", "special", 1.2, 6.0, 120]
+        ]
+    },
+    "Mage": {
+        "attribute": "health",
+        "skills": [
+        ["Lightning", "bolt", 1.7, 13.0, 24],
+        ["FireBlast", "aoe", 2.2, 7.0, 46],
+        ["Mist", "boost", 0.0, 0.0, 72, 100],
+        ["Orb", "aoe", 1.4, 5.5, 30],
+        ["Teleport", "special", 1.6, 7.0, 95]
+        ]
+    },
+    "Beast": {
+        "attribute": "strength",
+        "skills": [
+        ["Slash", "bolt", 1.3, 4.5, 15],
+        ["Knockout", "aoe", 1.2, 5.0, 52],
+        ["Enrage", "boost", 0.0, 0.0, 72, 100],
+        ["Maniac", "bolt", 2.4, 5.0, 36],
+        ["Chaos", "special", 1.4, 7.0, 135]
+        ]
+    }
+}

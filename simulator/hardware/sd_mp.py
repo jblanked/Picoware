@@ -204,6 +204,18 @@ def copy(source_path, destination_path, bytes_per_chunk=2048):
     return True
 
 
+def get_free_space():
+    """Return free bytes on the filesystem backing the simulated SD card."""
+    stats = os.statvfs(sim_runtime.sd_root)
+    return stats[0] * stats[3]
+
+
+def get_total_space():
+    """Return total bytes on the filesystem backing the simulated SD card."""
+    stats = os.statvfs(sim_runtime.sd_root)
+    return stats[0] * stats[2]
+
+
 def get_file_size(path):
     """Return the size in bytes of a VFS file."""
     try:

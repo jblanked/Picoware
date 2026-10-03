@@ -34,8 +34,28 @@ picoware/apps/games/
         __init__.py
         assets.mpy
         game.mpy
+        sound.mpy
         sprites.mpy
         art.bin
+        music-fallback.bin      # neutral piano when the date is unset/invalid
+        music-spring.bin        # pastoral piano
+        music-summer.bin        # measured piano march
+        music-autumn.bin        # reflective minor-key piano
+        music-winter.bin        # restrained minor-key motif
+        loading-logo.bin          # raw RGB332 Gorillas logo, 78 x 72
+        loading-logo-compact.bin  # raw RGB332 Gorillas logo, 52 x 48
+        loading-scene.bin         # raw RGB332 title art, 320 x 320
+        loading-scene-spring.bin # raw RGB332 spring scene, 320 x 320
+        loading-scene-summer.bin # raw RGB332 summer scene, 320 x 320
+        loading-scene-fall.bin   # raw RGB332 fall scene, 320 x 320
+        loading-scene-winter.bin # raw RGB332 winter scene, 320 x 320
+        audio/
+            ui.bin              # menu and aiming click
+            throw.bin           # banana launch swoosh
+            explosion.bin       # banana blast
+            impact.bin          # masonry/ground impact
+            hit.bin             # gorilla hit
+            win.bin / lose.bin  # final match result
         effects-0.bin           # monochrome
         effects-1.bin           # colour, scale 1
         effects-2.bin           # colour, scale 2 (PicoCalc)
@@ -50,7 +70,58 @@ Simulator memory tests should use compiled applications too. Keep the artwork
 beside `sprites.py` or `sprites.mpy`; boards without SD need the same files in
 their accessible filesystem.
 
+The Gorillas.py launcher draws and swaps its splash before importing the
+larger game module. Displays at least 320 x 320 use a seasonal scene when
+Picoware's clock is marked set and its RTC year is 2024 or later, using Northern
+Hemisphere meteorological seasons: March through May is spring, June through
+August is summer, September through November is fall, and December through
+February is winter. Otherwise the original
+loading-scene.bin is used. Smaller displays keep the existing full or compact
+Gorillas logo. The splash remains visible for at least two seconds across
+module and scene startup. All seven assets are raw row-major RGB332 pixel bytes.
 No additional firmware rendering API is required.
+
+## Audio menu
+
+The main menu places AUDIO between 2 PLAYERS and EXIT. Select it with
+Up/Down, then press OK to cycle AUDIO: OFF, AUDIO: FX, and AUDIO: FX +
+MUSIC. Left/Right also changes the mode while the audio row is selected.
+The game starts in FX mode to retain the current sound effects. OFF stops
+active playback and silences all effects. FX + MUSIC starts the looping
+seasonal piano music while retaining effects. Each season has an original
+Beethoven-inspired miniature: pastoral F-major spring, a measured C-major
+summer march, reflective A-minor autumn, and a restrained C-minor winter motif.
+These are original scores, not recordings or transcriptions of Beethoven.
+Each loop is 16 bars at 96 BPM (40 seconds), with matching levels and rounded
+piano attacks. The mid-register melody stays audible on small speakers.
+
+Music uses the synced calendar date, with the same Northern Hemisphere seasons
+and valid-date rule as the loading artwork (clock set, year at least 2024,
+month 1-12). Without a valid synced date, `music-fallback.bin` provides a fifth,
+neutral C-major piano theme at the same length and level. The date is checked
+when music is enabled; randomized duel scenery does not change the track.
+Music loops during menus and gameplay. OFF or FX stops it.
+All five WAV-format `.bin` assets are rendered offline.
+
+## Sound effects
+
+Gorillas uses Picoware's nonblocking WAV player for UI clicks, banana throws,
+banana explosions, surface impacts, gorilla hits, and match results. Effects
+are unsigned 8-bit mono PCM RIFF/WAVE payloads at 11,025 Hz, matching the music
+sample rate for concurrent playback. The assets remain named `.bin`; the
+firmware identifies the WAV format from their file contents.
+Playback is optional and silently disabled on boards without audio or when an
+effect file is missing. The 16-bar, 96 BPM music loops use the same unsigned
+8-bit mono PCM format. Music is streamed from SD
+and restarted with the same short guard used by Pico Bomber; it is never loaded
+as a full Python buffer.
+
+On PicoCalc, active game audio moves keyboard polling into the game loop.
+The firmware's background keyboard timer performs blocking I2C reads in the
+same alarm handler as WAV output, causing periodic sample-timing gaps. Gorillas
+polls after the engine consumes input, at most once per 50 ms, and restores
+background polling when audio is switched OFF or the game exits. Music and
+effects continue to use Picoware's native WAV mixer.
 
 ## Rendering and memory
 

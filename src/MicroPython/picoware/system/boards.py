@@ -11,12 +11,16 @@ Attributes:
     BOARD_WAVESHARE_3_49_RP2350 (int): Board ID for Waveshare 3.49" RP2350.
     BOARD_PICOCALC_PIMORONI_2W (int): Board ID for PicoCalc with a Pimoroni 2 W.
     BOARD_CROWPANEL_10_1 (int): Board ID for CrowPanel 10.1.
+    BOARD_CROWPANEL_WATCH_2_01 (int): Board ID for Elecrow CrowPanel Watch 2.01
     BOARD_CARDPUTER (int): Board ID for Cardputer.
     BOARD_WAVESHARE_2_06 (int): Board ID for Waveshare 2.06.
+    BOARD_WAVESHARE_C6_2_06 (int): Board ID for Waveshare C6 2.06.
     BOARD_PANCAKE (int): Board ID for Pancake.
     BOARD_V8 (int): Board ID for V8.
     BOARD_FLIPPER_ZERO (int): Board ID for Flipper Zero.
     BOARD_DESKTOP (int): Board ID for the Unix Desktop target.
+    BOARD_PICO_DUO (int): Board ID for PicoDuo.
+    BOARD_POOM (int): Board ID for POOM.
     BOARD_ID (int): The current board ID.
     BOARD_HAS_PSRAM (bool): True if the board has an external PSRAM, False otherwise.
     BOARD_HAS_SD (bool): True if the board has an SD card, False otherwise.
@@ -45,12 +49,16 @@ BOARD_WAVESHARE_1_69_RP2350 = picoware_boards.BOARD_WAVESHARE_1_69_RP2350
 BOARD_WAVESHARE_3_49_RP2350 = picoware_boards.BOARD_WAVESHARE_3_49_RP2350
 BOARD_PICOCALC_PIMORONI_2W = picoware_boards.BOARD_PICOCALC_PIMORONI_2W
 BOARD_CROWPANEL_10_1 = picoware_boards.BOARD_CROWPANEL_10_1
+BOARD_CROWPANEL_WATCH_2_01 = picoware_boards.BOARD_CROWPANEL_WATCH_2_01
 BOARD_CARDPUTER = picoware_boards.BOARD_CARDPUTER
 BOARD_WAVESHARE_2_06 = picoware_boards.BOARD_WAVESHARE_2_06
+BOARD_WAVESHARE_C6_2_06 = picoware_boards.BOARD_WAVESHARE_C6_2_06
 BOARD_PANCAKE = picoware_boards.BOARD_PANCAKE
 BOARD_V8 = picoware_boards.BOARD_V8
 BOARD_FLIPPER_ZERO = picoware_boards.BOARD_FLIPPER_ZERO
 BOARD_DESKTOP = picoware_boards.BOARD_DESKTOP
+BOARD_PICO_DUO = picoware_boards.BOARD_PICO_DUO
+BOARD_POOM = picoware_boards.BOARD_POOM
 
 BOARD_ID = picoware_boards.BOARD_ID
 BOARD_HAS_PSRAM = picoware_boards.BOARD_HAS_PSRAM

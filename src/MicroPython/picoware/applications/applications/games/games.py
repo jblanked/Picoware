@@ -135,7 +135,7 @@ def run(view_manager) -> None:
             # Try to load the game
             game_module = _app_loader.load_app(selected_game, "games")
             if game_module is None:
-                view_manager.alert(f'Failed to load game "{selected_game}".')
+                view_manager.alert(f'Failed to load: {_app_loader.error}') 
                 return
             # Create a view for the game and switch to it
             game_view_name = f"game_{selected_game}"

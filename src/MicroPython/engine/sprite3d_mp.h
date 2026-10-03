@@ -28,13 +28,15 @@ extern "C"
 
     extern const mp_obj_type_t sprite3d_mp_type;
 
-    mp_obj_t sprite3d_mp_init(void);
+    mp_obj_t sprite3d_mp_init(void *context);
     void sprite3d_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);
     mp_obj_t sprite3d_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args);
     mp_obj_t sprite3d_mp_del(mp_obj_t self_in);
     void sprite3d_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);
 
     mp_obj_t sprite3d_mp_add_triangle(size_t n_args, const mp_obj_t *args);
+    mp_obj_t sprite3d_mp_get_triangle(mp_obj_t self_in, mp_obj_t index_obj);
+    mp_obj_t sprite3d_mp_update_triangle(size_t n_args, const mp_obj_t *args);
     mp_obj_t sprite3d_mp_clear_triangles(mp_obj_t self_in);
     mp_obj_t sprite3d_mp_create_humanoid(size_t n_args, const mp_obj_t *args);
     mp_obj_t sprite3d_mp_create_tree(size_t n_args, const mp_obj_t *args);

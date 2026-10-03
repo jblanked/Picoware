@@ -356,7 +356,7 @@ class _City:
             direction = 1.0
         self.people_progress[index] = progress
         self.people_directions[index] = direction
-        person.position = Vector(
+        person.position_set(
             start_x + (end_x - start_x) * progress,
             start_z + (end_z - start_z) * progress,
         )
@@ -365,12 +365,12 @@ class _City:
         person.set_3d_sprite_rotation(atan2(heading_z, heading_x) - pi * 0.5)
 
     def _build_static_scene(self):
-        from picoware.engine.entity import ENTITY_TYPE_ICON, SPRITE_3D_NONE
+        from picoware.engine.entity import ENTITY_TYPE_3D_SPRITE, SPRITE_3D_NONE
         from picoware.engine.sprite3d import Sprite3D
 
         background = Entity(
             "Background",
-            ENTITY_TYPE_ICON,
+            ENTITY_TYPE_3D_SPRITE,
             Vector(0, 1000),
             Vector(1, 1),
             None,
@@ -517,14 +517,14 @@ class _City:
             _player_render,
         )
         self.player.is_player = True
-        self.player.plane = Vector(-0.72, 0)
+        self.player.plane_set(-0.72, 0)
         self._place_player()
 
     def _place_player(self):
         direction_x = cos(self.heading)
         direction_y = sin(self.heading)
-        self.player.direction = Vector(direction_x, direction_y)
-        self.player.plane = Vector(-0.72, 0)
+        self.player.direction_set(direction_x, direction_y)
+        self.player.plane_set(-0.72, 0)
         self.player.set_3d_sprite_rotation(atan2(direction_y, direction_x) - pi * 0.5)
 
     def _blocked(self, x, z):
@@ -573,12 +573,12 @@ class _City:
         next_z = old_z + direction_y * self.speed
 
         if not self._blocked(next_x, next_z):
-            car.position = Vector(next_x, next_z)
+            car.position_set(next_x, next_z)
         else:
             if not self._blocked(next_x, old_z):
-                car.position = Vector(next_x, old_z)
+                car.position_set(next_x, old_z)
             elif not self._blocked(old_x, next_z):
-                car.position = Vector(old_x, next_z)
+                car.position_set(old_x, next_z)
             self.speed *= 0.25
 
         self._place_player()

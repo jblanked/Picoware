@@ -1,0 +1,18 @@
+[
+    {
+        "title": "Cat Fact",
+        "description": "Fetches a random cat fact using HTTP",
+        "file_structure": [
+            "picoware/scripts/cat-fact.js"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Hello",
+        "description": "A simple Hello World script",
+        "file_structure": [
+            "picoware/scripts/hello.js"
+        ],
+        "version": "1.0"
+    }
+]

@@ -81,9 +81,9 @@ def _build_y_coords(b: int, cy: int, ry: int) -> None:
 def start(view_manager) -> bool:
     global phase, color_phase, a_freq, b_freq, morph_timer, p1, p2, is_flipper
     global _last_a, _last_b
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     draw = view_manager.draw
     phase = 0.0

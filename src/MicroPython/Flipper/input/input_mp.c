@@ -5,6 +5,8 @@
 #include "py/mphal.h"
 
 #define FLIPPER_INPUT_QUEUE_SIZE 16
+#define FLIPPER_KEY_REPEAT_DELAY_MS 500
+#define FLIPPER_KEY_REPEAT_INTERVAL_MS 100
 
 #define KEY_UP ((uint8_t)0xB5)
 #define KEY_DOWN ((uint8_t)0xB6)
@@ -17,6 +19,7 @@ static uint8_t g_key_queue[FLIPPER_INPUT_QUEUE_SIZE];
 static uint8_t g_key_head = 0;
 static uint8_t g_key_tail = 0;
 static uint8_t g_prev_mask = 0; /* Edge detection state */
+static uint32_t g_repeat_at[FLIPPER_INPUT_COUNT];
 
 static bool flipper_input_queue_empty(void)
 {
@@ -28,6 +31,10 @@ static void flipper_input_queue_reset(void)
     g_key_head = 0;
     g_key_tail = 0;
     g_prev_mask = 0;
+    for (uint8_t i = 0; i < FLIPPER_INPUT_COUNT; i++)
+    {
+        g_repeat_at[i] = 0;
+    }
 }
 
 static void flipper_input_queue_push(uint8_t key)
@@ -85,19 +92,37 @@ static void flipper_input_poll_internal(void)
 
     uint8_t mask = input_read_all();
 
-    /* Detect new presses */
+    uint32_t now = (uint32_t)mp_hal_ticks_ms();
     uint8_t new_presses = mask & ~g_prev_mask;
     g_prev_mask = mask;
 
     for (uint8_t i = 0; i < FLIPPER_INPUT_COUNT; i++)
     {
-        if (new_presses & (1U << i))
+        uint8_t button_mask = (uint8_t)(1U << i);
+        if (new_presses & button_mask)
         {
             uint8_t key = flipper_pin_to_key(i);
             if (key != 0)
             {
                 flipper_input_queue_push(key);
+                g_repeat_at[i] = now + FLIPPER_KEY_REPEAT_DELAY_MS;
             }
+        }
+        else if (mask & button_mask)
+        {
+            if ((int32_t)(now - g_repeat_at[i]) >= 0)
+            {
+                uint8_t key = flipper_pin_to_key(i);
+                if (key != 0)
+                {
+                    flipper_input_queue_push(key);
+                    g_repeat_at[i] = now + FLIPPER_KEY_REPEAT_INTERVAL_MS;
+                }
+            }
+        }
+        else
+        {
+            g_repeat_at[i] = 0;
         }
     }
 }
@@ -132,6 +157,13 @@ mp_obj_t flipper_input_poll(void)
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(flipper_input_poll_obj, flipper_input_poll);
+
+mp_obj_t flipper_input_is_pressed(void)
+{
+    return mp_obj_new_bool(g_input_ready && input_read_all() != 0);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(flipper_input_is_pressed_obj,
+                                 flipper_input_is_pressed);
 
 mp_obj_t flipper_input_key_available(void)
 {
@@ -175,6 +207,7 @@ static const mp_rom_map_elem_t flipper_input_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&flipper_input_init_obj)},
     {MP_ROM_QSTR(MP_QSTR_deinit), MP_ROM_PTR(&flipper_input_deinit_obj)},
     {MP_ROM_QSTR(MP_QSTR_poll), MP_ROM_PTR(&flipper_input_poll_obj)},
+    {MP_ROM_QSTR(MP_QSTR_is_pressed), MP_ROM_PTR(&flipper_input_is_pressed_obj)},
     {MP_ROM_QSTR(MP_QSTR_key_available), MP_ROM_PTR(&flipper_input_key_available_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_key), MP_ROM_PTR(&flipper_input_get_key_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_key_nonblocking), MP_ROM_PTR(&flipper_input_get_key_nonblocking_obj)},

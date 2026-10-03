@@ -57,7 +57,7 @@ void engine_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t 
 
 mp_obj_t engine_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
-    mp_arg_check_num(n_args, n_kw, 2, 2, false);
+    mp_arg_check_num(n_args, n_kw, 2, 3, false);
     engine_mp_obj_t *self = mp_obj_malloc_with_finaliser(engine_mp_obj_t, &engine_mp_type);
     self->base.type = &engine_mp_type;
     mp_obj_t native_game = mp_obj_cast_to_native_base(args[0], MP_OBJ_FROM_PTR(&game_mp_type));
@@ -68,7 +68,12 @@ mp_obj_t engine_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     self->game_obj = args[0];
     engine_mp_game_global = self->game_obj;
     float fps = (float)mp_obj_get_int(args[1]);
-    self->context = new GameEngine(game_ctx, fps);
+    bool clamp = false;
+    if (n_args > 2)
+    {
+        clamp = mp_obj_is_true(args[2]);
+    }
+    self->context = new GameEngine(game_ctx, fps, clamp);
     self->freed = false;
     return MP_OBJ_FROM_PTR(self);
 }
@@ -116,6 +121,17 @@ mp_obj_t engine_mp_run_async(size_t n_args, const mp_obj_t *args)
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(engine_mp_run_async_obj, 1, 2, engine_mp_run_async);
 
+mp_obj_t engine_mp_set_clamp(mp_obj_t self_in, mp_obj_t clamp)
+{
+    engine_mp_obj_t *self = static_cast<engine_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+        return mp_const_none;
+    GameEngine *ctx = engine_get_context(self);
+    ctx->setClamp(mp_obj_is_true(clamp));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(engine_mp_set_clamp_obj, engine_mp_set_clamp);
+
 mp_obj_t engine_mp_stop(mp_obj_t self_in)
 {
     engine_mp_obj_t *self = static_cast<engine_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
@@ -160,6 +176,7 @@ void engine_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 static const mp_rom_map_elem_t engine_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_run), MP_ROM_PTR(&engine_mp_run_obj)},
     {MP_ROM_QSTR(MP_QSTR_run_async), MP_ROM_PTR(&engine_mp_run_async_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_clamp), MP_ROM_PTR(&engine_mp_set_clamp_obj)},
     {MP_ROM_QSTR(MP_QSTR_stop), MP_ROM_PTR(&engine_mp_stop_obj)},
     {MP_ROM_QSTR(MP_QSTR_update_game_input), MP_ROM_PTR(&engine_mp_update_game_input_obj)}};
 static MP_DEFINE_CONST_DICT(engine_mp_locals_dict, engine_mp_locals_dict_table);

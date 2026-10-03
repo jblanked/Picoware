@@ -120,8 +120,6 @@ def format_number(value):
         return "NAN"
     if abs(value) == float("inf"):
         return "OVERFLOW"
-    if value == 0.0:
-        value = 0.0
     if abs(value) < 1000000000000.0 and value == int(value):
         return str(int(value))
     text = "%.10g" % value
@@ -147,7 +145,7 @@ class RPNStack:
     )
 
     def __init__(self):
-        # Initialize stack: X=0, Y=1, Z=2, T=3
+        # Initialize stack: X=0, Y=0, Z=0, T=0
         self.stack: list[float] = [0.0, 0.0, 0.0, 0.0]
         self.entry: str = ""
         self.entering: bool = False

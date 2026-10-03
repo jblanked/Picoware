@@ -36,7 +36,6 @@ class Loading:
         self.text_vec = Vector(0, int(draw.size.y * 0.0625))
         self.text_vec_2 = Vector(0, draw.size.y - draw.scale_y(15))
         self.rad = (3.14159265358979323846) / 180.0
-        self.twenty_y = draw.scale_y(20)
 
         # Calculate centered text position
         text_width = self.display.len(self.current_text)
@@ -176,7 +175,7 @@ class Loading:
             download_text_x = (screen_size.x - self.display.len(_download_text)) // 2
             self.display._text(
                 download_text_x,
-                self.text_vec.y + self.twenty_y,
+                self.text_vec.y + self.display.font_size.y + 1,
                 _download_text,
                 self.spinner_color,
             )

@@ -253,12 +253,12 @@ class _Race:
             self.scenery.append((x, y, height))
 
     def _build_static_scene(self):
-        from picoware.engine.entity import ENTITY_TYPE_ICON, SPRITE_3D_NONE
+        from picoware.engine.entity import ENTITY_TYPE_3D_SPRITE, SPRITE_3D_NONE
         from picoware.engine.sprite3d import Sprite3D
 
         self.background = Entity(
             "Background",
-            ENTITY_TYPE_ICON,
+            ENTITY_TYPE_3D_SPRITE,
             Vector(0, 1000),
             Vector(1, 1),
             None,
@@ -368,8 +368,8 @@ class _Race:
             _car_collision,
         )
         self.player.is_player = True
-        self.player.direction = Vector(0, 1)
-        self.player.plane = Vector(-0.72, 0)
+        self.player.direction_set(0, 1)
+        self.player.plane_set(-0.72, 0)
         self._place_car(self.player, self.player_progress, self.player_lane)
 
     def _sample_track(self, progress, lane):
@@ -392,8 +392,8 @@ class _Race:
 
     def _place_car(self, car, progress, lane):
         x, y, direction_x, direction_y = self._sample_track(progress, lane)
-        car.position = Vector(x, y)
-        car.direction = Vector(direction_x, direction_y)
+        car.position_set(x, y)
+        car.direction_set(direction_x, direction_y)
         car.set_3d_sprite_rotation(atan2(direction_y, direction_x) - pi * 0.5)
 
     def update_player(self, car, game):

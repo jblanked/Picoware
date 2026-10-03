@@ -56,8 +56,13 @@ class WiFi:
                 self._wifi_uart = None
         else:
             from network import STA_IF, WLAN
-            self.wlan = WLAN(self.mode)
-            self.mode = STA_IF
+            try:
+                self.wlan = WLAN(self.mode)
+                self.mode = STA_IF
+            except Exception as e:
+                self.wlan = None
+                if view_manager is not None:
+                    view_manager.log(str(e))
         self._state = WIFI_STATE_IDLE
         self.connection_start_time = None
         self.connection_timeout = timeout
@@ -135,7 +140,7 @@ class WiFi:
     @property
     def device_ip(self):
         """Get the current device IP address."""
-        if self._is_flipper or self._thread_lock is None:
+        if self._is_flipper or self._thread_lock is None or not self.wlan:
             return ""
         
         with self._thread_lock:
@@ -149,7 +154,7 @@ class WiFi:
                 return ""
             return self._wifi_uart.last_error
         
-        if self._thread_lock is None:
+        if self._thread_lock is None or not self.wlan:
             return ""
         
         with self._thread_lock:
@@ -163,7 +168,7 @@ class WiFi:
                 return ""
             return self._wifi_uart.mac_address
         
-        if self._thread_lock is None:
+        if self._thread_lock is None or not self.wlan:
             return ""
         
         with self._thread_lock:
@@ -178,7 +183,7 @@ class WiFi:
                 return WIFI_STATE_INACTIVE
             return self._wifi_uart.state
         
-        if self._thread_lock is None:
+        if self._thread_lock is None or not self.wlan:
             return WIFI_STATE_INACTIVE
         
         with self._thread_lock:
@@ -190,7 +195,7 @@ class WiFi:
         if self._is_flipper:
             return self.connection_timeout
         
-        if self._thread_lock is None:
+        if self._thread_lock is None or not self.wlan:
             return 0
         
         with self._thread_lock:
@@ -207,7 +212,7 @@ class WiFi:
             self.connection_timeout = seconds
             return
         
-        if self._thread_lock is None:
+        if self._thread_lock is None or not self.wlan:
             return
         
         with self._thread_lock:
@@ -232,6 +237,9 @@ class WiFi:
                 self.password = password
                 self._state = WIFI_STATE_CONNECTED
                 return True
+            return False
+
+        if self.wlan is None:
             return False
         
         from network import STA_IF, AP_IF
@@ -315,6 +323,8 @@ class WiFi:
                 self._state = WIFI_STATE_CONNECTED
                 return True
             return False
+        if self.wlan is None:
+            return False
         try:
             if self.wlan.isconnected() and ssid == self.ssid:
                 self._state = WIFI_STATE_CONNECTED
@@ -358,7 +368,7 @@ class WiFi:
             if self._wifi_uart:
                 self._wifi_uart.disconnect()
             return
-        if self._thread_lock is None:
+        if self._thread_lock is None or self.wlan is None:
             return
         with self._thread_lock:
             self._thread_running = False
@@ -370,7 +380,7 @@ class WiFi:
             if not self._wifi_uart:
                 return False
             return self._wifi_uart.is_connected()
-        if self._thread_lock is None:
+        if self._thread_lock is None or self.wlan is None:
             return False
         with self._thread_lock:
             return self.wlan.isconnected()
@@ -384,6 +394,8 @@ class WiFi:
             if not ssids:
                 return []
             return [(bytes(ssid, "utf-8"), 0, 0, 0, 0, 0) for ssid in ssids]
+        if self.wlan is None:
+            return []
         self.wlan.active(True)
         return self.wlan.scan()
 
@@ -393,6 +405,9 @@ class WiFi:
             if not self._wifi_uart:
                 return WIFI_STATE_INACTIVE
             return self._wifi_uart.status()
+
+        if self.wlan is None:
+            return WIFI_STATE_INACTIVE
         
         from network import (
             STAT_IDLE,
@@ -434,7 +449,7 @@ class WiFi:
             if self._wifi_uart:
                 self._wifi_uart.reset()
             return
-        if self._thread_lock is None:
+        if self._thread_lock is None or self.wlan is None:
             return
         with self._thread_lock:
             self.wlan.active(False)

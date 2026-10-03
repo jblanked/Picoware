@@ -84,6 +84,48 @@ def psram_required(func: callable) -> callable:
         return func(*args, **kwargs)
     return wrapper
 
+def server_settings_required(func: callable) -> callable:
+    """Decorator to check if server settings are available.
+
+    Args:
+        func (callable): The function to decorate.
+
+    Returns:
+        callable: The wrapped function, or a stub that raises when server settings are missing.
+
+    Raises:
+        RuntimeError: If the decorated function is called without server settings support.
+    """
+    if picoware_boards.BOARD_HAS_SD == 0:
+        def unavailable(*args, **kwargs):
+            """Raise an error because server settings are not available.
+
+            Raises:
+                RuntimeError: If server settings support is missing on the board.
+            """
+            raise RuntimeError(f"{func.__name__} requires server settings but storage is not available")
+        return unavailable
+    def wrapper(*args, **kwargs):
+        """Call the wrapped function with the given arguments.
+
+        Returns:
+            object: The result of the wrapped function.
+        """
+        view_manager = args[0]
+        from picoware.system.settings import Settings
+        
+        _settings = Settings(view_manager.storage)
+        server_settings = _settings.server_settings
+        _username = server_settings.get("username")
+        _password = server_settings.get("password")
+    
+        if not _username or not _password:
+            raise RuntimeError(
+                "View requires a server username and password to connect.\nAdd them in Library -> System -> Settings -> Server Settings"
+            )
+        return func(*args, **kwargs)
+    return wrapper
+
 def storage_required(func: callable) -> callable:
     """Decorator to check if storage is available.
 

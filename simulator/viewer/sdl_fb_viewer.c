@@ -562,7 +562,7 @@ int main(int argc, char **argv)
                     show_hud = !show_hud;
                     continue;
                 }
-                if (event.key.keysym.mod & KMOD_CTRL)
+                if ((event.key.keysym.mod & KMOD_CTRL) && (event.key.keysym.mod & KMOD_SHIFT))
                 {
                     int new_scale = 0;
                     if (event.key.keysym.sym == SDLK_1)
@@ -581,6 +581,9 @@ int main(int argc, char **argv)
                     }
                 }
                 int code = map_key(event.key.keysym.sym);
+                if ((event.key.keysym.mod & KMOD_CTRL) && !(event.key.keysym.mod & KMOD_SHIFT) &&
+                    event.key.keysym.sym >= SDLK_0 && event.key.keysym.sym <= SDLK_9)
+                    code = 0xE0 + (event.key.keysym.sym - SDLK_0);
                 if ((event.key.keysym.mod & KMOD_CTRL) && event.key.keysym.sym == SDLK_UP)
                     code = 0xC2;
                 else if ((event.key.keysym.mod & KMOD_CTRL) && event.key.keysym.sym == SDLK_DOWN)

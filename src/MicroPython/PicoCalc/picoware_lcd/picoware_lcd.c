@@ -265,6 +265,16 @@ void lcd_swap(void)
 
 void picoware_lcd_swap_region(uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
+    // Reject empty/off-screen regions before accessing either framebuffer.
+    // Clip using subtraction so even maximum uint16_t dimensions are safe.
+    if (width == 0 || height == 0 || x >= DISPLAY_WIDTH || y >= DISPLAY_HEIGHT)
+        return;
+
+    if (width > DISPLAY_WIDTH - x)
+        width = DISPLAY_WIDTH - x;
+    if (height > DISPLAY_HEIGHT - y)
+        height = DISPLAY_HEIGHT - y;
+
     if (lcd_mode == LCD_MODE_PSRAM)
     {
         if (module_initialized && !picoware_psram_ensure_initialized())

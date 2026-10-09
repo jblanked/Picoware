@@ -79,7 +79,7 @@ COLOR_ERROR = _rgb565(244, 102, 83)
 STATE_FILE = "picoware/settings/srpn.json"
 STATE_TEMP = "picoware/settings/srpn.tmp"
 STATE_BACKUP = "picoware/settings/srpn.bak"
-STATE_VERSION = 2
+STATE_VERSION = 3
 SAVE_DELAY_MS = 1000
 HELP_PAGE_COUNT = 3
 MAX_STATE_BYTES = 8192
@@ -624,6 +624,54 @@ class RPNStack:
         self.undo_state: tuple | None = None
         self.undo_label: str = ""
 
+    def snapshot(self):
+        """Persist this mode's working memory independently of the other mode."""
+        return {"stack": self.stack, "entry": self.entry, "entering": self.entering,
+                "lift_on_entry": self.lift_on_entry, "variables": self.variables,
+                "variable_set": self.variable_set}
+
+    @staticmethod
+    def restored(saved):
+        saved_stack = saved.get("stack")
+        saved_variables = saved.get("variables")
+        saved_variable_set = saved.get("variable_set")
+        if (
+            not isinstance(saved_stack, list)
+            or len(saved_stack) != 4
+            or not isinstance(saved_variables, list)
+            or len(saved_variables) != 26
+            or not isinstance(saved_variable_set, list)
+            or len(saved_variable_set) != 26
+        ):
+            raise ValueError("INVALID CALCULATOR MEMORY")
+
+        restored_stack = [_finite(value) for value in saved_stack]
+        restored_variables = [_finite(value) for value in saved_variables]
+        restored_variable_set = [bool(value) for value in saved_variable_set]
+        entry = saved.get("entry", "")
+        entering = bool(saved.get("entering", False))
+        if not isinstance(entry, str):
+            raise ValueError("INVALID CALCULATOR MEMORY")
+        # Entry allows 15 digits plus an optional decimal point and sign.
+        unsigned = entry[1:] if entry.startswith("-") else entry
+        if (len(unsigned.replace(".", "")) > 15 or unsigned.count(".") > 1
+                or any(c not in "0123456789." for c in unsigned)):
+            raise ValueError("INVALID CALCULATOR MEMORY")
+        if entering and entry not in ("", "-", ".", "-."):
+            _finite(entry)
+        elif not entering:
+            entry = ""
+
+        result = RPNStack()
+        result.stack = restored_stack
+        result.variables = restored_variables
+        result.variable_set = restored_variable_set
+        result.entry = entry
+        result.entering = entering
+        result.lift_on_entry = bool(saved.get("lift_on_entry", False))
+        result.status = "MEMORY RESTORED"
+        return result
+
     def remember_undo(self, label: str) -> None:
         """Remember one complete pre-action state for mistake recovery."""
         self.undo_state = (
@@ -634,7 +682,7 @@ class RPNStack:
             self.error,
             self.variables[:],
             self.variable_set[:],
-            financial.snapshot(),
+            financial.snapshot() if financial.mode else None,
         )
         self.undo_label = label
 
@@ -661,7 +709,8 @@ class RPNStack:
             self.error = str(state[4]) if state[4] else ""
             self.variables = list(state[5])
             self.variable_set = list(state[6])
-            financial = FinancialState.restored(state[7])
+            if state[7] is not None:
+                financial = FinancialState.restored(state[7])
         except (TypeError, ValueError, IndexError):
             self.error = "CORRUPT UNDO STATE"
             self.status = self.error
@@ -943,6 +992,8 @@ class RPNStack:
 
 
 calculator = None
+standard_calculator = None
+financial_calculator = None
 financial = FinancialState()
 
 
@@ -1006,16 +1057,11 @@ def _display_status():
 
 def _state_json():
     """Serialize the complete calculator memory for the next app cycle."""
-    state_data = {
-        "version": STATE_VERSION,
-        "stack": calculator.stack,
-        "entry": calculator.entry,
-        "entering": calculator.entering,
-        "lift_on_entry": calculator.lift_on_entry,
-        "variables": calculator.variables,
-        "variable_set": calculator.variable_set,
-        "financial": financial.snapshot(),
-    }
+    # Keep the top-level memory as Standard, regardless of the visible mode.
+    state_data = standard_calculator.snapshot()
+    state_data.update({"version": STATE_VERSION,
+                       "financial_stack": financial_calculator.snapshot(),
+                       "financial": financial.snapshot()})
     serialized = json.dumps(state_data)
     checksum = _state_checksum(serialized)
     serialized = serialized[:-1] + ', "_checksum": "' + checksum + '"}'
@@ -1041,7 +1087,7 @@ def _load_state():
 
 
 def _load_state_file(path):
-    global last_saved_state, financial
+    global last_saved_state, financial, calculator, standard_calculator, financial_calculator
     if not storage.exists(path):
         return False
     try:
@@ -1053,53 +1099,27 @@ def _load_state_file(path):
             prefix, _ = raw.rsplit(', "_checksum": ', 1)
             if saved["_checksum"] != _state_checksum(prefix + "}"):
                 return False
-        if saved.get("version") not in (1, STATE_VERSION):
+        if saved.get("version") not in (1, 2, STATE_VERSION):
             return False
 
-        saved_stack = saved.get("stack")
-        saved_variables = saved.get("variables")
-        saved_variable_set = saved.get("variable_set")
-        if (
-            not isinstance(saved_stack, list)
-            or len(saved_stack) != 4
-            or not isinstance(saved_variables, list)
-            or len(saved_variables) != 26
-            or not isinstance(saved_variable_set, list)
-            or len(saved_variable_set) != 26
-        ):
-            return False
-
-        restored_stack = [_finite(value) for value in saved_stack]
-        restored_variables = [_finite(value) for value in saved_variables]
-        restored_variable_set = [bool(value) for value in saved_variable_set]
-        entry = saved.get("entry", "")
-        entering = bool(saved.get("entering", False))
-        if not isinstance(entry, str):
-            return False
-        # Entry allows 15 digits plus an optional decimal point and sign.
-        unsigned = entry[1:] if entry.startswith("-") else entry
-        if (len(unsigned.replace(".", "")) > 15 or unsigned.count(".") > 1
-                or any(c not in "0123456789." for c in unsigned)):
-            return False
-        if entering and entry not in ("", "-", ".", "-."):
-            _finite(entry)
-        elif not entering:
-            entry = ""
 
         restored_financial = FinancialState.restored(saved.get("financial", {}))
-        if saved.get("version") == 1:
-            restored_financial.pending = entering
+        restored_standard = RPNStack.restored(saved)
+        if saved.get("version") == STATE_VERSION:
+            restored_working = RPNStack.restored(saved["financial_stack"])
+        elif saved.get("version") == 2:
+            # Version 2 shared one stack: retain it in both independent memories.
+            restored_working = RPNStack.restored(saved)
+        else:
+            restored_working = RPNStack()
+            restored_financial.pending = False
+        # Apply only after both memories and financial registers validate.
         financial = restored_financial
-        calculator.stack = restored_stack
-        calculator.variables = restored_variables
-        calculator.variable_set = restored_variable_set
-        calculator.entry = entry
-        calculator.entering = entering
-        calculator.lift_on_entry = bool(saved.get("lift_on_entry", False))
-        calculator.error = ""
-        calculator.status = "MEMORY RESTORED"
+        standard_calculator = restored_standard
+        financial_calculator = restored_working
+        calculator = financial_calculator if financial.mode else standard_calculator
         last_saved_state = raw
-        if saved.get("version") == 1 or "_checksum" not in saved:
+        if saved.get("version") != STATE_VERSION or "_checksum" not in saved:
             _queue_save()
         return True
     except (AttributeError, KeyError, TypeError, ValueError, OSError, OverflowError):
@@ -1445,8 +1465,10 @@ def _draw_fin_menu(view_manager):
 
 def _set_fin_mode(view_manager, enabled):
     global fin_overlay, fin_recall, flash_index, selected_index, help_visible, escape_armed
-    escape_armed = False
+    global calculator, back_exit_armed
+    escape_armed = back_exit_armed = False
     financial.mode = enabled
+    calculator = financial_calculator if enabled else standard_calculator
     fin_overlay = None
     fin_recall = False
     help_visible = False
@@ -1972,6 +1994,8 @@ def _help_lines(section):
             ("No final equals is needed", COLOR_MUTED),
             ("RETURN / = enters X", TFT_WHITE),
             ("F switches financial mode", TFT_WHITE),
+            ("Modes keep separate input,", TFT_WHITE),
+            ("stacks, A-Z memory and Undo", TFT_WHITE),
             ("MODE chooses mode / help", TFT_WHITE),
             ("H / ESC / BACK  close help", COLOR_MUTED),
             ("LEFT / RIGHT  change help page", COLOR_MUTED),
@@ -2185,7 +2209,8 @@ def _complete_variable_action(view_manager, index, action=None):
         if not calculator.recall(index):
             _draw_variable_viewer(view_manager)
             return False
-        financial.pending = True
+        if financial.mode:
+            financial.pending = True
         _queue_save()
         variable_view_mode = None
         _redraw(view_manager)
@@ -2321,7 +2346,8 @@ def _edit_entry():
     """Apply the shared Back/Backspace/Delete entry edit bookkeeping."""
     global escape_armed
     calculator.backspace()
-    financial.pending = calculator.entering
+    if financial.mode:
+        financial.pending = calculator.entering
     escape_armed = False
     _queue_save()
 
@@ -2337,7 +2363,8 @@ def _perform_clear():
         if financial.mode:
             calculator.status = "X CLEARED - ESC AGAIN: ALL"
         escape_armed = True
-    financial.pending = False
+    if financial.mode:
+        financial.pending = False
     _queue_save()
 
 
@@ -2376,16 +2403,18 @@ def _perform(action):
         calculator.binary(action)
     else:
         return
-    if action not in ("enter", "undo") and not calculator.error:
+    if financial.mode and action not in ("enter", "undo") and not calculator.error:
         financial.pending = True
     _queue_save()
 
 
 def start(view_manager):
-    global calculator, financial, storage, selected_index
+    global calculator, financial, storage, selected_index, standard_calculator, financial_calculator
     _reset_session()
     financial = FinancialState()
-    calculator = RPNStack()
+    standard_calculator = RPNStack()
+    financial_calculator = RPNStack()
+    calculator = standard_calculator
     storage = view_manager.storage
     if not _load_state():
         calculator.status = "TRY: 2 RET 3 + -> 5"
@@ -2660,9 +2689,9 @@ def run(view_manager):
 
 
 def stop(view_manager):
-    global calculator
+    global calculator, standard_calculator, financial_calculator
     _save_state(force=True)
-    calculator = None
+    calculator = standard_calculator = financial_calculator = None
     _reset_session()
     from gc import collect
 

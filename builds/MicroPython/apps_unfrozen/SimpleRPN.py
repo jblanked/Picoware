@@ -994,7 +994,7 @@ class RPNStack:
 calculator = None
 standard_calculator = None
 financial_calculator = None
-financial = FinancialState()
+financial = None
 
 
 def _reset_session():
@@ -1030,7 +1030,6 @@ def _reset_session():
     save_error = ""
 
 
-_reset_session()
 
 
 def _state_checksum(text):

@@ -205,6 +205,20 @@ class Agent:
             storage.write(self._conv_path, ',' + json.dumps(message), mode="a")
 
     @staticmethod
+    def is_alnum(s: str) -> bool:
+        """Check if the string is alphanumeric (letters and digits only).
+
+        Args:
+            s (str): The string to check.
+
+        Returns:
+            bool: True if the string is alphanumeric, False otherwise.
+        """
+        if not s: 
+            return False
+        return all(c.isdigit() or ('a' <= c.lower() <= 'z') for c in s)
+
+    @staticmethod
     def _json_escape(text: str) -> str:
         """Escape a string for embedding in JSON.
 
@@ -356,10 +370,10 @@ class Agent:
 
     @staticmethod
     def _sanitize_tool_name(name: str) -> str:
-        """Replace characters unsupported by common tool-name schemas."""
+        """Replace characters unsupported by common tool-name schemas with underscores."""
         result = ""
         for character in name:
-            if character.isalnum() or character in "_-":
+            if Agent.is_alnum(character) or character in "_-":
                 result += character
             else:
                 result += "_"

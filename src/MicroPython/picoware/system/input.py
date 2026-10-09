@@ -368,6 +368,10 @@ class Input:
                 }
             )
 
+        # Preserve Ctrl+digit as an atomic event on all keyboard boards.
+        self._button_map.update({buttons.KEY_CTRL_0 + i: buttons.BUTTON_CTRL_0 + i
+                                 for i in range(10)})
+
         self._character_map = {
             buttons.BUTTON_A: "a",
             buttons.BUTTON_B: "b",

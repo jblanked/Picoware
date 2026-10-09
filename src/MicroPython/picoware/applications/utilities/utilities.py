@@ -84,6 +84,7 @@ def run(view_manager) -> None:
                     email.run,
                     email.start,
                     email.stop,
+                    restore_target=('builtin', 'utilities.email'),
                 )
             )
             view_manager.switch_to("email")
@@ -96,6 +97,7 @@ def run(view_manager) -> None:
                     espflasher.run,
                     espflasher.start,
                     espflasher.stop,
+                    restore_target=('builtin', 'utilities.espflasher'),
                 )
             )
             view_manager.switch_to("espflasher")
@@ -108,6 +110,7 @@ def run(view_manager) -> None:
                     file_manager.run,
                     file_manager.start,
                     file_manager.stop,
+                    restore_target=('builtin', 'utilities.file_manager'),
                 )
             )
             view_manager.switch_to("file_manager")
@@ -116,23 +119,24 @@ def run(view_manager) -> None:
 
             view_manager.add(
                 View(
-                    "ide", pico_ide.run, pico_ide.start, pico_ide.stop
+                    "ide", pico_ide.run, pico_ide.start, pico_ide.stop,
+                    restore_target=('builtin', 'utilities.pico_ide'),
                 )
             )
             view_manager.switch_to("ide")
         elif _utilities.current_item == "Python REPL":
             from picoware.applications.utilities import repl
 
-            view_manager.add(View("repl", repl.run, repl.start, repl.stop))
+            view_manager.add(View("repl", repl.run, repl.start, repl.stop, restore_target=('builtin', 'utilities.repl')))
             view_manager.switch_to("repl")
         elif _utilities.current_item == "Serial Terminal":
             from picoware.applications.utilities import serial
-            view_manager.add(View("serial", serial.run, serial.start, serial.stop))
+            view_manager.add(View("serial", serial.run, serial.start, serial.stop, restore_target=('builtin', 'utilities.serial')))
             view_manager.switch_to("serial")
         elif _utilities.current_item == "SSH Terminal":
             from picoware.applications.utilities import ssh
 
-            view_manager.add(View("ssh", ssh.run, ssh.start, ssh.stop))
+            view_manager.add(View("ssh", ssh.run, ssh.start, ssh.stop, restore_target=('builtin', 'utilities.ssh')))
             view_manager.switch_to("ssh")
 
 

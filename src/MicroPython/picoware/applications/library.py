@@ -85,6 +85,7 @@ def run(view_manager) -> None:
                     applications.run,
                     applications.start,
                     applications.stop,
+                    restore_target=False,
                 )
             )
             view_manager.switch_to("applications")
@@ -97,40 +98,41 @@ def run(view_manager) -> None:
                     bluetooth.run,
                     bluetooth.start,
                     bluetooth.stop,
+                    restore_target=False,
                 )
             )
             view_manager.switch_to("bluetooth")
         elif _library.current_item == "Infrared":
             from picoware.applications import ir
 
-            view_manager.add(View("ir",ir.run,ir.start,ir.stop))
+            view_manager.add(View("ir",ir.run,ir.start,ir.stop, restore_target=('builtin', 'ir')))
             view_manager.switch_to("ir")
         elif _library.current_item == "Settings":
             from picoware.applications import settings
 
             view_manager.add(
-                View("settings", settings.run, settings.start, settings.stop)
+                View("settings", settings.run, settings.start, settings.stop, restore_target=False)
             )
             view_manager.switch_to("settings")
         elif _library.current_item == "System":
             from picoware.applications.system import system
 
-            view_manager.add(View("system", system.run, system.start, system.stop))
+            view_manager.add(View("system", system.run, system.start, system.stop, restore_target=False))
             view_manager.switch_to("system")
         elif _library.current_item == "USB":
             from picoware.applications.usb import usb
 
-            view_manager.add(View( "usb",usb.run,usb.start,usb.stop))
+            view_manager.add(View( "usb",usb.run,usb.start,usb.stop, restore_target=False))
             view_manager.switch_to("usb")
         elif _library.current_item == "Utilities":
             from picoware.applications.utilities import utilities
 
-            view_manager.add(View("utilities", utilities.run, utilities.start, utilities.stop))
+            view_manager.add(View("utilities", utilities.run, utilities.start, utilities.stop, restore_target=False))
             view_manager.switch_to("utilities")
         elif _library.current_item == "WiFi":
             from picoware.applications.wifi import wifi
 
-            view_manager.add(View("wifi", wifi.run, wifi.start, wifi.stop))
+            view_manager.add(View("wifi", wifi.run, wifi.start, wifi.stop, restore_target=False))
             view_manager.switch_to("wifi")
         
 

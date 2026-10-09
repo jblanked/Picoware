@@ -220,33 +220,43 @@ def run(view_manager) -> None:
     Args:
         view_manager (ViewManager): The view manager context.
     """
-    from picoware.system.buttons import BUTTON_LEFT, BUTTON_CENTER, BUTTON_UP
+    from picoware.system.buttons import BUTTON_LEFT, BUTTON_CENTER, BUTTON_UP, BUTTON_BACK
 
     global _desktop_time_updated, _desktop_update_fetched, _desktop_update_parsed, _desktop_http, _desktop_update_available
 
     button: int = view_manager.button
 
+    if button == BUTTON_BACK:
+        view_manager.restore.cancel()
+        return
+    if button in (BUTTON_LEFT, BUTTON_UP):
+        view_manager.restore.cancel()
     if button == BUTTON_LEFT:
         from picoware.applications.system import system_info
         from picoware.system.view import View
 
         view_manager.add(
-            View("system_info", system_info.run, system_info.start, system_info.stop)
+            View("system_info", system_info.run, system_info.start, system_info.stop, restore_target=False)
         )
         view_manager.switch_to("system_info")
         return
     if button == BUTTON_CENTER:
+        if view_manager.restore.pending:
+            view_manager.input_manager.reset()
+            view_manager._button = -1
+            view_manager.restore.resume(view_manager)
+            return
         from picoware.applications import library
         from picoware.system.view import View
 
-        view_manager.add(View("library", library.run, library.start, library.stop))
+        view_manager.add(View("library", library.run, library.start, library.stop, restore_target=False))
         view_manager.switch_to("library")
         return
     if button == BUTTON_UP:
         from picoware.applications import notifications
         from picoware.system.view import View
 
-        view_manager.add(View("notifications", notifications.run, notifications.start, notifications.stop))
+        view_manager.add(View("notifications", notifications.run, notifications.start, notifications.stop, restore_target=False))
         view_manager.switch_to("notifications")
         return
 
@@ -259,6 +269,11 @@ def run(view_manager) -> None:
 
     # Draw animated picoware text every frame
     _desktop_picoware.draw()
+
+    if view_manager.restore.pending:
+        width = max(1, view_manager.draw.size.x // view_manager.draw.font_size.x)
+        view_manager.draw._text(0, view_manager.draw.size.y - view_manager.draw.font_size.y,
+                                view_manager.restore.hint(width), view_manager.foreground_color)
 
     # Swap buffer to display
     view_manager.draw.swap()

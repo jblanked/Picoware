@@ -109,6 +109,7 @@ def run(view_manager) -> None:
                     screensaver_module.run,
                     screensaver_module.start,
                     screensaver_module.stop,
+                    restore_target=("sd", selected_screensaver, "screensavers"),
                 )
                 view_manager.log(
                     f"[Screensavers]: Created view for app {selected_screensaver} after {ticks_ms() - start_time} ms",
@@ -134,5 +135,7 @@ def stop(view_manager) -> None:
         del _screensavers
         _screensavers = None
     if _app_loader is not None:
-        _app_loader.cleanup_modules()
+        # This menu also stops when launching an app. Keep its lazy-import
+        # paths until ViewManager sees the SD app leave the navigation stack.
+        _app_loader.cleanup_modules(release_paths=False)
     collect()

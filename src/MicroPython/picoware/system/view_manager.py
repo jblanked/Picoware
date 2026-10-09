@@ -43,6 +43,7 @@ class ViewManager:
         "_app_loader",
         "_usb_video_stream",
         "_uart",
+        "restore",
     )
 
     def __init__(self):
@@ -81,6 +82,9 @@ class ViewManager:
         self._storage.mkdir("picoware/settings")
         self._storage.mkdir("picoware/keyboard")
 
+        from picoware.system.app_restore import AppRestore
+
+        self.restore = AppRestore(self._storage)
         settings = Settings(self._storage)
         self._gmt_offset = settings.gmt_offset
 
@@ -179,7 +183,6 @@ class ViewManager:
         # Clean up views
         for i in range(self.MAX_VIEWS):
             if self.views[i] is not None:
-                del self.views[i]
                 self.views[i] = None
 
         if self._current_view is not None:
@@ -553,14 +556,6 @@ class ViewManager:
             self._current_view = self.view_stack[self._stack_depth]
             self.view_stack[self._stack_depth] = None
 
-            # Start the previous view
-            if self._current_view is not None:
-                if should_start:
-                    if not self._current_view.start(self):
-                        # If the previous view fails to start, try going back again
-                        self.back(False, should_clear, should_start)
-                        return
-
             # Remove the view if requested
             if view_to_remove is not None:
                 # Find and remove the view from the views array
@@ -585,8 +580,28 @@ class ViewManager:
                         self._view_count -= 1
                         break
 
-                # Free unused view modules
+            # Remove the departed child before restarting its parent. A failed
+            # restart must unwind and remove the failed parent as well.
+            if self._current_view is not None and should_start:
+                if not self._current_view.start(self):
+                    self.back(True, should_clear, should_start)
+                    return
+
+            if view_to_remove is not None:
                 self._unload_unused_modules()
+
+        self._sync_restore()
+
+    def _sync_restore(self):
+        """Persist the identity of the successfully active app."""
+        view = self._current_view
+        if self.restore.pending and (view is None or view.name != "desktop_view"):
+            self.restore.cancel()
+        target = view.restore_target if view is not None and view.active else None
+        self.restore.track(target)
+        self.restore.release_unused(self)
+        if self._app_loader is not None:
+            self._app_loader.cleanup_unused_paths()
 
     def _unload_unused_modules(self):
         """Unload view and gui modules no longer used (Flipper only)."""
@@ -748,20 +763,22 @@ class ViewManager:
                     self.clear()
 
                 # Delete the view and shift array
-                del self.views[i]
                 for j in range(i, self._view_count - 1):
                     self.views[j] = self.views[j + 1]
                 self._view_count -= 1
+                self.views[self._view_count] = None
 
                 # Free unused view modules
                 self._unload_unused_modules()
                 break
+        self._sync_restore()
 
     def run(self) -> bool:
         """Run the current view."""
         button = self._input_manager.button
         self._button = button
         if button == 80:  # BUTTON_HOME
+            self.restore.cancel()
             while self._stack_depth > 0:
                 if self._stack_depth == 1:
                     self.back(should_clear=True, should_start=True)
@@ -774,7 +791,10 @@ class ViewManager:
             self.log(self._thread_manager._outgoing)
 
         if self._current_view is not None:
-            self._current_view.run(self)
+            running = self._current_view
+            running.run(self)
+            if running is self._current_view and running.active:
+                self.restore.frame_succeeded(running.restore_target)
 
         if button != -1:
             self._input_manager.reset()
@@ -799,6 +819,7 @@ class ViewManager:
 
         # Clear the stack when explicitly setting a view
         self.clear_stack()
+        self._sync_restore()
 
     def switch_to(self, view_name: str, clear_stack=False, push_view=True):
         """Switch to a view by name with options for stack management.
@@ -813,6 +834,9 @@ class ViewManager:
             self.log(f"ViewManager: View '{view_name}' not found or is None.", 2)
             return
 
+        if view.restore_target is None and self._current_view is not None:
+            view.restore_target = self._current_view.restore_target
+
         # Push current view to stack before switching
         if self._current_view is not None:
             if clear_stack:
@@ -825,6 +849,7 @@ class ViewManager:
         self._current_view = view
         if not self._current_view.start(self):
             self.back()
+        self._sync_restore()
 
     def _push_view(self, view):
         """Push a view onto the navigation stack.

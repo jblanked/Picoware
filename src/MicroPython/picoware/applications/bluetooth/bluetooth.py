@@ -91,6 +91,7 @@ def run(view_manager) -> None:
                     scan.run,
                     scan.start,
                     scan.stop,
+                    restore_target=('builtin', 'bluetooth.scan'),
                 )
             )
             view_manager.switch_to("bluetooth_scan")
@@ -105,6 +106,7 @@ def run(view_manager) -> None:
                     advertise.run,
                     advertise.start,
                     advertise.stop,
+                    restore_target=('builtin', 'bluetooth.advertise'),
                 )
             )
             view_manager.switch_to("bluetooth_advertise")
@@ -119,6 +121,7 @@ def run(view_manager) -> None:
                     pair.run,
                     pair.start,
                     pair.stop,
+                    restore_target=('builtin', 'bluetooth.pair'),
                 )
             )
             view_manager.switch_to("bluetooth_pair")
@@ -133,6 +136,7 @@ def run(view_manager) -> None:
                     uart_chat.run,
                     uart_chat.start,
                     uart_chat.stop,
+                    restore_target=('builtin', 'bluetooth.uart_chat'),
                 )
             )
             view_manager.switch_to("bluetooth_uart_chat")
@@ -147,6 +151,7 @@ def run(view_manager) -> None:
                     beacon.run,
                     beacon.start,
                     beacon.stop,
+                    restore_target=('builtin', 'bluetooth.beacon'),
                 )
             )
             view_manager.switch_to("bluetooth_beacon")
@@ -161,6 +166,7 @@ def run(view_manager) -> None:
                     rssi_monitor.run,
                     rssi_monitor.start,
                     rssi_monitor.stop,
+                    restore_target=('builtin', 'bluetooth.rssi_monitor'),
                 )
             )
             view_manager.switch_to("bluetooth_rssi_monitor")

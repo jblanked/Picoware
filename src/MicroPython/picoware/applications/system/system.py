@@ -78,13 +78,13 @@ def run(view_manager) -> None:
             from picoware.applications.system import update
             from picoware.system.view import View
 
-            view_manager.add(View("update", update.run, update.start, update.stop))
+            view_manager.add(View("update", update.run, update.start, update.stop, restore_target=False))
             view_manager.switch_to("update")
         elif _system_index == 1:
             from picoware.applications.system import about
             from picoware.system.view import View
 
-            view_manager.add(View("about", about.run, about.start, about.stop))
+            view_manager.add(View("about", about.run, about.start, about.stop, restore_target=False))
             view_manager.switch_to("about")
         elif _system_index == 2:
             from picoware.applications.system import system_info
@@ -92,7 +92,8 @@ def run(view_manager) -> None:
 
             view_manager.add(
                 View(
-                    "system_info", system_info.run, system_info.start, system_info.stop
+                    "system_info", system_info.run, system_info.start, system_info.stop,
+                    restore_target=False,
                 )
             )
             view_manager.switch_to("system_info")

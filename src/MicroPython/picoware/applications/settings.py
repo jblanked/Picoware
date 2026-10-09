@@ -22,6 +22,7 @@ STATE_THEME_COLOR = const(14)  # choice (select from predefined colors)
 STATE_TIME = const(15)  # menu with date (date picker), GMT offset (keyboard)
 STATE_USB_STREAM = const(16)  # toggle (enable/disable USB stream)
 STATE_XAI_API_KEY = const(18)  # keyboard input for xAI API key
+STATE_RESTORE_LAST_APP = const(19)  # toggle (resume active app on Enter)
 
 # modes
 _MODE_MENU = const(0)
@@ -144,6 +145,7 @@ def __config() -> tuple:
         ("USB Stream", "usb_stream", False),
         ("Use LVGL", "lvgl_mode", False),
         ("xAI API Key", "xai_api_key", ""),
+        ("Restore Last App", "restore_last_app", False),
     )
 
 
@@ -230,7 +232,8 @@ def __open_toggle(setting_index: int) -> None:
 
     _current_setting = setting_index
     cfg = __config()[setting_index]
-    current_state = _settings._settings[cfg[1]]
+    current_state = (_view_manager.restore.enabled if setting_index == STATE_RESTORE_LAST_APP
+                     else _settings._settings[cfg[1]])
 
     draw = _view_manager.draw
     draw.erase()
@@ -872,11 +875,8 @@ def start(view_manager) -> bool:
         view_manager (ViewManager): The view manager instance for display and storage access.
 
     Returns:
-        bool: True if the app started, False if no SD card is present.
+        bool: True if the settings menu was created.
     """
-    if not view_manager.has_sd_card:
-        print("Settings app requires an SD card")
-        return False
 
     from picoware.gui.menu import Menu
     from picoware.system.settings import Settings
@@ -966,7 +966,9 @@ def run(view_manager) -> None:
             _menu.scroll_down()
         elif button == BUTTON_CENTER:
             selected = _menu.current_item
-            if selected == "Theme Color":
+            if selected == "Restore Last App":
+                __open_toggle(STATE_RESTORE_LAST_APP)
+            elif selected == "Theme Color":
                 __open_choice()
             elif selected == "Time":
                 __open_time_menu()
@@ -1194,6 +1196,12 @@ def run(view_manager) -> None:
             __back_to_menu()
         elif button == BUTTON_CENTER:
             new_state = not _toggle.state
+            if _current_setting == STATE_RESTORE_LAST_APP:
+                if not view_manager.restore.set_enabled(new_state):
+                    view_manager.alert(view_manager.restore.error)
+                _toggle.state = view_manager.restore.enabled
+                _toggle.draw()
+                return
             _toggle.state = new_state
             cfg = __config()[_current_setting]
             _settings._settings[cfg[1]] = new_state
@@ -1280,5 +1288,6 @@ def stop(view_manager) -> None:
                 # but maybe thats something we'll try later...
                 sys.hard_reset()
 
-    view_manager.keyboard.reset()
+    if view_manager._keyboard is not None:
+        view_manager._keyboard.reset()
     collect()

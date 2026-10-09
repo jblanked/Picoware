@@ -85,6 +85,7 @@ def run(view_manager) -> None:
                     keyboard.run,
                     keyboard.start,
                     keyboard.stop,
+                    restore_target=('builtin', 'usb.keyboard'),
                 )
             )
             view_manager.switch_to("usb_keyboard")
@@ -98,6 +99,7 @@ def run(view_manager) -> None:
                     media_keys.run,
                     media_keys.start,
                     media_keys.stop,
+                    restore_target=('builtin', 'usb.media_keys'),
                 )
             )
             view_manager.switch_to("usb_media_keys")
@@ -111,6 +113,7 @@ def run(view_manager) -> None:
                     numpad.run,
                     numpad.start,
                     numpad.stop,
+                    restore_target=('builtin', 'usb.numpad'),
                 )
             )
             view_manager.switch_to("usb_numpad")
@@ -124,6 +127,7 @@ def run(view_manager) -> None:
                     payload.run,
                     payload.start,
                     payload.stop,
+                    restore_target=('builtin', 'usb.payload'),
                 )
             )
             view_manager.switch_to("usb_payload")

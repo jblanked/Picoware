@@ -85,7 +85,7 @@ def run(view_manager) -> None:
             from picoware.applications.wifi import connect
 
             view_manager.add(
-                View("wifi_connect", connect.run, connect.start, connect.stop)
+                View("wifi_connect", connect.run, connect.start, connect.stop, restore_target=('builtin', 'wifi.connect'))
             )
             view_manager.switch_to("wifi_connect")
         elif _wifi_index == 1:
@@ -97,24 +97,25 @@ def run(view_manager) -> None:
                     rssi_monitor.run,
                     rssi_monitor.start,
                     rssi_monitor.stop,
+                    restore_target=('builtin', 'wifi.rssi_monitor'),
                 )
             )
             view_manager.switch_to("wifi_rssi_monitor")
         elif _wifi_index == 2:
             from picoware.applications.wifi import scan
 
-            view_manager.add(View("wifi_scan", scan.run, scan.start, scan.stop))
+            view_manager.add(View("wifi_scan", scan.run, scan.start, scan.stop, restore_target=('builtin', 'wifi.scan')))
             view_manager.switch_to("wifi_scan")
         elif _wifi_index == 3:
             from picoware.applications.wifi import server
 
-            view_manager.add(View("wifi_server", server.run, server.start, server.stop))
+            view_manager.add(View("wifi_server", server.run, server.start, server.stop, restore_target=('builtin', 'wifi.server')))
             view_manager.switch_to("wifi_server")
         elif _wifi_index == 4:
             from picoware.applications.wifi import settings
 
             view_manager.add(
-                View("wifi_settings", settings.run, settings.start, settings.stop)
+                View("wifi_settings", settings.run, settings.start, settings.stop, restore_target=False)
             )
             view_manager.switch_to("wifi_settings")
 

@@ -141,7 +141,8 @@ def _run_file(view_manager, filename) -> bool:
                 # Check if view already exists
                 if view_manager.get_view(app_view_name) is None:
                     app_view = View(
-                        app_view_name, _app.run, _app.start, _app.stop
+                        app_view_name, _app.run, _app.start, _app.stop,
+                        restore_target=("sd", _file_without_extension, _subdirectory),
                     )
                     view_manager.add(app_view)
                 view_manager.switch_to(app_view_name)

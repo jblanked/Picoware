@@ -22,7 +22,7 @@ def main():
         vm: ViewManager = ViewManager()
 
         # Add views to the view manager
-        vm.add(View("desktop_view", desktop.run, desktop.start, desktop.stop))
+        vm.add(View("desktop_view", desktop.run, desktop.start, desktop.stop, restore_target=False))
 
         # Switch views
         vm.switch_to("desktop_view")

@@ -101,7 +101,8 @@ def run(view_manager) -> None:
             # Check if view already exists
             if view_manager.get_view(app_view_name) is None:
                 app_view = View(
-                    app_view_name, app_module.run, app_module.start, app_module.stop
+                    app_view_name, app_module.run, app_module.start, app_module.stop,
+                    restore_target=("sd", selected_app, ""),
                 )
                 view_manager.log(
                     f"[Applications]: Created view for app {selected_app} after {ticks_ms() - start_time} ms"
@@ -127,5 +128,7 @@ def stop(view_manager) -> None:
         del _applications
         _applications = None
     if _app_loader is not None:
-        _app_loader.cleanup_modules()
+        # This menu also stops when launching an app. Keep its lazy-import
+        # paths until ViewManager sees the SD app leave the navigation stack.
+        _app_loader.cleanup_modules(release_paths=False)
     collect()

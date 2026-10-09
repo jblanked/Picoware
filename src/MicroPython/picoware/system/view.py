@@ -11,9 +11,9 @@ class View:
         active (bool): Whether the view is currently active.
     """
 
-    __slots__ = ("name", "_run", "_start", "_stop", "active")
+    __slots__ = ("name", "_run", "_start", "_stop", "active", "restore_target")
 
-    def __init__(self, name: str, run: callable, start: callable, stop: callable):
+    def __init__(self, name: str, run: callable, start: callable, stop: callable, restore_target=None):
         """Initialize the view with its name and callbacks.
 
         Args:
@@ -21,7 +21,10 @@ class View:
             run (callable): Function called every frame.
             start (callable): Function called when the view is created.
             stop (callable): Function called when the view is destroyed.
+            restore_target: Explicit app identity, False for navigation, or None to inherit.
         """
+        # None inherits the owning app; False marks navigation.
+        self.restore_target = restore_target
         self.name = name
         self._run = run
         self._start = start
@@ -35,6 +38,15 @@ class View:
             exception (Exception): The exception to display.
             view_manager (ViewManager): The manager to show the alert on.
         """
+        restore = getattr(view_manager, "restore", None)
+        if restore is not None:
+            attempting = restore.attempting
+            launching = restore.launching
+            restore.failed()
+            if attempting:
+                if not launching:
+                    view_manager.alert("Could not restore app: " + str(exception))
+                return  # Startup errors are reported by the launcher.
         import sys
         import io
 

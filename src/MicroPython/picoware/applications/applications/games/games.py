@@ -108,6 +108,7 @@ def run(view_manager) -> None:
                     ghouls.run,
                     ghouls.start,
                     ghouls.stop,
+                    restore_target=('builtin', 'applications.games.ghouls'),
                 )
                 view_manager.add(ghouls_view)
             view_manager.switch_to(ghouls_view_name)
@@ -123,6 +124,7 @@ def run(view_manager) -> None:
                     gameboy.run,
                     gameboy.start,
                     gameboy.stop,
+                    restore_target=('builtin', 'applications.games.gameboy'),
                 )
                 view_manager.add(gameboy_view)
             view_manager.switch_to(gameboy_view_name)
@@ -150,6 +152,7 @@ def run(view_manager) -> None:
                     game_module.run,
                     game_module.start,
                     game_module.stop,
+                    restore_target=("sd", selected_game, "games"),
                 )
                 view_manager.log(
                     f"[Games]: Created view for app {selected_game} after {ticks_ms() - start_time} ms",
@@ -175,5 +178,7 @@ def stop(view_manager) -> None:
         del _games
         _games = None
     if _app_loader is not None:
-        _app_loader.cleanup_modules()
+        # This menu also stops when launching an app. Keep its lazy-import
+        # paths until ViewManager sees the SD app leave the navigation stack.
+        _app_loader.cleanup_modules(release_paths=False)
     collect()

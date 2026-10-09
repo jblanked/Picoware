@@ -115,6 +115,7 @@ def run(view_manager) -> None:
                     ssid.run,
                     ssid.start,
                     ssid.stop,
+                    restore_target=False,
                 )
             )
             view_manager.switch_to("wifi_ssid")
@@ -127,6 +128,7 @@ def run(view_manager) -> None:
                     password.run,
                     password.start,
                     password.stop,
+                    restore_target=False,
                 )
             )
             view_manager.switch_to("wifi_password")

@@ -79,7 +79,7 @@ def run(view_manager) -> None:
         if _applications.current_item == "Agent":
             from picoware.applications.applications import agent
 
-            view_manager.add(View("agent", agent.run, agent.start, agent.stop))
+            view_manager.add(View("agent", agent.run, agent.start, agent.stop, restore_target=('builtin', 'applications.agent')))
             view_manager.switch_to("agent")
         elif _applications.current_item == "App Store":
             from picoware.applications.applications import app_store
@@ -90,6 +90,7 @@ def run(view_manager) -> None:
                     app_store.run,
                     app_store.start,
                     app_store.stop,
+                    restore_target=('builtin', 'applications.app_store'),
                 )
             )
             view_manager.switch_to("app_store")
@@ -102,6 +103,7 @@ def run(view_manager) -> None:
                     c.run,
                     c.start,
                     c.stop,
+                    restore_target=('builtin', 'applications.c'),
                 )
             )
             view_manager.switch_to("c")
@@ -114,6 +116,7 @@ def run(view_manager) -> None:
                     custom.run,
                     custom.start,
                     custom.stop,
+                    restore_target=False,
                 )
             )
             view_manager.switch_to("custom")
@@ -126,13 +129,14 @@ def run(view_manager) -> None:
                     FlipSocial.run,
                     FlipSocial.start,
                     FlipSocial.stop,
+                    restore_target=('builtin', 'applications.FlipSocial'),
                 )
             )
             view_manager.switch_to("flipsocial")
         elif _applications.current_item == "Games":
             from picoware.applications.applications.games import games
 
-            view_manager.add(View("games", games.run, games.start, games.stop))
+            view_manager.add(View("games", games.run, games.start, games.stop, restore_target=False))
             view_manager.switch_to("games")
         elif _applications.current_item == "JavaScript":
             from picoware.applications.applications import javascript
@@ -143,6 +147,7 @@ def run(view_manager) -> None:
                     javascript.run,
                     javascript.start,
                     javascript.stop,
+                    restore_target=('builtin', 'applications.javascript'),
                 )
             )
             view_manager.switch_to("javascript")
@@ -155,6 +160,7 @@ def run(view_manager) -> None:
                     mmbasic.run,
                     mmbasic.start,
                     mmbasic.stop,
+                    restore_target=('builtin', 'applications.mmbasic'),
                 )
             )
             view_manager.switch_to("mmbasic")
@@ -167,6 +173,7 @@ def run(view_manager) -> None:
                     screensavers.run,
                     screensavers.start,
                     screensavers.stop,
+                    restore_target=False,
                 )
             )
             view_manager.switch_to("screensavers")

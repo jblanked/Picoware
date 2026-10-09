@@ -22,6 +22,7 @@ class AppLoader:
         """
         self.view_manager = view_manager
         self.loaded_apps = {}
+        self._added_paths = []
         self.current_app = None
         self._vfs_ready = False
         if mount_vfs and view_manager.storage.mount_vfs("/sd"):
@@ -41,7 +42,28 @@ class AppLoader:
         """Get the last error encountered by the AppLoader."""
         return self._error
 
-    def cleanup_modules(self):
+    def cleanup_paths(self):
+        """Release only import paths installed by this loader."""
+        for path in self._added_paths:
+            if path in sys.path:
+                sys.path.remove(path)
+        self._added_paths.clear()
+
+    def cleanup_unused_paths(self):
+        """Keep lazy imports working while an SD app owns a current/stack view."""
+        if not self._added_paths:
+            return
+        vm = self.view_manager
+        view = vm._current_view
+        if view is not None and view.restore_target and view.restore_target[0] == "sd":
+            return
+        for i in range(vm._stack_depth):
+            target = vm.view_stack[i].restore_target
+            if target and target[0] == "sd":
+                return
+        self.cleanup_paths()
+
+    def cleanup_modules(self, release_paths=True):
         """Remove all app modules from sys.modules"""
         try:
             # Clear our references first
@@ -60,6 +82,9 @@ class AppLoader:
 
             for mod_name in modules_to_delete:
                 del sys.modules[mod_name]
+
+            if release_paths:
+                self.cleanup_paths()
 
             # Force garbage collection
             collect()
@@ -189,6 +214,7 @@ class AppLoader:
 
                 # Always add the base apps directory to sys.path
                 if base_apps_path not in sys.path:
+                    self._added_paths.append(base_apps_path)
                     sys.path.append(base_apps_path)
 
                 # Add subdirectory if specified
@@ -196,6 +222,7 @@ class AppLoader:
                 if subdirectory:
                     apps_path = f"{apps_path}/{subdirectory}"
                     if apps_path not in sys.path:
+                        self._added_paths.append(apps_path)
                         sys.path.append(apps_path)
 
                 # Check if module is already in sys.modules
@@ -228,12 +255,14 @@ class AppLoader:
         except ImportError as e:
             self._error = f"{e}"
             self.view_manager.log(f"Could not import app {app_name}: {e}", 2)
+            self.cleanup_unused_paths()
             return None
         except Exception as e:
             self._error = f"{e}"
             self.view_manager.log(
                 f"Error loading app {app_name}: {type(e).__name__}: {e}", 2
             )
+            self.cleanup_unused_paths()
             return None
 
     def run(self):

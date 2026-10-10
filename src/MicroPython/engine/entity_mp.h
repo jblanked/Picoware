@@ -37,6 +37,7 @@ extern "C"
         mp_obj_t start_position_obj;
         mp_obj_t end_position_obj;
         //
+        mp_obj_t billboard_obj;
         mp_obj_t sprite_obj;
         mp_obj_t sprite_left_obj;
         mp_obj_t sprite_right_obj;

@@ -33,25 +33,35 @@ class TransformTools:
             if self.transform["axis"] not in axes:
                 self.transform["axis"] = axes[0]
 
-    def begin_transform(self, kind):
+    def begin_transform(self, kind, selected_only=False):
         backup = None
+        previous = self.transform
         try:
             if not self.records:
                 raise ValueError("Create geometry first")
-            mask = self.selection_mask()
+            if selected_only:
+                mask = bytearray(len(self.records)//40*3)
+                for face in self.selected_triangles():
+                    mask[face*3:face*3+3] = b"\1\1\1"
+            else:
+                mask = self.selection_mask()
             low,high = self.selected_bounds(mask)
             backup = (None,len(self.records),0,self.records)
             self.transform = {"kind": kind, "source": backup,
                 "original": self.records, "buffer": None, "gizmo": {},
+                "quads": self.quads, "metadata": self.history.encode_document(),
                 "values": [1.0 if kind == "Scale" else 0.0]*3,
                 "axis": 0, "pivot": 0, "uniform": True, "low": low, "high": high,
-                "step": self.steps[kind], "snap": self.snap, "mask": mask}
+                "step": self.grid_step/10 if kind == "Move" and self.move_step_mode == "Automatic" else self.steps[kind],
+                "selected_only": selected_only, "snap": self.snap, "mask": mask}
             self.ensure_transform_axis()
         except (ValueError, OSError, MemoryError) as exc:
+            self.transform = previous
             if backup is not None:
                 self.history.release(backup)
             self.dialog = ("Cannot start edit", str(exc) or "Not enough memory")
             return
+        self.selection_camera = False
         self.status = ""
 
 
@@ -62,7 +72,8 @@ class TransformTools:
             self.begin_transform("Move")
             return
         kinds = ("Move","Scale","Rotate")
-        self.begin_transform(kinds[(kinds.index(previous["kind"])+1)%3])
+        self.begin_transform(kinds[(kinds.index(previous["kind"])+1)%3],
+                             selected_only=previous.get("selected_only",False))
         following = self.transform
         if following is previous:
             if self.dialog is not None:
@@ -86,6 +97,9 @@ class TransformTools:
             pivot[1] = t["low"][1]
         elif t["pivot"] == 2:
             pivot = [0,0,0]
+        elif t["pivot"] == 3:
+            if self.custom_pivot is None:raise ValueError("Set a custom pivot first")
+            pivot = list(self.custom_pivot)
         if t["kind"] == "Scale" and any(v <= 0 or v > 1e6 for v in t["values"]):
             raise ValueError("Scale must be > 0 and <= 1000000")
         original = t["original"]
@@ -107,7 +121,11 @@ class TransformTools:
         pending = self._transform_pending
         self._transform_pending = self._interactive_visibility
         try:
-            self.replace_records(records,preview=True,bounds=bounds)
+            faces=t['quads']
+            if self.selection_mode in ('Triangles','Edges','Vertices') and faces.pairs:
+                from .quads import transformed
+                faces=transformed(original,records,faces)
+            self.replace_records(records,preview=True,bounds=bounds,quads=faces)
         except Exception:
             self._transform_pending = pending
             raise
@@ -116,33 +134,24 @@ class TransformTools:
         self._transform_finished = ticks_ms()
 
     def commit_transform(self,t):
-        """Write one verified Undo snapshot and build the canonical mesh on Apply."""
+        """Store Undo before updating the canonical mesh on Apply."""
         if self.records == t["original"]:
             return
-        from picoware.engine.sprite3d import Sprite3D
-        mesh = Sprite3D()
+        update = self._model_buffer.prepare(self.records)
         snapshot = None
+        updates = (update,)
         try:
-            load = getattr(mesh,'load_buffer',None)
-            if load is not None:
-                load(self.records)
-            else:
-                from struct import unpack_from
-                for offset in range(0,len(self.records),40):
-                    mesh.add_triangle(*unpack_from('<9fHB',self.records,offset))
-            if mesh.triangle_count != len(self.records)//40:
-                raise MemoryError('Could not commit transformed model')
-            mesh.set_active(True)
-            snapshot = self.history.store(t['original'])
-            self.history.commit(snapshot,t['kind'])
+            snapshot = self.history.store_document(t['original'],t['metadata'])
+            self.history.commit(snapshot,t['kind'],lambda _: apply_updates(updates))
         except Exception:
-            mesh.clear_triangles()
+            update.discard()
             if snapshot is not None:
                 self.history.release(snapshot)
             raise
         old = self.mesh
-        self.mesh = mesh
-        old.clear_triangles()
+        self.mesh = update.mesh
+        if old is not self.mesh:
+            old.clear_triangles()
 
 
     def run_transform(self, inputs):
@@ -159,7 +168,11 @@ class TransformTools:
             if self.numeric:
                 self._scene_keys.clear()
                 keyboard = self.vm.keyboard
-                if keyboard.is_finished:
+                if inputs.button in (BUTTON_BACK,BUTTON_ESCAPE):
+                    inputs.reset()
+                    keyboard.reset()
+                    self.numeric = False
+                elif keyboard.is_finished:
                     response = keyboard.response.strip()
                     unchanged = response == t.get("numeric_text")
                     value = t["numeric_value"] if unchanged else float(response)
@@ -182,7 +195,9 @@ class TransformTools:
             else:
                 button = inputs.button
                 inputs.reset()
-                if button == BUTTON_G:
+                from .modes import control
+                if control(self,button,tool=True,alias=False):pass
+                elif button == BUTTON_G:
                     self.cycle_transform()
                 elif button == BUTTON_W:
                     self.set_shading()
@@ -193,7 +208,7 @@ class TransformTools:
                 elif button in (BUTTON_BACK, BUTTON_ESCAPE):
                     if self.records != t['original']:
                         self.replace_records(t['original'],preview=True,
-                                             bounds=record_bounds(t['original']))
+                                             bounds=record_bounds(t['original']),quads=t['quads'])
                     self._transform_pending = False
                     self.transform = None
                     self.status = "Transform cancelled"
@@ -226,7 +241,8 @@ class TransformTools:
                     t["step"] = value
                     self.status = ""
                 elif button == BUTTON_P:
-                    t["pivot"] = (t["pivot"]+1) % (2 if t["kind"] == "Move" else 3)
+                    pivot_count=(2 if t["kind"]=="Move" else 4 if self.custom_pivot is not None else 3)
+                    t["pivot"] = (t["pivot"]+1) % pivot_count
                     update = t["kind"] != "Move"
                 elif button == BUTTON_U and t["kind"] == "Scale":
                     t["uniform"] = not t["uniform"]
@@ -259,6 +275,9 @@ class TransformTools:
                 self.vm.keyboard.reset()
                 self.numeric = False
             self.status = str(exc) or "Not enough memory"
-        self.steps[t["kind"]] = t["step"]
+        if t["step"] != old_step:
+            if t["kind"] == "Move":
+                self.move_step_mode = "Custom"
+            self.steps[t["kind"]] = t["step"]
         self.snap = t["snap"]
         self.draw_frame()

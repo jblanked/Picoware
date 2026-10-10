@@ -242,12 +242,13 @@ class DecimateTools:
             selected = self.selected_triangles()
             if not selected:
                 raise ValueError('Select geometry first')
-            backup = self.history.store(self.records)
+            backup = self.history.store_document(self.records)
             self.decimation_job = {
                 'worker':simplify(self.records,selected,percent),
                 'state':('Decimate',backup,self.selection_mode,self.selection,self.selection_cursor),
                 'before':len(selected),
             }
+            self.selection_camera = False
             self.status = 'Decimating... Esc cancels'
         except (ValueError,OSError,MemoryError) as exc:
             if backup is not None:
@@ -279,7 +280,9 @@ class DecimateTools:
                     else:
                         self.replace_records(records)
                         self.boolean_preview = job['state']
-                        self.selection_mode,self.selection = 'Triangles',mask
+                        self.selection_camera = False
+                        self.selection_mode,self.selection = ('Quads' if job['state'][2]=='Quads' else 'Triangles'),mask
+                        if self.selection_mode=='Quads':self.quads.expand(mask)
                         self.selection_cursor = next((i for i,v in enumerate(mask) if v),0)
                         self.status = '%d -> %d tris; target %d' % (job['before'],after,target)
                     self.decimation_job = None

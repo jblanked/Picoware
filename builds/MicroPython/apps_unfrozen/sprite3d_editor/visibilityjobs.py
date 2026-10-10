@@ -17,16 +17,23 @@ def cancel(editor,box=None):
 def steps(editor,args,kwargs):
     cached = editor._visibility_geometry
     if cached is None or cached[0] is not args[0]:
-        iterator = geometry_steps(args[0])
-        try:
-            for geometry in iterator:
-                if geometry is None:
-                    yield None
-                else:
-                    cached = (args[0],geometry)
-                    editor._visibility_geometry = cached
-        finally:
-            iterator.close()
+        wire=editor._wire_topology
+        if wire is not None and args[0] is editor.records:
+            # Wire display already owns this exact dense topology. Sharing
+            # its compact indices avoids rebuilding a large coordinate dict.
+            cached=(args[0],(wire[1],wire[0]))
+            editor._visibility_geometry=cached
+        else:
+            iterator = geometry_steps(args[0])
+            try:
+                for geometry in iterator:
+                    if geometry is None:
+                        yield None
+                    else:
+                        cached = (args[0],geometry)
+                        editor._visibility_geometry = cached
+            finally:
+                iterator.close()
     iterator = visibility_steps(*args,geometry=cached[1],**kwargs)
     try:
         for result in iterator:
@@ -50,13 +57,13 @@ def request(editor,box,key,args,kwargs,count):
 
 
 def poll(editor):
-    if editor.xray_vertices or editor.selection_mode not in ('Triangles','Vertices','Edges'):
+    if editor.xray_vertices or editor.selection_mode not in ('Triangles','Quads','Vertices','Edges'):
         cancel(editor)
         if editor.status == 'Checking visibility...':
             editor.status = ''
         editor._frame_drawn = False
         return
-    kind = {'Triangles':True,'Vertices':False,'Edges':'edges'}[editor.selection_mode]
+    kind = {'Triangles':True,'Quads':True,'Vertices':False,'Edges':'edges'}[editor.selection_mode]
     boxes = [pane[2] for pane in editor.panes] if editor.four_view else [editor.selection_projection()[0]]
     for box in list(editor.vertex_visibility_cache):
         if box not in boxes:
@@ -101,6 +108,7 @@ def poll(editor):
                 cursor = editor.selection_cursor
                 if cursor<len(result) and not result[cursor]:
                     editor.selection_cursor = next((i for i,v in enumerate(result) if v),cursor)
+                if editor.selection_mode=='Quads':editor.selection_cursor=editor.quads.representative(editor.selection_cursor)
             if not editor._visibility_pending and editor.status == 'Checking visibility...':
                 editor.status = ''
             editor._scene_keys[box] = None

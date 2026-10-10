@@ -97,7 +97,8 @@ class NormalTools:
     def recalculate_normals(self):
         try:
             result,changed,opened = recalculate(self.records,self.selected_triangles())
-            self.apply_geometry(result,'Recalculate normals',self.selected_triangles())
+            from .quads import valid_pairs
+            self.apply_geometry(result,'Recalculate normals',self.selected_triangles(),quads=valid_pairs(result,self.quads.pairs))
             self.status = '%d faces flipped%s' % (changed,'; open: kept seed direction' if opened else '; outward')
         except (ValueError,OSError,MemoryError) as exc:
             self.dialog = ('Normals failed',str(exc) or 'Not enough memory')
@@ -117,7 +118,7 @@ class NormalTools:
         ortho = self.is_ortho(basis)
         near = self.near_distance()
         from .rendercache import begin,finish
-        key = (tuple(self.center),basis,distance,near,ortho,(cx,cy,focal),length)
+        key = (tuple(self.projection_center(basis)),basis,distance,near,ortho,(cx,cy,focal),length)
         cached = self._line_cache.get(('normals',box))
         if self._interactive_visibility and (cached is None or cached[0]!=key):
             from .overlayjobs import request

@@ -5,9 +5,13 @@ from time import ticks_ms,ticks_diff
 
 PATH = '/picoware/settings/sprite3d_editor.json'
 FLAGS = ('backface_culling','show_grid','show_orientation','show_vertex_info','show_normals',
-         'show_edge_lengths','xray_vertices','linked_vertices','selection_camera','snap','color_rgb')
+         'show_edge_lengths','xray_vertices','linked_vertices','selection_camera','snap','color_rgb',
+         'move_on_create','move_on_duplicate','auto_fit_creation')
+CHOICES = (('move_step_mode',('Automatic','Custom')),
+           ('orbit_speed',('Slow','Normal','Fast')),('zoom_speed',('Slow','Normal','Fast')))
+EXTRA = tuple(name for name,_ in CHOICES)
 VIEWS = ('Orbit','Perspective','Front','Side','Back','Top','Bottom','4 View')
-MODES = ('Model','Triangles','Vertices','Edges','Islands')
+from .modes import MODES
 
 
 def check_step(kind, value):
@@ -23,7 +27,7 @@ def validated(data):
     for name in FLAGS:
         if type(data.get(name)) is bool:
             result[name] = data[name]
-    for name,choices in (('shading',('Asset','Solid','Wireframe','Solid + Wireframe')),('selection_mode',MODES)):
+    for name,choices in (('shading',('Asset','Solid','Wireframe','Solid + Wireframe')),('selection_mode',MODES))+CHOICES:
         if data.get(name) in choices:
             result[name] = data[name]
     color = data.get('paint_color')
@@ -44,6 +48,8 @@ def validated(data):
                 except ValueError:
                     pass
         result['steps'] = good
+    if 'move_step_mode' not in result:
+        result['move_step_mode'] = 'Custom' if 'Move' in result.get('steps',{}) else 'Automatic'
     view = data.get('view',{})
     if isinstance(view,dict) and view.get('name') in VIEWS:
         good = {'name':view['name']}
@@ -63,22 +69,35 @@ def validated(data):
     return result
 
 
-def read_preferences(storage,path):
-    if not 0<storage.size(path)<=8192:
+def preference_bytes(storage,path):
+    size=storage.size(path)
+    if not 0<size<=8192:
         raise ValueError('Invalid preferences size')
-    return validated(json.loads(storage.read_chunked(path,0,8192)))
+    # Native positional reads allocate the requested count, even past EOF.
+    # An empty/short read must not masquerade as corrupt JSON.
+    data=storage.read_chunked(path,0,size)
+    if len(data)!=size:raise OSError('Incomplete settings read: %d of %d bytes'%(len(data),size))
+    return data
+
+
+def read_preferences(storage,path):
+    return validated(json.loads(preference_bytes(storage,path)))
 
 
 def write_preferences(storage,data):
     for directory in ('/picoware','/picoware/settings'):
         if not storage.exists(directory) and not storage.mkdir(directory):
             raise OSError('Cannot create settings directory')
-    temporary,backup = PATH+'.tmp',PATH+'.bak'
+    # Recreating a long .json.tmp name after rename fails on some Pico SD
+    # drivers. Keep staging within 8.3 while retaining the existing backup.
+    temporary,backup = PATH.rsplit('/',1)[0]+'/s3prefs.tmp',PATH+'.bak'
     if storage.exists(temporary) and not storage.remove(temporary):
         raise OSError('Cannot clear temporary preferences')
     encoded = json.dumps(data).encode()
-    if not storage.write(temporary,encoded,'wb') or read_preferences(storage,temporary)!=validated(json.loads(encoded)):
-        raise OSError('Could not verify preferences')
+    if not storage.write(temporary,encoded,'wb'):
+        raise OSError('Could not write temporary preferences')
+    if preference_bytes(storage,temporary)!=encoded:
+        raise OSError('Settings verification mismatch')
     # Recover a previous interrupted replacement before preparing another one.
     if storage.exists(backup):
         try:
@@ -103,8 +122,15 @@ def write_preferences(storage,data):
 
 
 class PreferenceTools:
+    def orbit_increment(self):
+        return (.06,.12,.24)[('Slow','Normal','Fast').index(self.orbit_speed)]
+
+    def zoom_factor(self):
+        return (1.075,1.15,1.30)[('Slow','Normal','Fast').index(self.zoom_speed)]
+
     def load_preferences(self):
         self._prefs_saved = None
+        self._prefs_error = None
         self._prefs_pending = None
         self._prefs_since = ticks_ms()
         self._startup_preferences = None
@@ -114,7 +140,7 @@ class PreferenceTools:
                 if not self.vm.storage.exists(path):
                     continue
                 data = read_preferences(self.vm.storage,path)
-                for name in FLAGS+('shading','paint_color','directory','selection_mode'):
+                for name in FLAGS+EXTRA+('shading','paint_color','directory','selection_mode'):
                     if name in data:
                         setattr(self,name,data[name])
                 self.steps.update(data.get('steps',{}))
@@ -132,7 +158,7 @@ class PreferenceTools:
 
     def preference_snapshot(self):
         data = {'version':1,'steps':dict(self.steps)}
-        for name in FLAGS+('shading','paint_color','directory','selection_mode'):
+        for name in FLAGS+EXTRA+('shading','paint_color','directory','selection_mode'):
             data[name] = getattr(self,name)
         if self.mesh is None:
             data['view'] = (self._startup_preferences or {}).get('view',{'name':'Orbit'})
@@ -164,16 +190,24 @@ class PreferenceTools:
             write_preferences(self.vm.storage,data)
             self._prefs_saved = data
             self._prefs_pending = None
-        except (ValueError,OSError,MemoryError):
-            self.status = 'Could not save editor settings to SD'
+            self._prefs_error = None
+        except (ValueError,OSError,MemoryError) as exc:
+            detail = str(exc) or type(exc).__name__
+            self.status = ('Not enough memory to save editor settings' if isinstance(exc,MemoryError)
+                           else 'Could not save editor settings: '+detail)
+            message = 'Sprite3D settings: '+type(exc).__name__+': '+detail
+            # Keep the cause available in the system log, without flooding it
+            # on debounced retries. Logging must never make save failure fatal.
+            if message != self._prefs_error:
+                self._prefs_error = message
+                try:self.vm.log(message,2)
+                except Exception:print(message)
 
     def restore_document_preferences(self):
         data = self._startup_preferences
         if data is None:
             return
         self._startup_preferences = None
-        self.steps.update(data.get('steps',{}))
-        self.snap = data.get('snap',False)
         self.selection_mode_set(data.get('selection_mode','Model'))
         self.selection_camera = data.get('selection_camera',False)
         view = data.get('view',{})

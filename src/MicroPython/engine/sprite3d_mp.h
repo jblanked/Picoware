@@ -63,6 +63,8 @@ extern "C"
     mp_obj_t sprite3d_mp_to_path(mp_obj_t self_in, mp_obj_t path_obj);
     mp_obj_t sprite3d_mp_bake_transform(mp_obj_t self_in);
 
+    mp_obj_t sprite3d_mp_reserve_triangles(mp_obj_t self_in, mp_obj_t count_in);
+
 #ifdef __cplusplus
 }
 #endif

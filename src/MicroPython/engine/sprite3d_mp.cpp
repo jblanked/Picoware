@@ -490,22 +490,16 @@ mp_obj_t sprite3d_mp_bake_transform(mp_obj_t self_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(sprite3d_mp_bake_transform_obj, sprite3d_mp_bake_transform);
 
-static mp_obj_t sprite3d_mp_reserve_triangles(mp_obj_t self_in, mp_obj_t count_in)
+mp_obj_t sprite3d_mp_reserve_triangles(mp_obj_t self_in, mp_obj_t count_in)
 {
-    mp_int_t count = mp_obj_get_int(count_in);
-    if (count < 0 || count > ENGINE_MAX_TRIANGLES_PER_SPRITE)
-        mp_raise_ValueError(MP_ERROR_TEXT("Invalid triangle capacity"));
     sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    if (self->freed)
-        mp_raise_ValueError(MP_ERROR_TEXT("Sprite3D has been released"));
-    if (!sprite3d_get_context(self)->reserveTriangles(static_cast<uint16_t>(count)))
-        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("Could not reserve triangles"));
-    return mp_const_none;
+    uint16_t count = static_cast<uint16_t>(mp_obj_get_int(count_in));
+    Sprite3D *ctx = sprite3d_get_context(self);
+    return ctx->reserveTriangles(count) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_mp_reserve_triangles_obj, sprite3d_mp_reserve_triangles);
 
 static const mp_rom_map_elem_t sprite3d_mp_locals_dict_table[] = {
-    {MP_ROM_QSTR(MP_QSTR_reserve_triangles), MP_ROM_PTR(&sprite3d_mp_reserve_triangles_obj)},
     {MP_ROM_QSTR(MP_QSTR_add_triangle), MP_ROM_PTR(&sprite3d_mp_add_triangle_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_triangle), MP_ROM_PTR(&sprite3d_mp_get_triangle_obj)},
     {MP_ROM_QSTR(MP_QSTR_update_triangle), MP_ROM_PTR(&sprite3d_mp_update_triangle_obj)},
@@ -532,6 +526,7 @@ static const mp_rom_map_elem_t sprite3d_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_from_path), MP_ROM_PTR(&sprite3d_mp_from_path_obj)},
     {MP_ROM_QSTR(MP_QSTR_to_path), MP_ROM_PTR(&sprite3d_mp_to_path_obj)},
     {MP_ROM_QSTR(MP_QSTR_bake_transform), MP_ROM_PTR(&sprite3d_mp_bake_transform_obj)},
+    {MP_ROM_QSTR(MP_QSTR_reserve_triangles), MP_ROM_PTR(&sprite3d_mp_reserve_triangles_obj)},
 
     {MP_ROM_QSTR(MP_QSTR_MAX_TRIANGLES_PER_SPRITE), MP_ROM_INT(ENGINE_MAX_TRIANGLES_PER_SPRITE)},
 

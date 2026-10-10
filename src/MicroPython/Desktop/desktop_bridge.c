@@ -6,6 +6,8 @@
 #include "py/nlr.h"
 #include "py/qstr.h"
 #include "py/objstr.h"
+#include "py/objmodule.h"
+#include "py/mpstate.h"
 #include "py/objtuple.h"
 #include "py/runtime.h"
 
@@ -34,6 +36,18 @@ static mp_obj_t desktop_call_function_0(mp_obj_t object, qstr name)
 
 static mp_obj_t desktop_lcd(void)
 {
+    // Read the current runtime binding on every call so LCD replacement and GC
+    // cannot leave a cached framebuffer pointer behind.
+    mp_map_elem_t *module = mp_map_lookup(&MP_STATE_VM(mp_loaded_modules_dict).map,
+        MP_OBJ_NEW_QSTR(MP_QSTR_sim_runtime), MP_MAP_LOOKUP);
+    if (module != NULL && mp_obj_is_type(module->value, &mp_type_module))
+    {
+        mp_obj_dict_t *globals = mp_obj_module_get_globals(module->value);
+        mp_map_elem_t *lcd = mp_map_lookup(&globals->map,
+            MP_OBJ_NEW_QSTR(MP_QSTR__lcd), MP_MAP_LOOKUP);
+        if (lcd != NULL)
+            return lcd->value;
+    }
     mp_obj_t runtime = desktop_import(MP_QSTR_sim_runtime);
     return desktop_call_function_0(runtime, MP_QSTR_get_lcd);
 }
@@ -235,11 +249,57 @@ void desktop_lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height,
 void desktop_lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width,
                             uint16_t height, const void *buffer)
 {
-    size_t buffer_size = (size_t)width * (size_t)height * sizeof(uint16_t);
+    if (!buffer || !width || !height)
+        return;
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0)
+    {
+        mp_obj_t lcd = desktop_lcd();
+        if (lcd != mp_const_none)
+        {
+            bool unscaled = mp_obj_get_float(mp_load_attr(lcd, MP_QSTR__scale_x_factor)) == 1.0 &&
+                            mp_obj_get_float(mp_load_attr(lcd, MP_QSTR__scale_y_factor)) == 1.0;
+            mp_int_t w = mp_obj_get_int(mp_load_attr(lcd, MP_QSTR_width));
+            mp_int_t h = mp_obj_get_int(mp_load_attr(lcd, MP_QSTR_height));
+            bool mono = mp_obj_is_true(mp_load_attr(lcd, MP_QSTR__is_flipper));
+            mp_buffer_info_t target;
+            mp_get_buffer_raise(mp_load_attr(lcd, MP_QSTR__buffer), &target, MP_BUFFER_WRITE);
+            if (unscaled && w > 0 && h > 0 && (size_t)w <= target.len / 2 / (size_t)h)
+            {
+                size_t rows = y < h ? (size_t)h - y : 0;
+                size_t columns = x < w ? (size_t)w - x : 0;
+                if (rows > height) rows = height;
+                if (columns > width) columns = width;
+                if (!rows || !columns) { nlr_pop(); return; }
+                const byte *source = buffer;
+                for (size_t row = 0; row < rows; ++row)
+                {
+                    byte *destination = (byte *)target.buf + (((size_t)y + row) * w + x) * 2;
+                    const byte *pixels = source + row * width * 2;
+                    if (!mono)
+                        memcpy(destination, pixels, columns * 2);
+                    else
+                        for (size_t column = 0; column < columns; ++column)
+                        {
+                            uint16_t color = pixels[column * 2] | (pixels[column * 2 + 1] << 8);
+                            unsigned luminance = ((color >> 11) & 31) * 299 +
+                                ((color >> 5) & 63) * 587 + (color & 31) * 114;
+                            byte value = luminance > 44800 ? 255 : 0;
+                            destination[column * 2] = destination[column * 2 + 1] = value;
+                        }
+                }
+                nlr_pop();
+                return;
+            }
+        }
+        nlr_pop();
+    }
+    else if (mp_obj_exception_match(MP_OBJ_FROM_PTR(nlr.ret_val), MP_OBJ_FROM_PTR(&mp_type_SystemExit)))
+        nlr_jump(nlr.ret_val);
+    size_t buffer_size = (size_t)width * height * sizeof(uint16_t);
     mp_obj_t arguments[] = {
         mp_obj_new_int(x), mp_obj_new_int(y), mp_obj_new_int(width),
-        mp_obj_new_int(height), mp_obj_new_bytes((const byte *)buffer,
-                                                 buffer_size)};
+        mp_obj_new_int(height), mp_obj_new_bytes((const byte *)buffer, buffer_size)};
     desktop_call_lcd(DESKTOP_QSTR("_bytearray"), 5, arguments);
 }
 

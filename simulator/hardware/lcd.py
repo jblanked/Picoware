@@ -9,6 +9,12 @@ except ImportError:
     _native_fill_triangle = None
 
 
+try:
+    from sim_raster import fill_polygon as _native_fill_polygon
+except ImportError:
+    _native_fill_polygon = None
+
+
 def default_font_for_board(board_id, boards=None):
     """Return the firmware's compile-time default font for a board."""
     if boards is None:
@@ -288,6 +294,9 @@ class LCD:
         if len(points) < 3 or alpha == 0:
             return
         points = self._polygon_points(points)
+        if _native_fill_polygon is not None and _native_fill_polygon(
+                self._buffer, self.width, self.height, points, color, alpha, self._is_flipper):
+            return
         edges = []
         for index, (x0, y0) in enumerate(points):
             x1, y1 = points[(index + 1) % len(points)]

@@ -90,8 +90,84 @@ static mp_obj_t fill_triangle(size_t n_args, const mp_obj_t *args) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(fill_triangle_obj, 12, 12, fill_triangle);
 
+// Fixed storage for projected engine polygons. Larger public polygons fall back
+// to Python. All arithmetic matches LCD's 14.14 scanline implementation.
+static mp_obj_t fill_polygon(size_t n_args, const mp_obj_t *args) {
+    (void)n_args;
+    mp_buffer_info_t buf;
+    mp_get_buffer_raise(args[0], &buf, MP_BUFFER_WRITE);
+    mp_int_t w = mp_obj_get_int(args[1]), h = mp_obj_get_int(args[2]);
+    if (w <= 0 || h <= 0 || (size_t)w > buf.len / 2 / (size_t)h)
+        mp_raise_ValueError(MP_ERROR_TEXT("invalid framebuffer dimensions"));
+    size_t n; mp_obj_t *points;
+    mp_obj_get_array(args[3], &n, &points);
+    if (n > 16) return mp_const_false;
+    int64_t x[16], y[16];
+    for (size_t i = 0; i < n; ++i) {
+        size_t count; mp_obj_t *pair;
+        mp_obj_get_array(points[i], &count, &pair);
+        if (count != 2) mp_raise_ValueError(MP_ERROR_TEXT("expected point pair"));
+        x[i] = mp_obj_get_int(pair[0]); y[i] = mp_obj_get_int(pair[1]);
+        if (x[i] < -1000000 || x[i] > 1000000 || y[i] < -1000000 || y[i] > 1000000)
+            return mp_const_false;
+    }
+    unsigned color = mp_obj_get_int(args[4]) & 65535;
+    unsigned alpha = mp_obj_get_int(args[5]) & 255;
+    bool monochrome = mp_obj_is_true(args[6]);
+    if (n < 3 || !alpha) return mp_const_true;
+    struct { int64_t top, bottom, x, step; } edges[16];
+    size_t ec = 0; int64_t start = h, stop = 0;
+    for (size_t i = 0; i < n; ++i) {
+        size_t j = (i + 1) % n;
+        int64_t x0=x[i], y0=y[i], x1=x[j], y1=y[j], tmp;
+        if (y0 == y1) continue;
+        if (y0 > y1) { tmp=y0; y0=y1; y1=tmp; tmp=x0; x0=x1; x1=tmp; }
+        edges[ec].top=y0; edges[ec].bottom=y1; edges[ec].x=x0*16384;
+        edges[ec++].step=(x1-x0)*16384/(y1-y0);
+        if (y0 < start) start=y0;
+        if (y1 > stop) stop=y1;
+    }
+    if (start < 0) start=0;
+    if (stop > h) stop=h;
+    uint8_t *pixels=buf.buf;
+    for (int64_t row=start; row<stop; ++row) {
+        int64_t crossing[16]; size_t count=0;
+        for (size_t i=0; i<ec; ++i) if (edges[i].top<=row && row<edges[i].bottom) {
+            int64_t fixed=edges[i].x+(row-edges[i].top)*edges[i].step;
+            int64_t value=fixed>=0 ? fixed/16384 : -((-fixed+16383)/16384);
+            size_t j=count++;
+            while (j && crossing[j-1]>value) { crossing[j]=crossing[j-1]; --j; }
+            crossing[j]=value;
+        }
+        int64_t last=-1;
+        for (size_t i=0; i+1<count; i+=2) {
+            int64_t left=crossing[i], right=crossing[i+1];
+            if (left<0) left=0;
+            if (left<=last) left=last+1;
+            if (right>=w) right=w-1;
+            if (left>right) continue;
+            for (int64_t col=left; col<=right; ++col) {
+                size_t offset=((size_t)row*w+col)*2;
+                uint16_t result=color;
+                if (alpha!=255) {
+                    unsigned dst=pixels[offset] | ((unsigned)pixels[offset+1]<<8), inv=255-alpha;
+                    result=((((color>>11)&31)*alpha+((dst>>11)&31)*inv)/255)<<11
+                        | ((((color>>5)&63)*alpha+((dst>>5)&63)*inv)/255)<<5
+                        | (((color&31)*alpha+(dst&31)*inv)/255);
+                }
+                if (monochrome) result=mono(result);
+                pixels[offset]=result&255; pixels[offset+1]=result>>8;
+            }
+            last=right;
+        }
+    }
+    return mp_const_true;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(fill_polygon_obj, 7, 7, fill_polygon);
+
 static const mp_rom_map_elem_t sim_raster_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_sim_raster) },
+    { MP_ROM_QSTR(MP_QSTR_fill_polygon), MP_ROM_PTR(&fill_polygon_obj) },
     { MP_ROM_QSTR(MP_QSTR_fill_triangle), MP_ROM_PTR(&fill_triangle_obj) },
 };
 static MP_DEFINE_CONST_DICT(sim_raster_globals, sim_raster_globals_table);

@@ -55,19 +55,19 @@ class SelectionTools:
         if projection is None:
             projection = self.selection_projection()
         box,basis,distance,screen = projection
-        key = (triangles,tuple(self.center),basis,distance,box,screen,self.near_distance())
+        key = (triangles,tuple(self.projection_center(basis)),basis,distance,box,screen,self.near_distance())
         cached = self.vertex_visibility_cache.get(box)
         mask = cached[1] if cached is not None and cached[0] == key else None
         if mask is None:
             if self._interactive_visibility:
                 from .visibilityjobs import request
                 return request(self,box,key,
-                    (self.records,tuple(self.center),basis,distance,box,screen,self.is_ortho(basis)),
+                    (self.records,tuple(self.projection_center(basis)),basis,distance,box,screen,self.is_ortho(basis)),
                     {'triangles':triangles,'near':self.near_distance()},
                     len(self.records)//40*(1 if triangles else 3))
             from .visibility import visible_vertices
             try:
-                mask = visible_vertices(self.records,self.center,basis,distance,box,screen,self.is_ortho(basis),triangles,self.near_distance())
+                mask = visible_vertices(self.records,self.projection_center(basis),basis,distance,box,screen,self.is_ortho(basis),triangles,self.near_distance())
             except MemoryError:
                 mask = bytearray(len(self.records)//40*(1 if triangles else 3))
                 self.status = "Visibility memory full; enable X-Ray"
@@ -80,12 +80,14 @@ class SelectionTools:
         return mask
 
     def active_visibility(self,projection=None):
+        if self.selection_mode == 'Quads':
+            return self.quads.visible(self.visible_triangle_mask(projection))
         if self.selection_mode == "Edges":
             return self.visible_edge_mask(projection)
         return self.visible_vertex_mask(projection) if self.selection_mode == "Vertices" else self.visible_triangle_mask(projection)
 
     def ensure_visible_vertex(self):
-        if self.selection_mode in ("Vertices","Triangles","Edges") and self.selection:
+        if self.selection_mode in ("Vertices","Triangles","Quads","Edges") and self.selection:
             visible = self.active_visibility()
             if self.selection_projection()[0] in self._visibility_pending:
                 self._selection_recover = True
@@ -113,9 +115,11 @@ class SelectionTools:
             self.selection[i] = 1
         self.status = ""
 
-    def selection_mode_set(self, mode):
+    def selection_mode_set(self, mode, refresh=True):
         from .visibilityjobs import cancel
         cancel(self)
+        old_mode=self.selection_mode;old_mask=self.selection;old_cursor=self.selection_cursor
+        old_camera=self.selection_camera;old_status=self.status;old_recover=self._selection_recover
         if mode == "Islands":
             self.get_islands()
         count = len(self.records or b"")//40
@@ -126,19 +130,32 @@ class SelectionTools:
         self.selection_mode = mode
         self.selection = selection
         self.selection_cursor = 0
+        if mode in ('Quads','Triangles') and old_mode in ('Quads','Triangles') and len(old_mask)==count:
+            self.selection=bytearray(old_mask);self.selection_cursor=min(old_cursor,max(0,count-1))
+        if mode=='Quads' and count:
+            self.quads.expand(self.selection);self.selection_cursor=self.quads.representative(self.selection_cursor)
         self._selection_recover = False
         self.selection_camera = False
         self.status = ""
+        if refresh and (mode=='Quads')!=(old_mode=='Quads') and self.mesh is not None:
+            try:self.refresh_previews()
+            except Exception:
+                self.selection_mode,self.selection,self.selection_cursor=old_mode,old_mask,old_cursor
+                self.selection_camera,self.status,self._selection_recover=old_camera,old_status,old_recover
+                self._preview_angles=None
+                raise
+            from .rendercache import clear
+            clear(self)
         if mode == "Islands":
             self.browse_island(0)
-        elif mode in ("Vertices","Triangles","Edges"):
+        elif mode in ("Vertices","Triangles","Quads","Edges"):
             self.ensure_visible_vertex()
 
     def cycle_selection(self):
         if not self.records:
             self.status = "Create geometry first"
             return
-        modes = ("Model","Triangles","Vertices","Edges","Islands")
+        from .modes import MODES as modes
         try:
             self.selection_mode_set(modes[(modes.index(self.selection_mode)+1)%len(modes)])
             self.status = "Selection: " + self.selection_mode
@@ -149,6 +166,10 @@ class SelectionTools:
         return bool(self.records) and (self.selection_mode == "Model" or any(self.selection))
 
     def selection_label(self):
+        if self.selection_mode=='Quads':
+            quads=len(self.quads.pairs)//2;tris=len(self.selection)-quads*2
+            selected=sum(bool(self.selection[i]) for i in self.quads.reps)
+            return '%d quads / %d tris / Sel %d' % (quads,tris,selected)
         if self.selection_mode == "Model":
             return "%d tris / Model" % (len(self.records)//40)
         if self.selection_mode == "Islands":
@@ -166,14 +187,16 @@ class SelectionTools:
         if not self.selection:
             return
         index = self.selection_cursor
-        if self.selection_mode in ("Vertices","Triangles","Edges"):
+        if self.selection_mode in ("Vertices","Triangles","Quads","Edges"):
             visible = self.active_visibility()
             if visible is not None and not visible[index]:
                 self.status = ("Checking visibility..." if self.selection_projection()[0] in self._visibility_pending
                                else "Hidden component: use arrows or X-Ray")
                 return
         value = 1-self.selection[index]
-        if self.selection_mode == "Islands":
+        if self.selection_mode == 'Quads':
+            for i in self.quads.group(index):self.selection[i]=value
+        elif self.selection_mode == "Islands":
             for i in self.active_island():
                 self.selection[i] = value
         elif self.selection_mode == "Vertices" and self.linked_vertices:
@@ -193,7 +216,7 @@ class SelectionTools:
             return self.edge_vertex_mask()
         if self.selection_mode == "Vertices":
             return bytes(self.selection)
-        if self.selection_mode == "Triangles" and self.linked_vertices:
+        if self.selection_mode in ("Triangles","Quads") and self.linked_vertices:
             # Sprite3D stores separate corners per face. Transform every copy of
             # a selected position so neighboring faces do not split at seams.
             points = set(vertex(self.records,i*3+j)
@@ -225,7 +248,7 @@ class SelectionTools:
             return list(range(count))
         if self.selection_mode == "Edges":
             return self.selected_edge_faces()
-        if self.selection_mode in ("Triangles","Islands"):
+        if self.selection_mode in ("Triangles","Quads","Islands"):
             return [i for i in range(count) if self.selection[i]]
         return [i for i in range(count) if any(self.selection[i*3:i*3+3])]
 
@@ -256,12 +279,15 @@ class SelectionTools:
         return px,py,z
 
     def projected_triangle(self,index,projection):
-        visible = self.visible_triangle_mask(projection)
+        visible = self.active_visibility(projection) if self.selection_mode=='Quads' else self.visible_triangle_mask(projection)
         if visible is not None and not visible[index]:
             return None
         box,basis,distance,screen = projection
         points = [vertex(self.records,index*3+j) for j in range(3)]
-        center = tuple(sum(p[k] for p in points)/3 for k in range(3))
+        if self.selection_mode=='Quads' and self.quads.mates[index]>=0:
+            from .quads import boundary
+            points=boundary(self.records,index,self.quads.mates[index])[0]
+        center = tuple(sum(p[k] for p in points)/len(points) for k in range(3))
         x,y,z = self.view_point(*center,basis=basis,distance=distance)
         depth = distance if self.is_ortho(basis) else z
         if not self.is_ortho(basis) and depth<self.near_distance():
@@ -353,9 +379,14 @@ class SelectionTools:
         if self.selection_mode == "Model" or self.mesh is None:
             return False
         if button == BUTTON_P:
-            self.selection_camera = not self.selection_camera
-            self.status = "Camera arrows" if self.selection_camera else self.selection_mode+" arrows"
+            from .modes import control
+            control(self,button,alias=True)
             return True
+        if self.selection_camera:
+            from picoware.system.buttons import BUTTON_R,BUTTON_TAB,BUTTON_ESCAPE,BUTTON_BACK
+            if button in (BUTTON_LEFT,BUTTON_RIGHT,BUTTON_UP,BUTTON_DOWN,BUTTON_R,BUTTON_TAB,BUTTON_ESCAPE,BUTTON_BACK):return False
+            # Only consume selection/edit shortcuts; global tool/menu shortcuts pass through.
+            return button in (BUTTON_SPACE,BUTTON_A,BUTTON_N,BUTTON_I,BUTTON_DELETE,BUTTON_J,BUTTON_K,BUTTON_COMMA,BUTTON_PERIOD,BUTTON_SLASH,BUTTON_LEFT_BRACKET,BUTTON_RIGHT_BRACKET)
         if self.selection_mode == "Islands" and not self.selection_camera and button in (BUTTON_LEFT,BUTTON_RIGHT):
             self.browse_island(1 if button == BUTTON_RIGHT else -1)
             return True
@@ -366,7 +397,7 @@ class SelectionTools:
             if button in (BUTTON_J,BUTTON_K):
                 self.cycle_vertex_info(1 if button == BUTTON_K else -1)
                 return True
-        if self.selection_mode in ("Vertices","Triangles","Edges"):
+        if self.selection_mode in ("Vertices","Triangles","Quads","Edges"):
             if not self.selection_camera and button in (BUTTON_LEFT,BUTTON_RIGHT,BUTTON_UP,BUTTON_DOWN):
                 if self.selection:
                     dx,dy = {BUTTON_LEFT:(-1,0),BUTTON_RIGHT:(1,0),BUTTON_UP:(0,-1),BUTTON_DOWN:(0,1)}[button]
@@ -416,7 +447,7 @@ class SelectionTools:
         near = self.near_distance()
         if not wire_only:
             self._selection_blank.pop(box,None)
-            if self.selection_mode in ('Vertices','Triangles','Edges'):
+            if self.selection_mode in ('Vertices','Triangles','Quads','Edges'):
                 projection = box,basis,distance,(cx,cy,focal)
                 # Queue a current mask before withholding stale or moving markers.
                 self.active_visibility(projection)
@@ -451,41 +482,31 @@ class SelectionTools:
             clipped_line(draw,project(a),project(b),box,color)
 
         if wire_only:
-            from .rendercache import begin,finish
-            from .viewport import face_direction
-            key = (tuple(self.center),basis,distance,near,ortho,(cx,cy,focal),self.backface_culling)
-            lines = begin(self,'wire',box,key,draw,0xBDF7)
-            if lines is None:
-                return
-            draw = lines
-            groups,representatives = self.vertex_groups()
-            points = {i:self.view_point(*vertex(self.records,i),basis=basis,distance=distance)
-                      for i in representatives}
-            seen = set()
-            for face in range(len(self.records)//40):
-                ids = [groups[face*3+j] for j in range(3)]
-                triangle = [points[i] for i in ids]
-                if self.backface_culling and face_direction(triangle,ortho=ortho)<=0:
-                    continue
-                for j,a in enumerate(ids):
-                    b = ids[(j+1)%3]
-                    edge_id = (min(a,b)<<16)|max(a,b)
-                    if edge_id in seen:
-                        continue
-                    seen.add(edge_id)
-                    pa,pb = points[a],points[b]
-                    if ortho:
-                        pa,pb = (pa[0],pa[1],max(near,distance)),(pb[0],pb[1],max(near,distance))
-                    edge(pa,pb,0xBDF7)
-            finish(self,'wire',box,key,lines)
+            from .wireframe import draw_wire
+            draw_wire(self,draw,box,basis,distance,(cx,cy,focal),ortho,near)
             return
 
         if not wire_only and self.selection_mode == "Edges":
             self.draw_selected_edges(draw,(box,basis,distance,(cx,cy,focal)),camera,edge)
-        elif wire_only or self.selection_mode in ("Triangles","Islands"):
-            visible = self.visible_triangle_mask((box,basis,distance,(cx,cy,focal))) if not wire_only and self.selection_mode == "Triangles" else None
+        elif wire_only or self.selection_mode in ("Triangles","Quads","Islands"):
+            visible = self.visible_triangle_mask((box,basis,distance,(cx,cy,focal))) if not wire_only and self.selection_mode in ("Triangles","Quads") else None
             count = len(self.records)//40
             island = set(self.active_island()) if not wire_only and self.selection_mode == "Islands" else None
+            if not wire_only and (sum(self.selection)>16 or self.selection_mode=="Quads"):
+                # Shared selected edges are projected and drawn once, with the
+                # cursor/active island taking precedence over yellow selection.
+                from .wireframe import draw_wire
+                flags=bytearray(count)
+                for i in range(count):
+                    if visible is not None and not visible[i]:continue
+                    if i==self.selection_cursor or (self.selection_mode=="Quads" and self.quads.mates[i]==self.selection_cursor) or (island is not None and i in island):flags[i]=2
+                    elif self.selection[i]:flags[i]=1
+                if self.selection_mode=='Quads':
+                    for j in range(0,len(self.quads.pairs),2):
+                        a,b=self.quads.pairs[j],self.quads.pairs[j+1]
+                        value=max(flags[a],flags[b]);flags[a]=flags[b]=value
+                draw_wire(self,draw,box,basis,distance,(cx,cy,focal),ortho,near,flags)
+                return
             order = (list(i for i in range(count) if i not in island)+list(sorted(island))) if island is not None else range(count if wire_only else count+1)
             for slot in order:
                 if not wire_only and island is None and slot == self.selection_cursor:

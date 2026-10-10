@@ -123,14 +123,27 @@ def panel_state(editor):
         else:
             w=min(164,width)
             panel(items,20,min(editor.menu*52,width-w),w)
+    boolean_panel = None
+    if editor.boolean_workflow is not None:
+        from .boolean_workflow import overlay
+        boolean_panel = overlay(editor)
+        if boolean_panel is not None:
+            x,y,w,h = boolean_panel[0]
+            boxes.append((x,y,w+1,h+1))
+    from .modes import chooser_box
+    menu_key=(menu_key,editor.mode_chooser,editor.chooser_tools)
+    if editor.mode_chooser is not None:boxes.append(chooser_box(editor))
     info=editor.vertex_info_layout()
     editor._frame_info=info
     if info is not None:
         x,y,w,h=info[1]
         boxes.append((x,y,w+1,h+1))
+    if editor.model_tool is not None:
+        boxes.append((4,66 if editor.four_view else 50,min(width-8,244),45+16*len(editor.model_tool["fields"])+(32 if editor.model_tool["error"] else 0)))
+    if editor.model_tool is not None:boxes.append((0,height-30,width,30))
     if editor.dialog is not None:
         boxes.append((8,55,width-15,height-93))
-    return (menu_key,info,editor.dialog),tuple(boxes)
+    return (menu_key,info,editor.dialog,boolean_panel, None if editor.model_tool is None else (editor.model_tool["row"],str(editor.model_tool["values"]),editor.model_tool["error"],editor.model_tool["worker"] is not None,editor.model_tool["progress"],editor.selection_camera)),tuple(boxes)
 
 
 def dirty_panes(editor):
@@ -140,7 +153,10 @@ def dirty_panes(editor):
         cache.enable()
     panel_key,panels=panel_state(editor)
     cache.panel_changed=panel_key!=cache.panel_key
-    erase=cache.panels if panels!=cache.panels else ()
+    # Transparent tool text must restore its underlying scene before repainting,
+    # including value changes that leave the panel rectangle unchanged.
+    erase=cache.panels if (panels!=cache.panels or
+        (editor.model_tool is not None and cache.panel_changed)) else ()
     cache.erase_hud=any(r[1]<48 or r[1]+r[3]>int(editor.vm.draw.size.y)-30 for r in erase)
     cache.panel_key,cache.panels=panel_key,panels
     if cache.handle is None:
@@ -162,16 +178,19 @@ def dirty_panes(editor):
         cache.damage((0,0,width,height))
     t=editor.transform
     transform=None if t is None else (t['kind'],tuple(t['values']) if t['kind']=='Move' else None,t['axis'],t['pivot'],t['uniform'])
+    p=editor.pivot_edit
+    pivot_edit=None if p is None else (tuple(p['position']),p['axis'])
     common=(editor.selection_mode,crc32(editor.selection),editor.selection_cursor,
             editor.show_orientation,editor.show_vertex_info,editor.show_normals,
-            editor.show_edge_lengths,editor.xray_vertices,transform,editor.boolean_preview is not None)
+            editor.show_edge_lengths,editor.xray_vertices,transform,pivot_edit,editor.boolean_preview is not None,
+            editor.boolean_workflow['labels'] if editor.boolean_workflow is not None else None)
     panes=editor.panes if editor.four_view else ((None,None,editor.selection_projection()[0],editor.basis,editor.render_mesh,editor.distance),)
     keys,dirty,overlays,stamps={ },[],[],{}
     for i,pane in enumerate(panes):
         box=pane[2]
         paint=pane[1] if editor.four_view else box
         moving=editor._transform_pending or (editor._interactive_visibility and editor._camera_pending and (not editor.four_view or i==editor.active_pane))
-        base=(editor._geometry_revision,id(editor.records),tuple(editor.center),editor.shading,editor.backface_culling,
+        base=(editor._geometry_revision,id(editor.records),tuple(editor.projection_center(pane[3])),editor.shading,editor.backface_culling,
               editor.show_grid,pane[3],id(pane[4]),pane[5],moving)
         key=(base,common,i==editor.active_pane,id(editor.vertex_visibility_cache.get(box)),
              id(editor.edge_label_cache.get(box)),id(editor._line_cache.get(('normals',box))))
@@ -193,19 +212,27 @@ def dirty_panes(editor):
 def _legacy_dirty_panes(editor):
     t = editor.transform
     transform = None if t is None else (t['kind'],tuple(t['values']) if t['kind']=='Move' else None,t['axis'],t['pivot'],t['uniform'])
-    common = (id(editor.records),tuple(editor.center),editor.shading,
+    p=editor.pivot_edit
+    pivot_edit=None if p is None else (tuple(p['position']),p['axis'])
+    common = (id(editor.records),(tuple(editor.center),tuple(editor.pane_targets)),editor.shading,
         editor.backface_culling,editor.selection_mode,crc32(editor.selection),
         editor.selection_cursor,editor.show_grid,editor.show_orientation,
         editor.show_vertex_info,editor.show_normals,editor.show_edge_lengths,
-        editor.xray_vertices,transform,editor.boolean_preview is not None)
+        editor.xray_vertices,transform,pivot_edit,editor.boolean_preview is not None,
+            editor.boolean_workflow['labels'] if editor.boolean_workflow is not None else None)
     layout = (editor.four_view,int(editor.vm.draw.size.x),int(editor.vm.draw.size.y))
     # Moving between dropdowns or closing one must restore the covered scene.
     # Row navigation repaints the same opaque menu rectangle in place.
     popup = (editor.menu,editor.submenu,editor.submenu_row) if editor.menu>=0 else None
-    popup = (popup,editor.dialog)
+    if editor.boolean_workflow is not None:
+        from .boolean_workflow import overlay
+        popup = (popup,overlay(editor))
+    popup = (popup,editor.dialog,editor.mode_chooser,editor.chooser_tools)
+    if editor.model_tool is not None:
+        popup = (popup,pixels(editor).panel_key[-1])
     force = (editor._scene_layout != layout or
              (editor._scene_popup is not None and editor._scene_popup != popup and
-              editor._scene_popup != (None,None)))
+              editor._scene_popup != (None,None,None)))
     previous = {} if force else editor._scene_keys
     keys,dirty,overlays = {},[],[]
     stamps = {}

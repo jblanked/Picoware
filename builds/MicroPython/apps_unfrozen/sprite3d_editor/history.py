@@ -10,9 +10,21 @@ class History:
         self.directory = None
         self.owned = []
         self.serial = 0
+        self.context = None
+        self.contexts = []
+        self.metadata = {}
+        self.documents = {}
+        self.metadata_only = {}
+        self.metadata_records = None
+        self.encode_document = None
+        self.replace_context = None
         self.reset()
 
     def release(self, snapshot):
+        self.metadata_only.pop(id(snapshot),None)
+        extra=self.documents.pop(id(snapshot),None)
+        if extra is not None:self.release(extra)
+        self.metadata.pop(id(snapshot),None)
         path = snapshot[0]
         if path is None:
             return
@@ -24,6 +36,11 @@ class History:
             self.owned.remove(path)
 
     def reset(self):
+        self.context = None
+        self.contexts.clear()
+        self.metadata.clear()
+        self.documents.clear()
+        self.metadata_only.clear()
         for path in self.owned[:]:
             self.release((path,0,0))
         if self.directory and not self.owned:
@@ -57,7 +74,7 @@ class History:
 
     def store(self, records):
         if not records:
-            return (None,0,0)
+            return tuple([None,0,0])
         self.prepare()
         self.serial += 1
         path = self.directory + "/snap-%d.bin" % self.serial
@@ -76,6 +93,20 @@ class History:
         except Exception:
             self.release(snapshot)
             raise
+
+    def store_document(self,records,metadata=None,geometry=True):
+        snapshot=self.store(records if geometry else b'')
+        try:
+            if not geometry:self.metadata_only[id(snapshot)]=len(records)
+            if metadata is None and self.encode_document is not None:metadata=self.encode_document()
+            if metadata is not None:self.documents[id(snapshot)]=self.store(metadata)
+            return snapshot
+        except Exception:
+            self.release(snapshot);raise
+
+    def document_data(self,snapshot):
+        extra=self.documents.get(id(snapshot))
+        return self.read(extra) if extra is not None else None
 
     def chunks(self, snapshot):
         if len(snapshot) == 4:
@@ -131,6 +162,7 @@ class History:
         self.saved_revision = self.revision
 
     def commit(self, before, label, replace=None, records=None):
+        self.metadata[id(before)] = self.context
         self.undo.append((before,self.revision,label))
         if replace is not None:
             try:
@@ -150,20 +182,29 @@ class History:
             self.bytes_used -= snapshot[1]
             self.release(snapshot)
 
+        self.collect_contexts()
+
     def travel(self, current, replace, redo=False):
         source, destination = (self.redo,self.undo) if redo else (self.undo,self.redo)
         if not source:
             return None
         target, revision, label = source[-1]
-        records = self.read(target)
-        backup = self.store(current)
+        metadata_only=id(target) in self.metadata_only
+        if metadata_only and self.metadata_records is not None:
+            records=self.metadata_records(current,self.metadata.get(id(target)),self.metadata_only[id(target)])
+        else:records = current if metadata_only else self.read(target)
+        backup = self.store_document(current,geometry=not metadata_only)
+        self.metadata[id(backup)] = self.context
         try:
             destination.append((backup,self.revision,label))
         except Exception:
             self.release(backup)
             raise
         try:
-            replace(records)
+            if self.replace_context is not None:
+                self.replace_context(records,self.metadata.get(id(target)),self.document_data(target))
+            else:
+                replace(records)
         except Exception:
             destination.pop()
             self.release(backup)
@@ -172,4 +213,11 @@ class History:
         self.bytes_used += backup[1]-target[1]
         self.revision = revision
         self.release(target)
+        self.collect_contexts()
         return label
+
+    def collect_contexts(self):
+        active=[self.context]+[self.metadata.get(id(item[0])) for item in self.undo+self.redo]
+        for context in self.contexts[:]:
+            if not any(c is context for c in active):
+                self.release(context['hidden']);self.contexts.remove(context)

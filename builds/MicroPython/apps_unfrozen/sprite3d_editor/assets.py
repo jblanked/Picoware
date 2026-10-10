@@ -4,6 +4,44 @@ from math import cos, sin, isfinite, pi
 from struct import unpack_from, pack_into
 
 
+def record_stride(storage,path,size):
+    """Recognize the former native Triangle3D layout without changing the file."""
+    if size>0 and size%52==0:
+        from .streams import chunks
+        reader=chunks(storage,path,size,1040)
+        try:
+            legacy=True
+            for data in reader:
+                for offset in range(0,len(data),52):
+                    # Old records contain visible, cached depth, initialized,
+                    # color, wireframe at 36,40,44,46,48 (with C++ padding).
+                    if (data[offset+36] not in (0,1) or data[offset+44]!=1
+                            or data[offset+48] not in (0,1)
+                            or not isfinite(unpack_from('<f',data,offset+40)[0])
+                            or any(not isfinite(v) or abs(v)>1e12
+                                   for v in unpack_from('<9f',data,offset))):
+                        legacy=False;break
+                if not legacy:break
+            if legacy:return 52
+        finally:reader.close()
+    if size<=0 or size%40:
+        raise ValueError('Invalid Sprite3D records (expected 40-byte or legacy 52-byte triangles)')
+    return 40
+
+
+def legacy_chunks(storage,path,size):
+    from .streams import chunks
+    reader=chunks(storage,path,size,1040)
+    try:
+        for data in reader:
+            result=bytearray(len(data)//52*40)
+            for index,offset in enumerate(range(0,len(data),52)):
+                pack_into('<9fHBB',result,index*40,*unpack_from('<9f',data,offset),
+                          unpack_from('<H',data,offset+46)[0],data[offset+48],0)
+            yield result
+    finally:reader.close()
+
+
 def load_sprite(storage, path, records=None):
     """Read validated 40-byte triangles and return a native mesh and bounds."""
     from picoware.engine.sprite3d import Sprite3D
@@ -11,9 +49,8 @@ def load_sprite(storage, path, records=None):
     size = storage.size(path)
     if not path.lower().endswith(".sprite3d"):
         raise ValueError("Choose a .sprite3d file")
-    if size <= 0 or size % 40:
-        raise ValueError("Invalid file size (40 bytes/triangle)")
-    count = size // 40
+    stride=record_stride(storage,path,size)
+    count = size // stride
     if count > Sprite3D.MAX_TRIANGLES_PER_SPRITE:
         raise ValueError("Too many triangles: %d (max %d)" % (
             count, Sprite3D.MAX_TRIANGLES_PER_SPRITE))
@@ -25,7 +62,7 @@ def load_sprite(storage, path, records=None):
     low = [float("inf")] * 3
     high = [-float("inf")] * 3
     from .streams import chunks
-    reader = chunks(storage, path, size)
+    reader = chunks(storage,path,size) if stride==40 else legacy_chunks(storage,path,size)
     try:
         load = getattr(mesh, 'load_buffer', None)
         if load is not None and records is not None and not records:

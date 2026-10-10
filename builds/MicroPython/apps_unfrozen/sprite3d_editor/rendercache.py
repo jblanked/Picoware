@@ -72,5 +72,7 @@ def clear(editor,geometry_only=False):
         editor.history.release(editor._normal_cache)
         editor._normal_cache = None
     editor._vertex_groups = None
+    editor._wire_topology = None
+    editor._wire_scratch = None
     from .visibilityjobs import cancel as cancel_visibility
     cancel_visibility(editor)

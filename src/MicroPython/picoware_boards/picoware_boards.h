@@ -172,7 +172,7 @@ Source: https://github.com/jblanked/Picoware
 // PicoDuo
 #define BOARD_ID BOARD_PICO_DUO
 #define BOARD_HAS_PSRAM 0     // no psram
-#define BOARD_HAS_SD 0        // no sd card
+#define BOARD_HAS_SD 1        // has sd card
 #define BOARD_HAS_TOUCH 0     // no touch
 #define BOARD_HAS_WIFI 1      // has wifi
 #define BOARD_HAS_AUDIO 0     // no audio module in esp32 build yet

@@ -80,9 +80,9 @@
 // storage
 #if defined(PICOCALC)
 #define ENGINE_STORAGE_INCLUDE "../../sd/storage.h"
-#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM) || defined(PICO_DUO)
 #define ENGINE_STORAGE_INCLUDE "../sd/storage.h"
-#elif !defined(WAVESHARE_1_28) && !defined(WAVESHARE_1_69) && !defined(PICO_DUO) && !defined(WAVESHARE_C6_2_06)
+#elif !defined(WAVESHARE_1_28) && !defined(WAVESHARE_1_69) && !defined(WAVESHARE_C6_2_06)
 #define ENGINE_STORAGE_INCLUDE "../../../sd/storage.h"
 #endif
 #ifdef ENGINE_STORAGE_INCLUDE

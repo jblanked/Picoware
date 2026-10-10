@@ -326,9 +326,8 @@ mp_obj_t picoware_boards_has_sd_card(mp_obj_t board_id_obj)
     case BOARD_V8:
     case BOARD_FLIPPER_ZERO:
     case BOARD_DESKTOP:
-        has_sd_card = true;
-        break;
     case BOARD_POOM:
+    case BOARD_PICO_DUO:
         has_sd_card = true;
         break;
     default:

@@ -91,6 +91,10 @@ void keyboard_poll()
                         ch &= ~0x20;
                     }
                 }
+                else if (key_control && ch >= '0' && ch <= '9')
+                {
+                    ch = KEY_CTRL_0 + (ch - '0');
+                }
                 else if (key_control && ch == KEY_UP)
                 {
                     ch = KEY_CTRL_UP;

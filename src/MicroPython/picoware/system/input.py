@@ -303,6 +303,16 @@ class Input:
             124: buttons.BUTTON_PIPE,
             125: buttons.BUTTON_RIGHT_BRACE,
             126: buttons.BUTTON_TILDE,
+            buttons.KEY_CTRL_0: buttons.BUTTON_CTRL_0,
+            buttons.KEY_CTRL_1: buttons.BUTTON_CTRL_1,
+            buttons.KEY_CTRL_2: buttons.BUTTON_CTRL_2,
+            buttons.KEY_CTRL_3: buttons.BUTTON_CTRL_3,
+            buttons.KEY_CTRL_4: buttons.BUTTON_CTRL_4,
+            buttons.KEY_CTRL_5: buttons.BUTTON_CTRL_5,
+            buttons.KEY_CTRL_6: buttons.BUTTON_CTRL_6,
+            buttons.KEY_CTRL_7: buttons.BUTTON_CTRL_7,
+            buttons.KEY_CTRL_8: buttons.BUTTON_CTRL_8,
+            buttons.KEY_CTRL_9: buttons.BUTTON_CTRL_9,
         }
 
         if self._current_board_id == BOARD_CARDPUTER:

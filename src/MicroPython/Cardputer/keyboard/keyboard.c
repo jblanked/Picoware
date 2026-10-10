@@ -303,7 +303,13 @@ static char map_keycode_to_ascii(uint8_t keycode, bool pressed)
         return 0;
     }
 
-    return apply_caps_lock(s_fn_pressed ? fn : normal);
+    char value = s_fn_pressed ? fn : normal;
+    bool control = (s_pressed_keycodes[KEYCODE_CTRL / 8] & (1U << (KEYCODE_CTRL % 8))) != 0;
+    if (control && value >= '0' && value <= '9')
+    {
+        return (char)(KEY_CTRL_0 + value - '0');
+    }
+    return apply_caps_lock(value);
 }
 
 static esp_err_t keyboard_clear_interrupt(void)

@@ -35,6 +35,7 @@
 #define KEY_OPT (0xA2)
 #define KEY_FN (0xA4)
 #define KEY_CTRL (0xA5)
+#define KEY_CTRL_0 (0xE0)
 #define KEY_CAPS (0xC1)
 
 typedef struct

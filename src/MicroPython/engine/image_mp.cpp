@@ -165,14 +165,14 @@ static mp_obj_t image_mp_set_billboard(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("invalid billboard dimensions"));
     const size_t pixel_count = size_t(width) * size_t(height);
     if (frames < 1 || uint64_t(frames) > UINT32_MAX ||
-        size_t(frames) > SIZE_MAX / Image::billboardViewCount / (pixel_count * 2))
+        size_t(frames) > SIZE_MAX / Image::billboardViewCount / (pixel_count))
         mp_raise_ValueError(MP_ERROR_TEXT("invalid billboard frame count"));
     const size_t views = size_t(frames) * Image::billboardViewCount;
     const size_t mask_bytes = (pixel_count + 7) / 8;
     mp_obj_t pixel_root, mask_root;
     const uint8_t **pixels = nullptr, **masks = nullptr;
     const bool segmented = mp_obj_is_type(args[1], &mp_type_tuple) || mp_obj_is_type(args[1], &mp_type_list);
-    Image candidate(ctx->size, false);
+    Image candidate(ctx->size, true);
     if (segmented)
     {
         size_t pixel_views, mask_views;
@@ -189,7 +189,7 @@ static mp_obj_t image_mp_set_billboard(size_t n_args, const mp_obj_t *args)
         mp_obj_tuple_t *mask_roots = static_cast<mp_obj_tuple_t *>(MP_OBJ_TO_PTR(mask_root));
         for (size_t i = 0; i < views; ++i)
         {
-            pixel_roots->items[i] = image_mp_billboard_buffer(pixel_items[i], pixel_count * 2);
+            pixel_roots->items[i] = image_mp_billboard_buffer(pixel_items[i], pixel_count);
             mask_roots->items[i] = image_mp_billboard_buffer(mask_items[i], mask_bytes);
             mp_buffer_info_t pixel_buffer, mask_buffer;
             mp_get_buffer_raise(pixel_roots->items[i], &pixel_buffer, MP_BUFFER_READ);
@@ -197,18 +197,18 @@ static mp_obj_t image_mp_set_billboard(size_t n_args, const mp_obj_t *args)
             pixels[i] = static_cast<const uint8_t *>(pixel_buffer.buf);
             masks[i] = static_cast<const uint8_t *>(mask_buffer.buf);
         }
-        candidate = Image(ctx->size, false, pixels[0]);
+        candidate = Image(ctx->size, true, pixels[0]);
         if (!candidate.setBillboardFrames(pixels, masks, uint32_t(frames)))
             mp_raise_ValueError(MP_ERROR_TEXT("invalid billboard image"));
     }
     else
     {
-        pixel_root = image_mp_billboard_buffer(args[1], pixel_count * 2 * views);
+        pixel_root = image_mp_billboard_buffer(args[1], pixel_count * views);
         mask_root = image_mp_billboard_buffer(args[2], mask_bytes * views);
         mp_buffer_info_t pixel_buffer, mask_buffer;
         mp_get_buffer_raise(pixel_root, &pixel_buffer, MP_BUFFER_READ);
         mp_get_buffer_raise(mask_root, &mask_buffer, MP_BUFFER_READ);
-        candidate = Image(ctx->size, false, pixel_buffer.buf);
+        candidate = Image(ctx->size, true, pixel_buffer.buf);
         if (!candidate.setBillboard(static_cast<const uint8_t *>(mask_buffer.buf), uint32_t(frames)))
             mp_raise_ValueError(MP_ERROR_TEXT("invalid billboard image"));
     }

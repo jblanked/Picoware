@@ -17,7 +17,7 @@ class Image(engine.Image):
         frame_count (int): Number of animation frames, or zero for a 2D image.
 
     Methods:
-        - set_billboard(pixels, masks, frames=1): Configure eight RGB565 views per
+        - set_billboard(pixels, masks, frames=1): Configure eight RGB332 views per
           frame, using contiguous buffers or one buffer per view. Mutable buffers
           are copied; bytes are retained. Masks use one low-first bit per pixel.
         - view_index(facing_x, facing_y, camera_x, camera_y): Select a view.

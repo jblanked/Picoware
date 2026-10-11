@@ -449,6 +449,59 @@ void picocalc_lcd_blit_mask_bmp(int16_t x, int16_t y, uint16_t width, uint16_t h
     }
 }
 
+void picocalc_lcd_blit_mask_bmp_scaled(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
+                                       uint16_t src_w, uint16_t src_h, const uint8_t *buffer, const uint8_t *mask)
+{
+    if (!buffer || !mask || !dst_w || !dst_h || !src_w || !src_h)
+        return;
+    if (src_w == dst_w && src_h == dst_h)
+    {
+        picocalc_lcd_blit_mask_bmp(dst_x, dst_y, dst_w, dst_h, buffer, mask);
+        return;
+    }
+
+    const int offset_x = dst_x < 0 ? -(int32_t)dst_x : 0;
+    const int offset_y = dst_y < 0 ? -(int32_t)dst_y : 0;
+    const int dxx = dst_x < 0 ? 0 : dst_x, dyy = dst_y < 0 ? 0 : dst_y;
+    int cw = (int)dst_w - offset_x, ch = (int)dst_h - offset_y;
+    if (dxx + cw > DISPLAY_WIDTH) cw = DISPLAY_WIDTH - dxx;
+    if (dyy + ch > DISPLAY_HEIGHT) ch = DISPLAY_HEIGHT - dyy;
+    if (cw <= 0 || ch <= 0) return;
+
+    for (int dr = 0; dr < ch; ++dr)
+    {
+        const uint32_t sy = ((uint32_t)dr + offset_y) * src_h / dst_h;
+        const uint32_t buf_row = sy * src_w;
+        const int fb_y = dyy + dr;
+        uint32_t numerator = (uint32_t)offset_x * src_w;
+        if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
+        {
+            uint8_t *dst_row = heap_framebuffer + (uint32_t)fb_y * DISPLAY_WIDTH + dxx;
+            for (int dc = 0; dc < cw; ++dc)
+            {
+                const uint32_t pixel = buf_row + numerator / dst_w;
+                numerator += src_w;
+                if (mask[pixel >> 3] & (0x80u >> (pixel & 7)))
+                    dst_row[dc] = buffer[pixel];
+            }
+        }
+        else if (lcd_mode == LCD_MODE_PSRAM)
+        {
+            for (int dc = 0; dc < cw; ++dc)
+            {
+                const uint32_t pixel = buf_row + numerator / dst_w;
+                numerator += src_w;
+                if (!(mask[pixel >> 3] & (0x80u >> (pixel & 7)))) continue;
+                const uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (uint32_t)fb_y * PSRAM_ROW_SIZE + dxx + dc;
+                const uint8_t value = buffer[pixel];
+                psram_qspi_write(&psram_instance, addr, &value, 1);
+            }
+        }
+        else
+            return;
+    }
+}
+
 void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint16_t *buffer)
 {
     if (!buffer)

@@ -3,6 +3,7 @@
 #include "draw.hpp"
 #include "image.hpp"
 #include "sprite3d.hpp"
+#include "billboard.hpp"
 #include "callback.hpp"
 
 // Forward declarations
@@ -71,6 +72,13 @@ public:
     Sprite3DType sprite_3d_type; // Type of 3D sprite
     float sprite_rotation;       // Rotation of the 3D sprite
     float sprite_scale;          // Scale factor for the 3D sprite
+
+    Billboard *billboard = nullptr;
+    int billboard_pose = 0;
+    float billboard_world_height = 1.8f;
+    void setBillboard(Billboard *asset, float height = 1.8f);
+    void setBillboardPose(int pose);
+    Billboard *getBillboard() const { return billboard; }
 
     /*
         Additional properties an entity may have.

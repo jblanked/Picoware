@@ -22,13 +22,14 @@ typedef enum
 class Sprite3D
 {
 private:
-    Triangle3D *triangles;
-    uint16_t triangle_count;
+    bool active;
     Vector position;
     float rotation_y;
     float scale_factor;
+    uint16_t triangle_capacity;
+    uint16_t triangle_count;
+    Triangle3D *triangles;
     SpriteType type;
-    bool active;
 
     void transformVertex(float x, float y, float z, float cos_a, float sin_a,
                          float &out_x, float &out_y, float &out_z) const;
@@ -67,6 +68,7 @@ public:
     bool initializeAsPillar(Vector pos, float height, float radius, uint16_t color = 0x0000, bool wireframe = true);
     bool initializeAsTree(Vector pos, float height, uint16_t color = 0x0000, bool wireframe = true);
     bool isActive() const { return active; }
+    bool reserveTriangles(uint16_t count);
     void setActive(bool state) { active = state; }
     void setPosition(Vector pos) { position = pos; }
     void setRotation(float rot) { rotation_y = rot; }

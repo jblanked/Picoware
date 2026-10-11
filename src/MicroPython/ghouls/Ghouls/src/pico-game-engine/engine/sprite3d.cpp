@@ -23,8 +23,8 @@ static uint16_t shadeColor565(uint16_t color, float factor)
     return ((uint16_t)r << 11) | ((uint16_t)g << 5) | b;
 }
 
-Sprite3D::Sprite3D() : triangles(nullptr), triangle_count(0), position(Vector(0, 0)), rotation_y(0),
-                       scale_factor(1.0f), type(SPRITE_CUSTOM), active(false)
+Sprite3D::Sprite3D() : active(false), position(Vector(0, 0)), rotation_y(0), scale_factor(1.0f),
+                       triangle_capacity(0), triangle_count(0), triangles(nullptr), type(SPRITE_CUSTOM)
 {
     triangles = nullptr;
 }
@@ -38,21 +38,20 @@ bool Sprite3D::addTriangle(const Triangle3D &triangle)
 {
     if (triangle_count >= ENGINE_MAX_TRIANGLES_PER_SPRITE)
         return false;
-
-    Triangle3D *new_block = (Triangle3D *)ENGINE_MEM_MALLOC(
-        (triangle_count + 1) * sizeof(Triangle3D));
-    if (!new_block)
-        return false;
-
-    if (triangle_count > 0)
-        memcpy(new_block, triangles, triangle_count * sizeof(Triangle3D));
-
-    if (triangles != nullptr)
-        ENGINE_MEM_FREE(triangles);
-    triangles = new_block;
-
-    new_block[triangle_count] = triangle;
-    triangle_count++;
+    if (triangle_count == triangle_capacity)
+    {
+        Triangle3D *new_block = (Triangle3D *)ENGINE_MEM_MALLOC(
+            (triangle_count + 1) * sizeof(Triangle3D));
+        if (!new_block)
+            return false;
+        if (triangle_count > 0)
+            memcpy(new_block, triangles, triangle_count * sizeof(Triangle3D));
+        if (triangles != nullptr)
+            ENGINE_MEM_FREE(triangles);
+        triangles = new_block;
+        triangle_capacity = triangle_count + 1;
+    }
+    triangles[triangle_count++] = triangle;
     return true;
 }
 
@@ -109,6 +108,7 @@ void Sprite3D::clearTriangles()
         ENGINE_MEM_FREE(triangles);
     triangles = nullptr;
     triangle_count = 0;
+    triangle_capacity = 0;
 }
 
 bool Sprite3D::createCube(float x, float y, float z, float width, float height, float depth, uint16_t color, bool wireframe)
@@ -623,6 +623,25 @@ bool Sprite3D::initializeAsTree(Vector pos, float height, uint16_t color, bool w
     type = SPRITE_TREE;
     active = true;
     return createTree(height, color, wireframe);
+}
+
+bool Sprite3D::reserveTriangles(uint16_t count)
+{
+    if (count > ENGINE_MAX_TRIANGLES_PER_SPRITE)
+        return false;
+    if (count <= triangle_capacity)
+        return true;
+    Triangle3D *replacement = (Triangle3D *)ENGINE_MEM_MALLOC(
+        static_cast<size_t>(count) * sizeof(Triangle3D));
+    if (!replacement)
+        return false;
+    if (triangle_count)
+        memcpy(replacement, triangles, triangle_count * sizeof(Triangle3D));
+    if (triangles)
+        ENGINE_MEM_FREE(triangles);
+    triangles = replacement;
+    triangle_capacity = count;
+    return true;
 }
 
 void Sprite3D::setWireframe(bool wireframe)

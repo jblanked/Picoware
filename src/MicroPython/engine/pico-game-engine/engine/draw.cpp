@@ -108,6 +108,23 @@ void Draw::image(uint16_t x, uint16_t y, const uint16_t *bitmap, uint16_t width,
     ENGINE_LCD_BLIT_16BIT(x, y, width, height, bitmap);
 }
 
+void Draw::imageMasked(int16_t x, int16_t y, uint16_t dst_w, uint16_t dst_h,
+                       uint16_t src_w, uint16_t src_h, const uint8_t *bitmap, const uint8_t *mask)
+{
+#ifdef ENGINE_LCD_BLIT_MASK
+    ENGINE_LCD_BLIT_MASK(x, y, dst_w, dst_h, src_w, src_h, bitmap, mask);
+#else
+    (void)x;
+    (void)y;
+    (void)dst_w;
+    (void)dst_h;
+    (void)src_w;
+    (void)src_h;
+    (void)bitmap;
+    (void)mask;
+#endif
+}
+
 void Draw::line(Vector position, Vector size, uint16_t color)
 {
     ENGINE_LCD_LINE(position.x, position.y, size.x, size.y, color);

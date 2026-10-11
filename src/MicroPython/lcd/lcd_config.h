@@ -16,6 +16,8 @@
 #define LCD_MP_FILL_TRIANGLE lcd_fill_triangle
 #define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT picocalc_lcd_blit
+#define LCD_MP_BLIT_MASK_BMP picocalc_lcd_blit_mask_bmp
+#define LCD_MP_BLIT_MASK_BMP_SCALED picocalc_lcd_blit_mask_bmp_scaled
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
@@ -405,4 +407,10 @@ extern bool (*_lcd_usb_video_cb)(void);
             _lcd_usb_video_cb(); \
     } while (0)
 
+#endif
+
+#ifndef LCD_MP_BLIT_MASK_BMP
+#include "lcd_mask.h"
+#define LCD_MP_BLIT_MASK_BMP lcd_blit_mask_bmp
+#define LCD_MP_BLIT_MASK_BMP_SCALED lcd_blit_mask_bmp_scaled
 #endif

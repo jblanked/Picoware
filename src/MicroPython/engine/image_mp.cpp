@@ -1,4 +1,5 @@
 #include "image_mp.h"
+#include <math.h>
 #include "pico-game-engine/engine/image.hpp"
 
 static inline Image *image_get_context(image_mp_obj_t *self)
@@ -21,9 +22,13 @@ void image_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t k
 mp_obj_t image_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
     // Arguments: size (Vector), is_8bit (bool), data (optional), path (optional)
-    mp_arg_check_num(n_args, n_kw, 2, 4, true);
+    mp_arg_check_num(n_args, n_kw, 2, 5, false);
     image_mp_obj_t *self = mp_obj_malloc_with_finaliser(image_mp_obj_t, &image_mp_type);
     self->base.type = &image_mp_type;
+
+    self->context = nullptr;
+    self->freed = false;
+    self->data_obj = self->mask_obj = self->path_obj = MP_OBJ_NULL;
 
     // Extract constructor arguments (handles Python subclass wrappers)
     mp_obj_t native_size = mp_obj_cast_to_native_base(args[0], MP_OBJ_FROM_PTR(&vector_mp_type));
@@ -39,14 +44,35 @@ mp_obj_t image_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw
     {
         mp_buffer_info_t bufinfo;
         mp_get_buffer_raise(args[2], &bufinfo, MP_BUFFER_READ);
+        self->data_obj = n_args < 5 || args[4] == mp_const_none || mp_obj_is_type(args[2], &mp_type_bytes) ? args[2]
+            : mp_obj_new_bytes(static_cast<const byte *>(bufinfo.buf), bufinfo.len);
+        mp_get_buffer_raise(self->data_obj, &bufinfo, MP_BUFFER_READ);
         data = bufinfo.buf;
     }
     if (n_args > 3)
     {
+        self->path_obj = args[3];
         path = mp_obj_str_get_str(args[3]);
     }
 
-    self->context = new Image(size, is_8bit, data, path);
+    if (n_args == 5 && args[4] != mp_const_none)
+    {
+        if (!is_8bit || !(size.x >= 1 && size.x <= 1024 && size.y >= 1 && size.y <= 1024) ||
+            uint16_t(size.x) != size.x || uint16_t(size.y) != size.y || !data)
+            mp_raise_ValueError(MP_ERROR_TEXT("invalid masked image"));
+        const size_t count = size_t(size.x) * size_t(size.y);
+        mp_buffer_info_t pixels, mask;
+        mp_get_buffer_raise(self->data_obj, &pixels, MP_BUFFER_READ);
+        mp_get_buffer_raise(args[4], &mask, MP_BUFFER_READ);
+        if (pixels.len != count || mask.len != (count + 7) / 8)
+            mp_raise_ValueError(MP_ERROR_TEXT("incorrect pixel or mask length"));
+        self->mask_obj = mp_obj_is_type(args[4], &mp_type_bytes) ? args[4]
+            : mp_obj_new_bytes(static_cast<const byte *>(mask.buf), mask.len);
+        mp_get_buffer_raise(self->mask_obj, &mask, MP_BUFFER_READ);
+        self->context = new Image(size, data, path, static_cast<const uint8_t *>(mask.buf));
+    }
+    else
+        self->context = new Image(size, is_8bit, data, path);
     self->freed = false;
     return MP_OBJ_FROM_PTR(self);
 }
@@ -66,6 +92,7 @@ mp_obj_t image_mp_del(mp_obj_t self_in)
     self->context = nullptr;
     self->freed = true;
     self->size_obj = MP_OBJ_NULL;
+    self->data_obj = self->mask_obj = self->path_obj = MP_OBJ_NULL;
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(image_mp_del_obj, image_mp_del);
@@ -112,6 +139,8 @@ mp_obj_t image_mp_set_size(mp_obj_t self_in, mp_obj_t size_obj)
     if (native_vec == MP_OBJ_NULL)
         mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
     vector_mp_obj_t *size_vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    if (ctx->has_mask)
+        mp_raise_ValueError(MP_ERROR_TEXT("masked image size is fixed"));
     ctx->size.x = size_vec->x;
     ctx->size.y = size_vec->y;
     ctx->size.z = size_vec->z;

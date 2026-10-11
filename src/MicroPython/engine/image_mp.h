@@ -23,10 +23,9 @@ extern "C"
         void *context; // Image* in C++
         bool freed;
         mp_obj_t size_obj;
-        mp_obj_t billboard_pixels_obj;
-        mp_obj_t billboard_masks_obj;
-        const uint8_t **billboard_pixels;
-        const uint8_t **billboard_masks;
+        mp_obj_t data_obj;
+        mp_obj_t mask_obj;
+        mp_obj_t path_obj;
     } image_mp_obj_t;
 
     extern const mp_obj_type_t image_mp_type;

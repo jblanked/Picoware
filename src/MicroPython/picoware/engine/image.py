@@ -11,16 +11,14 @@ class Image(engine.Image):
         is_8bit (bool): Whether the image uses 8-bit graphics.
         data (bytes-like or None): Optional raw pixel data. Defaults to None.
         path (str): Optional file path for image data. Defaults to "".
+        mask (bytes-like or None): Optional packed one-bit opacity for RGB332.
+            Bits are high-first in continuous row-major order. Masked images copy
+            mutable buffers and retain bytes. Masked sizes are fixed.
 
     Attributes:
-        size (Vector): Image size in pixels. Fixed after set_billboard().
-        frame_count (int): Number of animation frames, or zero for a 2D image.
+        size (Vector): Image size in pixels. Writable.
 
     Methods:
-        - set_billboard(pixels, masks, frames=1): Configure eight RGB332 views per
-          frame, using contiguous buffers or one buffer per view. Mutable buffers
-          are copied; bytes are retained. Masks use one low-first bit per pixel.
-        - view_index(facing_x, facing_y, camera_x, camera_y): Select a view.
         - set_size(size): Set the image size.
         - __del__(): Release the native image resources.
     """

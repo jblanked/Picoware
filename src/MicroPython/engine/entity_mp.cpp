@@ -2,6 +2,8 @@
 #include "game_mp.h"
 #include "engine_mp.h"
 #include "image_mp.h"
+#include "billboard_mp.h"
+#include <math.h>
 #include "pico-game-engine/engine/entity.hpp"
 #include ENGINE_LOG_INCLUDE
 
@@ -474,18 +476,17 @@ mp_obj_t entity_mp_del(mp_obj_t self_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(entity_mp_del_obj, entity_mp_del);
 
-static mp_obj_t entity_mp_set_billboard_frame(mp_obj_t self_in, mp_obj_t value)
+static mp_obj_t entity_mp_set_billboard_pose(mp_obj_t self_in, mp_obj_t value)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
     Entity *ctx = entity_get_context(self);
     mp_int_t frame = mp_obj_get_int(value);
-    if (self->freed || !ctx || !ctx->billboard || frame < 0 || uint64_t(frame) >= ctx->billboard->getBillboardFrameCount())
+    if (self->freed || !ctx || !ctx->billboard || frame < 0 || uint64_t(frame) >= ctx->billboard->num_poses)
         mp_raise_ValueError(MP_ERROR_TEXT("invalid billboard frame"));
-    ctx->billboardFrame = frame;
-    ctx->billboardElapsed = 0;
+    ctx->billboard_pose = frame;
     return mp_const_none;
 }
-static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_billboard_frame_obj, entity_mp_set_billboard_frame);
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_billboard_pose_obj, entity_mp_set_billboard_pose);
 
 void entity_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
@@ -500,8 +501,8 @@ void entity_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         Entity *ctx = entity_get_context(self);
         switch (attribute)
         {
-        case MP_QSTR_billboard_frame:
-            destination[0] = mp_obj_new_int_from_uint(ctx->billboardFrame);
+        case MP_QSTR_billboard_pose:
+            destination[0] = mp_obj_new_int_from_uint(ctx->billboard_pose);
             break;
         case MP_QSTR_name:
             destination[0] = mp_obj_new_str(ctx->name, strlen(ctx->name));
@@ -618,8 +619,8 @@ void entity_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         // Store attributes
         switch (attribute)
         {
-        case MP_QSTR_billboard_frame:
-            entity_mp_set_billboard_frame(self_in, destination[1]);
+        case MP_QSTR_billboard_pose:
+            entity_mp_set_billboard_pose(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
             break;
         case MP_QSTR_name:
@@ -1288,46 +1289,30 @@ mp_obj_t entity_mp_set_sprite_right(mp_obj_t self_in, mp_obj_t sprite_right_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite_right_obj, entity_mp_set_sprite_right);
 
-static mp_obj_t entity_mp_set_billboard(mp_obj_t self_in, mp_obj_t image_in)
+static mp_obj_t entity_mp_set_billboard(size_t n, const mp_obj_t *args)
 {
-    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    if (self->freed) mp_raise_ValueError(MP_ERROR_TEXT("entity has been freed"));
-    Entity *ctx = entity_get_context(self);
-    if (image_in == mp_const_none)
-    {
-        ctx->setBillboard(nullptr);
-        self->billboard_obj = mp_const_none;
-        return mp_const_none;
-    }
-    mp_obj_t native = mp_obj_cast_to_native_base(image_in, MP_OBJ_FROM_PTR(&image_mp_type));
-    if (native == MP_OBJ_NULL) mp_raise_TypeError(MP_ERROR_TEXT("expected Image"));
-    image_mp_obj_t *asset = static_cast<image_mp_obj_t *>(MP_OBJ_TO_PTR(native));
-    if (asset->freed || !asset->context)
-        mp_raise_ValueError(MP_ERROR_TEXT("Image has been released"));
-    if (!ctx->setBillboard(static_cast<Image *>(asset->context)))
-        mp_raise_ValueError(MP_ERROR_TEXT("invalid billboard image or entity size"));
-    self->billboard_obj = image_in;
-    return mp_const_none;
-}
-static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_billboard_obj, entity_mp_set_billboard);
-
-static mp_obj_t entity_mp_advance_billboard(size_t n_args, const mp_obj_t *args)
-{
-    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(args[0]));
+    auto *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(args[0]));
     if (self->freed || !self->context) mp_raise_ValueError(MP_ERROR_TEXT("freed Entity"));
-    mp_int_t elapsed = mp_obj_get_int(args[1]);
-    mp_int_t duration = n_args == 3 ? mp_obj_get_int(args[2]) : 125;
-    if (elapsed < 0 || uint64_t(elapsed) > UINT32_MAX || duration <= 0 || uint64_t(duration) > UINT32_MAX)
-        mp_raise_ValueError(MP_ERROR_TEXT("invalid animation timing"));
-    entity_get_context(self)->advanceBillboard(elapsed, duration);
+    Billboard *bb = nullptr;
+    const float height = n > 2 ? mp_obj_get_float(args[2]) : 1.8f;
+    if (!isfinite(height) || height <= 0) mp_raise_ValueError(MP_ERROR_TEXT("invalid world height"));
+    if (args[1] != mp_const_none)
+    {
+        mp_obj_t native = mp_obj_cast_to_native_base(args[1], MP_OBJ_FROM_PTR(&billboard_mp_type));
+        if (native == MP_OBJ_NULL) mp_raise_TypeError(MP_ERROR_TEXT("expected Billboard"));
+        auto *asset = static_cast<billboard_mp_obj_t *>(MP_OBJ_TO_PTR(native));
+        if (!asset->context) mp_raise_ValueError(MP_ERROR_TEXT("freed Billboard"));
+        bb = static_cast<Billboard *>(asset->context);
+    }
+    entity_get_context(self)->setBillboard(bb, height);
+    self->billboard_obj = args[1];
     return mp_const_none;
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(entity_mp_advance_billboard_obj, 2, 3, entity_mp_advance_billboard);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(entity_mp_set_billboard_obj, 2, 3, entity_mp_set_billboard);
 
 static const mp_rom_map_elem_t entity_mp_locals_dict_table[] = {
-    {MP_ROM_QSTR(MP_QSTR_advance_billboard), MP_ROM_PTR(&entity_mp_advance_billboard_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_billboard), MP_ROM_PTR(&entity_mp_set_billboard_obj)},
-    {MP_ROM_QSTR(MP_QSTR_set_billboard_frame), MP_ROM_PTR(&entity_mp_set_billboard_frame_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_billboard_pose), MP_ROM_PTR(&entity_mp_set_billboard_pose_obj)},
     // Methods
     {MP_ROM_QSTR(MP_QSTR_has_3d_sprite), MP_ROM_PTR(&entity_mp_has_3d_sprite_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_3d_sprite_rotation), MP_ROM_PTR(&entity_mp_set_3d_sprite_rotation_obj)},

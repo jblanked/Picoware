@@ -400,6 +400,55 @@ void picocalc_lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, 
     }
 }
 
+void picocalc_lcd_blit_mask_bmp(int16_t x, int16_t y, uint16_t width, uint16_t height,
+                                const uint8_t *buffer, const uint8_t *mask)
+{
+    if (!buffer || !mask || !width || !height ||
+        (lcd_mode != LCD_MODE_PSRAM && (lcd_mode != LCD_MODE_HEAP || !heap_framebuffer)))
+        return;
+    const int src_x = x < 0 ? -(int32_t)x : 0;
+    const int src_y = y < 0 ? -(int32_t)y : 0;
+    const int dst_x = x < 0 ? 0 : x;
+    const int dst_y = y < 0 ? 0 : y;
+    int copy_width = (int)width - src_x;
+    int copy_height = (int)height - src_y;
+    if (dst_x + copy_width > DISPLAY_WIDTH)
+        copy_width = DISPLAY_WIDTH - dst_x;
+    if (dst_y + copy_height > DISPLAY_HEIGHT)
+        copy_height = DISPLAY_HEIGHT - dst_y;
+    if (copy_width <= 0 || copy_height <= 0)
+        return;
+    for (int row = 0; row < copy_height; ++row)
+    {
+        const uint32_t src_row = (uint32_t)(src_y + row) * width + src_x;
+        int col = 0;
+        while (col < copy_width)
+        {
+            while (col < copy_width && !(mask[(src_row + col) >> 3] & (0x80u >> ((src_row + col) & 7))))
+                ++col;
+            const int start = col;
+            while (col < copy_width && (mask[(src_row + col) >> 3] & (0x80u >> ((src_row + col) & 7))))
+                ++col;
+            if (start == col)
+                continue;
+            const uint8_t *source = buffer + src_row + start;
+            const uint32_t length = col - start;
+            if (lcd_mode == LCD_MODE_HEAP)
+                memcpy(heap_framebuffer + (uint32_t)(dst_y + row) * DISPLAY_WIDTH + dst_x + start, source, length);
+            else
+            {
+                const uint32_t address = PSRAM_FRAMEBUFFER_ADDR + (uint32_t)(dst_y + row) * PSRAM_ROW_SIZE + dst_x + start;
+                for (uint32_t offset = 0; offset < length;)
+                {
+                    const uint32_t chunk = length - offset > PSRAM_CHUNK_SIZE ? PSRAM_CHUNK_SIZE : length - offset;
+                    psram_qspi_write(&psram_instance, address + offset, source + offset, chunk);
+                    offset += chunk;
+                }
+            }
+        }
+    }
+}
+
 void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint16_t *buffer)
 {
     if (!buffer)

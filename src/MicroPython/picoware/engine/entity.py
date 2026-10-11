@@ -83,7 +83,7 @@ class Entity(engine.Entity):
         sprite (Image or None): Main 2D sprite. Writable.
         sprite_left (Image or None): Left-facing 2D sprite. Writable.
         sprite_right (Image or None): Right-facing 2D sprite. Writable.
-        billboard_frame (int): Animation frame; setting it resets fractional time.
+        billboard_pose (int): Animation pose selected from the attached Billboard.
         ENTITY_PLAYER (int): Player entity type.
         ENTITY_ENEMY (int): Enemy entity type.
         ENTITY_ICON (int): Icon entity type.
@@ -104,9 +104,8 @@ class Entity(engine.Entity):
         SPRITE_3D_CUSTOM (int): Custom 3D sprite.
 
     Methods:
-        - advance_billboard(elapsed_ms, frame_ms=125): Advance a looping animation using nonnegative uint32 milliseconds.
-        - set_billboard(image): Select a shared billboard
-          anchored at the entity's feet and sized using entity.size.
+        - set_billboard(billboard, height=1.8): Select a shared billboard
+          anchored at the entity's feet, using world height and image aspect ratio.
           set_billboard(None) restores the previous visual.
         - has_3d_sprite(): Return whether the entity has a 3D sprite.
         - set_3d_sprite_rotation(rotation): Set the 3D sprite rotation.
@@ -160,8 +159,8 @@ class Entity(engine.Entity):
             name (str): Attribute name to set.
             value (object): New value for the attribute.
         """
-        if name == "billboard_frame":
-            self.set_billboard_frame(value)
+        if name == "billboard_pose":
+            self.set_billboard_pose(value)
         elif name == "name":
             self.set_name(value)
         elif name == "type":

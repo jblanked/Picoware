@@ -45,6 +45,7 @@ void Draw::fillPolygonAlpha(uint16_t x[], uint16_t y[], int count, uint16_t colo
 #ifdef ENGINE_LCD_FILL_POLYGON_ALPHA
     ENGINE_LCD_FILL_POLYGON_ALPHA(x, y, count, color, alpha);
 #else
+    (void)alpha;
     ENGINE_LCD_FILL_POLYGON(x, y, count, color);
 #endif
 }
@@ -84,6 +85,7 @@ void Draw::fillTriangleAlpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
 #ifdef ENGINE_LCD_FILL_TRIANGLE_ALPHA
     ENGINE_LCD_FILL_TRIANGLE_ALPHA(x1, y1, x2, y2, x3, y3, color, alpha);
 #else
+    (void)alpha;
     ENGINE_LCD_FILL_TRIANGLE(x1, y1, x2, y2, x3, y3, color);
 #endif
 }

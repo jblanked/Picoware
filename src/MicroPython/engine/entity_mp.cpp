@@ -588,6 +588,9 @@ void entity_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         case MP_QSTR_sprite_3d:
             destination[0] = self->sprite_3d_obj;
             break;
+        case MP_QSTR_billboard_pose:
+            destination[0] = mp_obj_new_int(ctx->billboard_pose);
+            break;
         case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&entity_mp_del_obj);
             break;
@@ -735,6 +738,10 @@ void entity_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             break;
         case MP_QSTR_sprite_right:
             entity_mp_set_sprite_right(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
+        case MP_QSTR_billboard_pose:
+            entity_mp_set_billboard_pose(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
             break;
         default:

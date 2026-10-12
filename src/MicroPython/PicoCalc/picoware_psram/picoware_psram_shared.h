@@ -23,7 +23,7 @@
 // Write: (4 + count) * 2 must fit in uint8_t -> count <= (255/2) - 4 = 123
 // Read: count * 2 must fit in uint8_t -> count <= 127
 // Use 64 for safety and efficiency (power of 2)
-#define PSRAM_CHUNK_SIZE 64
+#define PSRAM_CHUNK_SIZE 120
 
 extern bool psram_initialized;
 extern psram_qspi_inst_t psram_instance;

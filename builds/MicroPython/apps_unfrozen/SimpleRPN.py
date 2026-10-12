@@ -116,6 +116,8 @@ KEYS = (
     ("MODE", "mode", "function"),
 )
 
+COMPACT_KEY_LABELS = {"CLR TVM": "CLR", "TIMES": "TMS", "PRICE": "PRC"}
+
 ACTION_INDEX = {}
 for _key_index in range(len(KEYS)):
     ACTION_INDEX[KEYS[_key_index][1]] = _key_index
@@ -157,24 +159,34 @@ def _log1p(value):
 
 
 def _expm1(value):
-    if abs(value) < 0.00001:
-        return value * (1 + value * (0.5 + value * (1 / 6 + value / 24)))
+    if abs(value) < 0.1:
+        # exp(x)-1 loses significant digits at small rates. Eleven Taylor
+        # terms keep this interval accurate to double precision.
+        total = term = value
+        for divisor in range(2, 12):
+            term *= value / divisor
+            total += term
+        return total
     return exp(value) - 1
 
 
-def _sum_products(terms):
-    """Sum products of stored floats exactly, then round once to a float.
+def _sum_products(terms, binary=False):
+    """Sum products exactly, returning a float or (integer, binary exponent).
 
-    Integer significands keep small differences between large terms. There
-    are at most 51 cash-flow groups; no repeated-payment arrays are needed.
+    The binary form postpones range limits until the final result. Integer
+    significands retain cancellation between large terms. Cash flows use
+    at most 51 groups; no repeated-payment arrays are needed.
     """
     total, exponent = 0, 0
     for factors in terms:
         mantissa, power = 1, 0
         for factor in factors:
-            fraction, exp2 = frexp(_finite(factor))
-            mantissa *= int(ldexp(fraction, 53))
-            power += exp2 - 53
+            if isinstance(factor, int):
+                mantissa *= factor
+            else:
+                fraction, exp2 = frexp(_finite(factor))
+                mantissa *= int(ldexp(fraction, 53))
+                power += exp2 - 53
         if not mantissa:
             continue
         if not total:
@@ -184,6 +196,12 @@ def _sum_products(terms):
             exponent = power
         else:
             total += mantissa << (power - exponent)
+    return (total, exponent) if binary else _binary_float((total, exponent))
+
+
+def _binary_float(value):
+    """Round an integer significand and unrestricted binary exponent once."""
+    total, exponent = value
     if not total:
         return 0.0
     magnitude = abs(total)
@@ -194,6 +212,10 @@ def _sum_products(terms):
     while upper >= (1 << 53):
         upper >>= 1
         shift += 1
+    # Discard values below half the smallest subnormal without allocating
+    # an integer as large as a long cash-flow schedule's exponent.
+    if -1074 - exponent > shift + 53:
+        return 0.0
     # Subnormal doubles have fewer than 53 significant bits.
     shift = max(shift, -1074 - exponent)
     upper = magnitude >> shift
@@ -203,6 +225,83 @@ def _sum_products(terms):
         if remainder > half or (remainder == half and upper & 1):
             upper += 1
     return _finite(ldexp(float(-upper if total < 0 else upper), exponent + shift))
+
+
+def _binary_normalize(value):
+    total, exponent = value
+    upper, shift = abs(total), 0
+    while upper >= (1 << 53):
+        upper >>= 32
+        shift += 32
+    fraction, power = frexp(_binary_float((total, -shift)))
+    return fraction, exponent + shift + power
+
+
+def _binary_ratio(numerator, denominator):
+    top, top_power = _binary_normalize(numerator)
+    bottom, bottom_power = _binary_normalize(denominator)
+    power = top_power - bottom_power
+    if not bottom:
+        raise ZeroDivisionError
+    if not top or power < -1075:
+        return 0.0
+    if power > 1024 and top:
+        raise OverflowError
+    return _finite(ldexp(top / bottom, power))
+
+
+def _binary_log_ratio(numerator, denominator):
+    """Log of a positive ratio without overflowing or losing a small delta."""
+    difference = _binary_add(numerator, (-denominator[0], denominator[1]))
+    delta_fraction, delta_power = _binary_normalize(difference)
+    bottom, bottom_power = _binary_normalize(denominator)
+    if delta_power <= bottom_power:
+        delta = ldexp(delta_fraction / bottom, delta_power - bottom_power)
+        if abs(delta) < 0.5:
+            return _log1p(delta)
+    top, top_power = _binary_normalize(numerator)
+    return log(top / bottom) + (top_power - bottom_power) * 0.6931471805599453
+
+
+def _binary_log(value):
+    fraction, power = _binary_normalize(value)
+    return log(abs(fraction)) + power * 0.6931471805599453
+
+
+def _binary_add(left, right):
+    if not left[0]:
+        return right
+    if not right[0]:
+        return left
+    # Exponential factors can have enormous exponents. A gap larger than
+    # the entire double range cannot affect a rounded result or cancel.
+    _, lp = _binary_normalize(left)
+    _, rp = _binary_normalize(right)
+    if abs(lp - rp) > 4096:
+        return left if lp > rp else right
+    power = min(left[1], right[1])
+    return ((left[0] << (left[1] - power)) + (right[0] << (right[1] - power)), power)
+
+
+def _binary_exp(value, power):
+    if not value[0]:
+        return value
+    # Keep exp(power)'s exponent separate so it neither overflows nor
+    # underflows before being multiplied by the monetary coefficient.
+    # Retain the full integer coefficient until later additions cancel;
+    # normalizing it to a float here would discard low monetary bits.
+    coefficient, exponent = value
+    shift = int(power / 0.6931471805599453)
+    remainder = power - shift * 0.6931471805599453
+    product, product_power = _sum_products(((coefficient, exp(remainder)),), True)
+    return product, product_power + exponent + shift
+
+
+def _cash_integers(pv, pmt, fv):
+    """Common binary unit: retain every input bit, including subnormals."""
+    values = [_sum_products(((v,),), True) for v in (pv, pmt, fv)]
+    power = min(e for m, e in values if m)
+    return tuple(m << (e - power) if m else 0 for m, e in values)
 
 
 def _decimal_parts(value, precise=False):
@@ -236,51 +335,185 @@ def _units_value(units, digits):
     return _finite(float(str(units) + "e-" + str(digits)))
 
 
-def _money_round(value, digits):
-    """Decimal half-away-from-zero, independent of Python's ties-to-even."""
-    return _units_value(_money_units(value, digits), digits)
+def _rate_root(residual, guess, periods=1, certify=None):
+    """Bracket across representable rates; a small residual alone is not a root."""
+    lower = log(2.0 ** -53)
+    upper = _log1p(1.7976931348623157e308 / (100 * periods))
+    center = max(lower, min(upper, _log1p(guess)))
+    def zero(t):
+        rate = _expm1(t)
+        if certify is not None and not certify(rate):
+            raise ValueError("IRR ZERO CANNOT BE CERTIFIED")
+        return rate
 
-
-def _rate_root(residual, guess):
-    """Bracket in log(1+r), then bisect; never accept an unchecked iterate."""
-    center = max(-30.0, min(30.0, _log1p(guess)))
     fc = residual(_expm1(center))
-    if abs(fc) <= 1e-9:
-        return _expm1(center)
+    if fc == 0:
+        return zero(center)
     left = right = center
     fl = fr = fc
     step = 0.0001
     bracket = None
     for _ in range(32):
-        nl, nr = max(-30.0, center - step), min(30.0, center + step)
+        nl, nr = max(lower, center - step), min(upper, center + step)
         fnl, fnr = residual(_expm1(nl)), residual(_expm1(nr))
-        if abs(fnl) <= 1e-9:
-            return _expm1(nl)
-        if abs(fnr) <= 1e-9:
-            return _expm1(nr)
-        if fnl * fl < 0:
+        if fnl == 0:
+            return zero(nl)
+        if fnr == 0:
+            return zero(nr)
+        if (fnl > 0) != (fl > 0):
             bracket = (nl, left, fnl)
             break
-        if fr * fnr < 0:
+        if (fr > 0) != (fnr > 0):
             bracket = (right, nr, fr)
             break
         left, right, fl, fr = nl, nr, fnl, fnr
-        if nl == -30 and nr == 30:
+        if nl == lower and nr == upper:
             break
         step *= 2
     if bracket is None:
         raise ValueError("NO BRACKET: TRY ANOTHER RATE")
     left, right, fl = bracket
+    fr = residual(_expm1(right))
     for _ in range(96):
         mid = (left + right) * 0.5
         fm = residual(_expm1(mid))
-        if abs(fm) <= 1e-9:
+        if fm == 0:
             return _expm1(mid)
-        if fl * fm < 0:
-            right = mid
+        if right - left <= 1e-13 or mid == left or mid == right:
+            # The sign-changing bracket certifies a root. Near -1, the
+            # nearest representable rate may still have a sizable residual.
+            best = min((abs(fl), left), (abs(fm), mid), (abs(fr), right))
+            return _expm1(best[1])
+        if (fl > 0) != (fm > 0):
+            right, fr = mid, fm
         else:
             left, fl = mid, fm
     raise ValueError("RATE DID NOT CONVERGE")
+
+
+def _cash_trim(value, bits):
+    """Bound geometric-factor products while preserving small rate increments."""
+    number, exponent = value
+    upper, shift = abs(number), 0
+    while upper >= (1 << (bits + 32)):
+        upper >>= 32
+        shift += 32
+    while upper >= (1 << bits):
+        upper >>= 1
+        shift += 1
+    if shift:
+        remainder = abs(number) - (upper << shift)
+        half = 1 << (shift - 1)
+        if remainder > half or (remainder == half and upper & 1):
+            upper += 1
+    return (-upper if number < 0 else upper), exponent + shift
+
+
+def _cash_product(left, right):
+    return left[0] * right[0], left[1] + right[1]
+
+
+def _cash_divide(top, bottom, bits):
+    """Keep exact divisible balances; otherwise retain the requested precision."""
+    numerator, denominator = top[0], bottom[0]
+    exponent = top[1] - bottom[1]
+    whole, remainder = divmod(numerator, denominator)
+    if not remainder:
+        return whole, exponent
+    _, top_bits = _binary_normalize((abs(numerator), 0))
+    _, bottom_bits = _binary_normalize((abs(denominator), 0))
+    shift = bits + bottom_bits - top_bits
+    if shift >= 0:
+        numerator <<= shift
+    else:
+        denominator <<= -shift
+    sign = -1 if (numerator < 0) != (denominator < 0) else 1
+    quotient, remainder = divmod(abs(numerator), abs(denominator))
+    if 2 * remainder > abs(denominator) or (2 * remainder == abs(denominator) and quotient & 1):
+        quotient += 1
+    return sign * quotient, exponent - shift
+
+
+def _cash_factors(discount, count, bits):
+    """Return d**count and d+...+d**count in O(log count), with bounded integers."""
+    power, total = (1, 0), (0, 0)
+    block_power = block_total = discount
+    while count:
+        if count & 1:
+            total = _cash_trim(_binary_add(total, _cash_product(power, block_total)), bits)
+            power = _cash_trim(_cash_product(power, block_power), bits)
+        count >>= 1
+        if count:
+            block_total = _cash_trim(_binary_add(block_total, _cash_product(block_power, block_total)), bits)
+            block_power = _cash_trim(_cash_product(block_power, block_power), bits)
+    return power, total
+
+
+def _cash_balance(flows, annual, frequency):
+    """Evaluate grouped cash flows backwards, cancelling before discounting."""
+    if annual == 0:
+        return _sum_products(tuple((amount, count) for amount, count in flows), True)
+    growth = _sum_products(((frequency,), (annual,)), True)
+    if growth[0] <= 0:
+        raise ValueError("RATE MUST EXCEED -100%/PERIOD")
+    unit = (int(frequency), 0)
+    annual_binary = _sum_products(((annual,),), True)
+    log_rate = _log1p(annual / frequency)
+    factors = {}
+    # Tiny rates must survive adding one before powers are evaluated.
+    # Ordinary rates use 128 bits; even subnormal inputs stay bounded.
+    _, annual_power = frexp(annual)
+    _, frequency_power = frexp(frequency)
+    bits = 128 + max(0, frequency_power - annual_power)
+    discount = None
+    balance = (0, 0)
+    for index in range(len(flows) - 1, 0, -1):
+        amount, count = flows[index]
+        if not amount and not balance[0]:
+            continue
+        money = _sum_products(((amount,),), True)
+        if count == 1:
+            balance = _cash_divide(_cash_product(_binary_add(balance, money), unit), growth, bits)
+        elif abs(count * log_rate) >= 0.5:
+            # Combine the balance and repeated-payment coefficient before
+            # applying the exponential. This both preserves cancellation
+            # and avoids powering large groups at every IRR trial.
+            payment = _cash_product(money, unit)
+            coefficient = _binary_add(_cash_product(balance, annual_binary),
+                                      (-payment[0], payment[1]))
+            discounted = _binary_exp(coefficient, -count * log_rate)
+            balance = _cash_divide(_binary_add(discounted, payment), annual_binary, bits)
+        else:
+            if discount is None:
+                discount = _cash_divide(unit, growth, bits)
+            if count not in factors:
+                factors[count] = _cash_factors(discount, count, bits)
+            power, total = factors[count]
+            balance = _binary_add(_cash_product(balance, power), _cash_product(money, total))
+    return _binary_add(balance, _sum_products(((flows[0][0],),), True))
+
+
+def _cash_exact_root(flows, rate):
+    """Certify an unbracketed zero on short schedules using exact integers."""
+    if rate == 0:
+        return not _sum_products(tuple((amount, count) for amount, count in flows), True)[0]
+    if sum(count for _, count in flows[1:]) > 64:
+        return False
+    numerator, power = _sum_products(((1,), (rate,)), True)
+    while power < 0 and not numerator & 1:
+        numerator >>= 1
+        power += 1
+    denominator = 1 << -power if power < 0 else 1
+    numerator <<= max(power, 0)
+    amounts = [_sum_products(((amount,),), True) for amount, _ in flows]
+    unit = min(exponent for amount, exponent in amounts if amount)
+    coefficients = [amount << (exponent - unit) if amount else 0 for amount, exponent in amounts]
+    value, divisor = coefficients[0], 1
+    for index in range(1, len(flows)):
+        for _ in range(flows[index][1]):
+            divisor *= denominator
+            value = value * numerator + coefficients[index] * divisor
+    return value == 0
 
 
 def _normalized_terms(terms):
@@ -294,28 +527,227 @@ def _normalized_terms(terms):
     return value, norm, largest
 
 
-def _tvm_residual(rate, n, pv, pmt, fv, begin):
-    # Scale discounted term magnitudes in log space. Dividing the amounts
-    # first can discard a small PV and incorrectly report a zero residual.
-    t = _log1p(rate)
+def _log_abs_expm1(value):
+    # Avoid overflow when only the logarithm of the magnitude is needed.
+    return value + log(-_expm1(-value)) if value > 0 else log(-_expm1(value))
+
+
+def _tvm_residual(t, n, pv, pmt, fv, logs):
+    """Discounted balance after combining flows at the two endpoints."""
+    remaining = n - 1
+    if max(abs(n * t), abs(t)) < 0.5:
+        # Near zero, summing the products directly avoids subtracting logs
+        # of nearly equal balances. Fall back to log scaling if they overflow.
+        annuity = -_expm1(-remaining * t) / _expm1(t) if t else remaining
+        discount = exp(-n * t)
+        try:
+            terms = ((pv, 1), (pmt, annuity), (fv, discount))
+            value = _sum_products(terms, True)
+            norm = _sum_products(tuple((abs(a), abs(b)) for a, b in terms), True)
+            if norm[0]:
+                return _binary_ratio(value, norm)
+        except (ValueError, OverflowError):
+            pass
     terms = []
     if pv:
-        terms.append((1 if pv > 0 else -1, log(abs(pv))))
-    if pmt:
-        if rate > 0:
-            annuity = log(-_expm1(-n * t)) - log(rate)
-        elif rate < 0:
-            annuity = -n * t + log(-_expm1(n * t)) - log(-rate)
-        else:
-            annuity = log(n)
-        terms.append((1 if pmt > 0 else -1,
-                      log(abs(pmt)) + annuity + (t if begin else 0)))
+        terms.append((1 if pv > 0 else -1, logs[0]))
+    if pmt and remaining:
+        annuity = (_log_abs_expm1(-remaining * t) - _log_abs_expm1(t)
+                   if t else log(abs(remaining)))
+        terms.append((1 if (pmt > 0) == (remaining > 0) else -1,
+                      logs[1] + annuity))
     if fv:
-        terms.append((1 if fv > 0 else -1, log(abs(fv)) - n * t))
+        terms.append((1 if fv > 0 else -1, logs[2] - n * t))
     if not terms:
         raise ValueError("RATE IS UNDETERMINED")
     value, norm, _ = _normalized_terms(terms)
     return value / norm
+
+
+def _tvm_slope_log(t, n):
+    """Log magnitude of K = sum(k * exp((n-k)*t)), k=1..n-1.
+
+    Its geometric-series extension also covers fractional N. K has the
+    sign of N-1 and its magnitude increases with t. The balance derivative
+    vanishes when PMT*K + N*FV = 0 (FV includes the last END payment).
+    """
+    if max(abs(t), abs(n * t)) < 0.1:
+        # Factor n*(n-1)*t**2 before evaluating the second difference
+        # exp(n*t) - n*exp(t) + n-1 near zero.
+        series, geometric, power, factorial = 0.5, 1.0, 1.0, 2.0
+        for k in range(3, 18):
+            geometric = n * geometric + 1
+            power *= t
+            factorial *= k
+            series += geometric * power / factorial
+        ratio = _expm1(t) / t if t else 1.0
+        return t + log(n) + log(abs(n - 1)) + log(series) - 2 * log(ratio)
+    # Equivalent second difference, retaining precision for N near one:
+    # exp(t)*expm1((n-1)*t) - (n-1)*expm1(t).
+    first = t + _log_abs_expm1((n - 1) * t)
+    second = log(abs(n - 1)) + _log_abs_expm1(t)
+    difference = max(first, second) + log(-_expm1(-abs(first - second)))
+    return t + difference - 2 * _log_abs_expm1(t)
+
+
+def _tvm_quadratic(a, b, c, guess):
+    """Solve in r, using an exact integer discriminant and stable roots."""
+    if not a:
+        if not b:
+            raise ValueError("RATE IS UNDETERMINED" if not c else "NO VALID RATE")
+        result = _binary_ratio((-c, 0), (b, 0))
+        if result <= -1:
+            raise ValueError("NO VALID RATE")
+        return result
+    discriminant = b * b - 4 * a * c
+    if discriminant < 0:
+        raise ValueError("NO VALID RATE")
+    if not discriminant:
+        return _tvm_quadratic(0, 2 * a, b, guess)
+    fraction, exponent = _binary_normalize((discriminant, 0))
+    if exponent & 1:
+        fraction *= 2
+        exponent -= 1
+    root = _sum_products(((sqrt(fraction),),), True)
+    root = (root[0] * (-1 if b >= 0 else 1), root[1] + exponent // 2)
+    numerator = _binary_add((-b, 0), root)
+    candidates = []
+    for top, bottom in ((numerator, (2 * a, 0)), ((2 * c, 0), numerator)):
+        try:
+            result = _binary_ratio(top, bottom)
+            if result > -1:
+                candidates.append(result)
+        except (ValueError, OverflowError, ZeroDivisionError):
+            pass
+    if not candidates:
+        raise ValueError("NO VALID RATE")
+    center = _log1p(guess)
+    return min(candidates, key=lambda r: abs(_log1p(r) - center))
+
+
+def _tvm_exact_root(t, n, pv, pmt, fv):
+    """Certify a nearby rational root instead of accepting a small residual.
+
+    This bounded check covers short integer and binary-fraction schedules.
+    Other unresolved tangencies fail explicitly rather than invent a rate.
+    """
+    numerator, power = _sum_products(((n,),), True)
+    while power < 0 and not numerator & 1:
+        numerator >>= 1
+        power += 1
+    denominator = 1 << -power if power < 0 else 1
+    numerator <<= max(power, 0)
+    if max(numerator, denominator) > 64:
+        return None
+    x = exp(t / denominator)
+    old_a, a, old_b, b = 0, 1, 1, 0
+    for _ in range(24):
+        whole = int(x)
+        old_a, a = a, whole * a + old_a
+        old_b, b = b, whole * b + old_b
+        if b > 1000000 or a > 10 ** 15:
+            break
+        if a and b:
+            ad, bd = a ** denominator, b ** denominator
+            result = _binary_ratio((ad - bd, 0), (bd, 0))
+            if result > -1 and abs(_log1p(result) - t) < 1e-9:
+                if ad == bd:
+                    valid = (pv + fv) * denominator + pmt * (numerator - denominator) == 0
+                else:
+                    an, bn = a ** numerator, b ** numerator
+                    valid = pv * an * (ad - bd) + pmt * (an * bd - ad * bn) + fv * bn * (ad - bd) == 0
+                if valid:
+                    return result
+        fraction = x - whole
+        if not fraction:
+            break
+        x = 1 / fraction
+    return None
+
+
+def _tvm_rate(n, pv, pmt, fv, begin, guess, periods=1):
+    # Combining same-date flows prevents a large cancelling payment from
+    # making every trial rate appear to have a negligible residual.
+    pv, pmt, fv = _cash_integers(pv, pmt, fv)
+    # The common-unit integers can safely exceed the float range here.
+    if begin:
+        pv += pmt
+    else:
+        fv += pmt
+    if n == 1:
+        if not pv and not fv:
+            raise ValueError("RATE IS UNDETERMINED")
+        if not pv or not fv or (pv > 0) == (fv > 0):
+            raise ValueError("NO VALID RATE")
+        result = _binary_ratio((-pv - fv, 0), (pv, 0))
+        if result <= -1:
+            raise ValueError("NO VALID RATE")
+        return result
+
+    if n == 2:
+        return _tvm_quadratic(pv, 2 * pv + pmt, pv + pmt + fv, guess)
+
+    # Endpoint coefficients are fixed throughout this solve. Preserve the
+    # exact integers for the near-zero branch, but convert their logs once.
+    logs = tuple(_binary_log((value, 0)) if value else 0.0 for value in (pv, pmt, fv))
+
+    def residual(t):
+        return _tvm_residual(t, n, pv, pmt, fv, logs)
+
+    # Search the representable domain, including rates outside exp(+/-30).
+    # 2**-53 is the smallest 1+r for a binary64 rate strictly above -1;
+    # the upper bound also leaves room to convert the rate to annual percent.
+    lower = log(2.0 ** -53)
+    upper = _log1p(1.7976931348623157e308 / (100 * periods))
+    points = [lower, upper]
+    # The discounted balance has at most one turning point. Split there
+    # to find both crossing roots and a repeated root that only touches zero.
+    if pmt and fv and ((pmt > 0) == (fv > 0)) == (n < 1):
+        target = log(n) + logs[2] - logs[1]
+        left, right = points
+        if _tvm_slope_log(left, n) < target < _tvm_slope_log(right, n):
+            for _ in range(64):
+                mid = (left + right) * 0.5
+                if _tvm_slope_log(mid, n) < target:
+                    left = mid
+                else:
+                    right = mid
+            turning = (left + right) * 0.5
+            if abs(residual(turning)) <= 1e-12:
+                certified = _tvm_exact_root(turning, n, pv, pmt, fv)
+                if certified is not None:
+                    return certified
+                raise ValueError("RATE TOO CLOSE TO TURNING POINT")
+            points.insert(1, turning)
+    center = max(lower, min(upper, _log1p(guess)))
+    brackets = []
+    left, fl = points[0], residual(points[0])
+    for right in points[1:]:
+        fr = residual(right)
+        if fl == 0:
+            return _expm1(left)
+        if fr == 0:
+            return _expm1(right)
+        if fl * fr < 0:
+            distance = max(left - center, center - right, 0)
+            brackets.append((distance, left, right, fl))
+        left, fl = right, fr
+    if not brackets:
+        raise ValueError("NO VALID RATE")
+    _, left, right, fl = min(brackets)
+    for _ in range(96):
+        mid = (left + right) * 0.5
+        fm = residual(mid)
+        # At large log-rates adjacent floats can be farther apart than
+        # 1e-13. Stop when bisection cannot move, still checking the residual.
+        if fm == 0 or ((right - left <= 1e-13 or mid == left or mid == right)
+                       and abs(fm) <= 1e-12):
+            return _expm1(mid)
+        if fl * fm < 0:
+            right = mid
+        else:
+            left, fl = mid, fm
+    raise ValueError("RATE DID NOT CONVERGE")
 
 
 class FinancialState:
@@ -398,12 +830,9 @@ class FinancialState:
         if name == "I/YR":
             if n <= 0:
                 raise ValueError("N MUST BE POSITIVE")
-            if n == 1 and ((self.begin and pv + pmt == 0 and fv == 0) or
-                           (not self.begin and pv == 0 and pmt + fv == 0)):
-                raise ValueError("RATE IS UNDETERMINED")
             if not min(pv, pmt, fv) < 0 < max(pv, pmt, fv):
                 raise ValueError("RATE NEEDS + AND - VALUES")
-            return _finite(_rate_root(lambda r: _tvm_residual(r, n, pv, pmt, fv, self.begin), rate) * 100 * periods)
+            return _finite(_tvm_rate(n, pv, pmt, fv, self.begin, rate, periods) * 100 * periods)
         if name in ("N", "PV", "PMT", "FV"):
             t = _log1p(rate)
             timing = 1 + rate if self.begin else 1
@@ -414,22 +843,40 @@ class FinancialState:
                 payment_terms.append((pmt, annual))
             if name == "N":
                 if rate == 0:
-                    result = -_sum_products(((pv, 1), (fv, 1))) / pmt
+                    balance = _sum_products(((-pv, 1), (-fv, 1)), True)
+                    result = _binary_ratio(balance, _sum_products(((pmt,),), True))
                 else:
-                    denominator = _sum_products(payment_terms + [(pv, annual)])
-                    numerator = _sum_products(payment_terms + [(-fv, annual)])
-                    if not denominator or not numerator or (denominator > 0) != (numerator > 0):
+                    denominator = _sum_products(payment_terms + [(pv, annual)], True)
+                    numerator = _sum_products(payment_terms + [(-fv, annual)], True)
+                    if (not denominator[0] or not numerator[0]
+                            or (denominator[0] > 0) != (numerator[0] > 0)):
                         raise ValueError("NO VALID N")
-                    delta = _sum_products(((-pv, annual), (-fv, annual))) / denominator
-                    if abs(delta) < 0.5:
-                        result = _log1p(delta) / t
-                    else:
-                        result = (log(abs(numerator)) - log(abs(denominator))) / t
+                    result = _binary_log_ratio(numerator, denominator) / t
                 if not 0 < result <= MAX_FIN_PERIODS:
                     raise ValueError("NO VALID N")
                 return _finite(result)
             if n <= 0:
                 raise ValueError("N MUST BE POSITIVE")
+            if n == 1:
+                # Combine same-date cash flows before rounding the growth
+                # factor. Even a rate too small to change 1+r can produce
+                # a finite amount when a large principal cancels a payment.
+                growth = _sum_products(((frequency,), (annual,)), True)
+                unit = (int(frequency), 0)
+                if name == "FV":
+                    terms = [(pv, frequency), (pv, annual), (pmt, frequency)]
+                    if self.begin:
+                        terms.append((pmt, annual))
+                    denominator = unit
+                elif name == "PV":
+                    terms = [(pmt, frequency), (fv, frequency)]
+                    if self.begin:
+                        terms.append((pmt, annual))
+                    denominator = growth
+                else:  # PMT
+                    terms = [(pv, frequency), (pv, annual), (fv, frequency)]
+                    denominator = growth if self.begin else unit
+                return -_binary_ratio(_sum_products(terms, True), denominator)
             if name == "FV":
                 if not rate:
                     return -_sum_products(((pv, 1), (pmt, n)))
@@ -437,17 +884,32 @@ class FinancialState:
                 if abs(power) < 0.5:
                     return -_sum_products(((pv, exp(power)),
                         (pmt, timing, _expm1(power) / rate)))
-                coefficient = _sum_products(payment_terms + [(pv, annual)])
+                coefficient = _sum_products(payment_terms + [(pv, annual)], True)
                 # Avoid subtracting nearly equal discounted balances and
                 # magnifying that error by dividing by a tiny discount.
-                growth_terms = [(coefficient, exp(power))] if coefficient else []
-                return _finite(-_sum_products(growth_terms +
-                    [(-row[0], row[1]) for row in payment_terms]) / annual)
+                growth = _binary_exp(coefficient, power)
+                numerator = _binary_add(_sum_products(payment_terms, True), (-growth[0], growth[1]))
+                return _binary_ratio(numerator, _sum_products(((annual,),), True))
+            if name == "PMT" and rate < 0:
+                # At negative rates the future-value form stays bounded;
+                # discounting first can overflow despite a finite payment.
+                growth = _binary_exp(_sum_products(((pv,),), True), n * t)
+                annuity = (_expm1(n * t) / rate) * timing
+                numerator = _binary_add(growth, _sum_products(((fv,),), True))
+                return -_binary_ratio(numerator, _sum_products(((annuity,),), True))
+            if name == "PV" and abs(n * t) >= 0.5:
+                coefficient = _sum_products(payment_terms + [(-fv, annual)], True)
+                discounted = _binary_exp(coefficient, -n * t)
+                payment = _sum_products(payment_terms, True)
+                numerator = _binary_add(discounted, (-payment[0], payment[1]))
+                return _binary_ratio(numerator, _sum_products(((annual,),), True))
             discount = exp(-n * t)
             annuity = (-_expm1(-n * t) / rate if rate else n) * timing
             if name == "PV":
                 return -_sum_products(((pmt, annuity), (fv, discount)))
-            return _finite(-_sum_products(((pv, 1), (fv, discount))) / annuity)
+            discounted = _binary_exp(_sum_products(((fv,),), True), -n * t)
+            numerator = _binary_add(_sum_products(((pv,),), True), discounted)
+            return -_binary_ratio(numerator, _sum_products(((annuity,),), True))
         if name == "EFF":
             return _finite(100 * _expm1(periods * _log1p(v["NOM"] / (100 * periods))))
         if name == "NOM":
@@ -458,10 +920,10 @@ class FinancialState:
             return _finite(price * (1 - percent) if self.page == "margin" else price / (1 + percent))
         if name == "PRICE":
             return _finite(cost / (1 - percent) if self.page == "margin" else cost * (1 + percent))
-        if name == "MARG":
-            return _finite(100 * (price - cost) / price)
-        if name == "MARK":
-            return _finite(100 * (price - cost) / cost)
+        if name in ("MARG", "MARK"):
+            profit = _sum_products(((price, 100), (-cost, 100)), True)
+            base = price if name == "MARG" else cost
+            return _binary_ratio(profit, _sum_products(((base,),), True))
         raise ValueError("ENTER A VALUE FIRST")
 
     def clone(self):
@@ -471,75 +933,51 @@ class FinancialState:
             setattr(state, name, value)
         return state
 
-    def cash_terms(self, rate):
-        """Normalize signed group magnitudes in log space before summing."""
-        t = _log1p(rate)
-        terms = []
-        elapsed = 0
-        origin = 0 if self.flows[0][0] else None
-        for i, (amount, count) in enumerate(self.flows):
-            if amount:
-                if origin is None:
-                    origin = elapsed + 1
-                magnitude = log(abs(amount))
-                if i:
-                    if rate > 0:
-                        magnitude += (-(elapsed + 1 - origin) * t
-                                      + log(-_expm1(-count * t)) - log(-_expm1(-t)))
-                    elif rate < 0:
-                        magnitude += (-(elapsed + count - origin) * t
-                                      + log(-_expm1(count * t)) - log(-_expm1(t)))
-                    else:
-                        magnitude += log(count)
-                terms.append((1 if amount > 0 else -1, magnitude))
-            if i:
-                elapsed += count
-        if not terms:
-            return 0.0, 0.0, 1.0, 0.0
-        value, norm, largest = _normalized_terms(terms)
-        return value, norm, 1.0, largest - origin * t
-
     def npv(self):
-        rate = self.values["I/YR"] / (100 * self.values["P/YR"])
-        t = _log1p(rate)
-        # Preserve monetary amounts: logarithmic magnitude normalization is
-        # useful for IRR, but needlessly loses cents when NPV terms cancel.
-        try:
-            terms = [(self.flows[0][0], 1)]
-            elapsed = 0
-            for amount, count in self.flows[1:]:
-                if amount:
-                    if not rate:
-                        terms.append((amount, count))
-                    else:
-                        factor = -_expm1(-count * t) / rate
-                        discount = exp(-elapsed * t)
-                        if discount == 0:
-                            raise OverflowError("DISCOUNT UNDERFLOW")
-                        terms.append((amount, discount, factor))
-                elapsed += count
-            return _sum_products(terms)
-        except OverflowError:
-            # A large amount can bring an underflowed discount back into
-            # range, or a tiny amount can offset an overflowing factor.
-            value, _, _, exponent = self.cash_terms(rate)
-            if value == 0:
-                return 0.0
-            return _finite((1 if value > 0 else -1) * exp(log(abs(value)) + exponent))
-
+        return _binary_float(_cash_balance(self.flows, self.values["I/YR"],
+                                           100 * self.values["P/YR"]))
 
     def irr(self):
         signs = [1 if row[0] > 0 else -1 for row in self.flows if row[0] != 0]
         changes = sum(signs[i] != signs[i - 1] for i in range(1, len(signs)))
         if not changes:
             raise ValueError("IRR NEEDS + AND - CASH FLOWS")
-        def residual(rate):
-            value, norm, _, _ = self.cash_terms(rate)
-            if norm <= 0:
-                raise ValueError("IRR RESIDUAL UNDEFINED")
-            return value / norm
+        # Removing empty endpoints or shifting every payment by the same
+        # number of periods cannot change an IRR. Normalize before choosing
+        # the solver so a trailing zero cannot hide a quadratic tangency.
+        first, last = 0, len(self.flows)
+        while not self.flows[first][0]:
+            first += 1
+        while not self.flows[last - 1][0]:
+            last -= 1
+        amount, repeats = self.flows[first]
+        flows = [[amount, 1]]
+        if repeats > 1:
+            flows.append([amount, repeats - 1])
+        flows.extend(self.flows[first + 1:last])
         periods = self.values["P/YR"]
-        rate = _rate_root(residual, self.values["I/YR"] / (100 * periods))
+        guess = self.values["I/YR"] / (100 * periods)
+        count = sum(row[1] for row in flows[1:])
+        if count <= 2:
+            # Certify short schedules with an exact discriminant, including
+            # tangencies and near-tangencies that residual tolerances cannot distinguish.
+            amounts = [flows[0][0]]
+            for amount, repeats in flows[1:]:
+                amounts.extend([amount] * repeats)
+            while len(amounts) < 3:
+                amounts.append(0.0)
+            a, b, c = _cash_integers(*amounts)
+            rate = _tvm_quadratic(a, 2 * a + b, a + b + c, guess)
+        else:
+            def residual(rate):
+                value = _cash_balance(flows, rate, 1)
+                fraction, power = _binary_normalize(value)
+                # Bisection needs a sign, not a second absolute-flow solve.
+                # Clamp only the exponent so tiny nonzero balances cannot
+                # underflow to an apparent root, nor large ones overflow.
+                return ldexp(fraction, max(-1073, min(1023, power)))
+            rate = _rate_root(residual, guess, periods,
+                              lambda r: changes == 1 or _cash_exact_root(flows, r))
         return _finite(rate * 100 * periods), changes > 1
 
     def amortization(self):
@@ -796,7 +1234,8 @@ class RPNStack:
         """Add a digit to the current entry."""
         if not self.entering:
             self._begin_entry()
-        if len(self.entry) >= 15:
+        digits = len(self.entry) - self.entry.startswith("-") - ("." in self.entry)
+        if digits >= 15:
             self.status = "ENTRY LIMIT"
             return
         if self.entry in ("0", "-0") and "." not in self.entry:
@@ -1003,7 +1442,7 @@ def _reset_session():
     global help_visible, help_page, variable_view_mode, selected_variable, variable_confirm_action
     global variable_confirm_index, escape_armed, back_exit_armed, flash_index, flash_until
     global storage, state_dirty, save_due, last_saved_state, help_cache
-    global fin_menu_cache, amort_job, state_recovery, save_error
+    global fin_menu_cache, fin_panel_key, amort_job, state_recovery, save_error
     fin_overlay = None
     fin_selection = 0
     fin_recall = False
@@ -1025,18 +1464,23 @@ def _reset_session():
     last_saved_state = ""
     help_cache = None
     fin_menu_cache = None
+    fin_panel_key = None
     amort_job = None
     state_recovery = False
     save_error = ""
 
 
-
-
 def _state_checksum(text):
     # FNV-1a detects accidental storage corruption; not an authentication tag.
+    # Saved calculator JSON is ASCII. Byte iteration avoids allocating a
+    # one-character string and calling ord() for every character. Keep the
+    # original code-point checksum for any legacy non-ASCII text as well.
+    data = text.encode()
+    if len(data) != len(text):
+        data = map(ord, text)
     value = 2166136261
-    for char in text:
-        value = ((value ^ ord(char)) * 16777619) & 0xffffffff
+    for byte in data:
+        value = ((value ^ byte) * 16777619) & 0xffffffff
     return "%08x" % value
 
 
@@ -1322,25 +1766,39 @@ def _financial_preview():
     return "STO READY"
 
 
-def _draw_financial(draw):
+def _draw_financial(draw, partial=False):
+    global fin_panel_key
+    key = (id(draw), int(draw.size.x), int(draw.size.y), financial.page)
+    partial = partial and financial.page == "tvm" and fin_panel_key == key
     _draw_header(draw)
     (x, y, w, h), _ = _layout(draw)
-    draw.fill_rectangle(Vector(x + 2, y + 3), Vector(w, h), COLOR_SHADOW)
-    draw.fill_rectangle(Vector(x, y), Vector(w, h), COLOR_EDGE)
-    draw.fill_rectangle(Vector(x + 2, y + 2), Vector(w - 4, h - 4), COLOR_LCD)
+    if not partial:
+        draw.fill_rectangle(Vector(x + 2, y + 3), Vector(w, h), COLOR_SHADOW)
+        draw.fill_rectangle(Vector(x, y), Vector(w, h), COLOR_EDGE)
+        draw.fill_rectangle(Vector(x + 2, y + 2), Vector(w - 4, h - 4), COLOR_LCD)
     settings = "P%d %s D%d" % (financial.values["P/YR"], "BGN" if financial.begin else "END", financial.decimals)
     # Long P/YR settings are abbreviated here and fully shown in REGS.
-    settings_x = _draw_register_label_number(draw, x + 5, y + 4, "P/YR")
+    settings_x = _draw_register_label_number(draw, x + 5, y + 4, "P/YR", not partial)
+    if partial:
+        draw.fill_rectangle(Vector(settings_x, y + 4), Vector(x + w - 2 - settings_x, 9), COLOR_LCD)
     settings, font = _fit_value(draw, settings, x + w - 5 - settings_x, FONT_XTRA_SMALL)
     draw.text(Vector(settings_x, y + 4), settings, COLOR_LCD_MID, font)
     for row, (name, value) in enumerate(_fin_rows()):
         row_y = y + 15 + row * 9
-        label_x = _draw_register_label_number(draw, x + 5, row_y, name)
-        draw.text(Vector(label_x, row_y), name, COLOR_LCD_MID, FONT_XTRA_SMALL)
-        _right_text(draw, x + w - 5, row_y, value, COLOR_LCD_DARK, FONT_XTRA_SMALL,
-                    label_x + 4 + draw.len(name, FONT_XTRA_SMALL))
+        label_x = _draw_register_label_number(draw, x + 5, row_y, name, not partial)
+        value_left = label_x + 4 + draw.len(name, FONT_XTRA_SMALL)
+        if partial:
+            draw.fill_rectangle(Vector(value_left, row_y), Vector(x + w - 2 - value_left, 9), COLOR_LCD)
+        else:
+            draw.text(Vector(label_x, row_y), name, COLOR_LCD_MID, FONT_XTRA_SMALL)
+        _right_text(draw, x + w - 5, row_y, value, COLOR_LCD_DARK, FONT_XTRA_SMALL, value_left)
     x_y = y + 61
-    draw.text(Vector(x + 5, x_y), "X", COLOR_LCD_MID, FONT_XTRA_SMALL)
+    if partial:
+        draw.fill_rectangle(Vector(x + 16, x_y), Vector(w - 18, 9), COLOR_LCD)
+        # Preview and status can shrink, wrap, or change color independently.
+        draw.fill_rectangle(Vector(x + 2, y + 71), Vector(w - 4, h - 73), COLOR_LCD)
+    else:
+        draw.text(Vector(x + 5, x_y), "X", COLOR_LCD_MID, FONT_XTRA_SMALL)
     value = calculator.entry if calculator.entering else _fin_format(calculator.stack[0])
     _right_text(draw, x + w - 5, x_y, value, COLOR_LCD_DARK, FONT_XTRA_SMALL,
                 x + 16, calculator.entering)
@@ -1356,6 +1814,7 @@ def _draw_financial(draw):
     for row, line in enumerate(lines):
         draw.text(Vector(x + 5, y + h - 5 - len(lines) * 9 + row * 9), line,
                   COLOR_ERROR if calculator.error and amort_job is None else COLOR_LCD_MID, FONT_XTRA_SMALL)
+    fin_panel_key = key
 
 
 def _fin_menu_items():
@@ -1411,7 +1870,8 @@ def _open_fin_menu(view_manager, name):
 
 
 def _draw_fin_menu(view_manager):
-    global fin_menu_cache
+    global fin_menu_cache, fin_panel_key
+    fin_panel_key = None
     draw = view_manager.draw
     width, height = int(draw.size.x), int(draw.size.y)
     draw.clear(size=draw.size, color=COLOR_BG)
@@ -1814,11 +2274,12 @@ def _draw_shortcut_number(draw, x, y, number, color):
                 draw.fill_rectangle(Vector(x + col, y + row), Vector(1, 1), color)
 
 
-def _draw_register_label_number(draw, x, y, label):
+def _draw_register_label_number(draw, x, y, label, paint=True):
     """Return the label origin after its matching keypad shortcut number."""
     for index, (key_label, action, _) in enumerate(_keys()):
         if key_label == label and action.startswith("@"):
-            _draw_shortcut_number(draw, x, y + 1, _register_shortcut(index), COLOR_LCD_MID)
+            if paint:
+                _draw_shortcut_number(draw, x, y + 1, _register_shortcut(index), COLOR_LCD_MID)
             return x + 6
     return x
 
@@ -1831,10 +2292,10 @@ def _draw_key(draw, index, selected, flashed=False):
     y = keypad_y + row * (key_height + gap)
     text, _, key_type = _keys()[index]
 
-    # Clear the outline and shadow footprint so individual keys can be refreshed.
+    # Clear only this key's outline and shadow; the next outline starts one pixel later.
     draw.fill_rectangle(
         Vector(x - 1, y - 1),
-        Vector(key_width + 4, key_height + 4),
+        Vector(key_width + 3, key_height + 3),
         COLOR_BG,
     )
 
@@ -1861,6 +2322,8 @@ def _draw_key(draw, index, selected, flashed=False):
 
     number = _register_shortcut(index)
     inset = 6 if number else 0
+    if draw.len(text, FONT_XTRA_SMALL) > key_width - inset:
+        text = COMPACT_KEY_LABELS.get(text, text)
     font_size = FONT_XTRA_SMALL
     if key_height >= 20 and draw.len(text, FONT_SMALL) <= key_width - inset - 2:
         font_size = FONT_SMALL
@@ -1874,6 +2337,8 @@ def _draw_key(draw, index, selected, flashed=False):
 
 
 def _redraw(view_manager):
+    global fin_panel_key
+    fin_panel_key = None
     draw = view_manager.draw
     width = draw.size.x
     draw.clear(size=draw.size, color=COLOR_BG)
@@ -1907,6 +2372,8 @@ def _variable_layout(draw):
 
 
 def _draw_variable_viewer(view_manager):
+    global fin_panel_key
+    fin_panel_key = None
     draw = view_manager.draw
     width = draw.size.x
     height = draw.size.y
@@ -2075,8 +2542,9 @@ def _help_pages(draw):
 
 
 def _open_help(view_manager):
-    global fin_overlay, help_visible, help_page, escape_armed, flash_index
+    global fin_overlay, help_visible, help_page, escape_armed, flash_index, fin_recall
     fin_overlay = None
+    fin_recall = False
     help_visible, help_page = True, 0
     escape_armed = False
     flash_index = -1
@@ -2084,7 +2552,8 @@ def _open_help(view_manager):
 
 
 def _draw_help(view_manager):
-    global help_page
+    global fin_panel_key, help_page
+    fin_panel_key = None
     draw = view_manager.draw
     width, height = int(draw.size.x), int(draw.size.y)
     pages, font, step = _help_pages(draw)
@@ -2252,7 +2721,10 @@ def _refresh_stack(view_manager, swap=True):
             and calculator.status in ("ENTER VALUE", "EDIT X", "SIGN CHANGED")):
         calculator.status = _key_hint(view_manager)
     draw = view_manager.draw
-    _draw_stack(draw, draw.size.x)
+    if financial.mode:
+        _draw_financial(draw, partial=True)
+    else:
+        _draw_stack(draw, draw.size.x)
     if swap:
         draw.swap()
 
@@ -2688,9 +3160,9 @@ def run(view_manager):
 
 
 def stop(view_manager):
-    global calculator, standard_calculator, financial_calculator
+    global calculator, standard_calculator, financial_calculator, financial
     _save_state(force=True)
-    calculator = standard_calculator = financial_calculator = None
+    calculator = standard_calculator = financial_calculator = financial = None
     _reset_session()
     from gc import collect
 

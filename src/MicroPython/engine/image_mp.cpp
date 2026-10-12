@@ -20,10 +20,13 @@ void image_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t k
 
 mp_obj_t image_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
-    // Arguments: size (Vector), is_8bit (bool), data (optional), path (optional)
-    mp_arg_check_num(n_args, n_kw, 2, 4, true);
+    // Arguments: size (Vector), is_8bit (bool), data (optional), path (optional), mask (optional)
+    mp_arg_check_num(n_args, n_kw, 2, 5, true);
     image_mp_obj_t *self = mp_obj_malloc_with_finaliser(image_mp_obj_t, &image_mp_type);
     self->base.type = &image_mp_type;
+    self->context = nullptr;
+    self->freed = true;
+    self->size_obj = MP_OBJ_NULL;
 
     // Extract constructor arguments (handles Python subclass wrappers)
     mp_obj_t native_size = mp_obj_cast_to_native_base(args[0], MP_OBJ_FROM_PTR(&vector_mp_type));
@@ -33,20 +36,54 @@ mp_obj_t image_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw
     Vector size(size_vec->x, size_vec->y, size_vec->z, size_vec->integer);
     self->size_obj = vector_mp_init(size_vec->x, size_vec->y, size_vec->z, size_vec->integer);
     bool is_8bit = mp_obj_is_true(args[1]);
-    const void *data = nullptr;
+    mp_buffer_info_t data_info = {};
+    const bool has_data = n_args > 2 && args[2] != mp_const_none;
+    if (has_data)
+        mp_get_buffer_raise(args[2], &data_info, MP_BUFFER_READ);
+
     const char *path = "";
-    if (n_args > 2)
-    {
-        mp_buffer_info_t bufinfo;
-        mp_get_buffer_raise(args[2], &bufinfo, MP_BUFFER_READ);
-        data = bufinfo.buf;
-    }
-    if (n_args > 3)
-    {
+    if (n_args > 3 && args[3] != mp_const_none)
         path = mp_obj_str_get_str(args[3]);
+
+    Image image_template(size, is_8bit);
+    const size_t data_size = image_template.getDataSize();
+    const size_t mask_size = image_template.getMaskSize();
+    if (data_size == 0)
+        mp_raise_ValueError(MP_ERROR_TEXT("invalid image size"));
+    if (has_data && data_info.len < data_size)
+        mp_raise_ValueError(MP_ERROR_TEXT("incorrect pixel data length"));
+
+    mp_buffer_info_t mask_info = {};
+    const bool has_mask = n_args == 5 && args[4] != mp_const_none;
+    if (has_mask)
+    {
+        if (!is_8bit || !has_data ||
+            !(size.x >= 1 && size.x <= 1024 && size.y >= 1 && size.y <= 1024) ||
+            uint16_t(size.x) != size.x || uint16_t(size.y) != size.y)
+            mp_raise_ValueError(MP_ERROR_TEXT("invalid masked image"));
+        mp_get_buffer_raise(args[4], &mask_info, MP_BUFFER_READ);
+        if (mask_info.len != mask_size)
+            mp_raise_ValueError(MP_ERROR_TEXT("incorrect mask length"));
     }
 
-    self->context = new Image(size, is_8bit, data, path);
+    Image *ctx = new Image(size, is_8bit);
+    if (has_data && !ctx->setData(data_info.buf, data_info.len))
+    {
+        delete ctx;
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("unable to copy image pixels"));
+    }
+    if (path[0] != '\0' && !ctx->setPath(path))
+    {
+        delete ctx;
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("unable to copy image path"));
+    }
+    if (has_mask && !ctx->setMask(static_cast<const uint8_t *>(mask_info.buf), mask_info.len))
+    {
+        delete ctx;
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("unable to copy image mask"));
+    }
+
+    self->context = ctx;
     self->freed = false;
     return MP_OBJ_FROM_PTR(self);
 }
@@ -108,6 +145,8 @@ mp_obj_t image_mp_set_size(mp_obj_t self_in, mp_obj_t size_obj)
         return mp_const_none;
     }
     Image *ctx = image_get_context(self);
+    if (ctx->has_mask)
+        mp_raise_ValueError(MP_ERROR_TEXT("masked image size is fixed"));
     mp_obj_t native_vec = mp_obj_cast_to_native_base(size_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
     if (native_vec == MP_OBJ_NULL)
         mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));

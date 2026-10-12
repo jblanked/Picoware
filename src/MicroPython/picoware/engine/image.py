@@ -11,6 +11,10 @@ class Image(engine.Image):
         is_8bit (bool): Whether the image uses 8-bit graphics.
         data (bytes-like or None): Optional raw pixel data. Defaults to None.
         path (str): Optional file path for image data. Defaults to "".
+        mask (bytes-like or None): Optional 1-bit transparency mask.
+
+    Pixel data, masks, and paths are copied into native-owned storage, so the
+    original Python buffers and strings do not need to remain alive.
 
     Attributes:
         size (Vector): Image size in pixels. Writable.

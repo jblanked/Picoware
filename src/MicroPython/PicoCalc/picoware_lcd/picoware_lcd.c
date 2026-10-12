@@ -425,6 +425,104 @@ void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, con
         picoware_write_buffer_fb_16(NULL, dst_x, dst_y, copy_width, copy_height, buffer);
 }
 
+void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
+                   uint16_t src_w, uint16_t src_h, const uint8_t *buffer, const uint8_t *mask)
+{
+    if (!buffer || !mask || !dst_w || !dst_h || !src_w || !src_h)
+        return;
+    if (src_w == dst_w && src_h == dst_h)
+    {
+        // lcd_blit_mask_bmp(dst_x, dst_y, dst_w, dst_h, buffer, mask);
+        const int src_x = dst_x < 0 ? -(int32_t)dst_x : 0;
+        const int src_y = dst_y < 0 ? -(int32_t)dst_y : 0;
+        const int dst_x = dst_x < 0 ? 0 : dst_x;
+        const int dst_y = dst_y < 0 ? 0 : dst_y;
+        int copy_width = (int)dst_w - src_x;
+        int copy_height = (int)dst_h - src_y;
+        if (dst_x + copy_width > DISPLAY_WIDTH)
+            copy_width = DISPLAY_WIDTH - dst_x;
+        if (dst_y + copy_height > DISPLAY_HEIGHT)
+            copy_height = DISPLAY_HEIGHT - dst_y;
+        if (copy_width <= 0 || copy_height <= 0)
+            return;
+        for (int row = 0; row < copy_height; ++row)
+        {
+            const uint32_t src_row = (uint32_t)(src_y + row) * src_w + src_x;
+            int col = 0;
+            while (col < copy_width)
+            {
+                while (col < copy_width && !(mask[(src_row + col) >> 3] & (0x80u >> ((src_row + col) & 7))))
+                    ++col;
+                const int start = col;
+                while (col < copy_width && (mask[(src_row + col) >> 3] & (0x80u >> ((src_row + col) & 7))))
+                    ++col;
+                if (start == col)
+                    continue;
+                const uint8_t *source = buffer + src_row + start;
+                const uint32_t length = col - start;
+                if (lcd_mode == LCD_MODE_HEAP)
+                    memcpy(heap_framebuffer + (uint32_t)(dst_y + row) * DISPLAY_WIDTH + dst_x + start, source, length);
+                else
+                {
+                    const uint32_t address = PSRAM_FRAMEBUFFER_ADDR + (uint32_t)(dst_y + row) * PSRAM_ROW_SIZE + dst_x + start;
+                    for (uint32_t offset = 0; offset < length;)
+                    {
+                        const uint32_t chunk = length - offset > PSRAM_CHUNK_SIZE ? PSRAM_CHUNK_SIZE : length - offset;
+                        psram_qspi_write(&psram_instance, address + offset, source + offset, chunk);
+                        offset += chunk;
+                    }
+                }
+            }
+        }
+        return;
+    }
+
+    const int offset_x = dst_x < 0 ? -(int32_t)dst_x : 0;
+    const int offset_y = dst_y < 0 ? -(int32_t)dst_y : 0;
+    const int dxx = dst_x < 0 ? 0 : dst_x, dyy = dst_y < 0 ? 0 : dst_y;
+    int cw = (int)dst_w - offset_x, ch = (int)dst_h - offset_y;
+    if (dxx + cw > DISPLAY_WIDTH)
+        cw = DISPLAY_WIDTH - dxx;
+    if (dyy + ch > DISPLAY_HEIGHT)
+        ch = DISPLAY_HEIGHT - dyy;
+    if (cw <= 0 || ch <= 0)
+        return;
+
+    for (int dr = 0; dr < ch; ++dr)
+    {
+        const uint32_t sy = ((uint32_t)dr + offset_y) * src_h / dst_h;
+        const uint32_t buf_row = sy * src_w;
+        const int fb_y = dyy + dr;
+        uint32_t numerator = (uint32_t)offset_x * src_w;
+        if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
+        {
+            uint8_t *dst_row = heap_framebuffer + (uint32_t)fb_y * DISPLAY_WIDTH + dxx;
+            for (int dc = 0; dc < cw; ++dc)
+            {
+                const uint32_t pixel = buf_row + numerator / dst_w;
+                numerator += src_w;
+                if (mask[pixel >> 3] & (0x80u >> (pixel & 7)))
+                    dst_row[dc] = buffer[pixel];
+            }
+        }
+        else if (lcd_mode == LCD_MODE_PSRAM)
+        {
+            for (int dc = 0; dc < cw; ++dc)
+            {
+                const uint32_t pixel = buf_row + numerator / dst_w;
+                numerator += src_w;
+                if (!(mask[pixel >> 3] & (0x80u >> (pixel & 7))))
+                    continue;
+                const uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (uint32_t)fb_y * PSRAM_ROW_SIZE + dxx + dc;
+                const uint8_t value = buffer[pixel];
+                psram_qspi_write(&psram_instance, addr, &value, 1);
+            }
+        }
+        else
+            return;
+    }
+}
+
 void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color)
 {
     uint8_t color_index = color565_to_332(color);

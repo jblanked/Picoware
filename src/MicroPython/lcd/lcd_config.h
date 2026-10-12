@@ -17,6 +17,7 @@
 #define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT picocalc_lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_BLIT_MASK lcd_blit_mask
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_PSRAM lcd_psram
@@ -49,6 +50,7 @@
 #define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_BLIT_MASK lcd_blit_mask
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
@@ -76,6 +78,7 @@
 #define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_BLIT_MASK lcd_blit_mask
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
@@ -103,6 +106,7 @@
 #define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_BLIT_MASK lcd_blit_mask
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
@@ -130,6 +134,7 @@
 #define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_BLIT_MASK lcd_blit_mask
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
@@ -157,6 +162,7 @@
 #define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_BLIT_MASK lcd_blit_mask
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
@@ -184,6 +190,7 @@
 #define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_BLIT_MASK lcd_blit_mask
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
@@ -211,6 +218,7 @@
 #define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_BLIT_MASK lcd_blit_mask
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
@@ -237,6 +245,7 @@
 #define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_BLIT_MASK lcd_blit_mask
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
@@ -264,6 +273,7 @@
 #define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_BLIT_MASK lcd_blit_mask
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
@@ -291,6 +301,7 @@
 #define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_BLIT_MASK lcd_blit_mask
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
@@ -318,6 +329,7 @@
 #define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_BLIT_MASK lcd_blit_mask
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
@@ -350,6 +362,7 @@
 #define LCD_MP_FILL_POLYGON_ALPHA desktop_lcd_fill_polygon_alpha
 #define LCD_MP_BLIT desktop_lcd_blit
 #define LCD_MP_BLIT_16BIT desktop_lcd_blit_16bit
+#define LCD_MP_BLIT_MASK desktop_lcd_blit_mask
 #define LCD_MP_LINE desktop_lcd_line
 #define LCD_MP_PIXEL desktop_lcd_pixel
 #define LCD_MP_RECTANGLE desktop_lcd_rectangle
@@ -378,6 +391,7 @@
 #define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_BLIT_MASK lcd_blit_mask
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row

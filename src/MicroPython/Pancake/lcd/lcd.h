@@ -36,6 +36,8 @@ extern "C"
     void lcd_fill(uint16_t color);                                                                        // Fill the entire frame buffer with a solid RGB332 color
     void lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t *buffer);        // Copy an external 8-bit image buffer into the frame buffer at specified position
     void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint16_t *buffer); // Copy a 16-bit RGB565 image buffer into the frame buffer
+    void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
+                       uint16_t src_w, uint16_t src_h, const uint8_t *buffer, const uint8_t *mask);
     void lcd_read_row(uint16_t y, uint8_t *out_buffer);                                                   // Copy a framebuffer row to out_buffer
 
     // Shape drawing functions

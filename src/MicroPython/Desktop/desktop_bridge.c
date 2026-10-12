@@ -139,6 +139,47 @@ void desktop_lcd_pixel(uint16_t x, uint16_t y, uint16_t color)
     desktop_call_lcd(MP_QSTR__pixel, 3, arguments);
 }
 
+void desktop_lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
+                           uint16_t src_w, uint16_t src_h, const uint8_t *buffer, const uint8_t *mask)
+{
+    if (!buffer || !mask || !dst_w || !dst_h || !src_w || !src_h)
+        return;
+
+    int32_t src_x = dst_x < 0 ? -(int32_t)dst_x : 0;
+    int32_t src_y = dst_y < 0 ? -(int32_t)dst_y : 0;
+    int32_t screen_x = dst_x < 0 ? 0 : dst_x;
+    int32_t screen_y = dst_y < 0 ? 0 : dst_y;
+    int32_t copy_width = (int32_t)dst_w - src_x;
+    int32_t copy_height = (int32_t)dst_h - src_y;
+    int32_t display_width = desktop_lcd_width();
+    int32_t display_height = desktop_lcd_height();
+    if (screen_x + copy_width > display_width)
+        copy_width = display_width - screen_x;
+    if (screen_y + copy_height > display_height)
+        copy_height = display_height - screen_y;
+    if (copy_width <= 0 || copy_height <= 0)
+        return;
+
+    for (int32_t row = 0; row < copy_height; ++row)
+    {
+        uint32_t source_y = (uint32_t)(src_y + row) * src_h / dst_h;
+        for (int32_t col = 0; col < copy_width; ++col)
+        {
+            uint32_t source_x = (uint32_t)(src_x + col) * src_w / dst_w;
+            uint32_t pixel = source_y * src_w + source_x;
+            if (mask[pixel >> 3] & (0x80u >> (pixel & 7)))
+            {
+                uint8_t rgb332 = buffer[pixel];
+                uint16_t red = (uint16_t)((((rgb332 >> 5) & 7u) << 2) | (((rgb332 >> 5) & 7u) >> 1));
+                uint16_t green = (uint16_t)((((rgb332 >> 2) & 7u) << 3) | ((rgb332 >> 2) & 7u));
+                uint16_t blue = (uint16_t)(((rgb332 & 3u) << 3) | ((rgb332 & 3u) << 1) | ((rgb332 & 3u) >> 1));
+                desktop_lcd_pixel((uint16_t)(screen_x + col), (uint16_t)(screen_y + row),
+                                  (uint16_t)((red << 11) | (green << 5) | blue));
+            }
+        }
+    }
+}
+
 void desktop_lcd_char(uint16_t x, uint16_t y, char character, uint16_t color,
                       int font_size)
 {

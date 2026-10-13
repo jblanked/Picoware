@@ -947,5 +947,13 @@
             "picoware/apps/screensavers/spiro.mpy"
         ],
         "version": "1.0"
+    },
+    {
+        "title": "ADSB Radar",
+        "description": "Picoware ADS-B Radar v1 by Christophe Daeninck",
+        "file_structure": [
+            "picoware/apps/ADSB-Radar.mpy"
+        ],
+        "version": "1.0"
     }
 ]

@@ -20,8 +20,8 @@ Source: https://github.com/jblanked/Picoware/blob/dev/src/MicroPython/PicoCalc/p
 
 // LCD interface definitions
 // According to the ST7789P datasheet, the maximum SPI clock speed is 62.5 MHz.
-// However, the controller can handle 75 MHz in practice.
-#define LCD_BAUDRATE (75000000) // 75 MHz SPI clock speed
+// However, the controller can handle 80 MHz in practice.
+#define LCD_BAUDRATE (80000000) // 80 MHz SPI clock speed
 
 // LCD command definitions
 #define LCD_CMD_NOP (0x00)     // no operation

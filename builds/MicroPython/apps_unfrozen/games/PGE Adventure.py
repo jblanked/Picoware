@@ -1,5 +1,5 @@
 """PGE Adventure: open-world 3D RPG."""
-from gc import collect
+from gc import collect, mem_free
 from math import atan2, cos, pi, sin
 from picoware.system.vector import Vector
 from picoware.engine.entity import (
@@ -20,8 +20,6 @@ from picoware.system.decorator import wifi_required, storage_required, server_se
 
 _adv = None
 _seed = 0x51F0A3D
-
-
 def xp_for_level(level):
     """XP required to advance from level-1 to level."""
     if level < 2:
@@ -363,12 +361,12 @@ class _Adventure:
         "dragon",
         "effects",
         "world_ready",
-        "pending_world",
         "phase",
         "heading",
         "class_index",
         "class_name",
         "class_names",
+        "_class_entries",
         "class_cache",
         "class_cache_index",
         "xp_to_next",
@@ -390,6 +388,7 @@ class _Adventure:
 
         "quest_index",
         "quest_counts",
+        "_quest_data",
         "quest_cache",
         "quest_cache_zone",
         "quest_cache_index",
@@ -433,7 +432,6 @@ class _Adventure:
         "_loading",
         "old_xp",
         "old_level",
-        "_server_level",
 
         "quest_line_cache",
         "quest_line_key",
@@ -463,6 +461,7 @@ class _Adventure:
         "might_radius",
         "cos_h",
         "sin_h",
+        "return_to_wizard",
     )
 
     def __init__(self, view_manager):
@@ -502,13 +501,13 @@ class _Adventure:
         self.dragon = None
         self.effects = {}
         self.world_ready = False
-        self.pending_world = False
 
         self.phase = 0  # phases: intro, select, play
         self.heading = pi * 0.5
         self.class_index = 0
         self.class_name = ""
         self.class_names = []
+        self._class_entries = None
         self.class_cache = None
         self.class_cache_index = -1
         self.xp_to_next = 0
@@ -530,6 +529,7 @@ class _Adventure:
 
         self.quest_index = [0, 0, 0, 0]
         self.quest_counts = [0, 0, 0, 0]
+        self._quest_data = None
         self.quest_cache = None
         self.quest_cache_zone = 0
         self.quest_cache_index = -1
@@ -574,7 +574,7 @@ class _Adventure:
         self._loading = None
         self.old_xp = -1
         self.old_level = 1
-        self._server_level = 0
+        self.return_to_wizard = False
 
         self.quest_line_cache = None
         self.quest_line_key = None
@@ -773,6 +773,7 @@ class _Adventure:
         """Refill terrain when the player drifts from the anchor."""
         if not self.player.has_changed_position():
             return
+        self._build_world_content()
         position = self.player.position
         offset_x = position.x - self.anchor_x
         offset_z = position.y - self.anchor_z
@@ -1412,6 +1413,13 @@ class _Adventure:
         if not self.class_names:
             data = self.view_manager.storage.deserialize(self.CLASS_PATH)
             self.class_names = list(data.keys())
+            self._class_entries = []
+            for name in self.class_names:
+                entry = data[name]
+                self._class_entries.append((
+                    name, entry["attribute"],
+                    [tuple(skill) for skill in entry["skills"]],
+                ))
         return self.class_names
 
     def _class_entry(self, index=None):
@@ -1419,14 +1427,8 @@ class _Adventure:
         if index is None:
             index = self.class_index
         if self.class_cache_index != index:
-            names = self._load_class_names()
-            data = self.view_manager.storage.deserialize(self.CLASS_PATH)
-            name = names[index]
-            entry = data[name]
-            self.class_cache = (
-                name, entry["attribute"],
-                [tuple(skill) for skill in entry["skills"]],
-            )
+            self._load_class_names()
+            self.class_cache = self._class_entries[index]
             self.class_cache_index = index
         return self.class_cache
 
@@ -1774,14 +1776,22 @@ class _Adventure:
         quest = self._quest_entry(zone)
         return quest[0], quest[1], quest[2]
 
+    def _load_quest_data(self):
+        """Load faction quests and cache their counts."""
+        if self._quest_data is not None:
+            return self._quest_data
+        data = self.view_manager.storage.deserialize(self.QUEST_PATH)
+        self._quest_data = data
+        for zone, faction in enumerate(self.FACTIONS, 1):
+            if self.quest_counts[zone] == 0:
+                self.quest_counts[zone] = len(data[faction])
+        return data
+
     def _quest_entry(self, zone):
         """Load and cache one faction quest."""
         index = self.quest_index[zone]
         if self.quest_cache_zone != zone or self.quest_cache_index != index:
-            data = self.view_manager.storage.deserialize(self.QUEST_PATH)
-            for faction_zone, faction in enumerate(self.FACTIONS, 1):
-                if self.quest_counts[faction_zone] == 0:
-                    self.quest_counts[faction_zone] = len(data[faction])
+            data = self._load_quest_data()
             quests = data[self.FACTIONS[zone - 1]]
             if index < len(quests):
                 quest = quests[index]
@@ -1815,6 +1825,7 @@ class _Adventure:
 
     def _advance_quest(self, zone):
         """Move to the next faction quest and unlock skills."""
+        self.return_to_wizard = True
         self.quest_index[zone] += 1
         self.q_kills[zone] = 0
         self.q_streak[zone] = 0
@@ -1867,6 +1878,9 @@ class _Adventure:
         """Return the position of the current quest objective."""
         if not self.wizard_met:
             return self.WIZARD_POS
+        # After a quest, return to the Wise Wizard before the next quest.
+        if self.return_to_wizard:
+            return self.WIZARD_POS
         for zone in (1, 2, 3):
             if self.faction_done[zone]:
                 continue
@@ -1880,6 +1894,7 @@ class _Adventure:
         """Tuple of values that affect the HUD quest line text."""
         return (
             self.wizard_met,
+            self.return_to_wizard,
             self.quest_index[1], self.quest_index[2], self.quest_index[3],
             self.q_kills[1], self.q_kills[2], self.q_kills[3],
             self.strong_kills[1], self.strong_kills[2], self.strong_kills[3],
@@ -1892,6 +1907,8 @@ class _Adventure:
         if key != self.quest_line_key:
             if not self.wizard_met:
                 line = "Quest: find the Wise Wizard"
+            elif self.return_to_wizard:
+                line = "Quest: Return to the Wise Wizard"
             else:
                 line = None
                 for zone in (1, 2, 3):
@@ -2052,6 +2069,8 @@ class _Adventure:
         """Accept the request and teleport to the area start."""
         self.talking = False
         self.dialogue = ""
+        # The wizard handed over the next quest; no longer returning.
+        self.return_to_wizard = False
         for zone in (1, 2, 3):
             if self.faction_done[zone]:
                 continue
@@ -2192,9 +2211,6 @@ class _Adventure:
                 self._set_class_preview(self.class_name)
                 self.intro_done = True
                 self._save_progress()
-                # Build world after class selection.
-                if not self.world_ready:
-                    self.pending_world = True
                 self.phase = 2
                 self.ui = self.UI_HELP
                 self.message = "%s chosen" % self.class_name
@@ -2215,6 +2231,7 @@ class _Adventure:
             return
 
         self._tick_timers()
+
         self._net_pump()
 
         if self.ui == self.UI_HELP:
@@ -2278,10 +2295,12 @@ class _Adventure:
                 self.combo_timer = 0
 
         self._keyboard_skill(button)
+
         self._move(player, game)
         if player.has_changed_position():
             self._update_camera()
             self._update_halos()
+
         if self.class_name == "Knight" and self.sword_triangles:
             swing = self.sword_swing
             if swing > 0.0:
@@ -2381,12 +2400,14 @@ class _Adventure:
                 self.message = "Found the %s!" % self.ZONE_STRONG[zone]
                 self.message_timer = 150
                 self._check_quests(zone)
+
         # Show Wizard when nearby.
         dx = self.wizard.position.x - player.position.x
         dz = self.wizard.position.y - player.position.y
         self.wizard.is_visible = dx * dx + dz * dz <= self.FIELD_OF_VIEW * self.FIELD_OF_VIEW
         if player.has_changed_position():
             self._update_guide(player)
+
         self._update_bird(player)
 
     def _keyboard_skill(self, button):
@@ -2631,6 +2652,9 @@ class _Adventure:
         draw._text(left + draw.scale_x(4),
                    int(top + draw.scale_y(6) + len(self.MENU_ITEMS) * step),
                    "%02d:%02d" % (self.clock // 60, self.clock % 60), self.COLOR_TEXT)
+        draw._text(left + draw.scale_x(4),
+                   int(top + draw.scale_y(6) + (len(self.MENU_ITEMS) + 1) * step),
+                   "%d KB free" % (mem_free() // 1024), self.COLOR_TEXT)
 
     def _draw_full_map(self, draw):
         """Draw the whole-world map screen."""
@@ -3076,7 +3100,9 @@ class _Adventure:
         self._fill_world(self.anchor_x, self.anchor_z)
         if self.intro_done:
             self._build_world_content()
-        self._adopt_server_level()
+        self._load_class_names()
+        self._class_entry()
+        self._load_quest_data()
         game.level_add(self.level)
         self.engine = GameEngine(game, 60)
         self.boot_state = self.BOOT_SCENE
@@ -3126,7 +3152,7 @@ class _Adventure:
         if self.net_state == self.NET_LOGIN:
             self._net_login_done()
         elif self.net_state == self.NET_FETCH:
-            self._net_apply_stats(self.http.response.json())
+            self._apply_server_stats(self.http.response.json())
             self.net_state = self.NET_READY
             self.net_status = "synced"
         if self.net_state == self.NET_READY:
@@ -3155,29 +3181,30 @@ class _Adventure:
             self.net_status = "offline"
             self.net_state = self.NET_OFF
 
-    def _net_apply_stats(self, data: dict):
-        """Adopt a higher server level if present."""
-        stats = data.get("game_stats", data)
-        if not isinstance(stats, dict):
+    def _apply_server_stats(self, stats: dict):
+        """Override local stats with API stats at load."""
+        if self.player is None:
             return
-        try:
-            server_level = int(stats.get("level", 0) or 0)
-        except Exception:
-            return
-        self._server_level = max(self._server_level, server_level)
-        self._adopt_server_level()
-
-    def _adopt_server_level(self):
-        """Raise the local level to the server level if higher."""
-        if self.player is None or self._server_level <= self.player.level:
-            return
-        xp_total = 0
-        for lv in range(2, self._server_level + 1):
-            xp_total += xp_for_level(lv)
-        self.player.xp = max(self.player.xp, xp_total)
+        xp = stats.get("xp")
+        level = int(stats.get("level", 0) or 0)
+        if xp is None and level >= 2:
+            xp_total = 0
+            for lv in range(2, level + 1):
+                xp_total += xp_for_level(lv)
+            xp = xp_total
+        if xp is None:
+            xp = 0
+        self.player.xp = int(xp)
         self.update_stats()
-        self.message = "Synced level %d" % self._server_level
-        self.message_timer = 120
+        max_health = stats.get("max_health")
+        strength = stats.get("strength")
+        health = stats.get("health")
+        if max_health is not None:
+            self.player.max_health = int(max_health)
+        if strength is not None:
+            self.player.strength = int(strength)
+        if health is not None:
+            self.player.health = min(int(health), self.player.max_health)
         self._save_progress()
 
     def _net_upload(self):
@@ -3207,9 +3234,6 @@ class _Adventure:
 
     def run(self):
         """Stream terrain and run one engine frame."""
-        if self.pending_world:
-            self.pending_world = False
-            self._build_world_content()
         self._update_world()
         if self.engine is not None:
             self.engine.run_async(False)
@@ -3236,7 +3260,6 @@ class _Adventure:
         self.dragon = None
         self.effects = {}
         self.world_ready = False
-        self.pending_world = False
         self.lands = []
         self.player = None
         self.wizard = None

@@ -12,6 +12,18 @@ class Touch:
             sim_runtime.loop_polled()
             point = sim_runtime.touch_point()
             if point == (0, 0) and sim_runtime.has_key():
+                name = str(sim_runtime.board).lower().replace("_", "-")
+                if name in (
+                    "waveshare-2.06", "waveshare-2.06-esp32s3",
+                    "waveshare-2-06-esp32s3", "waveshare-206-esp32s3",
+                ):
+                    import gpio_buttons
+
+                    # Input.is_pressed polls touch before GPIO. Leave physical
+                    # button keys queued so that either polling order works.
+                    if gpio_buttons.key_available():
+                        self.x = self.y = 0
+                        return False
                 point = self._point_for_key(sim_runtime.pop_key())
                 if point != (0, 0):
                     # Firmware touch input is debounced against wall-clock time.

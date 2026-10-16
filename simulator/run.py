@@ -784,10 +784,12 @@ def _run_sim_check(opts):
     _run_flipper_keyboard_preview_check()
     _run_uart_parity_check()
     _run_engine_parity_check()
+    _run_billboard_parity_check()
     _run_board_parity_check()
     _run_font_parity_check()
     _run_scripts_fixture_check(opts)
     _run_touch_check()
+    _run_gpio_buttons_check()
     _run_waveshare_169_check()
     _run_v8_battery_check()
     _run_flipper_battery_check()
@@ -1418,6 +1420,8 @@ def _run_engine_parity_check():
     try:
         sprite = Sprite3D()
         sprite.add_triangle(*vertices, 0x07E0, False)
+        if not sprite.reserve_triangles(8) or sprite.triangle_count != 1:
+            raise RuntimeError("native Sprite3D reservation changed triangle count")
         if sprite.triangle_count != 1 or not sprite.to_path(path):
             raise RuntimeError("simulator Sprite3D.add_triangle/to_path failed")
         loaded = Sprite3D()
@@ -1429,9 +1433,9 @@ def _run_engine_parity_check():
             if not loaded.to_path(roundtrip):
                 raise RuntimeError("simulator Sprite3D round-trip write failed")
             record = sd_mp.read(roundtrip, 0, 0)
-            if (len(record) != 52 or ustruct.unpack_from("<9f", record) != vertices
-                    or ustruct.unpack_from("<H", record, 46)[0] != 0x07E0
-                    or bool(record[48]) != wireframe):
+            if (len(record) != 40 or ustruct.unpack_from("<9f", record) != vertices
+                    or ustruct.unpack_from("<H", record, 36)[0] != 0x07E0
+                    or bool(record[38]) != wireframe):
                 raise RuntimeError("simulator Sprite3D round-trip data/wireframe mismatch")
         sim_runtime.headless = True
         draw = Draw()
@@ -1452,26 +1456,13 @@ def _run_engine_parity_check():
         plain = render()
         if render(True) == plain:
             raise RuntimeError("simulator native polygon outline drew no pixels")
-        level.set_shadow_color(0xF800)
-        default_light = render()
-        if default_light == plain:
-            raise RuntimeError("simulator Level shadow rendering had no effect")
-        level.set_light_direction(1, 1, 1)
-        if render() != default_light:
-            raise RuntimeError("simulator Level default light direction mismatch")
-        level.set_light_direction(0, 3, 4)
-        directed = render()
-        if directed == default_light:
-            raise RuntimeError("simulator Level.set_light_direction had no effect")
-        level.set_light_direction(0, 0.003, 0.004)
-        if render() != directed:
-            raise RuntimeError("simulator Level light direction normalization mismatch")
-        level.set_shadow_color(0x001F)
-        if render() == directed:
-            raise RuntimeError("simulator Level.set_shadow_color had no effect")
-        level.set_shadow_color(0)
-        if render() != plain:
-            raise RuntimeError("simulator Level shadow disable mismatch")
+        # The native file-backed binding uses drawShadow=false. Lighting
+        # settings must not add a shadow through this public API.
+        for color, direction in ((0xF800, (1, 1, 1)), (0x001F, (0, 3, 4))):
+            level.set_shadow_color(color)
+            level.set_light_direction(*direction)
+            if render() != plain:
+                raise RuntimeError("native file-backed sprite unexpectedly drew a shadow")
     finally:
         draw = None
         sim_runtime.set_lcd(original_lcd)
@@ -1480,6 +1471,104 @@ def _run_engine_parity_check():
         sd_mp.remove(roundtrip)
         gc.collect()
     print("[sim-check:ok] engine Level and Sprite3D parity")
+
+
+def _run_billboard_parity_check():
+    """Render copied masked images and distinct poses through the native engine."""
+    import sim_runtime
+    import picoware_boards
+    from engine import Game, Level
+    from picoware.engine.engine import GameEngine as Engine
+    from picoware.engine.billboard import Billboard
+    from picoware.engine.entity import Entity
+    from picoware.engine.image import Image
+    from picoware.gui.draw import Draw
+    from picoware.system.vector import Vector
+
+    def rejects(action):
+        try:
+            action()
+        except ValueError:
+            return
+        raise RuntimeError("native billboard/image accepted invalid input")
+
+    original_lcd = sim_runtime.get_lcd()
+    original_headless = sim_runtime.headless
+    original_size = picoware_boards.get_current_display_size
+    game = level = entity = runner = None
+    try:
+        sim_runtime.headless = True
+        picoware_boards.get_current_display_size = lambda: (320, 320)
+        draw = Draw()
+        asset = Billboard(1, 2)
+        for pose, color, mask in ((0, 224, 144), (1, 28, 96)):
+            pixels = bytearray([color] * 4)
+            coverage = bytearray([mask])
+            image = Image(Vector(2, 2), True, pixels, None, coverage)
+            rejects(lambda: image.set_size(Vector(1, 1)))
+            rejects(lambda: Image(Vector(2, 2), True, pixels, None, b""))
+            rejects(lambda: Image(Vector(2, 2), True, b"", None, coverage))
+            # Image must copy both buffers before Billboard copies the Image.
+            pixels[:] = bytes([3] * 4)
+            coverage[0] = 0
+            asset.set_direction_pose(0, pose, image)
+            del image, pixels, coverage
+            gc.collect()
+        rejects(lambda: asset.set_direction_pose(1, 0, None))
+        rejects(lambda: asset.set_counts(0, 2))
+        game = Game("billboard-parity", Vector(10, 10, 10), 0xFFFF, 0x001F)
+        level = Level("billboard-parity", Vector(10, 10, 10), game)
+        entity = Entity("billboard", 0, Vector(4, 0, 0), Vector(1, 1, 1))
+        entity.set_billboard(asset, 2.0)
+        level.entity_add(entity)
+        # A borrowed current level avoids transferring ownership of its wrapper.
+        game.set_current_level(level)
+        game.is_active = True
+        runner = Engine(game, 30, False)
+
+        def verify(pose, color, mask):
+            entity.billboard_pose = pose
+            if entity.billboard_pose != pose:
+                raise RuntimeError("native billboard pose property mismatch")
+            runner.run_async(False)
+            # Default camera: (0,0), +X, height 1.6. A 2-unit billboard at
+            # depth 4 projects to x=80..239, y=128..287 on a 320x320 screen.
+            for y in range(320):
+                for x in range(320):
+                    expected = 0x001F
+                    if 80 <= x < 240 and 128 <= y < 288:
+                        pixel = ((y - 128) // 80) * 2 + (x - 80) // 80
+                        if mask & (128 >> pixel):
+                            expected = color
+                    if draw._framebuffer.pixel(x, y) != expected:
+                        raise RuntimeError("native billboard pixels/pose/mask/copy mismatch")
+
+        verify(0, 0xF800, 144)
+        verify(1, 0x07E0, 96)
+        verify(0, 0xF800, 144)
+        entity.set_billboard_pose(1)
+        if entity.billboard_pose != 1:
+            raise RuntimeError("native billboard pose setter mismatch")
+        rejects(lambda: entity.set_billboard_pose(2))
+        rejects(lambda: entity.set_billboard_pose(-1))
+        asset.set_direction_pose(0, 1, None)
+        verify(1, 0, 0)
+    finally:
+        if entity is not None:
+            entity.set_billboard(None)
+            # Level.clear leaves player-owned entities for their Python owner.
+            entity.is_player = True
+        if level is not None:
+            level.clear()
+        if game is not None:
+            game.set_current_level(None)
+            game.is_active = False
+        runner = None
+        gc.collect()
+        picoware_boards.get_current_display_size = original_size
+        sim_runtime.set_lcd(original_lcd)
+        sim_runtime.headless = original_headless
+    print("[sim-check:ok] native Billboard pixels, poses, masks, and owned image copies")
 
 
 def _run_font_parity_check():
@@ -1534,6 +1623,12 @@ def _run_board_parity_check():
     for board_id in range(boards.BOARD_DESKTOP + 1):
         if boards.has_keyboard(board_id) != (board_id in keyboard_ids):
             raise RuntimeError("simulator keyboard helper mismatch: " + str(board_id))
+    if not boards.has_sd_card(boards.BOARD_PICO_DUO):
+        raise RuntimeError("simulator PicoDuo SD capability mismatch")
+    if boards.has_sd_card(boards.BOARD_WAVESHARE_C6_2_06):
+        raise RuntimeError("simulator Waveshare C6 SD capability mismatch")
+    if boards.BOARD_HAS_SD != int(boards.has_sd_card(boards.BOARD_ID)):
+        raise RuntimeError("simulator SD constant/helper mismatch")
     if boards.get_name(boards.BOARD_V8) != "V8":
         raise RuntimeError("simulator V8 board name mismatch")
     if boards.get_display_size(boards.BOARD_V8) != (240, 320):
@@ -1577,6 +1672,62 @@ def _run_board_parity_check():
     if boards.has_psram(boards.BOARD_DESKTOP):
         raise RuntimeError("simulator Desktop PSRAM capability mismatch")
     print("[sim-check:ok] V8, Waveshare 1.69, and Desktop board profiles")
+
+
+def _run_gpio_buttons_check():
+    """Exercise GPIO and touch through the firmware Input polling paths."""
+    import gpio_buttons
+    import sim_runtime
+    import picoware.system.input as input_module
+    import picoware_boards
+    from picoware.system import buttons
+
+    original_keys = sim_runtime._keys
+    original_board = sim_runtime.board
+    original_id = input_module.BOARD_ID
+    original_touch = sim_runtime.touch_point()
+    original_gesture = sim_runtime.touch_gesture()
+    inp = None
+    try:
+        sim_runtime._keys = []
+        sim_runtime.clear_touch()
+        sim_runtime.board = "waveshare-2.06"
+        input_module.BOARD_ID = picoware_boards.BOARD_WAVESHARE_2_06
+        inp = input_module.Input()
+        for code, expected in ((8, buttons.BUTTON_BACK), (13, buttons.BUTTON_CENTER)):
+            for poll_first in (False, True):
+                inp.reset()
+                sim_runtime._keys = [code]
+                if poll_first:
+                    if not inp.is_pressed() or not inp.is_pressed():
+                        raise RuntimeError("simulator GPIO press was lost while polling")
+                    if sim_runtime.peek_key() != code:
+                        raise RuntimeError("touch consumed a GPIO key")
+                if inp.button != expected or sim_runtime.has_key():
+                    raise RuntimeError("simulator GPIO Input.button mismatch")
+                inp.reset()
+                if inp.is_pressed() or inp.button != buttons.BUTTON_NONE:
+                    raise RuntimeError("simulator GPIO event repeated")
+        inp.reset()
+        sim_runtime._keys = [sim_runtime.KEY_NAMES["up"], 8, 13]
+        if inp.button != buttons.BUTTON_UP:
+            raise RuntimeError("simulator GPIO interfered with touch direction")
+        for expected in (buttons.BUTTON_BACK, buttons.BUTTON_CENTER):
+            inp.reset()
+            if not inp.is_pressed() or inp.button != expected:
+                raise RuntimeError("simulator mixed GPIO/touch input order mismatch")
+        gpio_buttons.deinit()
+        if gpio_buttons.key_available() or gpio_buttons.get_key() != 0:
+            raise RuntimeError("simulator GPIO deinit mismatch")
+    finally:
+        if inp is not None:
+            inp.__del__()
+        gpio_buttons.deinit()
+        input_module.BOARD_ID = original_id
+        sim_runtime.board = original_board
+        sim_runtime._keys = original_keys
+        sim_runtime.set_touch_point(*original_touch, original_gesture, False)
+    print("[sim-check:ok] Waveshare Input GPIO polling and mixed touch keys")
 
 
 def _run_touch_check():

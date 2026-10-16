@@ -6,7 +6,12 @@ picoware_dir=$(CDPATH= cd -- "$script_dir/.." && pwd)
 build_dir=${PICOWARE_DESKTOP_BUILD_DIR:-"$picoware_dir/builds/MicroPython/desktop"}
 binary="$build_dir/micropython"
 
-if [ ! -x "$binary" ] || ! "$binary" -c 'import engine, ghouls, mjs' >/dev/null 2>&1; then
+if [ ! -x "$binary" ] || ! "$binary" -c 'import engine, ghouls, mjs, vector
+assert hasattr(engine, "Billboard")
+assert hasattr(engine.Entity, "set_billboard")
+assert hasattr(engine.Entity, "set_billboard_pose")
+assert hasattr(engine.Sprite3D, "reserve_triangles")
+engine.Image(vector.Vector(1, 1), True, bytes([255]), None, bytes([128]))' >/dev/null 2>&1; then
     sh "$script_dir/micropython-desktop.sh"
 fi
 

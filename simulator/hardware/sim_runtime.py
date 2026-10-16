@@ -904,6 +904,12 @@ def pop_key():
     return -1
 
 
+def peek_key():
+    """Inspect the next key without consuming input for another device."""
+    poll_events()
+    return _keys[0] if _keys else -1
+
+
 def has_key():
     poll_events()
     return len(_keys) > 0

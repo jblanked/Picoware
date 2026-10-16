@@ -506,7 +506,7 @@ bool audio_is_initialized(void)
 }
 
 #if SD_AVAILABLE
-static void audio_mp3_core1_entry(void)
+__force_inline static void __time_critical_func(audio_mp3_core1_entry)(void)
 {
     mp3_core1_active = true;
     multicore_lockout_victim_init();
@@ -984,7 +984,7 @@ static bool audio_wav_parse_header(fat32_file_t *file,
 
 // reads all active WAV streams, mixes them, and pushes to the PCM ring buffer
 
-static void audio_wav_core1_entry(void)
+__force_inline static void __time_critical_func(audio_wav_core1_entry)(void)
 {
     multicore_lockout_victim_init();
 

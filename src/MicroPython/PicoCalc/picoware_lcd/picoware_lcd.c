@@ -435,14 +435,14 @@ void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
         // lcd_blit_mask_bmp(dst_x, dst_y, dst_w, dst_h, buffer, mask);
         const int src_x = dst_x < 0 ? -(int32_t)dst_x : 0;
         const int src_y = dst_y < 0 ? -(int32_t)dst_y : 0;
-        const int dst_x = dst_x < 0 ? 0 : dst_x;
-        const int dst_y = dst_y < 0 ? 0 : dst_y;
+        const int dxx = dst_x < 0 ? 0 : dst_x;
+        const int dyy = dst_y < 0 ? 0 : dst_y;
         int copy_width = (int)dst_w - src_x;
         int copy_height = (int)dst_h - src_y;
-        if (dst_x + copy_width > DISPLAY_WIDTH)
-            copy_width = DISPLAY_WIDTH - dst_x;
-        if (dst_y + copy_height > DISPLAY_HEIGHT)
-            copy_height = DISPLAY_HEIGHT - dst_y;
+        if (dxx + copy_width > DISPLAY_WIDTH)
+            copy_width = DISPLAY_WIDTH - dxx;
+        if (dyy + copy_height > DISPLAY_HEIGHT)
+            copy_height = DISPLAY_HEIGHT - dyy;
         if (copy_width <= 0 || copy_height <= 0)
             return;
         for (int row = 0; row < copy_height; ++row)
@@ -461,10 +461,10 @@ void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
                 const uint8_t *source = buffer + src_row + start;
                 const uint32_t length = col - start;
                 if (lcd_mode == LCD_MODE_HEAP)
-                    memcpy(heap_framebuffer + (uint32_t)(dst_y + row) * DISPLAY_WIDTH + dst_x + start, source, length);
+                    memcpy(heap_framebuffer + (uint32_t)(dyy + row) * DISPLAY_WIDTH + dxx + start, source, length);
                 else
                 {
-                    const uint32_t address = PSRAM_FRAMEBUFFER_ADDR + (uint32_t)(dst_y + row) * PSRAM_ROW_SIZE + dst_x + start;
+                    const uint32_t address = PSRAM_FRAMEBUFFER_ADDR + (uint32_t)(dyy + row) * PSRAM_ROW_SIZE + dxx + start;
                     for (uint32_t offset = 0; offset < length;)
                     {
                         const uint32_t chunk = length - offset > PSRAM_CHUNK_SIZE ? PSRAM_CHUNK_SIZE : length - offset;
@@ -507,15 +507,30 @@ void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
         }
         else if (lcd_mode == LCD_MODE_PSRAM)
         {
-            for (int dc = 0; dc < cw; ++dc)
+            // A bounded row buffer batches opaque spans without touching transparent pixels.
+            uint8_t span[DISPLAY_WIDTH];
+            int start = 0, length = 0;
+            for (int dc = 0; dc <= cw; ++dc)
             {
-                const uint32_t pixel = buf_row + numerator / dst_w;
-                numerator += src_w;
-                if (!(mask[pixel >> 3] & (0x80u >> (pixel & 7))))
-                    continue;
-                const uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (uint32_t)fb_y * PSRAM_ROW_SIZE + dxx + dc;
-                const uint8_t value = buffer[pixel];
-                psram_qspi_write(&psram_instance, addr, &value, 1);
+                bool opaque = false;
+                uint32_t pixel = 0;
+                if (dc < cw)
+                {
+                    pixel = buf_row + numerator / dst_w;
+                    numerator += src_w;
+                    opaque = (mask[pixel >> 3] & (0x80u >> (pixel & 7))) != 0;
+                }
+                if (opaque)
+                {
+                    if (!length) start = dc;
+                    span[length++] = buffer[pixel];
+                }
+                if (length && (!opaque || length == PSRAM_CHUNK_SIZE))
+                {
+                    const uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (uint32_t)fb_y * PSRAM_ROW_SIZE + dxx + start;
+                    psram_qspi_write(&psram_instance, addr, span, length);
+                    length = 0;
+                }
             }
         }
         else

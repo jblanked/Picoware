@@ -29,6 +29,32 @@ bool Billboard::setDirectionPose(int dir, int pose, Image *image)
     return true;
 }
 
+bool Billboard::setDirectionPoseData(int dir, int pose, uint16_t width, uint16_t height,
+                                     const uint8_t *pixels, size_t pixels_length,
+                                     const uint8_t *mask, size_t mask_length)
+{
+    if (dir < 0 || dir >= num_dirs || pose < 0 || pose >= num_poses ||
+        width == 0 || height == 0 || width > 1024 || height > 1024 || !pixels || !mask)
+        return false;
+    const size_t count = size_t(width) * height;
+    if (pixels_length != count || mask_length != (count + 7) / 8)
+        return false;
+    Image *image = ENGINE_MEM_NEW Image(Vector(width, height), true);
+    if (!image)
+        return false;
+    if (!image->setData(pixels, pixels_length) || !image->setMask(mask, mask_length))
+    {
+        ENGINE_MEM_DELETE image;
+        return false;
+    }
+    if (!setDirectionPose(dir, pose, image))
+    {
+        ENGINE_MEM_DELETE image;
+        return false;
+    }
+    return true;
+}
+
 void Billboard::setCounts(int directions, int poses)
 {
     num_dirs = directions < 1 ? 1 : (directions > MAX_DIRS ? MAX_DIRS : directions);

@@ -955,5 +955,13 @@
             "picoware/apps/ADSB-Radar.mpy"
         ],
         "version": "1.0"
+    },
+    {
+        "title": "GBrowser",
+        "description": "A Picoware app that browses Gopher servers (menus and text files)",
+        "file_structure": [
+            "picoware/apps/gbrowser.mpy"
+        ],
+        "version": "1.0"
     }
 ]

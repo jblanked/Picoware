@@ -43,6 +43,14 @@ class Draw(lcd.LCD):
         swap(): Update the display with the current framebuffer contents
         text(position, text, color=None, font_size=-1): Draw text on the display
         triangle(point1, point2, point3, color=None): Draw a triangle outline
+    
+    Attributes:
+        foreground (int): The current foreground color.
+        background (int): The current background color.
+        font (int): The default font size.
+        font_size (Vector): The size of the font as a Vector.
+        size (Vector): The size of the display as a Vector.
+        use_lvgl (bool): Whether the LVGL library is being used for drawing.
     """
 
     def __init__(

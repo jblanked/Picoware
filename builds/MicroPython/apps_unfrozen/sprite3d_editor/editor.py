@@ -127,6 +127,8 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         self.status = ""
         self.transform = None
         self.pivot_edit = None
+        self.animation = None
+        self.animation_ui = None
         self.custom_pivot = None
         self._pivot_hud = None
         self.viewer = None
@@ -198,7 +200,7 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         from picoware.gui.file_browser import FileBrowser, FILE_BROWSER_SELECTOR
 
         self.browser = FileBrowser(self.vm, FILE_BROWSER_SELECTOR,
-                                   self.directory, ["sprite3d"])
+                                   self.directory, ["sprite3d", "bin", "billboard"])
 
 
     def prepare_document_memory(self):
@@ -212,6 +214,12 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
 
 
     def open(self, path, cooperative=False):
+        from .export_transaction import recover as recover_export
+        recover_export(self.vm.storage,path,'billboard')
+        recover_export(self.vm.storage,path,'mesh-export')
+        if self.vm.storage.read_chunked(path,0,4)==b'PWBB':
+            self.begin_animation(path=path)
+            return
         self.prepare_document_memory()
         from .quadfile import recover,load_steps
         recover(self.vm.storage,path)
@@ -226,7 +234,7 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
             try:
                 while True:next(worker)
             except StopIteration as done:pairs,message=done.value
-            self.install_document(mesh,records,low,high,path,pairs,pivot_out[0])
+            self.install_document(mesh,records,low,high,path,pairs,pivot_out[0],pivot_out[1])
             if message:self.status=message
         except Exception:
             if self.mesh is not mesh:mesh.clear_triangles()
@@ -247,7 +255,7 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
             self.quad_job=None
             pairs,message=done.value
             try:
-                self.install_document(mesh,records,low,high,path,pairs,pivot_out[0])
+                self.install_document(mesh,records,low,high,path,pairs,pivot_out[0],pivot_out[1])
                 if message:self.status=message
             except (ValueError,OSError,MemoryError) as exc:
                 mesh.clear_triangles();self.dialog=('Open failed',str(exc) or 'Not enough memory')
@@ -266,7 +274,7 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         self.path_saved = False
         self.status = "Create a shape to start"
 
-    def install_document(self, mesh, records, low, high, path, quads=None, custom_pivot=None):
+    def install_document(self, mesh, records, low, high, path, quads=None, custom_pivot=None, animation=None):
         """Install a prepared document for both Open and New."""
         self.prepare_document_memory()
         from .camera import cancel
@@ -355,6 +363,7 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         self.path = path
         self.path_saved = bool(path)
         self.custom_pivot = tuple(custom_pivot) if custom_pivot is not None else None
+        self.animation = animation
         self.pivot_edit = None
         self._pivot_hud = None
         # The new document has no fitted camera yet. Reset selection without
@@ -416,6 +425,10 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
             self.request_action(action, confirmed=True)
 
     def replace_records(self, records, preview=False, bounds=None, prepared=None, quads=None, metadata_only=False):
+        animation_owners=None
+        if self.animation is not None:
+            from .animation import active
+            if not active(self.animation):animation_owners='00'*(len(records)//40)
         """Prepare all views before updating any existing native triangles."""
         from .camera import cancel
         cancel(self)
@@ -468,6 +481,7 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         if self.selection_mode != "Edges" or len(records)!=len(self.records):
             self._edge_reps = None
         self.mesh, self.records = mesh, records
+        if animation_owners is not None:self.animation['owners']=animation_owners
         self.quads = quad_state
         self._quad_display_mode = self.selection_mode=="Quads"
         self.bounds = bounds
@@ -490,17 +504,19 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
     def save(self, path):
         """Save the model and change the document path only after success."""
         try:
+            if self.animation_ui is not None and self.animation_ui['visual'] is not None:
+                self.animation_ui['visual'].suspend()
             if not self.records and not (self.isolation and self.isolation["hidden"][1]):
                 raise ValueError("Create geometry before saving")
             from .quadfile import save as save_pair
             if self.isolation is None:
-                warning=save_pair(self.vm.storage,self.mesh,path,self.records,self.quads.pairs,self.custom_pivot)
+                warning=save_pair(self.vm.storage,self.mesh,path,self.records,self.quads.pairs,self.custom_pivot,self.animation)
             else:
                 from .workspace import full_records,full_pairs
                 buffer=MeshBuffer()
                 complete=full_records(self,self.records,self.isolation)
                 temporary=prepare_mesh(buffer,complete)
-                try:warning=save_pair(self.vm.storage,temporary,path,complete,full_pairs(self.records,self.quads.pairs,self.isolation),self.custom_pivot)
+                try:warning=save_pair(self.vm.storage,temporary,path,complete,full_pairs(self.records,self.quads.pairs,self.isolation),self.custom_pivot,self.animation)
                 finally:temporary.clear_triangles()
         except (OSError, ValueError, MemoryError) as exc:
             self.dialog = ("Save failed", str(exc) or "Not enough memory")
@@ -558,6 +574,8 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
                 self.begin_settings()
             elif row == 5:
                 self.request_action("quit")
+            elif row in (6,7):
+                self.begin_animation(page=0 if row==6 else 2)
         elif menu == 1:
             if not child and row in (4,5):
                 self.begin_viewer(isometric=row==5)
@@ -632,6 +650,9 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
     def run(self):
         """Route input to the active dropdown, dialog, or preview."""
         if self._closed:
+            return
+        if self.animation_ui is not None:
+            self.run_animation()
             return
         if self.viewer is not None:
             self.run_viewer()
@@ -874,6 +895,7 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         cancel(self)
         if self.quad_job is not None:
             self.quad_job[0].close();self.quad_job[1].clear_triangles();self.quad_job=None
+        if self.animation_ui is not None:self.end_animation()
         self.quads=None
         self._closed = True
         if self.model_tool is not None:self.end_model_tool(False)

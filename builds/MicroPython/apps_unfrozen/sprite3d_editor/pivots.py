@@ -83,9 +83,17 @@ class PivotTools:
             new_pivot=(tuple(self.custom_pivot[i]+delta[i] for i in range(3))
                        if self.custom_pivot is not None else None)
 
+            shifted_animation=self.animation
+            if shifted_animation is not None:
+                from .animation import clone
+                shifted_animation=clone(shifted_animation)
+                for part in shifted_animation['parts']:
+                    part['pivot']=[part['pivot'][i]+delta[i] for i in range(3)]
+
             def replace(_records):
                 self.replace_records(visible,bounds=record_bounds(visible),quads=faces)
                 self.custom_pivot=new_pivot
+                self.animation=shifted_animation
                 if new_context is not None:
                     self.isolation=new_context
                     self.history.context=new_context

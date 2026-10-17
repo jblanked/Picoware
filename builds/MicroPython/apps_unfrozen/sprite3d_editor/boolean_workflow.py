@@ -84,6 +84,10 @@ def draw_badges(editor,draw,box,basis,distance,screen):
 
 class BooleanWorkflow:
     def begin_boolean_workflow(self):
+        from .animation import active
+        if active(self.animation):
+            self.dialog=('Animation parts', 'Clear animation and parts before changing topology')
+            return
         original = (self.selection_mode,self.selection,self.selection_cursor,self.selection_camera)
         try:
             groups = self.get_islands()

@@ -5,6 +5,7 @@ classes so new commands cannot silently miss the lazy dispatch table.
 """
 
 TOOLS = (
+    ("animation_ui", "AnimationTools", ("begin_animation", "end_animation", "run_animation", "draw_animation", "animation_rows", "animation_change", "animation_commit", "animation_prompt", "animation_action", "animation_job", "animation_preview", "_animation_save_file")),
     ("workspace", "WorkspaceTools", ("document_capacity", "history_metadata_records", "history_replace", "toggle_isolation", "projection_center", "frame_selection")),
     ("modeling", "ModelingTools", ("begin_model_tool", "run_model_tool", "end_model_tool", "rebuild_model_tool", "draw_model_tool")),
     ("naming", "NamingTools", ("begin_name", "run_name")),

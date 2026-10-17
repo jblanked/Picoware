@@ -76,6 +76,10 @@ class BooleanTools:
             self.dialog = ('Selection failed',str(exc) or 'Not enough memory')
 
     def begin_boolean(self, operation):
+        from .animation import active
+        if active(self.animation):
+            self.dialog=('Animation parts', 'Clear animation and parts before changing topology')
+            return
         backup = None
         try:
             automatic = not any(self.boolean_operands)

@@ -157,13 +157,24 @@ def history_encode(e):
     present=1 if pivot is not None else 0
     header=pack('<4sIIIII',b'QH02',len(e.quads.pairs)//2,MODES.index(e.selection_mode),e.selection_cursor,len(e.selection),present)
     extra=pack('<3f',*pivot) if present else b''
-    return header+encode_pairs(e.quads.pairs)+e.selection+extra
+    original=header+encode_pairs(e.quads.pairs)+e.selection+extra
+    animation=getattr(e,'animation',None)
+    if animation is None:return original
+    from .animation import encode
+    return b'AH01'+pack('<I',len(original))+original+encode(animation,len(e.records or b'')//40)
 
 
-def history_decode(data,records):
+def history_decode(data,records,animation_out=None):
     from math import isfinite
     from .modes import MODES
     if len(data)<20:raise ValueError('Invalid quad history')
+    animation=None
+    if data[:4]==b'AH01':
+        size=unpack_from('<I',data,4)[0]
+        if size>len(data)-8:raise ValueError('Invalid animation history')
+        from .animation import decode
+        animation=decode(data[8+size:],len(records)//40)
+        data=data[8:8+size]
     magic=data[:4]
     if magic==b'QH01':
         _magic,count,mode,cursor,size=unpack_from('<4sIIII',data)
@@ -180,6 +191,7 @@ def history_decode(data,records):
     if present:
         pivot=unpack_from('<3f',data,selection_end)
         if any(not isfinite(value) or abs(value)>1e12 for value in pivot):raise ValueError('Invalid custom pivot history')
+    if animation_out is not None:animation_out[:]=[animation]
     return Faces(records,decode_pairs(data[header_size:pairs_end])),MODES[mode],bytearray(data[pairs_end:selection_end]),cursor,pivot
 
 

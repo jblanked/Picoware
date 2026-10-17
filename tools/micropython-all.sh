@@ -211,7 +211,7 @@ cp "$micropython_dir"/build-RPI_PICO/firmware.uf2 "$picoware_dir"/builds/MicroPy
 echo "PicoCalc - Pico build complete."
 
 # PicoCalc - Pico W
-make -j BOARD=RPI_PICO_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=4096 CFLAGS_EXTRA="-DPICOCALC -DMICROPY_PY_FRAMEBUF=0 -DMICROPY_PY_UCTYPES=0 -DMICROPY_PY_HEAPQ=0 -DMICROPY_PY_ASYNCIO=0"
+make -j BOARD=RPI_PICO_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=4096 CFLAGS_EXTRA="-DPICOCALC -DMICROPY_PY_FRAMEBUF=0 -DMICROPY_PY_UCTYPES=0 -DMICROPY_PY_HEAPQ=0 -DMICROPY_PY_ASYNCIO=0 -DMICROPY_PY_BLUETOOTH_USE_SYNC_EVENTS=1 -DMICROPY_PY_BLUETOOTH_ENABLE_PAIRING_BONDING=1"
 cp "$micropython_dir"/build-RPI_PICO_W/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoCalcPicoW.uf2
 echo "PicoCalc - Pico W build complete."
 
@@ -223,12 +223,12 @@ CMAKE_ARGS="-DPICOWARE_ENABLE_GHOULS=ON"
 export CMAKE_ARGS
 
 # PicoCalc - Pico 2W 
-make -j BOARD=RPI_PICO2_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=2048000 CFLAGS_EXTRA="-DPICOCALC -DPBUF_POOL_SIZE=10"
+make -j BOARD=RPI_PICO2_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=2048000 CFLAGS_EXTRA="-DPICOCALC -DPBUF_POOL_SIZE=10 -DMICROPY_PY_BLUETOOTH_USE_SYNC_EVENTS=1 -DMICROPY_PY_BLUETOOTH_ENABLE_PAIRING_BONDING=1"
 cp "$micropython_dir"/build-RPI_PICO2_W/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoCalcPico2W.uf2
 echo "PicoCalc - Pico 2W build complete."
 
 # PicoCalc - Pimoroni 2W 
-make -j BOARD=PIMORONI_PICO_PLUS2W_RP2350 USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake CFLAGS_EXTRA="-DPICOCALC"
+make -j BOARD=PIMORONI_PICO_PLUS2W_RP2350 USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake CFLAGS_EXTRA="-DPICOCALC -DMICROPY_PY_BLUETOOTH_USE_SYNC_EVENTS=1 -DMICROPY_PY_BLUETOOTH_ENABLE_PAIRING_BONDING=1"
 cp "$micropython_dir"/build-PIMORONI_PICO_PLUS2W_RP2350/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoCalcPimoroni2W.uf2
 echo "PicoCalc - Pimoroni 2W build complete."
 

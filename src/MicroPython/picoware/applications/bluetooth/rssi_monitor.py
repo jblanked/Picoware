@@ -75,7 +75,7 @@ def start(view_manager) -> bool:
         2,
     )
 
-    _bluetooth = Bluetooth(view_manager.storage)
+    _bluetooth = view_manager.bluetooth
     _bluetooth.callback = bluetooth_callback
 
     # Start continuous scanning

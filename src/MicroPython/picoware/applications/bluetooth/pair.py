@@ -30,7 +30,6 @@ _pairing_error = ""
 _passkey_action = None
 _passkey = None
 _paired_saved = None
-_keep_connection_on_exit = False
 _passkey_needs_draw = False
 _discover_services_pending = False
 _discovery_started = None
@@ -153,18 +152,17 @@ def start(view_manager) -> bool:
     """
     from picoware.gui.menu import Menu
     from picoware.gui.loading import Loading
-    from picoware.system.bluetooth import Bluetooth, get_persistent_connection
 
     global _bluetooth, _menu, _loading, _scanned_devices, _state, _addresses
     global _pairing_started, _pairing_error, _passkey_action, _passkey
-    global _paired_saved, _selected_device, _keep_connection_on_exit
+    global _paired_saved, _selected_device
     global _passkey_needs_draw
     global _discover_services_pending, _discovery_started, _connect_started
 
-    persistent_connection = get_persistent_connection()
+    _bluetooth = view_manager.bluetooth
 
     # Clean up previous instances
-    if _bluetooth is not None and _bluetooth is not persistent_connection:
+    if _bluetooth is not None:
         if _bluetooth.is_connected:
             _bluetooth.disconnect()
         del _bluetooth
@@ -184,14 +182,12 @@ def start(view_manager) -> bool:
     _passkey_action = None
     _passkey = None
     _paired_saved = None
-    _keep_connection_on_exit = False
     _passkey_needs_draw = False
     _discover_services_pending = False
     _discovery_started = None
     _connect_started = None
 
-    if persistent_connection is not None:
-        _bluetooth = persistent_connection
+    if _bluetooth is not None:
         _bluetooth.callback = bluetooth_callback
         if _bluetooth.is_discovering_services:
             _state = STATE_DISCOVERING
@@ -223,7 +219,7 @@ def start(view_manager) -> bool:
     )
     _loading.text = "Scanning..."
 
-    _bluetooth = Bluetooth(storage=view_manager.storage)
+    _bluetooth = view_manager.bluetooth
     _bluetooth.callback = bluetooth_callback
     _bluetooth.scan()
 
@@ -248,7 +244,7 @@ def run(view_manager) -> None:
 
     global _state, _selected_device, _loading
     global _pairing_started, _pairing_error, _passkey_action, _passkey
-    global _paired_saved, _keep_connection_on_exit, _passkey_needs_draw
+    global _paired_saved,_passkey_needs_draw
     global _discover_services_pending, _discovery_started, _connect_started
 
     button: int = view_manager.button
@@ -273,7 +269,6 @@ def run(view_manager) -> None:
                 _paired_saved = _bluetooth.save_paired_device(
                     __addr_to_str(addr), name or ""
                 )
-            _keep_connection_on_exit = _bluetooth.retain_connection()
             view_manager.back()
             return
 
@@ -283,7 +278,6 @@ def run(view_manager) -> None:
                 _passkey_needs_draw = False
             _pairing_started = None
             _passkey_action = None
-            _keep_connection_on_exit = _bluetooth.retain_connection()
             view_manager.back()
             return
 
@@ -646,7 +640,7 @@ def stop(view_manager) -> None:
 
     global _bluetooth, _menu, _loading, _scanned_devices, _selected_device, _state, _addresses
     global _pairing_started, _pairing_error, _passkey_action, _passkey
-    global _paired_saved, _keep_connection_on_exit
+    global _paired_saved
     global _passkey_needs_draw
     global _discover_services_pending, _discovery_started, _connect_started
 
@@ -654,8 +648,7 @@ def stop(view_manager) -> None:
         _bluetooth is not None
         and _bluetooth.is_connected
         and (
-            _keep_connection_on_exit
-            or _state
+            _state
             in (
                 STATE_CONNECTED,
                 STATE_DISCOVERING,
@@ -669,7 +662,6 @@ def stop(view_manager) -> None:
     if _bluetooth is not None:
         _bluetooth.flush_secrets()
         if keep_connection:
-            _bluetooth.retain_connection()
             _bluetooth.callback = None
             _bluetooth.on_notify(None)
             _bluetooth.on_write(None)
@@ -696,7 +688,6 @@ def stop(view_manager) -> None:
     _passkey_action = None
     _passkey = None
     _paired_saved = None
-    _keep_connection_on_exit = False
     _passkey_needs_draw = False
     _discover_services_pending = False
     _discovery_started = None

@@ -43,6 +43,7 @@ class ViewManager:
         "_app_loader",
         "_usb_video_stream",
         "_uart",
+        "_bluetooth",
     )
 
     def __init__(self):
@@ -166,6 +167,8 @@ class ViewManager:
             from picoware.system.wifi import WiFi
             self._wifi = WiFi(self)
 
+        self._bluetooth = None
+
         # Clear screen
         self.clear()
 
@@ -276,6 +279,15 @@ class ViewManager:
     def battery(self):
         """Return the Battery instance."""
         return self._battery
+
+    @property
+    def bluetooth(self):
+        """Return the Bluetooth instance."""
+        if self._bluetooth is None and self.has_bluetooth:
+            from picoware.system.bluetooth import Bluetooth
+
+            self._bluetooth = Bluetooth(self._storage)
+        return self._bluetooth
 
     @property
     def board_id(self):

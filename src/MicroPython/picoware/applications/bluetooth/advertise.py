@@ -113,7 +113,7 @@ def start(view_manager) -> bool:
     _passkey = None
     _passkey_input_active = False
 
-    _bluetooth = Bluetooth(storage=view_manager.storage)
+    _bluetooth = view_manager.bluetooth
     _bluetooth.callback = bluetooth_callback
     _bluetooth.on_write(on_data_received)
 

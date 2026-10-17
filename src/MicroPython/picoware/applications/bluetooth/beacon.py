@@ -26,7 +26,7 @@ def start(view_manager) -> bool:
     _broadcasting = False
     _beacon_count = 0
 
-    _bluetooth = Bluetooth(view_manager.storage)
+    _bluetooth = view_manager.bluetooth
 
     try:
         if _bluetooth.start_peripheral(name="Picoware-Beacon", interval_us=100000):

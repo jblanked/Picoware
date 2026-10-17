@@ -64,18 +64,6 @@ _UART_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 # Bonding file path
 _BONDING_FILE = "picoware/bluetooth/paired_devices.json"
 _SECRETS_FILE = "picoware/bluetooth/secrets.json"
-_persistent_connection = None
-
-
-def get_persistent_connection():
-    """Return the retained central connection, if it is still connected."""
-    global _persistent_connection
-
-    if _persistent_connection is not None and _persistent_connection.is_connected:
-        return _persistent_connection
-    _persistent_connection = None
-    return None
-
 
 class Bluetooth:
     """A class to manage Bluetooth functionality as both central and peripheral device.
@@ -166,8 +154,6 @@ class Bluetooth:
 
     def __del__(self):
         """Clean up Bluetooth resources."""
-        global _persistent_connection
-
         if self._ble is not None:
             if self._connected and self._conn_handle is not None:
                 try:
@@ -191,8 +177,6 @@ class Bluetooth:
         self._rx_handle = None
         self._peripheral_tx_handle = None
         self._peripheral_rx_handle = None
-        if _persistent_connection is self:
-            _persistent_connection = None
         self._services.clear()
         self._characteristics.clear()
         self._central_connections.clear()
@@ -226,15 +210,6 @@ class Bluetooth:
     def connected_address(self) -> str:
         """Get the address of the connected device."""
         return self._connected_addr
-
-    def retain_connection(self) -> bool:
-        """Keep an active central connection available for a later app."""
-        global _persistent_connection
-
-        if not self._connected or self._conn_handle is None:
-            return False
-        _persistent_connection = self
-        return True
 
     @property
     def is_pairing(self) -> bool:
@@ -301,8 +276,6 @@ class Bluetooth:
 
     def __irq_impl(self, event, data):
         """Process a Bluetooth IRQ event (called by __irq)."""
-        global _persistent_connection
-
         if event == _IRQ_GET_SECRET:
             return self._get_secret(data)
         if event == _IRQ_SET_SECRET:
@@ -392,8 +365,6 @@ class Bluetooth:
             self._start_handle = None
             self._end_handle = None
             self._clear_pairing_state(conn_handle)
-            if _persistent_connection is self:
-                _persistent_connection = None
             _data = (conn_handle, addr_type, addr)
 
         elif event == _IRQ_GATTC_SERVICE_RESULT:
@@ -795,8 +766,6 @@ class Bluetooth:
         Args:
             conn_handle (int): Connection handle to disconnect. Uses the current connection if None. Defaults to None.
         """
-        global _persistent_connection
-
         handle = conn_handle if conn_handle is not None else self._conn_handle
         if handle is not None:
             try:
@@ -814,8 +783,6 @@ class Bluetooth:
                     self._services_discovering = False
                     self._peripheral_tx_handle = None
                     self._peripheral_rx_handle = None
-                    if _persistent_connection is self:
-                        _persistent_connection = None
                 elif handle in self._central_connections:
                     # Peripheral mode disconnection (handled by IRQ)
                     pass

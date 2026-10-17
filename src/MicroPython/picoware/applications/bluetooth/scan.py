@@ -113,7 +113,7 @@ def start(view_manager) -> bool:
     )
     _loading.text = "Scanning..."
 
-    _bluetooth = Bluetooth(view_manager.storage)
+    _bluetooth = view_manager.bluetooth
     _bluetooth.callback = bluetooth_callback
     _bluetooth.scan()
 

@@ -225,16 +225,7 @@ def start(view_manager) -> bool:
     global _characteristics_done_pending, _characteristics_done_status
     global _last_update
 
-    from picoware.system.bluetooth import get_persistent_connection
-
-    persistent_connection = get_persistent_connection()
-
     # Cleanup
-    if _bluetooth is not None and _bluetooth is not persistent_connection:
-        if _bluetooth.is_connected or _bluetooth.is_peripheral_connected:
-            _bluetooth.disconnect()
-        del _bluetooth
-        _bluetooth = None
     if _menu is not None:
         del _menu
         _menu = None
@@ -258,43 +249,11 @@ def start(view_manager) -> bool:
     _subscribe_pending = False
     _connect_stage = "Connecting..."
 
+    _bluetooth = view_manager.bluetooth
+
     _show_mode_select(view_manager)
 
-    if persistent_connection is not None:
-        _bluetooth = persistent_connection
-        _bluetooth.callback = bluetooth_callback
-        _bluetooth.on_notify(on_data_received)
-        _mode = "central"
-
-        uart_uuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-        uart_service = next(
-            (
-                service
-                for service in _bluetooth.services
-                if uart_uuid.lower() in str(service[2]).lower()
-            ),
-            None,
-        )
-        if _bluetooth.is_discovering_services:
-            _connect_stage = "Discovering services..."
-            _state = STATE_CONNECTING
-        elif not _bluetooth.services:
-            _service_discovery_pending = True
-            _connect_stage = "Discovering services..."
-            _state = STATE_CONNECTING
-        elif uart_service is None:
-            _connection_error = "Connected device has no UART service"
-            _state = STATE_CONNECTION_ERROR
-        elif _bluetooth.is_uart_ready():
-            _connect_stage = "Subscribing..."
-            _subscribe_pending = True
-            _state = STATE_CONNECTING
-        else:
-            _characteristics_pending = (uart_service[0], uart_service[1])
-            _connect_stage = "Discovering UART..."
-            _state = STATE_CONNECTING
-
-    return True
+    return _bluetooth is not None
 
 
 def run(view_manager) -> None:
@@ -311,7 +270,6 @@ def run(view_manager) -> None:
         BUTTON_RIGHT,
         BUTTON_CENTER,
     )
-    from picoware.system.bluetooth import Bluetooth
     from utime import ticks_ms, ticks_diff
 
     global _state, _mode, _bluetooth, _menu, _loading, _connection_error
@@ -346,11 +304,6 @@ def run(view_manager) -> None:
         if _state == STATE_CONNECTION_ERROR:
             if _bluetooth and _mode == "peripheral":
                 _bluetooth.stop_peripheral()
-            elif _bluetooth and _bluetooth.is_connected:
-                from picoware.system.bluetooth import get_persistent_connection
-
-                if get_persistent_connection() is not _bluetooth:
-                    _bluetooth.disconnect()
             _show_mode_select(view_manager)
             return
         if _state in (STATE_SCANNING, STATE_DEVICE_LIST, STATE_PERIPHERAL_WAIT):
@@ -371,7 +324,6 @@ def run(view_manager) -> None:
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
             _menu.scroll_down()
         elif button == BUTTON_CENTER:
-            _bluetooth = Bluetooth(storage=view_manager.storage)
             _bluetooth.callback = bluetooth_callback
 
             if _menu.selected_index == 0:

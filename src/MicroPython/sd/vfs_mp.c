@@ -787,8 +787,7 @@ mp_obj_t vfs_mp_ilistdir_func(mp_obj_t self_in, mp_obj_t path_in)
     }
 
     fat32_close(&dir);
-    // Return the list directly - lists are iterable
-    return list;
+    return mp_getiter(list, NULL);
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(vfs_mp_ilistdir_obj, vfs_mp_ilistdir_func);
 

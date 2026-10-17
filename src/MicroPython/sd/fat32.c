@@ -2505,6 +2505,7 @@ static fat32_error_t fat32_dir_create_unlocked(fat32_file_t *dir, const char *pa
     }
     dotdot_entry.file_size = 0;
 
+    RETURN_ON_ERROR(clear_cluster(dir->start_cluster));
     uint32_t dir_sector = cluster_to_sector(dir->start_cluster);
     memset(sector_buffer, 0, FAT32_SECTOR_SIZE);
     memcpy(sector_buffer, &dot_entry, sizeof(fat32_dir_entry_t));

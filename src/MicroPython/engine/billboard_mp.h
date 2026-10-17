@@ -32,6 +32,7 @@ extern "C"
 
     mp_obj_t billboard_mp_set_counts(mp_obj_t self_in, mp_obj_t d, mp_obj_t p);
     mp_obj_t billboard_mp_set_direction_pose(size_t, const mp_obj_t *args);
+    mp_obj_t billboard_mp_set_direction_pose_data(size_t, const mp_obj_t *args);
 
 #ifdef __cplusplus
 }

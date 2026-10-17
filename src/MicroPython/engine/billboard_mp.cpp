@@ -113,15 +113,44 @@ mp_obj_t billboard_mp_set_direction_pose(size_t, const mp_obj_t *args)
     if (!bb->setDirectionPose(dir, pose, copy))
     {
         delete copy;
-        mp_raise_ValueError(MP_ERROR_TEXT("invalid image"));
+        copy = nullptr;
+        return mp_const_false;
     }
-    return mp_const_none;
+    return mp_const_true;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(billboard_mp_set_direction_pose_obj, 4, 4, billboard_mp_set_direction_pose);
+
+mp_obj_t billboard_mp_set_direction_pose_data(size_t, const mp_obj_t *args)
+{
+    billboard_mp_obj_t *self = static_cast<billboard_mp_obj_t *>(MP_OBJ_TO_PTR(args[0]));
+    Billboard *bb = billboard_get_context(self);
+    // Arguments:
+    // args[1] = dir
+    // args[2] = pose
+    // args[3] = width
+    // args[4] = height
+    // args[5] = pixels
+    // args[6] = mask
+    int dir = mp_obj_get_int(args[1]);
+    int pose = mp_obj_get_int(args[2]);
+    if (dir < 0 || dir >= bb->num_dirs || pose < 0 || pose >= bb->num_poses)
+        mp_raise_ValueError(MP_ERROR_TEXT("invalid direction or pose"));
+    uint16_t width = mp_obj_get_int(args[3]);
+    uint16_t height = mp_obj_get_int(args[4]);
+    mp_buffer_info_t pixels_buf;
+    mp_get_buffer_raise(args[5], &pixels_buf, MP_BUFFER_READ);
+    mp_buffer_info_t mask_buf;
+    mp_get_buffer_raise(args[6], &mask_buf, MP_BUFFER_READ);
+    // c++ args
+    // int dir, int pose, uint16_t width, uint16_t height,const uint8_t *pixels, size_t pixels_length, const uint8_t *mask, size_t mask_length
+    return bb->setDirectionPoseData(dir, pose, width, height, static_cast<const uint8_t *>(pixels_buf.buf), pixels_buf.len, static_cast<const uint8_t *>(mask_buf.buf), mask_buf.len) ? mp_const_true : mp_const_false;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(billboard_mp_set_direction_pose_data_obj, 7, 7, billboard_mp_set_direction_pose_data);
 
 static const mp_rom_map_elem_t billboard_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_counts), MP_ROM_PTR(&billboard_mp_set_counts_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_direction_pose), MP_ROM_PTR(&billboard_mp_set_direction_pose_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_direction_pose_data), MP_ROM_PTR(&billboard_mp_set_direction_pose_data_obj)},
 };
 static MP_DEFINE_CONST_DICT(billboard_mp_locals_dict, billboard_mp_locals_dict_table);
 

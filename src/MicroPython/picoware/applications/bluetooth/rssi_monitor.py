@@ -3,6 +3,7 @@
 from utime import ticks_ms, ticks_diff
 
 _bluetooth = None
+_menu = None
 _devices = {}  # addr_str -> (name, rssi, last_seen)
 _last_update = 0
 _scan_count = 0
@@ -18,7 +19,7 @@ def bluetooth_callback(event, data):
     global _devices
 
     if event == 5:  # _IRQ_SCAN_RESULT
-        addr_type, addr, adv_type, rssi, adv_data = data
+        _, addr, _, rssi, adv_data = data
         addr_str = ":".join("{:02X}".format(b) for b in addr)
 
         name = ""
@@ -43,18 +44,38 @@ def start(view_manager) -> bool:
     Returns:
         bool: True if the app started, False on failure.
     """
+    from picoware.gui.menu import Menu
     from picoware.system.bluetooth import Bluetooth
 
-    global _bluetooth, _devices, _scan_count
+    global _bluetooth, _menu, _devices, _scan_count
 
     if _bluetooth is not None:
         del _bluetooth
         _bluetooth = None
+    if _menu is not None:
+        del _menu
+        _menu = None
 
     _devices = {}
     _scan_count = 0
 
-    _bluetooth = Bluetooth()
+    bg = view_manager.background_color
+    fg = view_manager.foreground_color
+    sel = view_manager.selected_color
+
+    _menu = Menu(
+        view_manager.draw,
+        "RSSI Monitor",
+        0,
+        view_manager.draw.size.y,
+        fg,
+        bg,
+        sel,
+        fg,
+        2,
+    )
+
+    _bluetooth = Bluetooth(view_manager.storage)
     _bluetooth.callback = bluetooth_callback
 
     # Start continuous scanning
@@ -69,8 +90,7 @@ def run(view_manager) -> None:
     Args:
         view_manager (ViewManager): The view manager instance for display and storage access.
     """
-    from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
-    from picoware.system.vector import Vector
+    from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER, BUTTON_UP, BUTTON_DOWN
 
     global _last_update, _devices, _scan_count
 
@@ -80,14 +100,21 @@ def run(view_manager) -> None:
         view_manager.back()
         return
 
+    # Handle menu navigation
+    if button == BUTTON_UP:
+        _menu.scroll_up()
+    elif button == BUTTON_DOWN:
+        _menu.scroll_down()
+
     if button == BUTTON_CENTER:
         # Clear device list
         _devices = {}
         _scan_count = 0
+        _menu.clear()
 
     # Update display periodically
     now = ticks_ms()
-    if ticks_diff(now, _last_update) < 300:
+    if ticks_diff(now, _last_update) < 1000:
         return
     _last_update = now
 
@@ -101,54 +128,24 @@ def run(view_manager) -> None:
 
     _scan_count += 1
 
-    draw = view_manager.draw
-    draw.erase()
+    # Rebuild menu items sorted by RSSI (strongest first)
+    _menu.clear()
 
-    text_vec = Vector(5, 2)
-    height = draw.size.y
-
-    draw.text(text_vec, "RSSI Monitor")
-
-    # Sort devices by RSSI (strongest first)
-    sorted_devices = sorted(_devices.items(), key=lambda x: x[1][1], reverse=True)
-
-    y = 22
-    max_devices = (height - 60) // 16
-
-    if not sorted_devices:
-        text_vec.x, text_vec.y = 5, y
-        draw.text(text_vec, "Scanning...")
+    if not _devices:
+        _menu.add_item("Scanning...")
     else:
-        for i, (addr, (name, rssi, last_seen)) in enumerate(
-            sorted_devices[:max_devices]
-        ):
-            if y > height - 40:
-                break
+        # Sort devices by RSSI (strongest first)
+        sorted_devices = sorted(
+            _devices.items(), key=lambda x: x[1][1], reverse=True
+        )
 
-            # Display name or shortened address
+        for addr, (name, rssi, last_seen) in sorted_devices:
             display = name if name else addr[:11]
-            display = display[:12]
+            display_str = f"{display[:10]}: {rssi}dB"
+            _menu.add_item(display_str)
 
-            # Create RSSI bar visualization
-            # RSSI typically ranges from -30 (very close) to -100 (far)
-            bar_length = max(0, min(8, (rssi + 100) // 10))
-            bar_sym = "|" * bar_length + " " * (8 - bar_length)
-
-            text_vec.x, text_vec.y = 5, y
-            draw.text(text_vec, f"{display[:10]}")
-            text_vec.x, text_vec.y = 70, y
-            draw.text(text_vec, f"{bar_sym} ")
-            text_vec.x, text_vec.y = 130, y
-            draw.text(text_vec, f"{rssi}dB")
-            y += 16
-
-    # Status bar
-    text_vec.x, text_vec.y = 5, height - 35
-    draw.text(text_vec, f"Devices: {len(_devices)}")
-    text_vec.x, text_vec.y = 5, height - 20
-    draw.text(text_vec, "CENTER: Clear | BACK: Exit")
-
-    draw.swap()
+    # Redraw with updated items
+    _menu.draw()
 
 
 def stop(view_manager) -> None:

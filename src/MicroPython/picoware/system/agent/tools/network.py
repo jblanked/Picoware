@@ -81,7 +81,7 @@ def network_scan_ble(view_manager, timeout_ms: int = 3000) -> list:
     from picoware.system.bluetooth import Bluetooth
     from picoware.applications.bluetooth.scan import bluetooth_callback, _scanned_devices
     from utime import ticks_ms, ticks_diff
-    ble = Bluetooth()
+    ble = Bluetooth(view_manager.storage)
     ble.callback = bluetooth_callback
     if not ble.scan():
         return []

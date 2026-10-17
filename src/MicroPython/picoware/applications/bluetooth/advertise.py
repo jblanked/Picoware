@@ -7,10 +7,15 @@ _advertising = False
 _connections = []
 _received_data = []
 _last_update = 0
+_pairing_status = ""
+_passkey_action = None
+_passkey = None
+_passkey_input_active = False
 
 STATE_IDLE = const(0)
 STATE_ADVERTISING = const(1)
 STATE_CONNECTED = const(2)
+PASSKEY_ACTION_INPUT = const(2)
 
 _state = STATE_IDLE
 
@@ -22,7 +27,8 @@ def bluetooth_callback(event, data):
         event (int): Bluetooth event code.
         data (tuple): Event payload with connection handle and address.
     """
-    global _connections, _state
+    global _connections, _state, _pairing_status, _passkey_action, _passkey
+    global _passkey_input_active
 
     if event == 1:  # _IRQ_CENTRAL_CONNECT
         conn_handle, addr_type, addr = data
@@ -35,6 +41,32 @@ def bluetooth_callback(event, data):
         _connections = [(h, a) for h, a in _connections if h != conn_handle]
         if len(_connections) == 0:
             _state = STATE_ADVERTISING
+            if _passkey_action is not None:
+                _passkey_action = None
+                _passkey = None
+                _passkey_input_active = False
+                if _pairing_status == "Pairing request":
+                    _pairing_status = "Pairing cancelled"
+
+    elif event == 28:  # _IRQ_ENCRYPTION_UPDATE
+        conn_handle, encrypted, authenticated, bonded, key_size = data
+        print(
+            f"[Advertise] Encryption update handle={conn_handle}, "
+            f"encrypted={encrypted}, authenticated={authenticated}, "
+            f"bonded={bonded}, key_size={key_size}"
+        )
+        _passkey_action = None
+        _passkey = None
+        _passkey_input_active = False
+        _pairing_status = "Bonded" if encrypted and bonded else "Pairing failed"
+
+    elif event == 31:  # _IRQ_PASSKEY_ACTION
+        conn_handle, _passkey_action, _passkey = data
+        print(
+            f"[Advertise] Passkey request handle={conn_handle}, "
+            f"action={_passkey_action}, value={_passkey}"
+        )
+        _pairing_status = "Pairing request"
 
 
 def on_data_received(data):
@@ -66,6 +98,7 @@ def start(view_manager) -> bool:
     from picoware.system.bluetooth import Bluetooth
 
     global _bluetooth, _advertising, _connections, _received_data, _state
+    global _pairing_status, _passkey_action, _passkey, _passkey_input_active
 
     if _bluetooth is not None:
         del _bluetooth
@@ -75,8 +108,12 @@ def start(view_manager) -> bool:
     _connections = []
     _received_data = []
     _state = STATE_IDLE
+    _pairing_status = ""
+    _passkey_action = None
+    _passkey = None
+    _passkey_input_active = False
 
-    _bluetooth = Bluetooth()
+    _bluetooth = Bluetooth(storage=view_manager.storage)
     _bluetooth.callback = bluetooth_callback
     _bluetooth.on_write(on_data_received)
 
@@ -103,16 +140,65 @@ def run(view_manager) -> None:
     from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
     from utime import ticks_ms, ticks_diff
 
-    global _last_update
+    global _last_update, _pairing_status, _passkey_action, _passkey_input_active
 
     button: int = view_manager.button
+    passkey_pending = _passkey_action is not None
+    _bluetooth.flush_secrets()
 
     if button == BUTTON_BACK:
+        if _passkey_action is not None:
+            _bluetooth.passkey_reply(accept=False)
+        if _passkey_input_active:
+            view_manager.keyboard.reset()
         view_manager.back()
         return
 
+    if _passkey_input_active:
+        keyboard = view_manager.keyboard
+        if not keyboard.run(max_characters=6):
+            _bluetooth.passkey_reply(accept=False)
+            _passkey_action = None
+            _passkey_input_active = False
+            keyboard.reset()
+            _pairing_status = "Pairing rejected"
+            return
+
+        result = keyboard.response
+        if result is not None:
+            if len(result) == 6 and result.isdigit():
+                if _bluetooth.passkey_reply(accept=True, passkey=int(result)):
+                    if _pairing_status == "Pairing request":
+                        _pairing_status = "Pairing confirmed"
+                else:
+                    _pairing_status = "Could not answer passkey"
+            else:
+                _bluetooth.passkey_reply(accept=False)
+                _pairing_status = "Passkey must be six digits"
+            _passkey_action = None
+            _passkey_input_active = False
+            keyboard.reset()
+        return
+
+    if button == BUTTON_CENTER and _passkey_action is not None:
+        if _passkey_action == PASSKEY_ACTION_INPUT:
+            keyboard = view_manager.keyboard
+            keyboard.reset()
+            keyboard.title = "Enter Passkey"
+            keyboard.run(force=True, max_characters=6)
+            _passkey_input_active = True
+        else:
+            if _bluetooth.passkey_reply(accept=True):
+                if _pairing_status == "Pairing request":
+                    _pairing_status = "Pairing confirmed"
+                _passkey_action = None
+
     # Send test data when center pressed
-    if button == BUTTON_CENTER and _state == STATE_CONNECTED:
+    if (
+        button == BUTTON_CENTER
+        and _state == STATE_CONNECTED
+        and not passkey_pending
+    ):
         _bluetooth.send("Hello from Picoware!")
 
     # Update display periodically
@@ -138,9 +224,15 @@ def run(view_manager) -> None:
         draw._text(5, 70, "Status: Idle", fg)
 
     draw._text(5, 90, f"Connections: {len(_connections)}", fg)
+    if _pairing_status:
+        draw._text(5, 105, "Pair: " + _pairing_status[:20], fg)
+    if _passkey_action is not None and _passkey_action != PASSKEY_ACTION_INPUT:
+        draw._text(5, 120, "Code: {:06d}".format(_passkey or 0), fg)
+    elif _passkey_action == PASSKEY_ACTION_INPUT:
+        draw._text(5, 120, "CENTER: Enter code", fg)
 
     # Show connected devices
-    y_offset = 110
+    y_offset = 135 if _passkey_action is not None or _pairing_status else 110
     if _connections:
         for i, (handle, addr) in enumerate(_connections[:2]):
             if y_offset < draw.size.y - 60:
@@ -160,7 +252,7 @@ def run(view_manager) -> None:
     # Instructions
     if _state == STATE_CONNECTED:
         draw._text(5, draw.size.y - 30, "CENTER: Send test msg", fg)
-    draw._text(5, draw.size.y - 15, "BACK: Exit", fg)
+    draw._text(5, draw.size.y - 10, "BACK: Exit", fg)
     draw.swap()
 
 
@@ -173,8 +265,11 @@ def stop(view_manager) -> None:
     from gc import collect
 
     global _bluetooth, _advertising, _connections, _received_data, _state
+    global _pairing_status, _passkey_action, _passkey, _passkey_input_active
+    global _pairing_status, _passkey_action, _passkey
 
     if _bluetooth is not None:
+        _bluetooth.flush_secrets()
         _bluetooth.stop_peripheral()
         for conn_handle, _ in _connections:
             try:
@@ -188,4 +283,8 @@ def stop(view_manager) -> None:
     _connections = []
     _received_data = []
     _state = STATE_IDLE
+    _pairing_status = ""
+    _passkey_action = None
+    _passkey = None
+    _passkey_input_active = False
     collect()

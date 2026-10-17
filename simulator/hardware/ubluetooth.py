@@ -187,6 +187,7 @@ class BLE:
         self._advertising = False
         self._adv_data = b""
         self._notify_queue = []
+        self._config = {"gap_name": "", "bond": False, "mitm": False}
 
     def active(self, value=None):
         if value is None:
@@ -201,8 +202,11 @@ class BLE:
     def config(self, *args, **kwargs):
         if args and args[0] == "mac":
             return self._mac
+        if args:
+            return self._config.get(args[0])
         if "mac" in kwargs:
             self._mac = kwargs["mac"]
+        self._config.update(kwargs)
         return None
 
     def _emit(self, event, data):
@@ -242,7 +246,6 @@ class BLE:
             return None
         self._conn_handle = 1
         self._emit(_IRQ_PERIPHERAL_CONNECT, (self._conn_handle, addr_type, addr))
-        self.gattc_discover_services(self._conn_handle)
         return None
 
     def gap_disconnect(self, conn_handle):
@@ -263,6 +266,7 @@ class BLE:
                 "adv_data": bytes(self._adv_data),
                 "resp_data": bytes(resp_data or b""),
                 "connectable": bool(connectable),
+                "name": self._config.get("gap_name", ""),
             }
         )
         if self._advertising and connectable and sim_runtime.bluetooth_mode != "off":
@@ -330,6 +334,9 @@ class BLE:
         return None
 
     def gap_passkey(self, conn_handle, action, passkey):
+        if action == 4 and not passkey:
+            self._emit(_IRQ_ENCRYPTION_UPDATE, (conn_handle, False, False, False, 0))
+            return None
         self._persist_pair(conn_handle)
         self._emit(_IRQ_ENCRYPTION_UPDATE, (conn_handle, True, True, True, 16))
         return None

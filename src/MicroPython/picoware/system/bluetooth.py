@@ -29,6 +29,8 @@ _IRQ_GATTC_INDICATE = const(19)
 _IRQ_GATTS_INDICATE_DONE = const(20)
 _IRQ_MTU_EXCHANGED = const(21)
 _IRQ_ENCRYPTION_UPDATE = const(28)
+_IRQ_GET_SECRET = const(29)
+_IRQ_SET_SECRET = const(30)
 _IRQ_PASSKEY_ACTION = const(31)
 
 # Passkey actions
@@ -42,9 +44,11 @@ _ADV_IND = const(0x00)
 _ADV_DIRECT_IND = const(0x01)
 _ADV_SCAN_IND = const(0x02)
 _ADV_NONCONN_IND = const(0x03)
+_ADV_SCAN_RSP = const(0x04)
 
 # Advertising data types
 _ADV_TYPE_FLAGS = const(0x01)
+_ADV_TYPE_SHORT_NAME = const(0x08)
 _ADV_TYPE_NAME = const(0x09)
 _ADV_TYPE_UUID16_COMPLETE = const(0x03)
 _ADV_TYPE_UUID32_COMPLETE = const(0x05)
@@ -58,7 +62,19 @@ _UART_RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 _UART_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
 # Bonding file path
-_BONDING_FILE = const(b"picoware/bluetooth/paired_devices.json")
+_BONDING_FILE = "picoware/bluetooth/paired_devices.json"
+_SECRETS_FILE = "picoware/bluetooth/secrets.json"
+_persistent_connection = None
+
+
+def get_persistent_connection():
+    """Return the retained central connection, if it is still connected."""
+    global _persistent_connection
+
+    if _persistent_connection is not None and _persistent_connection.is_connected:
+        return _persistent_connection
+    _persistent_connection = None
+    return None
 
 
 class Bluetooth:
@@ -94,15 +110,32 @@ class Bluetooth:
         """
         from ubluetooth import BLE
 
+        if storage is not None:
+            storage.mkdir("picoware/bluetooth")
+
         self._ble = BLE()
+        bonding_configured = self._configure_bonding()
+        print(
+            f"[BT] Security config: bond={bonding_configured}, "
+            "mitm=False, io=3, le_secure=False"
+        )
         self._ble.active(True)
         self._ble.irq(self.__irq)
         self._callback = None
         self._scanning = False
+        self._scan_data = {}
         self._conn_handle = None
         self._connected = False
         self._connected_addr = None
+        self._encrypted = False
+        self._bonded = False
+        self._auto_discover = False
+        self._services_discovering = False
         self._storage = storage
+        self._secrets = {}
+        self._secrets_dirty = False
+        self._paired_devices = None  # Cached paired-device dict
+        self._load_secrets()
 
         # Peripheral mode handles (GATT server)
         self._tx_handle = None  # TX characteristic handle (for sending notifications)
@@ -128,9 +161,13 @@ class Bluetooth:
         # Pairing state
         self._pairing = False
         self._passkey = None
+        self._passkey_action = None
+        self._passkey_conn_handle = None
 
     def __del__(self):
         """Clean up Bluetooth resources."""
+        global _persistent_connection
+
         if self._ble is not None:
             if self._connected and self._conn_handle is not None:
                 try:
@@ -154,10 +191,15 @@ class Bluetooth:
         self._rx_handle = None
         self._peripheral_tx_handle = None
         self._peripheral_rx_handle = None
+        if _persistent_connection is self:
+            _persistent_connection = None
         self._services.clear()
         self._characteristics.clear()
         self._central_connections.clear()
         self._passkey = None
+        self._passkey_action = None
+        self._passkey_conn_handle = None
+        self._secrets.clear()
 
     @property
     def callback(self):
@@ -185,6 +227,15 @@ class Bluetooth:
         """Get the address of the connected device."""
         return self._connected_addr
 
+    def retain_connection(self) -> bool:
+        """Keep an active central connection available for a later app."""
+        global _persistent_connection
+
+        if not self._connected or self._conn_handle is None:
+            return False
+        _persistent_connection = self
+        return True
+
     @property
     def is_pairing(self) -> bool:
         """Check if currently in pairing process."""
@@ -199,6 +250,11 @@ class Bluetooth:
     def is_connected(self) -> bool:
         """Check if connected to a peripheral (central mode)."""
         return self._connected
+
+    @property
+    def is_discovering_services(self) -> bool:
+        """Check if service discovery is in progress."""
+        return self._services_discovering
 
     @property
     def is_peripheral_connected(self) -> bool:
@@ -235,9 +291,25 @@ class Bluetooth:
             event (int): The IRQ event constant.
             data (tuple): Event-specific data.
         """
+        try:
+            return self.__irq_impl(event, data)
+        except Exception as e:
+            # Never let an exception escape: the BLE port permanently
+            # disables the IRQ handler when one does, freezing the app.
+            print(f"[Bluetooth] IRQ handler error (event {event}): {e}")
+        return None
+
+    def __irq_impl(self, event, data):
+        """Process a Bluetooth IRQ event (called by __irq)."""
+        global _persistent_connection
+
+        if event == _IRQ_GET_SECRET:
+            return self._get_secret(data)
+        if event == _IRQ_SET_SECRET:
+            return self._set_secret(data)
+
         _data = None
 
-        # ===== PERIPHERAL MODE EVENTS (when acting as GATT server) =====
         if event == _IRQ_CENTRAL_CONNECT:
             # A central device connected to us (peripheral mode)
             conn_handle, addr_type, addr = data
@@ -248,6 +320,7 @@ class Bluetooth:
             # A central device disconnected from us (peripheral mode)
             conn_handle, addr_type, addr = data
             self._central_connections.discard(conn_handle)
+            self._clear_pairing_state(conn_handle)
             # Restart advertising to allow new connections
             if self._peripheral_registered:
                 self._start_advertising()
@@ -265,17 +338,33 @@ class Bluetooth:
         elif event == _IRQ_SCAN_RESULT:
             # A single scan result
             addr_type, addr, adv_type, rssi, adv_data = data
-            _data = (addr_type, addr, adv_type, rssi, adv_data)
+            key = (addr_type, bytes(addr))
+            previous = self._scan_data.get(key)
+            if adv_type == _ADV_SCAN_RSP:
+                if previous is None:
+                    primary_type, primary_data = None, b""
+                else:
+                    primary_type, primary_data, _ = previous
+                response_data = bytes(adv_data)
+            else:
+                primary_type = adv_type
+                primary_data = bytes(adv_data)
+                response_data = previous[2] if previous is not None else b""
+
+            self._scan_data[key] = (primary_type, primary_data, response_data)
+            combined_data = primary_data + response_data
+            _data = (addr_type, addr, adv_type, rssi, combined_data)
+
             # If scan callback is set, call it for each result
             if self._scan_callback:
-                # Check if this is a connectable advertisement
-                if adv_type in (_ADV_IND, _ADV_DIRECT_IND):
-                    name = self.decode_name(adv_data)
-                    self._scan_callback(addr_type, bytes(addr), name, rssi, adv_data)
+                if primary_type in (_ADV_IND, _ADV_DIRECT_IND):
+                    name = self.decode_name(combined_data)
+                    self._scan_callback(addr_type, bytes(addr), name, rssi, combined_data)
 
         elif event == _IRQ_SCAN_DONE:
             # Scan duration finished or manually stopped
             self._scanning = False
+            self._scan_data.clear()
             _data = None
 
         elif event == _IRQ_PERIPHERAL_CONNECT:
@@ -284,6 +373,9 @@ class Bluetooth:
             self._conn_handle = conn_handle
             self._connected = True
             self._connected_addr = ":".join("{:02X}".format(b) for b in addr)
+            self._encrypted = False
+            self._bonded = False
+            print(f"[BT] Connected to peripheral, handle {conn_handle}")
             _data = (conn_handle, addr_type, addr)
 
         elif event == _IRQ_PERIPHERAL_DISCONNECT:
@@ -292,50 +384,62 @@ class Bluetooth:
             self._conn_handle = None
             self._connected = False
             self._connected_addr = None
+            self._encrypted = False
+            self._bonded = False
+            self._services_discovering = False
             self._peripheral_tx_handle = None
             self._peripheral_rx_handle = None
             self._start_handle = None
             self._end_handle = None
+            self._clear_pairing_state(conn_handle)
+            if _persistent_connection is self:
+                _persistent_connection = None
             _data = (conn_handle, addr_type, addr)
 
         elif event == _IRQ_GATTC_SERVICE_RESULT:
             # Found a service on remote device (central mode)
             conn_handle, start_handle, end_handle, uuid = data
-            self._services.append((start_handle, end_handle, uuid))
+            # Some ports pass UUIDs backed by temporary callback storage.
+            # Copy them before keeping the result beyond this IRQ.
+            uuid_str = str(uuid)
+            self._services.append((start_handle, end_handle, uuid_str))
             # Check for UART service
-            if (
-                str(uuid) == _UART_SERVICE_UUID.lower()
-                or str(uuid) == _UART_SERVICE_UUID
-            ):
+            if _UART_SERVICE_UUID.lower() in uuid_str.lower():
                 self._start_handle = start_handle
                 self._end_handle = end_handle
-            _data = (conn_handle, start_handle, end_handle, uuid)
+            _data = (conn_handle, start_handle, end_handle, uuid_str)
 
         elif event == _IRQ_GATTC_SERVICE_DONE:
             # Service discovery complete (central mode)
             conn_handle, status = data
-            # If we found UART service, discover its characteristics
-            if self._start_handle and self._end_handle:
-                self._ble.gattc_discover_characteristics(
-                    self._conn_handle, self._start_handle, self._end_handle
-                )
+            self._services_discovering = False
+            print(
+                f"[BT] Service discovery done, status {status}, "
+                f"{len(self._services)} services"
+            )
             _data = (conn_handle, status)
 
         elif event == _IRQ_GATTC_CHARACTERISTIC_RESULT:
             # Found a characteristic on remote device (central mode)
             conn_handle, end_handle, value_handle, properties, uuid = data
-            self._characteristics.append((value_handle, properties, uuid))
+            # Characteristic UUIDs can have the same temporary lifetime.
+            uuid_str = str(uuid)
+            self._characteristics.append((value_handle, properties, uuid_str))
             # Check for UART RX/TX characteristics
-            uuid_str = str(uuid).upper()
-            if _UART_RX_CHAR_UUID in uuid_str:
+            uuid_upper = uuid_str.upper()
+            if _UART_RX_CHAR_UUID in uuid_upper:
                 self._peripheral_rx_handle = value_handle
-            elif _UART_TX_CHAR_UUID in uuid_str:
+            elif _UART_TX_CHAR_UUID in uuid_upper:
                 self._peripheral_tx_handle = value_handle
-            _data = (conn_handle, end_handle, value_handle, properties, uuid)
+            _data = (conn_handle, end_handle, value_handle, properties, uuid_str)
 
         elif event == _IRQ_GATTC_CHARACTERISTIC_DONE:
             # Characteristic discovery complete (central mode)
             conn_handle, status = data
+            print(
+                f"[BT] Characteristic discovery done, status {status}, "
+                f"{len(self._characteristics)} characteristics"
+            )
             _data = (conn_handle, status)
 
         elif event == _IRQ_GATTC_WRITE_DONE:
@@ -358,13 +462,26 @@ class Bluetooth:
         elif event == _IRQ_ENCRYPTION_UPDATE:
             # Encryption/bonding state changed
             conn_handle, encrypted, authenticated, bonded, key_size = data
-            self._pairing = False
+            print(
+                f"[BT] Encryption update: encrypted={encrypted}, "
+                f"bonded={bonded}, key_size={key_size}"
+            )
+            if self._conn_handle == conn_handle:
+                self._encrypted = bool(encrypted)
+                self._bonded = bool(bonded)
+            self._clear_pairing_state(conn_handle)
             _data = (conn_handle, encrypted, authenticated, bonded, key_size)
 
         elif event == _IRQ_PASSKEY_ACTION:
             # Passkey action required during pairing
             conn_handle, action, passkey = data
+            print(
+                f"[BT] Passkey action: handle={conn_handle}, "
+                f"action={action}, value={passkey}"
+            )
             self._passkey = passkey
+            self._passkey_action = action
+            self._passkey_conn_handle = conn_handle
             _data = (conn_handle, action, passkey)
 
         else:
@@ -373,8 +490,131 @@ class Bluetooth:
 
         if self._callback:
             self._callback(event, _data)
+            if event == _IRQ_GATTC_SERVICE_DONE:
+                print("[BT] Service-done application callback returned")
+            elif event == _IRQ_GATTC_CHARACTERISTIC_DONE:
+                print("[BT] Characteristic-done application callback returned")
+            if event in (_IRQ_GATTC_SERVICE_DONE, _IRQ_GATTC_CHARACTERISTIC_DONE):
+                print(f"[BT] Application callback returned for GATT event {event}")
 
-    def _advertising_payload(self, name=None, services=None, appearance=0):
+        if (
+            event == _IRQ_GATTC_SERVICE_DONE
+            and _data is not None
+            and _data[1] == 0
+            and self._auto_discover
+            and self._connected
+            and self._conn_handle == _data[0]
+            and self._start_handle is not None
+            and self._end_handle is not None
+        ):
+            if not self.discover_characteristics(
+                self._start_handle, self._end_handle
+            ):
+                if self._callback:
+                    self._callback(
+                        _IRQ_GATTC_CHARACTERISTIC_DONE, (_data[0], -1)
+                    )
+
+        if event == _IRQ_PERIPHERAL_CONNECT and self._auto_discover:
+            self.discover_services()
+
+    def _clear_pairing_state(self, conn_handle):
+        """Clear pairing metadata when its connection is no longer pairing."""
+        if (
+            self._passkey_conn_handle is None
+            or self._passkey_conn_handle == conn_handle
+        ):
+            self._pairing = False
+            self._passkey = None
+            self._passkey_action = None
+            self._passkey_conn_handle = None
+
+    def _load_secrets(self) -> None:
+        """Load BLE security secrets from local storage."""
+        if self._storage is None or not self._storage.exists(_SECRETS_FILE):
+            return
+        try:
+            data: dict = self._storage.deserialize(_SECRETS_FILE)
+            if not data:
+                return
+            import binascii
+
+            for sec_type, key_hex, value_hex in data:
+                self._secrets[(int(sec_type), binascii.unhexlify(key_hex))] = (
+                    binascii.unhexlify(value_hex)
+                )
+        except Exception as e:
+            print(f"[Bluetooth] Load BLE secrets error: {e}")
+
+    def _get_secret(self, data):
+        sec_type, index, key = data
+        if key is not None:
+            return self._secrets.get((sec_type, bytes(key)))
+
+        current_index = 0
+        for (stored_type, _), value in self._secrets.items():
+            if stored_type == sec_type:
+                if current_index == index:
+                    return value
+                current_index += 1
+        return None
+
+    def _set_secret(self, data) -> bool:
+        sec_type, key, value = data
+        secret_key = (sec_type, bytes(key))
+        if value:
+            self._secrets[secret_key] = bytes(value)
+        elif secret_key in self._secrets:
+            del self._secrets[secret_key]
+        else:
+            return False
+        self._secrets_dirty = self._storage is not None
+        return True
+
+    def flush_secrets(self) -> bool:
+        """Persist pending BLE secrets outside the Bluetooth IRQ callback."""
+        if not self._secrets_dirty:
+            return True
+        if self._storage is None:
+            self._secrets_dirty = False
+            return True
+
+        try:
+            import binascii
+
+            entries = []
+            for (sec_type, key), value in self._secrets.items():
+                entries.append(
+                    (
+                        sec_type,
+                        binascii.hexlify(key).decode("ascii"),
+                        binascii.hexlify(value).decode("ascii"),
+                    )
+                )
+            if not self._storage.serialize(entries, _SECRETS_FILE):
+                print("[Bluetooth] Save BLE secrets error")
+                self._secrets_dirty = False
+                return False
+        except Exception as e:
+            print(f"[Bluetooth] Save BLE secrets error: {e}")
+            self._secrets_dirty = False
+            return False
+
+        self._secrets_dirty = False
+        return True
+
+    def _configure_bonding(self):
+        """Enable BLE bonding when the current port supports it."""
+        try:
+            self._ble.config(bond=True, mitm=False, io=3, le_secure=False)
+        except Exception as e:
+            print(f"[Bluetooth] Bonding configuration error: {e}")
+            return False
+        return True
+
+    def _advertising_payload(
+        self, name=None, services=None, appearance=0, include_flags=True
+    ):
         """Generate advertising payload.
 
         Args:
@@ -397,15 +637,28 @@ class Bluetooth:
                 value (bytes): The payload value.
             """
             nonlocal payload
+            if len(payload) + len(value) + 2 > _ADV_MAX_PAYLOAD:
+                raise ValueError("Advertising payload exceeds 31 bytes")
             payload += struct.pack("BB", len(value) + 1, adv_type) + value
 
-        # Flags: general discoverable, BR/EDR not supported
-        _append(_ADV_TYPE_FLAGS, struct.pack("B", 0x06))
+        if include_flags:
+            # Flags: general discoverable, BR/EDR not supported
+            _append(_ADV_TYPE_FLAGS, struct.pack("B", 0x06))
 
         if name:
-            _append(
-                _ADV_TYPE_NAME, name.encode("utf-8") if isinstance(name, str) else name
-            )
+            name_bytes = name.encode("utf-8") if isinstance(name, str) else bytes(name)
+            max_name_length = _ADV_MAX_PAYLOAD - len(payload) - 2
+            name_type = _ADV_TYPE_NAME
+            if len(name_bytes) > max_name_length:
+                name_bytes = name_bytes[:max_name_length]
+                while name_bytes:
+                    try:
+                        name_bytes.decode("utf-8")
+                        break
+                    except UnicodeError:
+                        name_bytes = name_bytes[:-1]
+                name_type = _ADV_TYPE_SHORT_NAME
+            _append(name_type, name_bytes)
 
         if services:
             for uuid in services:
@@ -431,7 +684,11 @@ class Bluetooth:
             interval_us (int): Advertising interval in microseconds. Defaults to 500000.
         """
         if hasattr(self, "_adv_payload") and self._adv_payload:
-            self._ble.gap_advertise(interval_us, adv_data=self._adv_payload)
+            self._ble.gap_advertise(
+                interval_us,
+                adv_data=self._adv_payload,
+                resp_data=getattr(self, "_scan_response", None),
+            )
 
     def advertise(self, interval_us=None, name="Picoware"):
         """Start or stop BLE advertising to make this device discoverable.
@@ -449,11 +706,24 @@ class Bluetooth:
                 # Stop advertising
                 self._ble.gap_advertise(None)
                 return True
-            self.register()
-            self._adv_payload = self._advertising_payload(
-                name=name, services=[_UART_SERVICE_UUID]
+            if not self.register():
+                return False
+
+            gap_name = name.decode("utf-8") if isinstance(name, bytes) else name
+            try:
+                self._ble.config(gap_name=gap_name)
+            except Exception as e:
+                print(f"[Bluetooth] GAP name configuration error: {e}")
+            self._configure_bonding()
+            self._adv_payload = self._advertising_payload(name=name)
+            self._scan_response = self._advertising_payload(
+                services=[_UART_SERVICE_UUID], include_flags=False
             )
-            self._ble.gap_advertise(interval_us, adv_data=self._adv_payload)
+            self._ble.gap_advertise(
+                interval_us,
+                adv_data=self._adv_payload,
+                resp_data=self._scan_response,
+            )
             return True
         except Exception as e:
             print(f"[Bluetooth] Advertise error: {e}")
@@ -481,6 +751,8 @@ class Bluetooth:
         self._peripheral_rx_handle = None
         self._start_handle = None
         self._end_handle = None
+        self._services_discovering = False
+        self._auto_discover = bool(auto_discover)
 
         try:
             self._ble.gap_connect(addr_type, addr, timeout_ms)
@@ -523,6 +795,8 @@ class Bluetooth:
         Args:
             conn_handle (int): Connection handle to disconnect. Uses the current connection if None. Defaults to None.
         """
+        global _persistent_connection
+
         handle = conn_handle if conn_handle is not None else self._conn_handle
         if handle is not None:
             try:
@@ -535,8 +809,13 @@ class Bluetooth:
                     self._conn_handle = None
                     self._connected = False
                     self._connected_addr = None
+                    self._encrypted = False
+                    self._bonded = False
+                    self._services_discovering = False
                     self._peripheral_tx_handle = None
                     self._peripheral_rx_handle = None
+                    if _persistent_connection is self:
+                        _persistent_connection = None
                 elif handle in self._central_connections:
                     # Peripheral mode disconnection (handled by IRQ)
                     pass
@@ -556,6 +835,10 @@ class Bluetooth:
         if not self._connected or self._conn_handle is None:
             return False
 
+        print(
+            f"[BT] Discovering characteristics {start_handle}-{end_handle} "
+            f"(handle {self._conn_handle})"
+        )
         self._characteristics = []
         try:
             self._ble.gattc_discover_characteristics(
@@ -574,11 +857,14 @@ class Bluetooth:
         if not self._connected or self._conn_handle is None:
             return False
 
+        print(f"[BT] Discovering services (handle {self._conn_handle})")
         self._services = []
+        self._services_discovering = True
         try:
             self._ble.gattc_discover_services(self._conn_handle)
             return True
         except Exception as e:
+            self._services_discovering = False
             print(f"[Bluetooth] Service discovery error: {e}")
             return False
 
@@ -591,6 +877,13 @@ class Bluetooth:
         Returns:
             bool: True if the device is paired.
         """
+        if (
+            self._connected
+            and self._connected_addr == addr
+            and self._encrypted
+            and self._bonded
+        ):
+            return True
         devices = self.load_paired_devices()
         return addr in devices
 
@@ -600,18 +893,14 @@ class Bluetooth:
         Returns:
             dict: Dictionary of paired devices {addr: {name, paired}}
         """
-        if self._storage is None:
-            return {}
-
-        try:
-            data = self._storage.read(_BONDING_FILE)
-            if data:
-                import json
-
-                return json.loads(data)
-        except Exception as e:
-            print(f"[Bluetooth] Load paired devices error: {e}")
-        return {}
+        if self._paired_devices is not None:
+            return self._paired_devices
+        if self._storage is None or not self._storage.exists(_BONDING_FILE):
+            self._paired_devices = {}
+            return self._paired_devices
+        devices = self._storage.deserialize(_BONDING_FILE)
+        self._paired_devices = devices if isinstance(devices, dict) else {}
+        return self._paired_devices
 
     def pair(self):
         """Initiate pairing/bonding with the connected device.
@@ -620,12 +909,18 @@ class Bluetooth:
         The device will be remembered for future connections.
         """
         if not self._connected or self._conn_handle is None:
+            print("[Bluetooth] Not connected.")
             return False
 
         self._pairing = True
+        print(
+            f"[BT] Starting pairing (handle {self._conn_handle}, "
+            f"encrypted={self._encrypted}, bonded={self._bonded})"
+        )
         try:
             # Request pairing - this triggers _IRQ_ENCRYPTION_UPDATE or _IRQ_PASSKEY_ACTION
             self._ble.gap_pair(self._conn_handle)
+            print("[BT] Pairing request submitted to BLE stack")
             return True
         except Exception as e:
             print(f"[Bluetooth] Pair error: {e}")
@@ -638,17 +933,46 @@ class Bluetooth:
         Args:
             accept (bool): Whether to accept the pairing. Defaults to True.
             passkey (int): The passkey to use for input actions. Defaults to None.
-        """
-        if self._conn_handle is None:
-            return
 
-        if passkey is None:
-            passkey = 0
-        self._ble.gap_passkey(
-            self._conn_handle,
-            _PASSKEY_ACTION_INPUT if passkey else _PASSKEY_ACTION_NUMERIC_COMPARISON,
-            passkey if accept else 0,
-        )
+        Returns:
+            bool: True if the passkey response was sent.
+        """
+        conn_handle = self._passkey_conn_handle
+        action = self._passkey_action
+        if conn_handle is None or action is None:
+            return False
+
+        if action == _PASSKEY_ACTION_INPUT:
+            if not accept:
+                try:
+                    self._ble.gap_disconnect(conn_handle)
+                    return True
+                except Exception as e:
+                    print(f"[Bluetooth] Passkey rejection error: {e}")
+                    return False
+            if passkey is None:
+                return False
+            reply_passkey = int(passkey)
+        elif action == _PASSKEY_ACTION_NUMERIC_COMPARISON:
+            reply_passkey = 1 if accept else 0
+        elif action == _PASSKEY_ACTION_DISPLAY:
+            if not accept:
+                try:
+                    self._ble.gap_disconnect(conn_handle)
+                    return True
+                except Exception as e:
+                    print(f"[Bluetooth] Passkey rejection error: {e}")
+                    return False
+            reply_passkey = self._passkey
+        else:
+            return False
+
+        try:
+            self._ble.gap_passkey(conn_handle, action, reply_passkey)
+            return True
+        except Exception as e:
+            print(f"[Bluetooth] Passkey reply error: {e}")
+            return False
 
     def read(self, handle):
         """Read data from a characteristic.
@@ -687,11 +1011,7 @@ class Bluetooth:
             devices = self.load_paired_devices()
             if addr in devices:
                 del devices[addr]
-                import json
-
-                data = json.dumps(devices)
-                self._storage.write(_BONDING_FILE, data)
-                return True
+                return self._storage.serialize(devices, _BONDING_FILE)
         except Exception as e:
             print(f"[Bluetooth] Remove paired device error: {e}")
         return False
@@ -717,11 +1037,7 @@ class Bluetooth:
             devices[addr] = {"name": name, "paired": True}
 
             # Save back to storage
-            import json
-
-            data = json.dumps(devices)
-            self._storage.write(_BONDING_FILE, data)
-            return True
+            return self._storage.serialize(devices, _BONDING_FILE)
         except Exception as e:
             print(f"[Bluetooth] Save paired device error: {e}")
             return False
@@ -748,6 +1064,7 @@ class Bluetooth:
         """
         if callback:
             self._scan_callback = callback
+        self._scan_data = {}
         self._scanning = True
         try:
             self._ble.gap_scan(duration_ms, interval_us, window_us, active)
@@ -761,6 +1078,7 @@ class Bluetooth:
         """Stop an ongoing scan."""
         self._ble.gap_scan(None)
         self._scanning = False
+        self._scan_data = {}
 
     def register(self):
         """Register the device as a GATT server with UART service.
@@ -806,8 +1124,6 @@ class Bluetooth:
         except Exception as e:
             print(f"[Bluetooth] Register error: {e}")
             return False
-
-    # ===== PERIPHERAL MODE METHODS =====
 
     def start_peripheral(self, name="Picoware", interval_us=500000):
         """Start as a BLE peripheral (GATT server) with UART service.
@@ -871,8 +1187,6 @@ class Bluetooth:
         """
         self._write_callback = callback
 
-    # ===== CENTRAL MODE METHODS =====
-
     def on_notify(self, callback):
         """Set callback for when data is received from a peripheral (central mode).
 
@@ -904,6 +1218,7 @@ class Bluetooth:
             bool: True if the subscription request was sent.
         """
         if not self._connected or self._conn_handle is None:
+            print("[Bluetooth] Not connected.")
             return False
 
         if handle is None:
@@ -915,6 +1230,7 @@ class Bluetooth:
 
         # CCCD handle is typically value_handle + 1
         cccd_handle = handle + 1
+        print(f"[BT] Subscribing to TX handle {handle} (CCCD {cccd_handle})")
         value = b"\x01\x00" if notify else b"\x00\x00"
 
         try:

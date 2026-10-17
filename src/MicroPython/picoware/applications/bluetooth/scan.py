@@ -22,16 +22,22 @@ def bluetooth_callback(event, data):
         # Format the address
         addr_str = ":".join("{:02X}".format(b) for b in addr)
 
-        # Skip if already seen
-        if addr_str in _addresses:
-            return
-
-        _addresses.append(addr_str)
-
-        # Try to decode the device name
         name = ""
         if _bluetooth is not None:
             name = _bluetooth.decode_name(adv_data)
+
+        if addr_str in _addresses:
+            index = _addresses.index(addr_str)
+            _, _, old_name, _ = _scanned_devices[index]
+            _scanned_devices[index] = (
+                addr_type,
+                bytes(addr),
+                name or old_name,
+                rssi,
+            )
+            return
+
+        _addresses.append(addr_str)
 
         # Store device info
         _scanned_devices.append((addr_type, bytes(addr), name, rssi))
@@ -48,6 +54,12 @@ def bluetooth_callback(event, data):
 
     elif event == 6:  # _IRQ_SCAN_DONE
         _addresses.clear()
+        if _menu is not None:
+            _menu.clear()
+            for addr_type, addr, name, rssi in _scanned_devices:
+                addr_str = ":".join("{:02X}".format(b) for b in addr)
+                display = name if name else addr_str[:17]
+                _menu.add_item(f"{display} ({rssi}dB)")
 
 
 def start(view_manager) -> bool:
@@ -101,7 +113,7 @@ def start(view_manager) -> bool:
     )
     _loading.text = "Scanning..."
 
-    _bluetooth = Bluetooth()
+    _bluetooth = Bluetooth(view_manager.storage)
     _bluetooth.callback = bluetooth_callback
     _bluetooth.scan()
 

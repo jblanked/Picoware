@@ -7,6 +7,10 @@ from .selection import vertex
 
 class GeometryEditing:
     def apply_geometry(self, records, label, selected=None, quads=None):
+        from .animation import active
+        if active(self.animation) and label not in ('Color','Wireframe','Flip winding'):
+            self.dialog=('Animation parts', 'Clear animation and parts before changing topology')
+            return
         from picoware.engine.sprite3d import Sprite3D
         if len(records)%40 or len(records)//40 > self.document_capacity():
             raise ValueError("Triangle limit exceeded")
@@ -58,6 +62,10 @@ class GeometryEditing:
             self.dialog = ("Cleanup failed",str(exc) or "Not enough memory")
 
     def edit_geometry(self, action, color=None):
+        from .animation import active
+        if active(self.animation) and action in ('Duplicate','Delete'):
+            self.dialog=('Animation parts', 'Clear animation and parts before changing topology')
+            return
         try:
             indices = self.selected_triangles()
             if not indices:
@@ -114,6 +122,10 @@ class GeometryEditing:
             self.dialog = ("Edit failed",str(exc) or "Not enough memory")
 
     def create_geometry(self, kind):
+        from .animation import active
+        if active(self.animation):
+            self.dialog=('Animation parts', 'Clear animation and parts before changing topology')
+            return
         try:
             if self.mesh is None:
                 self.new_document()

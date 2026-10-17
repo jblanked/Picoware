@@ -235,6 +235,10 @@ def simplify(records,selected,percent):
 
 class DecimateTools:
     def begin_decimation(self,percent):
+        from .animation import active
+        if active(self.animation):
+            self.dialog=('Animation parts', 'Clear animation and parts before changing topology')
+            return
         backup = None
         try:
             if not isfinite(percent) or not 1<=percent<=100:

@@ -148,7 +148,7 @@ def preview_records_steps(records, center, basis, panel_transform=None, ortho_di
     return (yield from _preview_records_pass(*args,output=output))
 
 
-def _preview_records_pass(records, center, basis, panel_transform=None, ortho_distance=None, wireframe=None, perspective_scale=1.0, culling=True, camera_distance=None, output=None, count_only=False, sink=None):
+def _preview_records_pass(records, center, basis, panel_transform=None, ortho_distance=None, wireframe=None, perspective_scale=1.0, culling=True, camera_distance=None, output=None, count_only=False, sink=None, retain_capacity=False):
     """Build clipped view geometry while leaving live meshes unchanged."""
     from picoware.engine.sprite3d import Sprite3D
     preview_collect()
@@ -181,7 +181,7 @@ def _preview_records_pass(records, center, basis, panel_transform=None, ortho_di
             acx,acy,acz=ex-ax,ey-ay,ez-az
             nx,ny,nz=aby*acz-abz*acy,abz*acx-abx*acz,abx*acy-aby*acx
             facing=nz if ortho_distance is not None else nx*ax+ny*ay+nz*(az+(distance or 0))
-            if facing==0 or (culling and facing<0):continue
+            if (facing==0 and not retain_capacity) or (culling and facing<0):continue
             if facing<0:ax,ay,az,ex,ey,ez=ex,ey,ez,ax,ay,az
         inside=True
         if panel_transform is not None:
@@ -287,6 +287,9 @@ def _preview_records_pass(records, center, basis, panel_transform=None, ortho_di
             pack_into('<9fHBB',output,(count-1)*40,*points,values[9],
                       values[10] if wireframe is None else int(wireframe == 1),0)
     if count_only or sink is not None:return count
+    if retain_capacity:
+        preview_collect()
+        return memoryview(output)[:count*40]
     output[count*40:]=b''
     preview_collect()
     return output

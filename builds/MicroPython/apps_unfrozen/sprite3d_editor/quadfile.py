@@ -20,33 +20,47 @@ def read(storage,path,limit):
     return data
 
 
-def encode(signature,pairs,pivot=None):
+def encode(signature,pairs,pivot=None,animation=None):
     from math import isfinite
     present=1 if pivot is not None else 0
     coordinates=tuple(float(value) for value in pivot) if present else (0.0,0.0,0.0)
     if len(coordinates)!=3 or any(not isfinite(value) or abs(value)>1e12 for value in coordinates):
         raise ValueError('Invalid custom pivot')
-    data=(pack('<4sIIII',b'S3QE',2,signature[0],signature[1],len(pairs)//2)
+    data=(pack('<4sIIII',b'S3QE',3 if animation is not None else 2,signature[0],signature[1],len(pairs)//2)
           +encode_pairs(pairs)+pack('<B3f',present,*coordinates))
+    if animation is not None:
+        from .animation import encode as encode_animation
+        extra=encode_animation(animation,signature[0]//40)
+        data+=pack('<I',len(extra))+extra
     return data+pack('<I',crc32(data))
 
 
-def metadata(data,signature):
+def metadata(data,signature,animation_out=None):
     from math import isfinite
     if len(data)<24:raise ValueError('Incomplete editor metadata')
     magic,version,size,crc,count=unpack_from('<4sIIII',data)
-    if magic!=b'S3QE' or version not in (1,2):raise ValueError('Unsupported editor metadata')
+    if magic!=b'S3QE' or version not in (1,2,3):raise ValueError('Unsupported editor metadata')
     if (size,crc)!=tuple(signature):raise ValueError('Editor metadata belongs to different geometry')
-    expected=24+count*8+(13 if version==2 else 0)
+    expected=24+count*8+(13 if version>=2 else 0)
+    if version==3:
+        if len(data)<expected+4:raise ValueError('Truncated animation metadata')
+        extra_size=unpack_from('<I',data,expected-4)[0]
+        if extra_size>65536:raise ValueError('Animation metadata too large')
+        expected+=4+extra_size
     if len(data)!=expected or unpack_from('<I',data,len(data)-4)[0]!=crc32(data[:-4]):raise ValueError('Corrupt editor metadata')
     pairs=decode_pairs(data[20:20+count*8])
     pivot=None
-    if version==2:
+    if version>=2:
         present,x,y,z=unpack_from('<B3f',data,20+count*8)
         if present not in (0,1):raise ValueError('Invalid custom pivot flag')
         if present:
             pivot=(x,y,z)
             if any(not isfinite(value) or abs(value)>1e12 for value in pivot):raise ValueError('Invalid custom pivot')
+    if version==3:
+        from .animation import decode as decode_animation
+        extra=decode_animation(data[expected-extra_size-4:expected-4],size//40)
+        if animation_out is not None:animation_out[:]=[extra]
+    elif animation_out is not None:animation_out[:]=[None]
     return pairs,pivot
 
 
@@ -62,14 +76,16 @@ def load_steps(storage,path,records,prepared=False,pivot_out=None):
     """Valid empty membership is authoritative; only legacy data is inferred."""
     from .quads import infer_steps,face_steps
     reason='Missing editor metadata'
-    if pivot_out is not None:pivot_out[:]=[None]
+    if pivot_out is not None:pivot_out[:]=[None,None]
     if storage.exists(path+'.editor'):
         try:
-            pairs,pivot=metadata(read(storage,path+'.editor',64+len(records)//10),fingerprint(storage,path))
+            animation_out=[]
+            pairs,pivot=metadata(read(storage,path+'.editor',65604+len(records)//10),fingerprint(storage,path),animation_out)
             state=yield from face_steps(records,pairs)
-            if pivot_out is not None:pivot_out[:]=[pivot]
+            if pivot_out is not None:pivot_out[:]=[pivot,animation_out[0]]
             return (state if prepared else state.pairs),''
-        except (ValueError,OSError) as exc:reason=str(exc)
+        except (ValueError,OSError) as exc:
+            raise ValueError(str(exc)+'; original project preserved')
     pairs=yield from infer_steps(records)
     message=reason+'; inferred '+str(len(pairs)//2)+' quads'
     if prepared:pairs=yield from face_steps(records,pairs)
@@ -145,8 +161,8 @@ def recover(storage,path,rollback=False):
     return complete
 
 
-def save(storage,mesh,path,records,pairs,pivot=None):
-    if not path.lower().endswith('.sprite3d'):raise ValueError('Use a .sprite3d filename')
+def save(storage,mesh,path,records,pairs,pivot=None,animation=None):
+    if not path.lower().endswith(('.sprite3d','.bin')):raise ValueError('Use a .bin or .sprite3d filename')
     if storage.is_directory(path) or storage.is_directory(path+'.editor'):raise ValueError('Destination is a directory')
     if not storage.is_directory(path.rsplit('/',1)[0] or '/'):raise ValueError('Destination folder does not exist')
     recover(storage,path)
@@ -170,7 +186,11 @@ def save(storage,mesh,path,records,pairs,pivot=None):
         # Exact serialized geometry equality permits validating membership once
         # against the source, without allocating a duplicate native mesh.
         Faces(records,pairs)
-        data=encode(signature,pairs,pivot)
+        if animation is not None:
+            from .animation import active,clone
+            if not active(animation):
+                animation=clone(animation);animation['owners']='00'*(len(records)//40)
+        data=encode(signature,pairs,pivot,animation)
         if not storage.write(stages[1],data,'wb'):raise OSError('Could not write staged editor metadata')
         if read(storage,stages[1],len(data))!=data:raise OSError('Incomplete staged editor metadata')
         signatures=(signature,(len(data),crc32(data)))

@@ -98,8 +98,10 @@ class WorkspaceTools:
 
     def history_replace(self,records,context,metadata=None):
         from .quads import history_decode,Faces
-        restored=history_decode(metadata,records) if metadata is not None else (Faces(records),'Model',bytearray(),0,None)
+        animation_out=[None]
+        restored=history_decode(metadata,records,animation_out) if metadata is not None else (Faces(records),'Model',bytearray(),0,None)
         faces,mode,mask,cursor,pivot=restored
+        animation=animation_out[0]
         old=self.isolation;old_mode=self.selection_mode
         same_isolation=(old is not None and context is not None and isolation_mask(old,len(self.records)//40)==isolation_mask(context,len(records)//40))
         if old is not None and (context is old or same_isolation):
@@ -122,9 +124,14 @@ class WorkspaceTools:
             self.history.context=None;self._framed_camera=None
         self.selection_mode,self.selection,self.selection_cursor=mode,mask,cursor
         self.custom_pivot=pivot
+        self.animation=animation
         self.selection_camera=False
 
     def toggle_isolation(self):
+        from .animation import active
+        if active(self.animation):
+            self.dialog=("Animation parts", "Clear animation and parts before isolating geometry")
+            return
         if self.transform or self.pivot_edit or self.model_tool or self.boolean_workflow or self.boolean_preview or self.boolean_job or self.decimation_job:
             self.status='Finish or cancel the current edit before F4';return
         if self.mesh is None:return

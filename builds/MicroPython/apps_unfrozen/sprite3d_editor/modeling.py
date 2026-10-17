@@ -25,6 +25,10 @@ def overlay_text(draw,x,y,text,color,columns):
 
 class ModelingTools:
     def begin_model_tool(self,kind):
+        from .animation import active
+        if active(self.animation):
+            self.dialog=('Animation parts', 'Clear animation and parts before changing topology')
+            return
         if not self.records:self.dialog=('Mesh tool','Create geometry first');return
         if kind in ('Bevel','Fill Hole','Bridge') and self.selection_mode!='Edges':
             self.dialog=('Mesh tool','Choose Edges and select boundary or bevel edges');return

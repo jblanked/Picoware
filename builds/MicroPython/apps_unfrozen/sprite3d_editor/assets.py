@@ -1,7 +1,7 @@
 """Sprite3D validation, whole-model geometry, and transactional saving."""
 
 from math import cos, sin, isfinite, pi
-from struct import unpack_from, pack_into
+from struct import unpack_from, pack_into, pack
 
 
 def record_stride(storage,path,size):
@@ -46,9 +46,12 @@ def load_sprite(storage, path, records=None):
     """Read validated 40-byte triangles and return a native mesh and bounds."""
     from picoware.engine.sprite3d import Sprite3D
 
+    if storage.exists(path+'.mesh-export-journal') or storage.exists(path+'.mesh-export-ready'):
+        from .export_transaction import recover
+        recover(storage,path,'mesh-export')
     size = storage.size(path)
-    if not path.lower().endswith(".sprite3d"):
-        raise ValueError("Choose a .sprite3d file")
+    if not path.lower().endswith((".sprite3d", ".bin")):
+        raise ValueError("Choose a .bin or .sprite3d file")
     stride=record_stride(storage,path,size)
     count = size // stride
     if count > Sprite3D.MAX_TRIANGLES_PER_SPRITE:
@@ -156,40 +159,53 @@ def record_bounds(records):
     return low, high
 
 
-def save_sprite(storage, mesh, path):
+def mesh_export_signature(storage,mesh,path,records=None):
+    """Verify every serialized field against the source, in eight-triangle chunks."""
+    from binascii import crc32
+    from .streams import chunks
+    size=mesh.triangle_count*40
+    if storage.size(path)!=size:raise OSError('Incomplete staged mesh')
+    if records is not None and len(records)!=size:raise ValueError('Mesh and source records disagree')
+    reader=chunks(storage,path,size,320);position=0;crc=0
+    try:
+        for block in reader:
+            for offset in range(0,len(block),40):
+                if records is not None:expected=records[position:position+39]
+                else:
+                    triangle=mesh.get_triangle(position//40)
+                    expected=pack('<9fHB',triangle.x1,triangle.y1,triangle.z1,
+                        triangle.x2,triangle.y2,triangle.z2,triangle.x3,triangle.y3,triangle.z3,
+                        triangle.color,int(triangle.wireframe))
+                    del triangle
+                # The final byte is native struct padding, not a serialized field.
+                if block[offset:offset+39]!=expected:raise OSError('Staged mesh differs from source geometry')
+                position+=40
+            crc=crc32(block,crc)
+            if records is None:
+                from gc import collect
+                collect()
+    finally:reader.close()
+    return size,crc
+
+
+def save_sprite(storage, mesh, path, records=None):
     """Validate a temporary mesh file before replacing the destination."""
-    if not path.lower().endswith(".sprite3d"):
-        raise ValueError("Use a .sprite3d filename")
+    if not path.lower().endswith((".sprite3d", ".bin")):
+        raise ValueError("Use a .bin or .sprite3d filename")
     if storage.is_directory(path):
         raise ValueError("Choose a filename, not a directory")
     parent = path.rsplit("/", 1)[0] or "/"
     if not storage.is_directory(parent):
         raise ValueError("Destination folder does not exist")
-    stem = parent.rstrip("/") + "/.sprite3d-save-"
-    index = 0
-    while storage.exists(stem + str(index) + ".sprite3d") or storage.exists(stem + str(index) + ".bak"):
-        index += 1
-    temporary = stem + str(index) + ".sprite3d"
-    backup = stem + str(index) + ".bak"
-    moved = False
+    from .export_transaction import begin,commit,recover
+    temporary,state=begin(storage,path,'mesh-export')
     try:
         if not mesh.to_path(temporary):
             raise OSError("Could not write temporary file")
         if storage.size(temporary) != mesh.triangle_count * 40:
             raise OSError("Incomplete save: %d/%d bytes" % (storage.size(temporary), mesh.triangle_count * 40))
+        signature=mesh_export_signature(storage,mesh,temporary,records)
         check, _low, _high = load_sprite(storage, temporary)
         check.clear_triangles()
-        if storage.exists(path):
-            if not storage.rename(path, backup):
-                raise OSError("Could not preserve original file")
-            moved = True
-        if not storage.rename(temporary, path):
-            if moved and not storage.rename(backup, path):
-                raise OSError("Original retained at " + backup)
-            moved = False
-            raise OSError("Could not replace destination")
-        if moved:
-            storage.remove(backup)
-    finally:
-        if storage.exists(temporary):
-            storage.remove(temporary)
+        commit(storage,path,'mesh-export',state,signature)
+    finally:recover(storage,path,'mesh-export')

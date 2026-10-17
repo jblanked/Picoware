@@ -14,6 +14,16 @@ class EditorUI:
     """Draw editor controls above the model preview."""
 
     def menu_items(self, parent=False):
+        items=self._base_menu_items(parent)
+        from .animation import active
+        if not active(self.animation):return items
+        blocked=()
+        if self.menu==2:
+            blocked=range(len(items)) if self.submenu and not parent else (8,9,12,14,15,16)
+        elif self.menu==4:blocked=range(1,len(items))
+        return tuple((name,enabled and i not in blocked) for i,(name,enabled) in enumerate(items))
+
+    def _base_menu_items(self, parent=False):
         """Return the active dropdown's labels and enabled state."""
         loaded = self.mesh is not None
         geometry = bool(self.records)
@@ -28,8 +38,9 @@ class EditorUI:
             return ()
         if self.menu == 0:
             document_geometry=geometry or bool(self.isolation and self.isolation["hidden"][1])
-            return (("New", True), ("Open", True), ("Save", document_geometry),
-                    ("Save As", document_geometry), ("Settings...", True), ("Quit", True))
+            return (("New", True), ("Open", True), ("Save Project", document_geometry),
+                    ("Save Project As", document_geometry), ("Settings...", True), ("Quit", True),
+                    ("Animate...", geometry), ("Export Game Asset...", geometry))
         if self.menu == 1:
             if parent or not self.submenu:
                 return (("Camera >", loaded), ("Shading >", True),
@@ -335,6 +346,9 @@ class EditorUI:
         # Quit can stop this instance and draw the parent inside an input callback.
         # Its remaining dialog/naming code must never repaint over that view.
         if self._closed or self._camera_job is not None:
+            return
+        if self.animation_ui is not None:
+            self.draw_animation()
             return
         if self.viewer is not None or self.save_as or (self.model_tool is not None and self.model_tool["numeric"]):
             return

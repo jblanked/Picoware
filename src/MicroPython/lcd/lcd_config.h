@@ -18,6 +18,7 @@
 #define LCD_MP_BLIT picocalc_lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
 #define LCD_MP_BLIT_MASK lcd_blit_mask
+#define LCD_GET_MODE lcd_get_mode
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_PSRAM lcd_psram

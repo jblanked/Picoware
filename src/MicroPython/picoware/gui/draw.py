@@ -22,6 +22,7 @@ class Draw(lcd.LCD):
         fill_triangle(point1, point2, point3, color=None): Draw a filled triangle
         fill_triangle_alpha(point1, point2, point3, color=None, alpha=255): Draw a filled triangle with alpha blending
         get_font(font_size=0): Get the FontSize object for a given font size
+        get_mode(): Get the current LCD mode (PSRAM or HEAP)
         image(position, img): Draw an image object to the back buffer
         image_bmp(position, path, storage=None): Draw a 24-bit BMP image from a file path
         image_jpeg(position, path, storage=None): Draw a JPEG image from a file path
@@ -49,6 +50,7 @@ class Draw(lcd.LCD):
         background (int): The current background color.
         font (int): The default font size.
         font_size (Vector): The size of the font as a Vector.
+        mode (int): The current LCD mode (PSRAM or HEAP).
         size (Vector): The size of the display as a Vector.
         use_lvgl (bool): Whether the LVGL library is being used for drawing.
     """

@@ -190,6 +190,14 @@ void lcd_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         {
             destination[0] = mp_obj_new_bool(self->scale_position);
         }
+        else if (attribute == MP_QSTR_mode)
+        {
+#ifdef LCD_GET_MODE
+            destination[0] = mp_obj_new_int(LCD_GET_MODE());
+#else
+            destination[0] = mp_obj_new_int(0); // PSRAM
+#endif
+        }
         else if (attribute == MP_QSTR___del__)
         {
             destination[0] = MP_OBJ_FROM_PTR(&lcd_mp_del_obj);
@@ -828,6 +836,22 @@ mp_obj_t lcd_mp_fill_triangle_alpha(size_t n_args, const mp_obj_t *args)
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_triangle_alpha_obj, 9, 9, lcd_mp_fill_triangle_alpha);
+
+mp_obj_t lcd_mp_get_mode(mp_obj_t self_in)
+{
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+
+#ifdef LCD_GET_MODE
+    return mp_obj_new_int(LCD_GET_MODE());
+#else
+    return mp_obj_new_int(0); // PSRAM
+#endif
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(lcd_mp_get_mode_obj, lcd_mp_get_mode);
 
 mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
 {
@@ -1581,6 +1605,7 @@ static const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__fill_round_rectangle), MP_ROM_PTR(&lcd_mp_fill_round_rectangle_obj)}, // self._fill_round_rectangle()
     {MP_ROM_QSTR(MP_QSTR__fill_triangle), MP_ROM_PTR(&lcd_mp_fill_triangle_obj)},               // self._fill_triangle()
     {MP_ROM_QSTR(MP_QSTR__fill_triangle_alpha), MP_ROM_PTR(&lcd_mp_fill_triangle_alpha_obj)},   // self._fill_triangle_alpha()
+    {MP_ROM_QSTR(MP_QSTR_get_mode), MP_ROM_PTR(&lcd_mp_get_mode_obj)},                          // self.get_mode()
     {MP_ROM_QSTR(MP_QSTR__bytearray), MP_ROM_PTR(&lcd_mp_image_bytearray_obj)},                 // self._bytearray()
     {MP_ROM_QSTR(MP_QSTR__line), MP_ROM_PTR(&lcd_mp_line_obj)},                                 // self._line()
     {MP_ROM_QSTR(MP_QSTR__pixel), MP_ROM_PTR(&lcd_mp_pixel_obj)},                               // self._pixel()

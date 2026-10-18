@@ -49,6 +49,7 @@ extern "C"
     void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, FontSize size);
 
     void lcd_set_mode(uint8_t mode);
+    uint8_t lcd_get_mode(void);
 
     // reads from a PSRAM address and writes to the LCD
     void lcd_psram(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint32_t addr);

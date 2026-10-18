@@ -522,7 +522,8 @@ void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
                 }
                 if (opaque)
                 {
-                    if (!length) start = dc;
+                    if (!length)
+                        start = dc;
                     span[length++] = buffer[pixel];
                 }
                 if (length && (!opaque || length == PSRAM_CHUNK_SIZE))
@@ -1593,6 +1594,11 @@ void lcd_set_mode(uint8_t mode)
     }
 
     lcd_mode = mode;
+}
+
+uint8_t lcd_get_mode(void)
+{
+    return lcd_mode;
 }
 
 void lcd_psram(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint32_t addr)

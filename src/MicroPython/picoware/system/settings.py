@@ -424,8 +424,8 @@ class Settings:
             self._path,
         )
 
-    @classmethod
-    def get(cls, storage, key: str, default=None):
+    @staticmethod
+    def get(storage, key: str, default=None):
         """Get a setting value from storage.
 
         Args:

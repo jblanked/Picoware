@@ -76,29 +76,29 @@ class Session:
         self.conversation.extend(messages)
         return self._save()
 
-    @classmethod
-    def delete(cls, storage, session_id: str) -> bool:
+    @staticmethod
+    def delete(storage, session_id: str) -> bool:
         """Deletes the session with the specified ID from the storage backend."""
         _path = "picoware/agent/sessions/%s.json" % session_id
         if storage.exists(_path):
             return storage.remove(_path)
         return False
 
-    @classmethod
-    def delete_index(cls, storage, index: int) -> bool:
+    @staticmethod
+    def delete_index(storage, index: int) -> bool:
         """Deletes the session at the specified index from the storage backend."""
-        session_ids = cls.ls(storage)
+        session_ids = Session.ls(storage)
         if 0 <= index < len(session_ids):
-            return cls.delete(storage, session_ids[index])
+            return Session.delete(storage, session_ids[index])
         return False
 
-    @classmethod
-    def exists(cls, storage, session_id: str) -> bool:
+    @staticmethod
+    def exists(storage, session_id: str) -> bool:
         """Checks if a session with the given ID exists in the storage backend."""
         return storage.exists("picoware/agent/sessions/%s.json" % session_id)
 
-    @classmethod
-    def get_conversation(cls, storage, session_id: str) -> list:
+    @staticmethod
+    def get_conversation(storage, session_id: str) -> list:
         """Retrieves the conversation history for the specified session ID from the storage backend."""
         _path = "picoware/agent/sessions/%s.json" % session_id
         if not storage.exists(_path):
@@ -110,16 +110,10 @@ class Session:
 
     def list(self) -> list:
         """Returns a list of all session IDs stored in the storage backend."""
-        session_path = "picoware/agent/sessions"
-        sessions = []
-        for entry in self._storage.listdir(session_path):
-            name = entry.rsplit("/", 1)[-1]
-            if name.endswith(".json") and name.startswith("session_"):
-                sessions.append(name[:-5])
-        return sessions
+        return Session.ls(self._storage)
 
-    @classmethod
-    def ls(cls, storage) -> list:
+    @staticmethod
+    def ls(storage) -> list:
         """Returns a list of all session IDs stored in the storage backend."""
         session_path = "picoware/agent/sessions"
         sessions = []

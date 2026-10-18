@@ -95,10 +95,7 @@ class ViewManager:
             self._foreground_color = TFT_BLACK
 
         # Initialize drawing system
-        self._draw = Draw(self._foreground_color, self._background_color)
-
-        # on screen keyboard
-        _keyboard_state = settings.onscreen_keyboard
+        self._draw = Draw(self._foreground_color, self._background_color, lcd_mode=settings.lcd_mode)
 
         # LVGL mode
         self._draw.use_lvgl = settings.lvgl_mode
@@ -352,11 +349,25 @@ class ViewManager:
         return BOARD_HAS_BLUETOOTH == 1
 
     @property
+    def has_esp32(self):
+        """Return whether the current board is an ESP32."""
+        from picoware.system.boards import BOARD_HAS_ESP32
+
+        return BOARD_HAS_ESP32 == 1
+
+    @property
     def has_keyboard(self):
         """Return whether the current board has a keyboard."""
         from picoware.system.boards import BOARD_HAS_KEYBOARD
 
         return BOARD_HAS_KEYBOARD == 1
+
+    @property
+    def has_picocalc(self):
+        """Return whether the current board is a PicoCalc."""
+        from picoware.system.boards import BOARD_HAS_PICOCALC
+
+        return BOARD_HAS_PICOCALC == 1
     
     @property
     def has_psram(self):

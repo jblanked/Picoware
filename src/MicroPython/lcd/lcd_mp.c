@@ -129,10 +129,10 @@ void lcd_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kin
 
 mp_obj_t lcd_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
-    // Arguments: (scale_x, scale_y, scale_position) - all optional, default to 1.0 and false
-    if (n_args > 3)
+    // Arguments: (scale_x, scale_y, scale_position, lcd_mode)
+    if (n_args > 4)
     {
-        mp_raise_TypeError(MP_ERROR_TEXT("LCD constructor takes at most 3 arguments: scale_x, scale_y, and scale_position"));
+        mp_raise_TypeError(MP_ERROR_TEXT("LCD constructor takes at most 4 arguments: scale_x, scale_y, scale_position, and lcd_mode"));
     }
     mp_engine_gc_ready = true;
     lcd_mp_obj_t *self = mp_obj_malloc_with_finaliser(lcd_mp_obj_t, &lcd_mp_type);
@@ -142,8 +142,14 @@ mp_obj_t lcd_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     self->scale_x = n_args >= 1 ? mp_obj_get_float(args[0]) : 1.0f;
     self->scale_y = n_args >= 2 ? mp_obj_get_float(args[1]) : 1.0f;
     self->scale_set = self->scale_x != 1.0f || self->scale_y != 1.0f;
-    self->scale_position = n_args == 3 ? mp_obj_is_true(args[2]) : false;
+    self->scale_position = n_args >= 3 ? mp_obj_is_true(args[2]) : false;
     LCD_MP_INIT();
+#ifdef LCD_MP_SET_MODE
+    if (n_args == 4)
+    {
+        LCD_MP_SET_MODE((uint8_t)mp_obj_get_int(args[3]));
+    }
+#endif
     self->initialized = true;
     return MP_OBJ_FROM_PTR(self);
 }

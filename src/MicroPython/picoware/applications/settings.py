@@ -10,6 +10,7 @@ STATE_DEEPSEEK_API_KEY = const(3)  # keyboard input for DeepSeek API key
 STATE_EXIT_BUTTON = const(4)  # selection to choose which button triggers app exits
 STATE_GEMINI_API_KEY = const(5)  # keyboard input for Gemini API key
 STATE_JBLANKED_API_KEY = const(6)  # keyboard input for jblanked API key
+STATE_LCD_MODE = const(19)  # choice (select LCD mode: PSRAM or HEAP)
 STATE_LOCAL_API_KEY = const(7)  # keyboard input for local API key
 STATE_LOCAL_URL = const(8)  # keyboard input for Local URL
 STATE_LVGL_MODE = const(17)  # toggle (use LVGL or not)
@@ -128,6 +129,7 @@ def __config() -> tuple:
         ("Exit Button", "exit_button", None),
         ("Gemini API Key", "gemini_api_key", ""),
         ("JBlanked API Key", "jblanked_api_key", ""),
+        ("LCD Mode", "lcd_mode", 0),
         ("Local API Key", "local_api_key", ""),
         ("Local URL", "local_url", "http://127.0.0.1:8080/v1/chat/completions"),
         ("MCP Servers", "mcp_servers", None),
@@ -367,6 +369,41 @@ def __open_choice_brightness() -> None:
         "Screen Brightness",
         _brightness_options,
         initial_index,
+        _view_manager.foreground_color,
+        _view_manager.background_color,
+    )
+    _choice.draw()
+    _mode = _MODE_CHOICE
+
+
+def __open_lcd_mode_choice() -> None:
+    """Open a Choice sub-view for the LCD mode setting."""
+    global _choice, _mode, _current_setting
+    from picoware.gui.choice import Choice
+    from picoware.system.vector import Vector
+
+    _current_setting = STATE_LCD_MODE
+    current_mode = _settings.lcd_mode
+
+    # Ensure current_mode is valid (0 or 1)
+    if current_mode not in (0, 1):
+        current_mode = 0
+
+    draw = _view_manager.draw
+    draw.erase()
+    if _choice is not None:
+        del _choice
+        _choice = None
+
+    _lcd_modes = ["PSRAM", "HEAP"]
+
+    _choice = Choice(
+        draw,
+        Vector(0, 0),
+        draw.size,
+        "LCD Mode",
+        _lcd_modes,
+        current_mode,
         _view_manager.foreground_color,
         _view_manager.background_color,
     )
@@ -934,7 +971,8 @@ def start(view_manager) -> bool:
     )
 
     for cfg in __config():
-        _menu.add_item(cfg[0])
+        if cfg[0] != "LCD_MODE" or view_manager.has_psram:
+            _menu.add_item(cfg[0])
 
     _menu.draw()
     return True
@@ -988,6 +1026,8 @@ def run(view_manager) -> None:
                 __open_xai_keyboard()
             elif selected == "Screen Brightness":
                 __open_choice_brightness()
+            elif selected == "LCD Mode":
+                __open_lcd_mode_choice()
             elif selected == "JBlanked API Key":
                 __open_jblanked_keyboard()
             elif selected == "Local API Key":
@@ -1224,6 +1264,12 @@ def run(view_manager) -> None:
                 selected_value = int(_choice.options[_choice.state])
                 _settings.screen_brightness = selected_value
                 _view_manager.draw.set_brightness(selected_value)
+            elif _current_setting == STATE_LCD_MODE:
+                _settings.lcd_mode = _choice.state
+                from picoware.system.system import System
+                
+                s = System()
+                s.hard_reset()
             __back_to_menu()
 
 

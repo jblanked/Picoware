@@ -60,6 +60,7 @@ class Draw(lcd.LCD):
         scale_x: float = 1.0,
         scale_y: float = 1.0,
         scale_position: bool = False,
+        lcd_mode: int = 0,
     ) -> None:
         """Initialize the drawing context with colors and scaling.
 
@@ -69,8 +70,9 @@ class Draw(lcd.LCD):
             scale_x (float): Horizontal scaling factor for drawing operations. Defaults to 1.0.
             scale_y (float): Vertical scaling factor for drawing operations. Defaults to 1.0.
             scale_position (bool): Whether to scale drawn element positions. Defaults to False.
+            lcd_mode (int): The LCD mode (PSRAM or HEAP). Defaults to PSRAM.
         """
-        super().__init__(scale_x, scale_y, scale_position)
+        super().__init__(scale_x, scale_y, scale_position, lcd_mode)
 
         self._background = background
         self._foreground = foreground

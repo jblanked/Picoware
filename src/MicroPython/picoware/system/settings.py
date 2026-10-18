@@ -28,6 +28,7 @@ class Settings:
             "gemini_api_key": "",
             "gmt_offset": 0,
             "jblanked_api_key": "",
+            "lcd_mode": 0,
             "local_url": "http://127.0.0.1:8080/v1/chat/completions",
             "lvgl_mode": False,
             "mcp_servers": [],
@@ -52,6 +53,7 @@ class Settings:
                 "gemini_api_key": "",
                 "gmt_offset": int(self.__fetch_setting("picoware/settings/gmt_offset.json", "gmt_offset", 0)),
                 "jblanked_api_key": "",
+                "lcd_mode": 0,
                 "local_api_key": "",
                 "local_url": "http://127.0.0.1:8080/v1/chat/completions",
                 "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
@@ -180,6 +182,21 @@ class Settings:
             value (int): The GMT offset in hours.
         """
         self._settings["gmt_offset"] = value
+        self.__save_settings()
+
+    @property
+    def lcd_mode(self) -> int:
+        """Return the current LCD mode."""
+        return int(self._settings.get("lcd_mode", 0))
+
+    @lcd_mode.setter
+    def lcd_mode(self, value: int):
+        """Set the LCD mode.
+
+        Args:
+            value (int): The LCD mode to set.
+        """
+        self._settings["lcd_mode"] = value
         self.__save_settings()
 
     @property

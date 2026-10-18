@@ -8,7 +8,7 @@ class ViewManager:
     FREQ_DEFAULT = 200000000
     FREQ_RP2040 = 200000000  # was 210 but users had issues
     FREQ_RP2350 = 240000000
-    FREQ_PIMORONI = 210000000
+    FREQ_PIMORONI = 220000000
 
     _CORE_MODULES = {
         "picoware.gui.draw",

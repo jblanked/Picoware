@@ -34,9 +34,11 @@ the Raspberry Pi SDK continues initializing the onboard chip.
 
 This trades ordinary Python heap capacity for faster internal-SRAM access.
 Applications which relied on several megabytes of automatic Python allocations
-must use explicit storage or be adapted. The shared Picoware clock setting stays
-unchanged at 210 MHz for Pimoroni; no display or motherboard PSRAM timing changes
-are required by this contribution.
+must use explicit storage or be adapted. The Pimoroni target defaults to 220 MHz
+(previously 210 MHz), matching the reporter's working configuration. Other board
+clock defaults are unchanged. No display or motherboard PSRAM timing changes
+are required by this contribution. Stability at 220 MHz has been reported on the
+reporter's device; broader hardware validation is still pending.
 
 ## Usage
 

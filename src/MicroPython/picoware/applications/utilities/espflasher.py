@@ -24,7 +24,9 @@ def _flash(view_manager, firmware_path: str, chip: str = "esp32s2") -> bool:
             reset = Pin(Pin.cpu.B2, Pin.OUT) # on devboard, its the 6th pin from the left (RTS/EN)
             gpio0 = Pin(Pin.cpu.C3, Pin.OUT) # on devboard, its the 7th pin from the left (DTR/BOOT)
         elif BOARD_HAS_PICOCALC == 1:
-            raise ValueError(f"Unsupported board ID: {_id}\nThis is not supported for PicoCalc.")
+            # 2 = reset, 3 = gpio0, 4 = TX, 5 = RX
+            reset = Pin(2, Pin.OUT)
+            gpio0 = Pin(3, Pin.OUT)
         else:
             raise ValueError(f"Unsupported board ID: {_id}\nContact JBlanked to add support for this board.")
 
@@ -74,6 +76,10 @@ _file_browser = None
 
 def start(view_manager) -> bool:
     """Start the app"""
+    if view_manager.has_picocalc and view_manager.draw.mode != 1:
+        view_manager.alert("PicoCalc requires Heap mode. Change in: Settings -> LCD Mode -> Heap\nNote: This is really only possible on the Pico2/Pico2w/Pimoroni2w but may work on the Pico.")
+        return False
+    
     global _file_browser
     
     _file_browser = FileBrowser(

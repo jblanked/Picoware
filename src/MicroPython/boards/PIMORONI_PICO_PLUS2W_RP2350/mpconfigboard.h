@@ -27,3 +27,6 @@ int mp_hal_is_pin_reserved(int n);
 
 // PSRAM Settings
 #define MICROPY_GC_SPLIT_HEAP                   (0)
+// Keep ordinary Python allocations in SRAM; use pimoram for onboard PSRAM.
+// tools/prepare-pimoroni-psram.py installs the corresponding RP2 heap branch.
+#define PICOWARE_SRAM_ONLY_GC                   (1)

@@ -13,6 +13,25 @@ def __set_text(view_manager):
 
     if _system_info:
         system = System()
+        psram_label = "PSRAM"
+        pimoram_info = ""
+        try:
+            import pimoram
+        except ImportError:
+            pass
+        else:
+            psram_label = "PicoCalc PSRAM"
+            if pimoram.available():
+                total = pimoram.total()
+                free = pimoram.free()
+                pimoram_info = (
+                    "\n        Pimoroni PSRAM (pimoram)\n"
+                    f"        Free: {free} bytes\n"
+                    f"        Used/reserved: {total - free} bytes\n"
+                    f"        Total: {total} bytes\n"
+                )
+            else:
+                pimoram_info = "\n        Pimoroni PSRAM (pimoram): unavailable\n"
         info = f"""System Information
         
         Board: {system.board_name}
@@ -23,10 +42,10 @@ def __set_text(view_manager):
         Used Heap: {system.used_heap} bytes
         Total Heap: {system.total_heap} bytes
 
-        Free PSRAM: {system.free_psram} bytes
-        Used PSRAM: {system.used_psram} bytes
-        Total PSRAM: {system.total_psram} bytes
-
+        Free {psram_label}: {system.free_psram} bytes
+        Used {psram_label}: {system.used_psram} bytes
+        Total {psram_label}: {system.total_psram} bytes
+{pimoram_info}
         Free Flash: {system.free_flash} bytes
         Used Flash: {system.used_flash} bytes
         Total Flash: {system.total_flash} bytes

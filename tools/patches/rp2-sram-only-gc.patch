@@ -1,0 +1,15 @@
+--- a/ports/rp2/main.c
++++ b/ports/rp2/main.c
+@@ -147,7 +147,10 @@
+     // Initialise stack extents and GC heap.
+     mp_cstack_init_with_top(&__StackTop, &__StackTop - &__StackBottom);
+-
++
+-    #if MICROPY_HW_ENABLE_PSRAM
++    #if defined(PICOWARE_SRAM_ONLY_GC) && PICOWARE_SRAM_ONLY_GC
++    // PSRAM is initialized by the SDK; reserve it for explicit allocations.
++    gc_init(&__GcHeapStart, &__GcHeapEnd);
++    #elif MICROPY_HW_ENABLE_PSRAM
+     size_t psram_size = psram_get_size(); // 0 if PSRAM was not brought up
+     if (psram_size) {
+         // Use PSRAM from the end of any __in_psram data up to the top of the chip.

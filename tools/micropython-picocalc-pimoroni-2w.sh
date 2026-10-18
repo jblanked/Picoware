@@ -1,10 +1,15 @@
 #!/bin/sh
+set -eu
 # Script to build and install the MicroPython version of Picoware 
 echo "Building MicroPython Picoware firmware for PicoCalc Pimoroni 2W..."
 
-# set your locations
-micropython_dir="/Users/user/pico/micropython/ports/rp2"
-picoware_dir="/Users/user/Desktop/Picoware"
+# Override these paths through the environment if needed.
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+micropython_dir="${MICROPYTHON_DIR:-$HOME/pico/micropython/ports/rp2}"
+picoware_dir="${PICOWARE_DIR:-$(CDPATH= cd -- "$script_dir/.." && pwd)}"
+
+# Fail before cleaning/building if the dependency cannot keep the Python heap in SRAM.
+python3 "$picoware_dir/tools/prepare-pimoroni-psram.py" "$micropython_dir/../.."
 
 echo "Using MicroPython directory: $micropython_dir"
 echo "Using Picoware directory: $picoware_dir"
@@ -111,7 +116,7 @@ cp -r "$picoware_dir"/src/MicroPython/picoware "$micropython_dir"/modules/picowa
 cp -r "$picoware_dir"/src/MicroPython/boards/PIMORONI_PICO_PLUS2W_RP2350 "$micropython_dir"/boards
 
 # copy pIMORONI_PICO_PLUS2W_RP2350.h to PicoSDK boards include directory
-cp "$picoware_dir"/src/MicroPython/boards/PIMORONI_PICO_PLUS2W_RP2350/pIMORONI_PICO_PLUS2W_RP2350.h "$micropython_dir"/../../lib/pico-sdk/src/boards/include/boards/
+cp "$picoware_dir"/src/MicroPython/boards/PIMORONI_PICO_PLUS2W_RP2350/pimoroni_pico_plus2w_rp2350.h "$micropython_dir"/../../lib/pico-sdk/src/boards/include/boards/
 
 # ensure PicoCalc modules directory exists
 mkdir -p "$micropython_dir"/modules/PicoCalc
@@ -122,6 +127,7 @@ cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_keyboard "$micropython_d
 cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_lcd "$micropython_dir"/modules/PicoCalc/picoware_lcd
 cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_lvgl "$micropython_dir"/modules/PicoCalc/picoware_lvgl
 cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_psram "$micropython_dir"/modules/PicoCalc/picoware_psram
+cp -r "$picoware_dir"/src/MicroPython/PicoCalc/pimoram "$micropython_dir"/modules/PicoCalc/pimoram
 
 # copy sd module
 cp -r "$picoware_dir"/src/MicroPython/sd "$micropython_dir"/modules/sd

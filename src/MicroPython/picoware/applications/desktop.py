@@ -1,4 +1,5 @@
 """Desktop - Animated desktop home screen."""
+from utime import ticks_ms
 
 class PicowareAnimation:
     """Class to draw "Picoware" animation"""
@@ -164,7 +165,8 @@ _desktop_update_parsed = False
 _desktop_http = None
 _desktop_request_cancelled = False
 _desktop_update_available = False
-
+_desktop_start_time = None
+_desktop_low_power_mode = False
 
 def start(view_manager) -> bool:
     """Start the loading animation.
@@ -177,7 +179,10 @@ def start(view_manager) -> bool:
     """
     from picoware.gui.desktop import Desktop
 
-    global _desktop, _desktop_picoware, _has_wifi, _desktop_request_cancelled, _desktop_update_fetched, _desktop_update_parsed, _desktop_update_available
+    global _desktop, _desktop_picoware, _has_wifi, _desktop_request_cancelled, _desktop_update_fetched, _desktop_update_parsed, _desktop_update_available, _desktop_start_time, _desktop_low_power_mode
+
+    _desktop_start_time = ticks_ms()
+    _desktop_low_power_mode = False
 
     if _desktop is None:
         _desktop = Desktop(
@@ -222,9 +227,14 @@ def run(view_manager) -> None:
     """
     from picoware.system.buttons import BUTTON_LEFT, BUTTON_CENTER, BUTTON_UP
 
-    global _desktop_time_updated, _desktop_update_fetched, _desktop_update_parsed, _desktop_http, _desktop_update_available
+    global _desktop_time_updated, _desktop_update_fetched, _desktop_update_parsed, _desktop_http, _desktop_update_available, _desktop_low_power_mode
 
     button: int = view_manager.button
+
+    if _desktop_start_time is not None and not _desktop_low_power_mode and ticks_ms() - _desktop_start_time > 30 * 1000:
+        view_manager.low_power_mode(True)
+        _desktop_low_power_mode = True
+        return
 
     if button == BUTTON_LEFT:
         from picoware.applications.system import system_info
@@ -252,6 +262,14 @@ def run(view_manager) -> None:
 
     battery_level: int = view_manager.battery.percentage
     _desktop.set_battery(battery_level)
+
+    if _desktop_low_power_mode:
+        view_manager.draw.erase()
+        _desktop.draw_header(False)
+        _desktop.set_time(view_manager.time.time)
+        _desktop_picoware.draw()
+        view_manager.draw.swap()
+        return
 
     # Clear and draw header
     view_manager.draw.erase()
@@ -364,6 +382,11 @@ def stop(view_manager) -> None:
     global _desktop_time_updated
     global _has_wifi
     global _desktop_request_cancelled
+    global _desktop_low_power_mode
+
+    if _desktop_low_power_mode:
+        view_manager.low_power_mode(False)
+        _desktop_low_power_mode = False
 
     if _desktop:
         del _desktop
@@ -373,7 +396,6 @@ def stop(view_manager) -> None:
         _desktop_picoware = None
 
     _desktop_time_updated = view_manager.time.is_set
-    _has_wifi = True
     _desktop_request_cancelled = _desktop_update_parsed is False
 
     collect()

@@ -742,6 +742,30 @@ class ViewManager:
         """
         return self._log.log(message, log_type)
 
+    def low_power_mode(self, enable: bool = True):
+        """Enter or exit the low power mode.
+
+        Args:
+            enable (bool): True to enter low power mode, False to exit. Defaults to True.
+        """
+        from gc import collect
+        if enable:
+            del self._wifi
+            self._wifi = None
+            del self._bluetooth
+            self._bluetooth = None
+            self._draw.set_brightness(10)
+        else:
+            if self.has_wifi:
+                from picoware.system.wifi import WiFi
+                self._wifi = WiFi(self)
+            # bluetooth can start itself when needed
+            from picoware.system.settings import Settings
+            _settings = Settings(self._storage)
+            self._draw.set_brightness(_settings.screen_brightness)
+        collect()
+
+
     def remove(self, view_name: str):
         """Remove a view by name.
 

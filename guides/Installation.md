@@ -70,7 +70,7 @@ The fourth option is to download (and extract) this repository as a ZIP file, th
 ## POOM
 1. Download this repository as a ZIP file and extract it.
 2. Update the environment variables within the `tools/micropython-poom-flash.sh` script to match your setup.
-3. Hold the `Boot` button (upper-right button) on your POOM while connecting it to your computer using a USB-C cable until your computer recognizes a new storage device (at least 3 seconds).
+3. Hold the `Boot` button (upper-right button) on your POOM while turning on the device (for at least 3 seconds). Then, connect it to your computer using a USB-C cable.
 4. Run the `tools/micropython-poom-flash.sh` script, passing the port your board is on (`--port /dev/ttyUSB0` for example).
 
 Optionally, you can also download the `Picoware-POOM.bin` file from the `builds/MicroPython` directory and flash it with your favorite flashing tool.

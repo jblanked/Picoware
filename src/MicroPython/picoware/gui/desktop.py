@@ -1098,6 +1098,7 @@ class Desktop:
         system = System()
         self.name = system.device_name
         self.has_wifi = system.has_wifi
+        self.has_bluetooth = system.has_bluetooth
         self.display = draw
         self.text_color = text_color
         self.background_color = background_color
@@ -1208,11 +1209,12 @@ class Desktop:
         )
         self.display.swap()
 
-    def draw_header(self, wifi_is_connected: bool = True) -> None:
+    def draw_header(self, wifi_is_connected: bool = True, bluetooth_is_connected: bool = True) -> None:
         """Draw the header with the board name and Wi-Fi status.
 
         Args:
             wifi_is_connected (bool): Whether Wi-Fi is connected. Defaults to True.
+            bluetooth_is_connected (bool): Whether Bluetooth is connected. Defaults to True.
         """
         # draw board name
         if self.draw_name:
@@ -1244,7 +1246,7 @@ class Desktop:
                 self.bluetooth_pos.y,
                 self.bluetooth_size.x,
                 self.bluetooth_size.y,
-                (_BLUETOOTH_ON_BLACK if self.has_wifi else _BLUETOOTH_OFF_BLACK),
+                (_BLUETOOTH_ON_BLACK if self.has_bluetooth and bluetooth_is_connected else _BLUETOOTH_OFF_BLACK),
                 not self.is_dark_mode,
             )
 

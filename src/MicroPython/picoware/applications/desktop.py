@@ -286,7 +286,7 @@ def run(view_manager) -> None:
 
     if _desktop_low_power_mode:
         view_manager.draw.erase()
-        _desktop.draw_header(False)
+        _desktop.draw_header(False, view_manager._bluetooth is not None)
         _desktop.set_time(view_manager.time.time)
         _desktop_picoware.draw()
         view_manager.draw.swap()
@@ -294,7 +294,7 @@ def run(view_manager) -> None:
 
     # Clear and draw header
     view_manager.draw.erase()
-    _desktop.draw_header(False if not _has_wifi else view_manager.wifi.is_connected())
+    _desktop.draw_header(view_manager._wifi.is_connected(), view_manager._bluetooth is not None)
 
     # Draw animated picoware text every frame
     _desktop_picoware.draw()

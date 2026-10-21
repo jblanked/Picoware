@@ -32,6 +32,18 @@ mp_obj_t cardputer_battery_init(void)
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(cardputer_battery_init_obj, cardputer_battery_init);
 
+mp_obj_t cardputer_battery_shutdown(void)
+{
+    esp_err_t err = battery_shutdown();
+    if (err != ESP_OK)
+    {
+        mp_raise_msg_varg(&mp_type_RuntimeError,
+                          MP_ERROR_TEXT("battery_shutdown failed: %d"), err);
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(cardputer_battery_shutdown_obj, cardputer_battery_shutdown);
+
 mp_obj_t cardputer_battery_get_voltage(void)
 {
     float voltage_v = 0.0f;
@@ -75,6 +87,7 @@ static MP_DEFINE_CONST_FUN_OBJ_0(cardputer_battery_get_percentage_obj,
 static const mp_rom_map_elem_t cardputer_battery_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_cardputer_battery)},
     {MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&cardputer_battery_init_obj)},
+    {MP_ROM_QSTR(MP_QSTR_shutdown), MP_ROM_PTR(&cardputer_battery_shutdown_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_voltage), MP_ROM_PTR(&cardputer_battery_get_voltage_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_percentage), MP_ROM_PTR(&cardputer_battery_get_percentage_obj)},
 };

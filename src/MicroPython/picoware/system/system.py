@@ -207,7 +207,19 @@ class System:
         Args:
             view_manager (ViewManager): Optional manager to show a shutdown alert. Defaults to None.
         """
-        from picoware_boards import BOARD_HAS_PSRAM, BOARD_ID, BOARD_FLIPPER_ZERO
+        from picoware_boards import (
+            BOARD_HAS_PSRAM, BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_WAVESHARE_C6_2_06
+        )
+
+        if BOARD_ID == BOARD_WAVESHARE_C6_2_06:
+            from os import sync
+            from time import sleep_ms
+            from cardputer_battery import shutdown
+
+            sync()
+            shutdown()
+            sleep_ms(1000)
+            raise RuntimeError("Shutdown did not complete")
 
         if BOARD_ID == BOARD_FLIPPER_ZERO:
             from flipper_battery import shutdown

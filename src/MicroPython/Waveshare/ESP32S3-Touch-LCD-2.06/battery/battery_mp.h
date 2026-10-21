@@ -11,6 +11,7 @@ extern "C"
 #include "py/mphal.h"
 
     mp_obj_t cardputer_battery_init(void);
+    mp_obj_t cardputer_battery_shutdown(void);
     mp_obj_t cardputer_battery_get_voltage(void);
     mp_obj_t cardputer_battery_get_percentage(void);
 

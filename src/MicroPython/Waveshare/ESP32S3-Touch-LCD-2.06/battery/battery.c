@@ -29,6 +29,10 @@ int writeRegister(uint8_t regAddr, uint8_t val);
 
 esp_err_t i2c_init(void)
 {
+    if (pmu_dev_handle != NULL)
+    {
+        return ESP_OK;
+    }
     if (i2c_master_get_bus_handle(WATCH_I2C_PORT, &i2c_bus_handle) != ESP_OK)
     {
         i2c_master_bus_config_t bus_config = {
@@ -41,7 +45,8 @@ esp_err_t i2c_init(void)
             .trans_queue_depth = 0,
             .flags = {.enable_internal_pullup = 1, .allow_pd = 0}};
 
-        i2c_new_master_bus(&bus_config, &i2c_bus_handle);
+        ESP_RETURN_ON_ERROR(i2c_new_master_bus(&bus_config, &i2c_bus_handle),
+                            TAG, "failed to create PMU bus");
     }
 
     i2c_device_config_t dev_config = {.dev_addr_length = I2C_ADDR_BIT_LEN_7,
@@ -50,9 +55,7 @@ esp_err_t i2c_init(void)
                                       .scl_wait_us = 0,
                                       .flags = {.disable_ack_check = 0}};
 
-    i2c_master_bus_add_device(i2c_bus_handle, &dev_config, &pmu_dev_handle);
-
-    return ESP_OK;
+    return i2c_master_bus_add_device(i2c_bus_handle, &dev_config, &pmu_dev_handle);
 }
 
 esp_err_t battery_init(void)
@@ -67,6 +70,20 @@ esp_err_t battery_init(void)
     clearIrqStatus();
 
     return ESP_OK;
+}
+
+esp_err_t battery_shutdown(void)
+{
+    ESP_RETURN_ON_ERROR(i2c_init(), TAG, "failed to initialize PMU for shutdown");
+
+    // AXP2101 REG10H[0] requests power-off. Preserve all other configuration bits.
+    uint8_t reg = XPOWERS_AXP2101_COMMON_CONFIG;
+    uint8_t value;
+    ESP_RETURN_ON_ERROR(i2c_master_transmit_receive(pmu_dev_handle, &reg, 1,
+                        &value, 1, I2C_MASTER_TIMEOUT_MS), TAG, "failed to read PMU power control");
+
+    uint8_t command[] = {reg, value | 0x01};
+    return i2c_master_transmit(pmu_dev_handle, command, sizeof(command), I2C_MASTER_TIMEOUT_MS);
 }
 
 esp_err_t battery_read_voltage(float *voltage_v)

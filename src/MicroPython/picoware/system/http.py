@@ -483,28 +483,12 @@ class HTTP:
         )
 
     def is_request_complete(self) -> bool:
-        """Poll completion, including a queued task that failed to start."""
+        """Check if the async request is complete."""
         if self._is_flipper:
             return True
         if self._lock is None:
             return True
         with self._lock:
-            # Queueing can succeed before ThreadManager fails to start the
-            # worker. In that case no request callback will mark completion.
-            # An active task must still finish before its resources are freed.
-            if (
-                self._async_request_in_progress
-                and self._current_task is not None
-                and self._current_task.error is not None
-                and self._thread_manager is not None
-                and self._thread_manager.task is not self._current_task
-            ):
-                self._async_error = f"Thread task failed: {self._current_task.error}"
-                self._async_request_complete = True
-                self._async_request_in_progress = False
-                self._async_thread_id = None
-                self._running = False
-                self._state = HTTP_ISSUE
             return self._async_request_complete
 
     def patch(

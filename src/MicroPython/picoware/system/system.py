@@ -208,10 +208,10 @@ class System:
             view_manager (ViewManager): Optional manager to show a shutdown alert. Defaults to None.
         """
         from picoware_boards import (
-            BOARD_HAS_PSRAM, BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_WAVESHARE_C6_2_06
+            BOARD_HAS_PSRAM, BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_WAVESHARE_C6_2_06, BOARD_WAVESHARE_2_06, BOARD_CROWPANEL_WATCH_2_01
         )
 
-        if BOARD_ID == BOARD_WAVESHARE_C6_2_06:
+        if BOARD_ID in (BOARD_WAVESHARE_C6_2_06, BOARD_WAVESHARE_2_06, BOARD_CROWPANEL_WATCH_2_01):
             from cardputer_battery import shutdown
 
             shutdown()

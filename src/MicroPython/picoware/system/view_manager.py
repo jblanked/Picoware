@@ -270,7 +270,8 @@ class ViewManager:
         """
         self._background_color = color
         self._draw.background = color
-        self._keyboard.background_color = color
+        if self._keyboard is not None:
+            self._keyboard.background_color = color
 
     @property
     def battery(self):
@@ -327,7 +328,8 @@ class ViewManager:
         """
         self._foreground_color = color
         self._draw.foreground = color
-        self._keyboard.text_color = color
+        if self._keyboard is not None:
+            self._keyboard.text_color = color
 
     @property
     def gmt_offset(self):
@@ -428,8 +430,7 @@ class ViewManager:
         """
         self._selected_color = color
         if self._keyboard is not None:
-            _ = self._keyboard
-        self._keyboard.selected_color = color
+            self._keyboard.selected_color = color
 
     @property
     def screen_size(self):

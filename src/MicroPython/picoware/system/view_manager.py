@@ -384,7 +384,9 @@ class ViewManager:
     @property
     def has_wifi(self):
         """Return whether the current board has WiFi capability."""
-        return self._wifi is not None
+        from picoware.system.boards import BOARD_HAS_WIFI
+
+        return BOARD_HAS_WIFI == 1
 
 
     @property
@@ -756,7 +758,7 @@ class ViewManager:
             self._bluetooth = None
             self._draw.set_brightness(10)
         else:
-            if self.has_wifi:
+            if self.has_wifi and self._wifi is None:
                 from picoware.system.wifi import WiFi
                 self._wifi = WiFi(self)
             # bluetooth can start itself when needed

@@ -212,14 +212,10 @@ class System:
         )
 
         if BOARD_ID == BOARD_WAVESHARE_C6_2_06:
-            from os import sync
-            from time import sleep_ms
             from cardputer_battery import shutdown
 
-            sync()
             shutdown()
-            sleep_ms(1000)
-            raise RuntimeError("Shutdown did not complete")
+            return
 
         if BOARD_ID == BOARD_FLIPPER_ZERO:
             from flipper_battery import shutdown

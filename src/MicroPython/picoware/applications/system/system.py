@@ -143,12 +143,7 @@ def run(view_manager) -> None:
                         from picoware.system.system import System
 
                         system = System()
-                        try:
-                            system.shutdown_device(view_manager)
-                        except (OSError, RuntimeError) as exc:
-                            view_manager.alert("Shutdown failed: " + str(exc))
-                            view_manager.draw.clear()
-                            _system.draw()
+                        system.shutdown_device(view_manager)
                         return
                     view_manager.draw.clear()
                     _system.draw()

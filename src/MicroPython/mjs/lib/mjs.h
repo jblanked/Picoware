@@ -15,3 +15,5 @@ char *mjs_copy_string_arg(struct mjs *mjs, uint8_t arg);
 mjs_val_t mjs_val_from_attr(struct mjs *mjs, mp_obj_t base, qstr attr);
 mjs_val_t mjs_val_from_mp_obj(struct mjs *mjs, mp_obj_t obj);
 mp_obj_t mjs_val_to_mp_obj(struct mjs *mjs, mjs_val_t val);
+float mjs_get_float(struct mjs *mjs, uint8_t arg);
+bool mjs_get_boolean(struct mjs *mjs, uint8_t arg);

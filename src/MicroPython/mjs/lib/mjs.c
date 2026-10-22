@@ -129,3 +129,23 @@ mp_obj_t mjs_val_to_mp_obj(struct mjs *mjs, mjs_val_t val)
     }
     return mp_const_none;
 }
+
+float mjs_get_float(struct mjs *mjs, uint8_t arg)
+{
+    mjs_val_t val = mjs_arg(mjs, arg);
+    if (mjs_is_null(val) || mjs_is_undefined(val) || !mjs_is_number(val))
+    {
+        return 0.0;
+    }
+    return (float)mjs_get_double(mjs, val);
+}
+
+bool mjs_get_boolean(struct mjs *mjs, uint8_t arg)
+{
+    mjs_val_t val = mjs_arg(mjs, arg);
+    if (mjs_is_null(val) || mjs_is_undefined(val) || !mjs_is_boolean(val))
+    {
+        return false;
+    }
+    return mjs_get_bool(mjs, val);
+}

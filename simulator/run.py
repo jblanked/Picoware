@@ -22,7 +22,7 @@ def _abspath(path):
     return os.getcwd() + "/" + path
 
 
-THIS_DIR = _dirname(_abspath(sys.argv[0]))
+THIS_DIR = _dirname(_abspath(__file__))
 ROOT = _dirname(THIS_DIR)
 HARDWARE_DIR = THIS_DIR + "/hardware"
 MICROPYTHON_DIR = ROOT + "/src/MicroPython"
@@ -42,6 +42,8 @@ _BOARD_DISPLAY_SIZES = {
     "crowpanel": (1024, 600),
     "cardputer": (240, 135),
     "waveshare-2.06": (410, 502),
+    "waveshare-c6-2.06": (410, 502),
+    "waveshare-c6-2-06": (410, 502),
     "waveshare-2.06-esp32s3": (410, 502),
     "pancake": (320, 480),
     "v8": (240, 320),
@@ -394,14 +396,18 @@ def _install_view_tracking():
             BOARD_FLIPPER_ZERO,
             BOARD_PANCAKE,
             BOARD_WAVESHARE_2_06,
+            BOARD_WAVESHARE_C6_2_06,
         )
 
         sim_runtime.input_polled()
-        if self._current_board_id in (
-            BOARD_CROWPANEL_10_1,
-            BOARD_WAVESHARE_2_06,
-            BOARD_PANCAKE,
-        ):
+        if self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
+            from gpio_buttons import key_available
+
+            if key_available():
+                self.on_key_callback()
+            else:
+                self._poll_touch()
+        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_PANCAKE):
             self._poll_touch()
         elif self._current_board_id == BOARD_CARDPUTER:
             from cardputer_keyboard import key_available, poll
@@ -2488,4 +2494,5 @@ def main():
         _relaunch_self(restart_reset_sd)
 
 
-main()
+if __name__ == "__main__":
+    main()

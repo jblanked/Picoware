@@ -51,7 +51,7 @@ class LCD:
     MODE_HEAP = 0
     MODE_PSRAM = 1
 
-    def __init__(self, scale_x=1.0, scale_y=1.0, scale_position=False):
+    def __init__(self, scale_x=1.0, scale_y=1.0, scale_position=False, lcd_mode=0):
         self._is_flipper = False
         try:
             import picoware_boards
@@ -66,7 +66,7 @@ class LCD:
         self._scale_x_factor = scale_x
         self._scale_y_factor = scale_y
         self.scale_position = scale_position
-        self._mode = self.MODE_HEAP
+        self._mode = lcd_mode
         self._brightness = 100
         self._rgb_led = (0, 0, 0)
         self._buffer = bytearray(self.width * self.height * 2)

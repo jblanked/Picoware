@@ -14,6 +14,7 @@ class Touch:
             if point == (0, 0) and sim_runtime.has_key():
                 name = str(sim_runtime.board).lower().replace("_", "-")
                 if name in (
+                    "waveshare-c6-2.06", "waveshare-c6-2-06",
                     "waveshare-2.06", "waveshare-2.06-esp32s3",
                     "waveshare-2-06-esp32s3", "waveshare-206-esp32s3",
                 ):
@@ -59,6 +60,7 @@ class Touch:
                 13: (160, 240),
             }
         elif name in (
+            "waveshare-c6-2.06", "waveshare-c6-2-06",
             "waveshare-2.06",
             "waveshare-2.06-esp32s3",
             "waveshare-2-06-esp32s3",

@@ -628,58 +628,9 @@ class ViewManager:
                         self._view_count -= 1
                         break
 
-                # Free unused view modules
-                self._unload_unused_modules()
-
-    def _unload_unused_modules(self):
-        """Unload view and gui modules no longer used (Flipper only)."""
-        from picoware.system.boards import BOARD_FLIPPER_ZERO
-
-        if self._current_board_id != BOARD_FLIPPER_ZERO:
-            return
-        import sys
-
-        # Module names still used by registered views
-        _used = set()
-        for _view in self.views:
-            if _view is None:
-                continue
-            for _fn in (_view._run, _view._start, _view._stop):
-                if _fn is None:
-                    continue
-                _mod = getattr(_fn, "__module__", None)
-                if _mod:
-                    _used.add(_mod)
-
-        for _name in list(sys.modules):
-            if _name in self._CORE_MODULES or _name in _used:
-                continue
-            _mod = sys.modules.get(_name)
-            if _mod is None:
-                continue
-            # Frozen modules report "picoware/gui/x.py", SD ones "/sd/firmware/picoware/gui/x.mpy"
-            _file = getattr(_mod, "__file__", "")
-            if "picoware/gui/" not in _file and "picoware/applications/" not in _file:
-                continue
-            # Keep packages
-            if _file.endswith("__init__.mpy") or _file.endswith("__init__.py"):
-                continue
-            # Remove module and any submodules from sys.modules
-            for _sub in list(sys.modules):
-                if _sub == _name or _sub.startswith(_name + "."):
-                    del sys.modules[_sub]
-            # Drop parent package reference so it is freed
-            _dot = _name.rfind(".")
-            if _dot > 0:
-                _parent = sys.modules.get(_name[:_dot])
-                if _parent is not None:
-                    _attr = _name[_dot + 1:]
-                    if hasattr(_parent, _attr):
-                        delattr(_parent, _attr)
-
     def battery_callback(self, timer_obj):
         """Callback function for battery monitoring timer."""
-        self._battery._last_percentage = self._battery.percentage
+        self._battery._last_voltage = self._battery.voltage
 
     def clear(self):
         """Clear the screen with the background color."""
@@ -825,9 +776,6 @@ class ViewManager:
                 for j in range(i, self._view_count - 1):
                     self.views[j] = self.views[j + 1]
                 self._view_count -= 1
-
-                # Free unused view modules
-                self._unload_unused_modules()
                 break
 
     def run(self) -> bool:

@@ -1,5 +1,5 @@
 """Battery - Battery monitoring for Picoware."""
-
+from micropython import const
 from picoware.system.boards import (
     BOARD_CARDPUTER,
     BOARD_CROWPANEL_10_1,
@@ -18,11 +18,17 @@ from picoware.system.boards import (
     BOARD_POOM
 )
 
+CUTOFF_MV = const(3300) # battery is empty here
+MIN_DROP_MV = const(5) # average drop per interval below this = "unknown"
+
 class Battery:
     """Class for battery information and management."""
-    def __init__(self):
+    def __init__(self, interval_ms: int = 5 * 60 * 1000):
         """Initialize the battery interface for the current board."""
-        self._last_percentage = 0
+        self._last_voltage = 0
+        self._drop_avg = 0       # EMA of mV drop per interval, scaled x16
+        self._minutes = 0
+        self._interval_s = interval_ms // 1000
         if BOARD_ID == BOARD_FLIPPER_ZERO:
             from flipper_battery import init 
 
@@ -119,19 +125,11 @@ class Battery:
 
         return get_battery_percentage()
 
+
     @property
     def time_remaining(self) -> int:
-        """Returns the estimated time remaining for the battery in minutes. _last_percentage is used to calculate the drop and set by the ViewManager externally."""
-        if not 0 < self._last_percentage <= 100:
-            return 0
-        percentage = self.percentage
-        if not 0 < percentage <= 100:
-            return 0
-        elapsed = 30000 # Fixed sampling interval: 30 seconds
-        drop = self._last_percentage - percentage
-        if drop <= 0:
-            return 0
-        return percentage * elapsed // (drop * 60000)
+        """Estimated minutes remaining (0 = unknown)."""
+        return self._minutes
 
     @property
     def voltage(self) -> float:
@@ -176,3 +174,29 @@ class Battery:
             return get_voltage_mv()
 
         return 4200
+    
+    def sample(self):
+        """Call once per interval from ViewManager."""
+        v = int(self.voltage)
+        last = self._last_voltage
+        self._last_voltage = v
+        if last <= 0:
+            return
+        drop = last - v
+        if drop <= 0:  # charging or flat: discard history
+            self._drop_avg = 0
+            self._minutes = 0
+            return
+        avg = self._drop_avg
+        if avg == 0:
+            avg = drop << 4
+        else:
+            avg += ((drop << 4) - avg) >> 2   # alpha = 1/4
+        self._drop_avg = avg
+
+        usable = v - CUTOFF_MV
+        if usable <= 0 or avg < (MIN_DROP_MV << 4):
+            self._minutes = 0
+            return
+        intervals = (usable << 4) // avg
+        self._minutes = intervals * self._interval_s // 60

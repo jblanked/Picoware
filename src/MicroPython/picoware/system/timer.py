@@ -13,17 +13,17 @@ class Timer:
     __slots__ = ("_mode", "_callback", "_interval", "_timer")
     
     def __init__(self, mode: int = PERIODIC, callback: callable = None, interval_ms: int = 1000):
-        from machine import Timer
         self._mode = mode
         self._callback = callback
         self._interval = interval_ms
-        self._timer = Timer()
+        self._timer = None
 
     def __del__(self):
         """Destructor to clean up the timer."""
         self.stop()
-        del self._timer
-        self._timer = None
+        if self._timer is not None:
+            del self._timer
+            self._timer = None
         self._callback = None
 
     @property
@@ -63,18 +63,18 @@ class Timer:
 
     def start(self):
         """Start the timer with the configured mode and interval."""
+        from machine import Timer
         if self._callback is None:
             raise ValueError("Callback function must be provided")
-        if self._timer is None:
-            raise ValueError("Timer is not initialized")
+        self._timer = Timer()
         self._timer.init(
-            mode=self._mode,
+            mode=Timer.PERIODIC if self._mode == self.PERIODIC else Timer.ONE_SHOT,
             period=self._interval,
-            callback=self._callback
+            callback=self._callback,
+            hard=False
         )
 
     def stop(self):
         """Stop the timer."""
         if self._timer is not None:
             self._timer.deinit()
-    

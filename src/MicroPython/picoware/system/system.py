@@ -112,37 +112,29 @@ class System:
 
         return is_circular(BOARD_ID)
 
-    @property
-    def free_flash(self):
-        """Return the free flash memory size."""
+    def flash_usage(self):
+        """Return (free, used, total) bytes from one filesystem snapshot."""
         from os import statvfs
 
         stat = statvfs("/")
         free = stat[0] * stat[3]
+        total = stat[1] * stat[2]
+        return free, total - free, total
 
-        return free
+    @property
+    def free_flash(self):
+        """Return the free flash memory size."""
+        return self.flash_usage()[0]
 
     @property
     def total_flash(self):
         """Return the total flash memory size."""
-        from os import statvfs
-
-        stat = statvfs("/")
-        size = stat[1] * stat[2]
-
-        return size
+        return self.flash_usage()[2]
 
     @property
     def used_flash(self):
         """Return the used flash memory size."""
-        from os import statvfs
-
-        stat = statvfs("/")
-        size = stat[1] * stat[2]
-        free = stat[0] * stat[3]
-        used = size - free
-
-        return used
+        return self.flash_usage()[1]
 
     @property
     def total_heap(self):

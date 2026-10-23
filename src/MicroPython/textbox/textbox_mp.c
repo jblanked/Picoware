@@ -415,7 +415,7 @@ mp_obj_t textbox_mp_clear(mp_obj_t self_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(textbox_mp_clear_obj, textbox_mp_clear);
 
-mp_obj_t textbox_mp_set_text(mp_obj_t self_in, mp_obj_t text_in)
+static mp_obj_t textbox_set_text_impl(mp_obj_t self_in, mp_obj_t text_in, bool preserve_scroll, int scroll_delta)
 {
     textbox_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (self->freed)
@@ -424,9 +424,20 @@ mp_obj_t textbox_mp_set_text(mp_obj_t self_in, mp_obj_t text_in)
     size_t new_len;
     const char *new_text = mp_obj_str_get_data(text_in, &new_len);
 
-    // No-op if text unchanged
+    // Unchanged text can still carry a scroll request. Draw only if it moves.
     if (new_len == self->text_len && memcmp(new_text, self->text, new_len) == 0)
+    {
+        int line = (int)self->current_line + scroll_delta;
+        if (line < 0) line = 0;
+        if (self->total_lines > 0 && line >= self->total_lines)
+            line = self->total_lines - 1;
+        if (preserve_scroll && self->total_lines > 0 && line != self->current_line)
+        {
+            self->current_line = line;
+            textbox_display(self);
+        }
         return mp_const_none;
+    }
 
     // Copy into the mutable edit buffer; grow only when more space is needed.
     if (new_len + 1 > self->edit_buf_capacity)
@@ -444,12 +455,29 @@ mp_obj_t textbox_mp_set_text(mp_obj_t self_in, mp_obj_t text_in)
     // re-wrap + display
     textbox_wrap(self);
     if (self->total_lines > 0)
-        self->current_line = (uint16_t)(self->total_lines - 1);
+    {
+        int line = preserve_scroll ? (int)self->current_line + scroll_delta : self->total_lines - 1;
+        if (line < 0) line = 0;
+        if (line >= self->total_lines) line = self->total_lines - 1;
+        self->current_line = line;
+    }
+    else
+        self->current_line = 0;
     self->cursor_pos = self->text_len;
     textbox_display(self);
     return mp_const_none;
 }
+mp_obj_t textbox_mp_set_text(mp_obj_t self_in, mp_obj_t text_in)
+{
+    return textbox_set_text_impl(self_in, text_in, false, 0);
+}
 static MP_DEFINE_CONST_FUN_OBJ_2(textbox_mp_set_text_obj, textbox_mp_set_text);
+static mp_obj_t textbox_mp_set_text_preserve_scroll(size_t n_args, const mp_obj_t *args)
+{
+    int delta = n_args > 2 ? mp_obj_get_int(args[2]) : 0;
+    return textbox_set_text_impl(args[0], args[1], true, delta);
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(textbox_mp_set_text_preserve_scroll_obj, 2, 3, textbox_mp_set_text_preserve_scroll);
 
 mp_obj_t textbox_mp_set_current_line(mp_obj_t self_in, mp_obj_t line_in)
 {
@@ -789,6 +817,7 @@ static const mp_rom_map_elem_t textbox_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__scroll_up), MP_ROM_PTR(&textbox_mp_scroll_up_obj)},
     {MP_ROM_QSTR(MP_QSTR__scroll_down), MP_ROM_PTR(&textbox_mp_scroll_down_obj)},
     {MP_ROM_QSTR(MP_QSTR__clear), MP_ROM_PTR(&textbox_mp_clear_obj)},
+    {MP_ROM_QSTR(MP_QSTR__set_text_preserve_scroll), MP_ROM_PTR(&textbox_mp_set_text_preserve_scroll_obj)},
     {MP_ROM_QSTR(MP_QSTR__set_text), MP_ROM_PTR(&textbox_mp_set_text_obj)},
     {MP_ROM_QSTR(MP_QSTR__set_current_line), MP_ROM_PTR(&textbox_mp_set_current_line_obj)},
     {MP_ROM_QSTR(MP_QSTR__set_cursor), MP_ROM_PTR(&textbox_mp_set_cursor_obj)},

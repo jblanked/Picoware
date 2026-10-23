@@ -333,7 +333,7 @@ mp_obj_t picoware_lvgl_textbox_set_current_line(mp_obj_t self_in, mp_obj_t line_
 static MP_DEFINE_CONST_FUN_OBJ_2(picoware_lvgl_textbox_set_current_line_obj, picoware_lvgl_textbox_set_current_line);
 
 // TextBox.set_text(text) - Set text content
-mp_obj_t picoware_lvgl_textbox_set_text(mp_obj_t self_in, mp_obj_t text_obj)
+static mp_obj_t lvgl_textbox_set_text_impl(mp_obj_t self_in, mp_obj_t text_obj, bool preserve_scroll, int scroll_delta)
 {
     picoware_lvgl_textbox_obj_t *self = MP_OBJ_TO_PTR(self_in);
     const char *new_text = mp_obj_str_get_str(text_obj);
@@ -342,23 +342,30 @@ mp_obj_t picoware_lvgl_textbox_set_text(mp_obj_t self_in, mp_obj_t text_obj)
     if (self->textarea)
     {
         const char *current_text = lv_textarea_get_text(self->textarea);
-        if (strcmp(current_text, new_text) == 0)
+        bool changed = strcmp(current_text, new_text) != 0;
+        if (changed)
         {
+            lv_textarea_set_text(self->textarea, new_text);
+            self->total_lines = 1;
+            for (const char *p = new_text; *p; p++)
+                if (*p == '\n') self->total_lines++;
+        }
+        int old_line = self->current_line;
+
+        if (preserve_scroll)
+        {
+            self->current_line += scroll_delta;
+            if (self->current_line < 0)
+                self->current_line = 0;
+            if (self->current_line >= self->total_lines)
+                self->current_line = self->total_lines - 1;
+            if (!changed && self->current_line == old_line)
+                return mp_const_none;
+            lv_obj_scroll_to_y(self->textarea, self->current_line * LVGL_LINE_HEIGHT, LV_ANIM_OFF);
+        }
+
+        else if (!changed)
             return mp_const_none;
-        }
-
-        // Set text - LVGL handles storage internally
-        lv_textarea_set_text(self->textarea, new_text);
-
-        // Count lines
-        self->total_lines = 1;
-        for (const char *p = new_text; *p; p++)
-        {
-            if (*p == '\n')
-            {
-                self->total_lines++;
-            }
-        }
 
         // show
         lv_refr_now(lvgl_display);
@@ -366,7 +373,18 @@ mp_obj_t picoware_lvgl_textbox_set_text(mp_obj_t self_in, mp_obj_t text_obj)
 
     return mp_const_none;
 }
+mp_obj_t picoware_lvgl_textbox_set_text(mp_obj_t self_in, mp_obj_t text_obj)
+{
+    return lvgl_textbox_set_text_impl(self_in, text_obj, false, 0);
+}
 static MP_DEFINE_CONST_FUN_OBJ_2(picoware_lvgl_textbox_set_text_obj, picoware_lvgl_textbox_set_text);
+static mp_obj_t picoware_lvgl_textbox_set_text_preserve_scroll(size_t n_args, const mp_obj_t *args)
+{
+    int delta = n_args > 2 ? mp_obj_get_int(args[2]) : 0;
+    return lvgl_textbox_set_text_impl(args[0], args[1], true, delta);
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lvgl_textbox_set_text_preserve_scroll_obj, 2, 3, picoware_lvgl_textbox_set_text_preserve_scroll);
+
 
 // TextBox class method table
 static const mp_rom_map_elem_t picoware_lvgl_textbox_locals_dict_table[] = {
@@ -377,6 +395,7 @@ static const mp_rom_map_elem_t picoware_lvgl_textbox_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_scroll_down), MP_ROM_PTR(&picoware_lvgl_textbox_scroll_down_obj)},
     {MP_ROM_QSTR(MP_QSTR_scroll_up), MP_ROM_PTR(&picoware_lvgl_textbox_scroll_up_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_current_line), MP_ROM_PTR(&picoware_lvgl_textbox_set_current_line_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_text_preserve_scroll), MP_ROM_PTR(&picoware_lvgl_textbox_set_text_preserve_scroll_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_text), MP_ROM_PTR(&picoware_lvgl_textbox_set_text_obj)},
 };
 static MP_DEFINE_CONST_DICT(picoware_lvgl_textbox_locals_dict, picoware_lvgl_textbox_locals_dict_table);

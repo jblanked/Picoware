@@ -169,21 +169,29 @@ class TextBox(textbox.TextBox):
 
         self._set_current_line(line)
 
-    def set_text(self, text: str):
+    def set_text(self, text: str, preserve_scroll: bool = False, scroll_delta: int = 0):
         """Update the text content and refresh the display.
 
         Args:
             text (str): The new text content.
+            preserve_scroll (bool): Keep the visible line before drawing.
+            scroll_delta (int): Move the preserved line before drawing.
         """
         if self.use_lvgl and self._lvgl_textbox is not None:
             from picoware_lvgl import tick, task_handler
 
             tick(5)
-            self._lvgl_textbox.set_text(text)
+            if preserve_scroll:
+                self._lvgl_textbox.set_text_preserve_scroll(text, scroll_delta)
+            else:
+                self._lvgl_textbox.set_text(text)
             task_handler()
             return
 
-        self._set_text(text)
+        if preserve_scroll:
+            self._set_text_preserve_scroll(text, scroll_delta)
+        else:
+            self._set_text(text)
 
     def scroll_down(self):
         """Scrolls the text box content down by one line"""

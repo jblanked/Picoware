@@ -25,7 +25,6 @@ class TextBox:
             self._set_cursor(value)
         elif name == "current_line":
             self._set_current_line(value)
-            self.render()
         else:
             object.__setattr__(self, name, value)
 
@@ -85,6 +84,19 @@ class TextBox:
         object.__setattr__(self, "current_line", max(0, self.total_lines - self.lines_per_screen))
         self.render()
 
+    def _set_text_preserve_scroll(self, text, scroll_delta=0):
+        text = str(text)
+        changed = text != self.text
+        old_line = self.current_line
+        if changed:
+            object.__setattr__(self, "text", text)
+            object.__setattr__(self, "cursor", len(text))
+            self._wrap()
+        line = max(0, min(old_line + int(scroll_delta), max(0, self.total_lines - 1)))
+        object.__setattr__(self, "current_line", line)
+        if changed or line != old_line:
+            self.render()
+
     def set_text(self, text):
         self._set_text(text)
 
@@ -98,10 +110,10 @@ class TextBox:
         if line == 0xFFFF:
             line = self.total_lines - 1
         object.__setattr__(self, "current_line", max(0, min(int(line), max(0, self.total_lines - 1))))
+        self.render()
 
     def set_current_line(self, line):
         self._set_current_line(line)
-        self.render()
 
     def _clear(self):
         object.__setattr__(self, "text", "")

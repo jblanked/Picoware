@@ -177,12 +177,11 @@ class Battery:
     
     def sample(self):
         """Call once per interval from ViewManager."""
-        v = int(self.voltage)
         last = self._last_voltage
-        self._last_voltage = v
+        self._last_voltage = self.voltage
         if last <= 0:
             return
-        drop = last - v
+        drop = last - self._last_voltage
         if drop <= 0:  # charging or flat: discard history
             self._drop_avg = 0
             self._minutes = 0
@@ -194,7 +193,7 @@ class Battery:
             avg += ((drop << 4) - avg) >> 2   # alpha = 1/4
         self._drop_avg = avg
 
-        usable = v - CUTOFF_MV
+        usable = self._last_voltage - CUTOFF_MV
         if usable <= 0 or avg < (MIN_DROP_MV << 4):
             self._minutes = 0
             return

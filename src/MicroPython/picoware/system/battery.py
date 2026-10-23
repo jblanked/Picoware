@@ -31,6 +31,13 @@ class Battery:
             from cardputer_battery import init
 
             init()
+        elif BOARD_ID in (
+            BOARD_WAVESHARE_1_28_RP2350, BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350, BOARD_WAVESHARE_3_49_RP2350,
+        ):
+            from waveshare_battery import init
+
+            init()
         elif BOARD_ID == BOARD_CROWPANEL_WATCH_2_01:
             from crowpanel_watch_battery import init
 

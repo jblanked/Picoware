@@ -18,11 +18,11 @@ from picoware.system.boards import (
     BOARD_POOM
 )
 
-
 class Battery:
     """Class for battery information and management."""
     def __init__(self):
         """Initialize the battery interface for the current board."""
+        self._last_percentage = 0
         if BOARD_ID == BOARD_FLIPPER_ZERO:
             from flipper_battery import init 
 
@@ -111,6 +111,18 @@ class Battery:
         from picoware_southbridge import get_battery_percentage
 
         return get_battery_percentage()
+
+    @property
+    def time_remaining(self) -> int:
+        """Returns the estimated time remaining for the battery in minutes. _last_percentage is used to calculate the drop and set by the ViewManager externally."""
+        if self._last_percentage == 0:
+            return 0
+        percentage = self.percentage
+        elapsed = 30000 # 30 seconds
+        drop = percentage - self._last_percentage
+        if drop <= 0:
+            return 0
+        return percentage * elapsed // (drop * 60000)
 
     @property
     def voltage(self) -> float:

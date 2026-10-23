@@ -44,6 +44,7 @@ class ViewManager:
         "_usb_video_stream",
         "_uart",
         "_bluetooth",
+        "_timer",
     )
 
     def __init__(self):
@@ -61,6 +62,7 @@ class ViewManager:
         from picoware.system.buttons import BUTTON_ESCAPE
         from picoware.system.boards import BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM
         from picoware.system.app_loader import AppLoader
+        from picoware.system.timer import Timer
 
         self._active = True
         self._current_view = None
@@ -169,6 +171,9 @@ class ViewManager:
 
         self._bluetooth = None
 
+        self._timer = Timer(callback=self.battery_callback, interval_ms=30000)
+        self._timer.start()
+
         # Clear screen
         self.clear()
 
@@ -228,6 +233,13 @@ class ViewManager:
                 self._usb_video_stream.stop()
             del self._usb_video_stream
             self._usb_video_stream = None
+        if self._bluetooth is not None:
+            del self._bluetooth
+            self._bluetooth = None
+        if self._timer is not None:
+            self._timer.stop()
+            del self._timer
+            self._timer = None
 
         collect()
 
@@ -662,6 +674,10 @@ class ViewManager:
                     _attr = _name[_dot + 1:]
                     if hasattr(_parent, _attr):
                         delattr(_parent, _attr)
+
+    def battery_callback(self, timer_obj):
+        """Callback function for battery monitoring timer."""
+        self._battery._last_percentage = self._battery.percentage
 
     def clear(self):
         """Clear the screen with the background color."""

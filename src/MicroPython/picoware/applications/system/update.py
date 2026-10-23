@@ -7,73 +7,37 @@ STATE_UPDATE_AVAILABLE = const(1)
 STATE_NO_UPDATE = const(2)
 STATE_DOWNLOADING = const(3)
 STATE_COMPLETE = const(4)
+STATE_CHECK_FAILED = const(5)
 
 _http = None
 _loading = None
 _app_state: int = STATE_CHECKING
 _update_info: dict = {}
 _current_version: str = None
-_board_id: int = None
-_download_started: bool = False
-_download_complete: bool = False
-_download_error: str = None
-_download_filename: str = None
 _download_file_path: str = None
 _view_manager = None
+_check_error = None
+_check_attempts = 0
 
 
 def __reset() -> None:
     """Reset the update state"""
-    global _http, _loading, _app_state, _update_info, _current_version, _board_id, _download_started, _download_complete, _download_error, _download_filename
-    if _http:
+    global _http, _loading, _app_state, _update_info, _current_version
+    global _download_file_path, _view_manager, _check_error, _check_attempts
+    if _http is not None:
         _http.close()
-        del _http
-        _http = None
-    if _loading:
-        del _loading
-        _loading = None
+    _http = None
+    _loading = None
     _app_state = STATE_CHECKING
     _update_info = None
     _current_version = None
-    _board_id = None
-    _download_started = False
-    _download_complete = False
-    _download_error = None
-    _download_filename = None
+    _download_file_path = None
+    _view_manager = None
+    _check_error = None
+    _check_attempts = 0
 
 
-def __check_for_update_callback(response, state, error):
-    """Handle the update check response.
-
-    Args:
-        response (HTTPResponse): The HTTP response.
-        state (int): The request state.
-        error (str or None): The request error, if any.
-    """
-    global _view_manager
-    global _update_info
-    if not response or error is not None or state == 2:
-        _view_manager.log("Error checking for update:", error)
-        return
-    _update_info = response.json()
-
-
-def __check_for_update_callback_download(response, state, error):
-    """Handle the firmware download response.
-
-    Args:
-        response (HTTPResponse): The HTTP response.
-        state (int): The request state.
-        error (str or None): The request error, if any.
-    """
-    global _view_manager
-    if not response or error is not None or state == 2:
-        _view_manager.log("Error downloading update:", error)
-        return
-    _view_manager.log("Update download completed!")
-
-
-def __check_for_update_start(http_context, view_manager) -> bool:
+def __check_for_update_start(http_context, view_manager, retry=False) -> bool:
     """Start the check for update request.
 
     Args:
@@ -96,8 +60,13 @@ def __check_for_update_start(http_context, view_manager) -> bool:
         + "/"
     )
 
-    if not http_context.callback:
-        http_context.callback = __check_for_update_callback
+    # Parse once on the UI thread after completion. A worker callback can race
+    # with close(), and malformed JSON must not escape into the desktop loop.
+    http_context.callback = None
+    global _update_info, _check_error, _check_attempts
+    _update_info = None
+    _check_error = None
+    _check_attempts = _check_attempts + 1 if retry else 1
 
     del system
 
@@ -112,37 +81,61 @@ def __check_for_update_start(http_context, view_manager) -> bool:
     )
 
 
-def __check_for_update_is_available(http_context) -> bool:
-    """Check whether an update is available.
+def __update_filename(url):
+    """Validate a firmware URL and return its safe local basename."""
+    if not isinstance(url, str) or not url.startswith(("https://", "http://")):
+        return None
+    if any(char.isspace() for char in url):
+        return None
+    parts = url.split("/", 3)
+    if len(parts) != 4 or not parts[2]:
+        return None
+    path = parts[3].split("?", 1)[0].split("#", 1)[0]
+    filename = path.rsplit("/", 1)[-1]
+    if filename in ("", ".", "..") or "\\" in filename:
+        return None
+    return filename
 
-    Must call __check_for_update_start first.
 
-    Args:
-        http_context (HTTP): The HTTP context for the request.
-
-    Returns:
-        bool: True if an update is available, False otherwise.
-    """
-    global _view_manager
+def __check_for_update_is_available(http_context):
+    """Return True/False for success, None for failure, or -1 while retrying."""
+    global _update_info, _check_error
+    _update_info = None
+    _check_error = None
     if not http_context.is_request_complete():
-        _view_manager.log("Update check not complete yet")
-        return False
-
+        return None
     response = http_context.response
-    if response is None or response.status_code != 200:
-        _view_manager.log(
-            "Error checking for update: invalid response or status code {}".format(
-                response.status_code if response else "No response"
-            )
-        )
-        return False
-
-    json_data = response.json()
-    if not json_data or not json_data.get("success"):
-        _view_manager.log("Error checking for update: success flag not set in response")
-        return False
-
-    return json_data.get("is_update_available", False)
+    # A single fresh connection recovers transient DNS/socket/TLS failures.
+    # Never retry HTTP responses (including an unregistered board's 404).
+    if response is None and _check_attempts == 1:
+        _view_manager.log("Retrying update check after: " + (http_context.error or "No response"))
+        if __check_for_update_start(http_context, _view_manager, retry=True):
+            return -1
+    data = None
+    if response is not None:
+        try:
+            data = response.json()
+        except (ValueError, TypeError, OSError):
+            pass
+    if (response is not None and response.status_code == 404
+            and isinstance(data, dict)
+            and isinstance(data.get("error"), str)
+            and data["error"].startswith("No device found for board_id ")):
+        _check_error = "Updates unavailable for this board"
+    elif response is None:
+        _check_error = "Update check failed: " + (http_context.error or "No response")
+    elif response.status_code != 200:
+        _check_error = "Update check failed: HTTP " + str(response.status_code)
+    elif (not isinstance(data, dict) or data.get("success") is not True
+            or not isinstance(data.get("is_update_available"), bool)):
+        _check_error = "Update check failed: invalid response"
+    elif data["is_update_available"] and __update_filename(data.get("download_url")) is None:
+        _check_error = "Update check failed: invalid download URL"
+    else:
+        _update_info = data
+        return data["is_update_available"]
+    _view_manager.log(_check_error)
+    return None
 
 
 def __check_for_update_download_start(http_context, storage) -> bool:
@@ -162,7 +155,10 @@ def __check_for_update_download_start(http_context, storage) -> bool:
         return False
     if _update_info and _update_info.get("download_url"):
         download_url = _update_info["download_url"]
-        filename = download_url.split("/")[-1]
+        filename = __update_filename(download_url)
+        if filename is None:
+            _view_manager.log("Update download failed: invalid download URL")
+            return False
 
         file_path = ""
         if BOARD_HAS_ESP32 == 0:
@@ -180,11 +176,9 @@ def __check_for_update_download_start(http_context, storage) -> bool:
 
         _download_file_path = file_path
 
-        if not http_context:
-            _view_manager.log("Error downloading update: http context is None")
-            return False
         http_context.close()
-        http_context.callback = __check_for_update_callback_download
+        # Completion is handled by the UI; no worker retains update state.
+        http_context.callback = None
 
         return http_context.get_async(
             download_url,
@@ -364,7 +358,7 @@ def start(view_manager) -> bool:
     Returns:
         bool: True if the update check started, False on failure.
     """
-    global _http, _app_state, _current_version, _board_id
+    global _http, _app_state, _current_version
 
     # Check for SD card (needed to save firmware)
     if not view_manager.has_sd_card:
@@ -393,7 +387,6 @@ def start(view_manager) -> bool:
 
     system = System()
     _current_version = system.version
-    _board_id = system.board_id
     _http = HTTP(view_manager=view_manager)
 
     if not __check_for_update_start(_http, view_manager):
@@ -428,18 +421,25 @@ def run(view_manager) -> None:
                 _loading.animate(http=_http)
             return
 
+        available = __check_for_update_is_available(_http)
+        if available == -1:
+            return  # A bounded transport retry is now in progress.
+
         if _loading:
             _loading.stop()
             del _loading
             _loading = None
 
         # Parse the response
-        if __check_for_update_is_available(_http):
+        if available is True:
             _app_state = STATE_UPDATE_AVAILABLE
             __draw_update_available(view_manager)
-        else:
+        elif available is False:
             _app_state = STATE_NO_UPDATE
             __draw_no_update(view_manager)
+        else:
+            _app_state = STATE_CHECK_FAILED
+            __draw_error(view_manager, _check_error or "Update check failed")
 
         if _http:
             _http.close()

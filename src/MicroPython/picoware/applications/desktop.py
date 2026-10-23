@@ -226,8 +226,11 @@ def _finish_update() -> None:
     global _desktop_http, _desktop_update_fetched, _desktop_update_parsed, _desktop_update_available
 
     if _desktop_http is not None:
+        from picoware.applications.system.update import __reset
+
         _desktop_http.close()
         _desktop_http = None
+        __reset()
     _desktop_update_fetched = True
     _desktop_update_parsed = True
     _desktop_update_available = False
@@ -358,7 +361,10 @@ def run(view_manager) -> None:
             __check_for_update_download_start,
         )
 
-        if __check_for_update_is_available(_desktop_http):
+        available = __check_for_update_is_available(_desktop_http)
+        if available == -1:
+            return
+        if available is True:
             _desktop_update_available = True
             _should_download = view_manager.alert(
                 "There's a new Picoware update available!! Press `Center` to start downloading in the background or `Back` to decline. Do not leave the desktop to allow the download to complete."
@@ -374,7 +380,8 @@ def run(view_manager) -> None:
                 _finish_update()
                 return
         else:
-            view_manager.log("No update available")
+            if available is False:
+                view_manager.log("No update available")
             _finish_update()
         _desktop_update_parsed = True  # only parse once even on fail...
         return

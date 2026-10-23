@@ -122,11 +122,13 @@ class Battery:
     @property
     def time_remaining(self) -> int:
         """Returns the estimated time remaining for the battery in minutes. _last_percentage is used to calculate the drop and set by the ViewManager externally."""
-        if self._last_percentage == 0:
+        if not 0 < self._last_percentage <= 100:
             return 0
         percentage = self.percentage
-        elapsed = 30000 # 30 seconds
-        drop = percentage - self._last_percentage
+        if not 0 < percentage <= 100:
+            return 0
+        elapsed = 30000 # Fixed sampling interval: 30 seconds
+        drop = self._last_percentage - percentage
         if drop <= 0:
             return 0
         return percentage * elapsed // (drop * 60000)

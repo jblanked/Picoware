@@ -118,7 +118,8 @@ class ViewManager:
         self._button = -1
 
         # Initialize battery
-        self._battery = Battery()
+        _interval = 5 * 60 * 1000  # 5 minutes in milliseconds
+        self._battery = Battery(_interval)
 
         # Initialize keyboard
         self._keyboard = None
@@ -173,7 +174,7 @@ class ViewManager:
 
         self._bluetooth = None
 
-        self._timer = Timer(callback=self.battery_callback, interval_ms=30000)
+        self._timer = Timer(callback=self.battery_callback, interval_ms=_interval)
         self._timer.start()
 
         # Clear screen

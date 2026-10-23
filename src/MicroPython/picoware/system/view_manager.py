@@ -131,6 +131,8 @@ class ViewManager:
         self.view_stack = [None] * self.MAX_STACK_SIZE
 
         if self._storage.exists("picoware/log.txt"):
+            if self._storage.exists("picoware/log_old.txt"):
+                self._storage.remove("picoware/log_old.txt")
             self._storage.copy("picoware/log.txt", "picoware/log_old.txt")
 
         self._log = Log(

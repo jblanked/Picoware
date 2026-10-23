@@ -779,6 +779,7 @@ class ViewManager:
             del self._bluetooth
             self._bluetooth = None
             self._draw.set_brightness(10)
+            self.freq(True)
         else:
             if self.has_wifi and self._wifi is None:
                 from picoware.system.wifi import WiFi
@@ -787,6 +788,7 @@ class ViewManager:
             from picoware.system.settings import Settings
             _settings = Settings(self._storage)
             self._draw.set_brightness(_settings.screen_brightness)
+            self.freq(False)
         collect()
 
 

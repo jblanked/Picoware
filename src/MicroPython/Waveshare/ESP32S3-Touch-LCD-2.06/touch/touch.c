@@ -1,5 +1,5 @@
 /*
- * Touch Driver for Crow Panel Advanced 10.1-inch ESP32-P4 HMI AI Display
+ * FT3168 Touch Driver for Waveshare Touch LCD 2.06
  * Copyright © 2026 JBlanked
  * https://github.com/jblanked
  *
@@ -8,16 +8,55 @@
 
 #include "freertos/FreeRTOS.h"    // FreeRTOS base header
 #include "freertos/task.h"        // FreeRTOS task APIs
-#include "esp_lcd_touch_ft5x06.h" // GT911 touch driver APIs
-#include <rom/ets_sys.h>          // ESP ROM system functions (e.g., delay)
+#include "esp_lcd_touch_ft5x06.h" // FT3168 touch driver APIs
 #include "driver/i2c_master.h"    // ESP-IDF I2C master driver API
+#include "esp_lcd_panel_io_interface.h"
 #include "touch.h"                // Include the display BSP header
 
-static esp_lcd_touch_handle_t tp = NULL;              // Handle for the GT911 touch panel
-static esp_lcd_panel_io_handle_t tp_io_handle = NULL; // Handle for I2C panel I/O
+static esp_lcd_touch_handle_t tp = NULL;              // Handle for the FT3168 touch panel
+static i2c_master_dev_handle_t touch_device = NULL;
+
+// The generic ESP-IDF panel transport uses an unlimited I2C wait. Keep the
+// FT5x06 decoder but supply bounded register I/O for this shared PMU bus.
+#define TOUCH_IO_TIMEOUT_MS 20
+#define TOUCH_RECOVERY_MS 20
+static esp_err_t touch_rx(esp_lcd_panel_io_t *io, int reg, void *data, size_t size)
+{
+    (void)io;
+    if (!touch_device || reg < 0 || reg > 255 || !data || size == 0)
+        return ESP_ERR_INVALID_ARG;
+    uint8_t address = reg;
+    return i2c_master_transmit_receive(touch_device, &address, 1, data, size, TOUCH_IO_TIMEOUT_MS);
+}
+
+static esp_err_t touch_tx(esp_lcd_panel_io_t *io, int reg, const void *data, size_t size)
+{
+    (void)io;
+    // FT5x06 initialization and power control write single-byte registers.
+    if (!touch_device || reg < 0 || reg > 255 || !data || size != 1)
+        return ESP_ERR_INVALID_ARG;
+    uint8_t bytes[2] = {reg, *(const uint8_t *)data};
+    return i2c_master_transmit(touch_device, bytes, sizeof(bytes), TOUCH_IO_TIMEOUT_MS);
+}
+
+static esp_lcd_panel_io_t touch_io = {.rx_param = touch_rx, .tx_param = touch_tx};
 static bool touch_initialized = false;                // Flag to indicate if touch panel is initialized
 static i2c_master_bus_handle_t i2c_bus_handle = NULL; // Global handle for I2C bus
 static bool i2c_bus_owned = false;
+static volatile bool touch_pending = false;
+static bool touch_retry = false;
+static bool touch_blocked = false;
+static TickType_t touch_failed_at;
+static portMUX_TYPE touch_lock = portMUX_INITIALIZER_UNLOCKED;
+
+static void IRAM_ATTR touch_interrupt(esp_lcd_touch_handle_t handle)
+{
+    (void)handle;
+    portENTER_CRITICAL_ISR(&touch_lock);
+    touch_pending = true;
+    portEXIT_CRITICAL_ISR(&touch_lock);
+}
+
 
 static TouchPoint current_touch_point = {
     .x = 0,           // Initialize X coordinate to invalid value
@@ -39,14 +78,7 @@ static void current_touch_point_reset(void)
 // get the latest touch coordinates and press state
 TouchPoint touch_get_point(void)
 {
-    TouchPoint point = {
-        .x = current_touch_point.x,                     // Current X coordinate
-        .y = current_touch_point.y,                     // Current Y coordinate
-        .strength = current_touch_point.strength,       // Current touch strength
-        .touch_count = current_touch_point.touch_count, // Current touch count
-        .pressed = current_touch_point.pressed          // Current press state
-    };
-    return point;
+    return current_touch_point;
 }
 
 void touch_deinit(void)
@@ -57,10 +89,10 @@ void touch_deinit(void)
         esp_lcd_touch_del(tp); // Delete touch driver instance
         tp = NULL;             // Clear touch driver handle
     }
-    if (tp_io_handle)
+    if (touch_device)
     {
-        esp_lcd_panel_io_del(tp_io_handle); // Delete panel I/O instance
-        tp_io_handle = NULL;                // Clear panel I/O handle
+        i2c_master_bus_rm_device(touch_device);
+        touch_device = NULL;
     }
     if (i2c_bus_handle && i2c_bus_owned)
     {
@@ -68,10 +100,13 @@ void touch_deinit(void)
         i2c_bus_handle = NULL;              // Clear I2C bus handle
     }
     i2c_bus_owned = false;
+    touch_pending = false;
+    touch_retry = false;
+    touch_blocked = false;
     touch_initialized = false; // Reset initialization flag
 }
 
-// initialize the GT911 touch panel
+// initialize the FT3168 touch panel
 bool touch_init(void)
 {
     if (touch_initialized)
@@ -102,11 +137,7 @@ bool touch_init(void)
         return false;
     }
 
-    // I2C panel I/O configuration
-    esp_lcd_panel_io_i2c_config_t io_config = ESP_LCD_TOUCH_IO_I2C_FT5x06_CONFIG();
-    io_config.scl_speed_hz = WATCH_I2C_FREQ_HZ;
-
-    // GT911 touch configuration
+    // FT3168 touch configuration
     esp_lcd_touch_config_t tp_cfg = {
         .x_max = WATCH_TOUCH_WIDTH,           // Max X coordinate
         .y_max = WATCH_TOUCH_HEIGHT,          // Max Y coordinate
@@ -123,22 +154,34 @@ bool touch_init(void)
         },
     };
 
-    // Create I2C panel I/O
-    const esp_err_t io_err = esp_lcd_new_panel_io_i2c((i2c_master_bus_handle_t)i2c_bus_handle, &io_config, &tp_io_handle);
+    const i2c_device_config_t device_config = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = ESP_LCD_TOUCH_IO_I2C_FT5x06_ADDRESS,
+        .scl_speed_hz = WATCH_I2C_FREQ_HZ,
+    };
+    const esp_err_t io_err = i2c_master_bus_add_device(i2c_bus_handle, &device_config, &touch_device);
     if (io_err != ESP_OK)
     {
-        printf("touch: Failed to create I2C panel IO, %s\n", esp_err_to_name(io_err));
+        printf("touch: Failed to create I2C device, %s\n", esp_err_to_name(io_err));
+        touch_deinit();
         return false;
     }
 
-    // Initialize GT911 touch driver
-    const esp_err_t touch_err = esp_lcd_touch_new_i2c_ft5x06(tp_io_handle, &tp_cfg, &tp);
+    // Initialize FT3168 touch driver
+    const esp_err_t touch_err = esp_lcd_touch_new_i2c_ft5x06(&touch_io, &tp_cfg, &tp);
     if (touch_err != ESP_OK)
     {
         printf("touch: Failed to initialize touch, %s\n", esp_err_to_name(touch_err));
+        touch_deinit();
         return false;
     }
 
+    const esp_err_t irq_err = esp_lcd_touch_register_interrupt_callback(tp, touch_interrupt);
+    if (irq_err != ESP_OK)
+    {
+        touch_deinit();
+        return false;
+    }
     touch_initialized = true;
 
     return true;
@@ -147,18 +190,59 @@ bool touch_init(void)
 // read the touch panel data and update coordinates
 bool touch_read(void)
 {
-    esp_lcd_touch_data_t touch_data;
-
-    // Read touch data
-    static esp_err_t last_read_err = ESP_OK;
-    last_read_err = esp_lcd_touch_read_data(tp);
-    if (last_read_err != ESP_OK)
-    {
-        printf("touch: GT911 read error, %s\n", esp_err_to_name(last_read_err));
+    if (!touch_initialized)
         return false;
+
+    portENTER_CRITICAL(&touch_lock);
+    bool pending = touch_pending;
+    touch_pending = false;
+    portEXIT_CRITICAL(&touch_lock);
+    // Recovery belongs to the failed transaction, not to each IRQ pulse.
+    // New interrupts must not reset its budget or skip its backoff.
+    bool retrying = touch_retry;
+    if (retrying)
+    {
+        if ((TickType_t)(xTaskGetTickCount() - touch_failed_at) < pdMS_TO_TICKS(TOUCH_RECOVERY_MS))
+        {
+            current_touch_point_reset();
+            return true;
+        }
+        touch_retry = false;
+    }
+    else if (touch_blocked)
+    {
+        // Re-arm only after a released IRQ stays quiet for 20 ms. A noisy
+        // controller cannot restart recovery indefinitely by pulsing the IRQ.
+        TickType_t now = xTaskGetTickCount();
+        if (pending || gpio_get_level(WATCH_TOUCH_INT_GPIO) == 0)
+            touch_failed_at = now;
+        else if ((TickType_t)(now - touch_failed_at) >= pdMS_TO_TICKS(TOUCH_RECOVERY_MS))
+            touch_blocked = false;
+        current_touch_point_reset();
+        return true;
+    }
+    else if (!pending && gpio_get_level(WATCH_TOUCH_INT_GPIO) != 0)
+    {
+        current_touch_point_reset();
+        return true;
     }
 
-    vTaskDelay(10 / portTICK_PERIOD_MS); // Small delay for stability
+    esp_lcd_touch_data_t touch_data;
+    esp_err_t last_read_err = esp_lcd_touch_read_data(tp);
+    if (last_read_err != ESP_OK)
+    {
+        current_touch_point_reset();
+        if (!retrying)
+        {
+            touch_retry = true;
+            touch_failed_at = xTaskGetTickCount();
+            return true; // Retry this event once on a later poll, without blocking.
+        }
+        touch_blocked = true;
+        touch_failed_at = xTaskGetTickCount();
+        printf("touch: FT3168 read error, %s\n", esp_err_to_name(last_read_err));
+        return false;
+    }
 
     // Get touch coordinates
     uint8_t point_cnt;

@@ -630,7 +630,7 @@ class ViewManager:
 
     def battery_callback(self, timer_obj):
         """Callback function for battery monitoring timer."""
-        self._battery._last_voltage = self._battery.voltage
+        self._battery.sample()
 
     def clear(self):
         """Clear the screen with the background color."""

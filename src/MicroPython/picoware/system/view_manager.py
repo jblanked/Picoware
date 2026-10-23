@@ -120,6 +120,7 @@ class ViewManager:
         # Initialize battery
         _interval = 5 * 60 * 1000  # 5 minutes in milliseconds
         self._battery = Battery(_interval)
+        self._battery.sample()
 
         # Initialize keyboard
         self._keyboard = None

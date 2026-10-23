@@ -1276,6 +1276,9 @@ def _host_command_exists(name):
 
 
 def poll_events():
+    from machine import Timer
+
+    Timer.poll_all()
     if _lcd is not None:
         _lcd.poll_events()
     if viewer and viewer_frame_path:

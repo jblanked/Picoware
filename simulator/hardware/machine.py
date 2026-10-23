@@ -278,6 +278,7 @@ class Timer:
     ONE_SHOT = 0
     PERIODIC = 1
     _timers = []
+    _polling = False
 
     def __init__(self, id=-1):
         self.id = id
@@ -286,7 +287,6 @@ class Timer:
         self._mode = self.ONE_SHOT
         self._callback = None
         self._next_ms = 0
-        Timer._timers.append(self)
 
     def init(self, *, mode=PERIODIC, period=-1, freq=-1, callback=None):
         if period < 0 and freq and freq > 0:
@@ -296,10 +296,15 @@ class Timer:
         self._callback = callback
         self._next_ms = _ticks_ms() + self._period
         self._active = True
+        if self not in Timer._timers:
+            Timer._timers.append(self)
         return None
 
     def deinit(self):
         self._active = False
+        self._callback = None
+        if self in Timer._timers:
+            Timer._timers.remove(self)
         return None
 
     def _poll(self, now=None):
@@ -309,22 +314,30 @@ class Timer:
             now = _ticks_ms()
         if now < self._next_ms:
             return False
-        if self._callback:
-            self._callback(self)
+        callback = self._callback
         if self._mode == self.ONE_SHOT:
-            self._active = False
+            # Remove before dispatch so the callback can restart this timer.
+            self.deinit()
         else:
             self._next_ms = now + self._period
+        if callback:
+            callback(self)
         return True
 
     @classmethod
     def poll_all(cls):
-        now = _ticks_ms()
-        count = 0
-        for timer in list(cls._timers):
-            if timer._poll(now):
-                count += 1
-        return count
+        if cls._polling:
+            return 0
+        cls._polling = True
+        try:
+            now = _ticks_ms()
+            count = 0
+            for timer in list(cls._timers):
+                if timer._poll(now):
+                    count += 1
+            return count
+        finally:
+            cls._polling = False
 
 
 class WDT:

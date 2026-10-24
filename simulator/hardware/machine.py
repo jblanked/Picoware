@@ -288,7 +288,9 @@ class Timer:
         self._callback = None
         self._next_ms = 0
 
-    def init(self, *, mode=PERIODIC, period=-1, freq=-1, callback=None):
+    def init(self, *, mode=PERIODIC, period=-1, freq=-1, callback=None, hard=False):
+        # Host callbacks run cooperatively, even when a board requests hard IRQs.
+        self._hard = bool(hard)
         if period < 0 and freq and freq > 0:
             period = max(1, int(1000 / int(freq)))
         self._period = max(1, int(period if period >= 0 else 1))

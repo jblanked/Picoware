@@ -1,4 +1,5 @@
 #include "sprite3d.hpp"
+#include <string.h>
 
 #ifdef ENGINE_STORAGE_INCLUDE
 #include ENGINE_STORAGE_INCLUDE
@@ -24,9 +25,11 @@ static uint16_t shadeColor565(uint16_t color, float factor)
 }
 
 Sprite3D::Sprite3D() : active(false), position(Vector(0, 0)), rotation_y(0), scale_factor(1.0f),
-                       triangle_capacity(0), triangle_count(0), triangles(nullptr), type(SPRITE_CUSTOM)
+                       triangle_capacity(0), triangle_count(0), type(SPRITE_CUSTOM)
 {
+#ifndef ENGINE_USE_PSRAM
     triangles = nullptr;
+#endif
 }
 
 Sprite3D::~Sprite3D()
@@ -40,6 +43,10 @@ bool Sprite3D::addTriangle(const Triangle3D &triangle)
         return false;
     if (triangle_count == triangle_capacity)
     {
+#ifdef ENGINE_USE_PSRAM
+        if (!reserveTriangles(triangle_count + 1))
+            return false;
+#else
         Triangle3D *new_block = (Triangle3D *)ENGINE_MEM_MALLOC(
             (triangle_count + 1) * sizeof(Triangle3D));
         if (!new_block)
@@ -50,8 +57,11 @@ bool Sprite3D::addTriangle(const Triangle3D &triangle)
             ENGINE_MEM_FREE(triangles);
         triangles = new_block;
         triangle_capacity = triangle_count + 1;
+#endif
     }
-    triangles[triangle_count++] = triangle;
+    if (!storeTriangle(triangle_count, triangle))
+        return false;
+    triangle_count++;
     return true;
 }
 
@@ -72,9 +82,11 @@ bool Sprite3D::bakeTransform()
     const float cos_a = cosf(rotation_y);
     const float sin_a = sinf(rotation_y);
 
+    Triangle3D t;
     for (uint16_t i = 0; i < triangle_count; i++)
     {
-        Triangle3D &t = triangles[i];
+        if (!loadTriangle(i, t))
+            return false;
 
         t.x1 *= scale_factor;
         t.y1 *= scale_factor;
@@ -95,6 +107,9 @@ bool Sprite3D::bakeTransform()
         ox = t.x3;
         t.x3 = ox * cos_a - t.z3 * sin_a;
         t.z3 = ox * sin_a + t.z3 * cos_a;
+
+        if (!storeTriangle(i, t))
+            return false;
     }
 
     rotation_y = 0.0f;
@@ -104,15 +119,20 @@ bool Sprite3D::bakeTransform()
 
 void Sprite3D::clearTriangles()
 {
+#ifndef ENGINE_USE_PSRAM
     if (triangles != nullptr)
         ENGINE_MEM_FREE(triangles);
     triangles = nullptr;
-    triangle_count = 0;
     triangle_capacity = 0;
+#endif
+    triangle_count = 0;
 }
 
 bool Sprite3D::createCube(float x, float y, float z, float width, float height, float depth, uint16_t color, bool wireframe)
 {
+    if (!reserveExtra(8))
+        return false;
+
     float hw = width * 0.5f;
     float hh = height * 0.5f;
     float hd = depth * 0.5f;
@@ -183,6 +203,9 @@ bool Sprite3D::createCylinder(float x, float y, float z, float radius, float hei
     if (segments > 6)
         segments = 6;
 
+    if (!reserveExtra((uint16_t)(segments * 2)))
+        return false;
+
     // Only side faces - no caps to save triangles
     for (uint8_t i = 0; i < segments; i++)
     {
@@ -216,6 +239,10 @@ bool Sprite3D::createHouse(float width, float height, uint16_t color, bool wiref
     clearTriangles();
     type = SPRITE_HOUSE;
 
+    // cube (8) + triangular prism (8)
+    if (!reserveExtra(16))
+        return false;
+
     float wall_height = height * 0.7f;
     float roof_height = height * 0.3f;
     float house_width = width * 1.3f;
@@ -233,6 +260,10 @@ bool Sprite3D::createHumanoid(float height, uint16_t color, bool wireframe)
 {
     clearTriangles();
     type = SPRITE_HUMANOID;
+
+    // head sphere (8) + torso (8) + 2 arms (16) + 2 legs (16)
+    if (!reserveExtra(48))
+        return false;
 
     float head_radius = height * 0.12f;
     float torso_width = height * 0.20f;
@@ -272,6 +303,11 @@ bool Sprite3D::createPillar(float height, float radius, uint16_t color, bool wir
 {
     clearTriangles();
     type = SPRITE_PILLAR;
+
+    // main cylinder (12) + base (8) + top (8)
+    if (!reserveExtra(28))
+        return false;
+
     float pillar_radius = radius * 1.5f;
 
     // Main cylinder - 6 segments = 12 triangles
@@ -291,6 +327,10 @@ bool Sprite3D::createSphere(float x, float y, float z, float radius, uint8_t seg
     // limit segments for sphere to prevent triangle explosion
     if (segments > 4)
         segments = 4;
+
+    // at most 8 triangles with segments clamped to 4
+    if (!reserveExtra(8))
+        return false;
 
     for (uint8_t lat = 0; lat < segments / 2; lat++)
     {
@@ -340,6 +380,10 @@ bool Sprite3D::createTree(float height, uint16_t color, bool wireframe)
     clearTriangles();
     type = SPRITE_TREE;
 
+    // trunk cube (8) + crown cube (8)
+    if (!reserveExtra(16))
+        return false;
+
     float trunk_width = height * 0.18f;
     float trunk_height = height * 0.4f;
     float crown_width = height * 0.65f;
@@ -355,6 +399,9 @@ bool Sprite3D::createTree(float height, uint16_t color, bool wireframe)
 
 bool Sprite3D::createTriangularPrism(float x, float y, float z, float width, float height, float depth, uint16_t color, bool wireframe)
 {
+    if (!reserveExtra(8))
+        return false;
+
     float hw = width * 0.5f;
     float hh = height * 0.5f;
     float hd = depth * 0.5f;
@@ -413,6 +460,9 @@ bool Sprite3D::createTriangularPrism(float x, float y, float z, float width, flo
 
 bool Sprite3D::createWall(float x, float y, float z, float width, float height, float depth, uint16_t color, bool wireframe)
 {
+    if (!reserveExtra(12))
+        return false;
+
     // Wall segment using raw triangles, offset by (x, y, z)
     const float hw = width / 2, hh = height / 2, hd = depth / 2;
     // Front face
@@ -475,6 +525,14 @@ bool Sprite3D::fromPath(const char *path, bool wireframe)
     }
 
     uint16_t count = bytes / sizeof(Triangle3D);
+
+    if (!reserveExtra(count))
+    {
+        ENGINE_MEM_FREE(buf);
+        ENGINE_LOG_INFO("Sprite3D::fromPath failed to reserve memory for %u triangles\n", count);
+        return false;
+    }
+
     for (uint16_t i = 0; i < count; i++)
     {
         buf[i].wireframe = wireframe;
@@ -495,17 +553,16 @@ bool Sprite3D::getTriangle(uint16_t index, Triangle3D &out) const
 {
     if (index >= triangle_count)
         return false;
-    out = triangles[index];
-    return true;
+    return loadTriangle(index, out);
 }
 
 bool Sprite3D::getTriangle(uint16_t index, float &x1, float &y1, float &z1,
                            float &x2, float &y2, float &z2,
                            float &x3, float &y3, float &z3, uint16_t &color, bool &wireframe) const
 {
-    if (index >= triangle_count)
+    Triangle3D tri;
+    if (!getTriangle(index, tri))
         return false;
-    const Triangle3D &tri = triangles[index];
     x1 = tri.x1;
     y1 = tri.y1;
     z1 = tri.z1;
@@ -525,7 +582,8 @@ bool Sprite3D::getWorldTriangle(uint16_t index, Triangle3D &out) const
     if (index >= triangle_count)
         return false;
 
-    out = triangles[index];
+    if (!loadTriangle(index, out))
+        return false;
     if (rotation_y == 0.0f && scale_factor == 1.0f)
     {
         out.x1 += position.x;
@@ -625,12 +683,48 @@ bool Sprite3D::initializeAsTree(Vector pos, float height, uint16_t color, bool w
     return createTree(height, color, wireframe);
 }
 
+bool Sprite3D::loadTriangle(uint16_t index, Triangle3D &out) const
+{
+#ifdef ENGINE_USE_PSRAM
+    return triangles.at(index).read(out);
+#else
+    out = triangles[index];
+    return true;
+#endif
+}
+
+bool Sprite3D::reserveExtra(uint16_t extra)
+{
+#ifdef ENGINE_USE_PSRAM
+    return reserveTriangles((uint16_t)(triangle_count + extra));
+#else
+    (void)extra;
+    return true;
+#endif
+}
+
 bool Sprite3D::reserveTriangles(uint16_t count)
 {
     if (count > ENGINE_MAX_TRIANGLES_PER_SPRITE)
         return false;
     if (count <= triangle_capacity)
         return true;
+
+#ifdef ENGINE_USE_PSRAM
+    const uint32_t base = TrianglePSRAM::reserve(count);
+    if (base == TrianglePSRAM::INVALID)
+        return false;
+    const TrianglePSRAM replacement(base);
+    Triangle3D t;
+    for (uint16_t i = 0; i < triangle_count; i++)
+    {
+        if (!triangles.at(i).read(t) || !replacement.at(i).set(t))
+            return false;
+    }
+    triangles = replacement;
+    triangle_capacity = count;
+    return true;
+#else
     Triangle3D *replacement = (Triangle3D *)ENGINE_MEM_MALLOC(
         static_cast<size_t>(count) * sizeof(Triangle3D));
     if (!replacement)
@@ -642,14 +736,30 @@ bool Sprite3D::reserveTriangles(uint16_t count)
     triangles = replacement;
     triangle_capacity = count;
     return true;
+#endif
 }
 
 void Sprite3D::setWireframe(bool wireframe)
 {
+    Triangle3D t;
     for (uint16_t i = 0; i < triangle_count; i++)
     {
-        triangles[i].wireframe = wireframe;
+        if (loadTriangle(i, t))
+        {
+            t.wireframe = wireframe;
+            storeTriangle(i, t);
+        }
     }
+}
+
+bool Sprite3D::storeTriangle(uint16_t index, const Triangle3D &triangle)
+{
+#ifdef ENGINE_USE_PSRAM
+    return triangles.at(index).set(triangle);
+#else
+    triangles[index] = triangle;
+    return true;
+#endif
 }
 
 bool Sprite3D::toPath(const char *path) const
@@ -657,13 +767,21 @@ bool Sprite3D::toPath(const char *path) const
 #ifdef ENGINE_STORAGE_WRITE
     if (triangle_count == 0)
         return false;
+#ifndef ENGINE_USE_PSRAM
     if (triangle_count == ENGINE_MAX_TRIANGLES_PER_SPRITE)
         return ENGINE_STORAGE_WRITE(path, triangles, sizeof(Triangle3D) * triangle_count);
+#endif
     Triangle3D *buf = ENGINE_MEM_NEW Triangle3D[triangle_count];
     if (!buf)
         return false;
     for (uint16_t i = 0; i < triangle_count; i++)
-        buf[i] = triangles[i];
+    {
+        if (!loadTriangle(i, buf[i]))
+        {
+            ENGINE_MEM_DELETE[] buf;
+            return false;
+        }
+    }
     const bool ok = ENGINE_STORAGE_WRITE(path, buf, sizeof(Triangle3D) * triangle_count);
     ENGINE_MEM_DELETE[] buf;
     return ok;
@@ -690,8 +808,7 @@ bool Sprite3D::updateTriangle(uint16_t index, const Triangle3D &triangle)
 {
     if (index >= triangle_count)
         return false;
-    triangles[index] = triangle;
-    return true;
+    return storeTriangle(index, triangle);
 }
 
 bool Sprite3D::updateTriangle(uint16_t index, float x1, float y1, float z1,
@@ -700,16 +817,5 @@ bool Sprite3D::updateTriangle(uint16_t index, float x1, float y1, float z1,
 {
     if (index >= triangle_count)
         return false;
-    triangles[index].x1 = x1;
-    triangles[index].y1 = y1;
-    triangles[index].z1 = z1;
-    triangles[index].x2 = x2;
-    triangles[index].y2 = y2;
-    triangles[index].z2 = z2;
-    triangles[index].x3 = x3;
-    triangles[index].y3 = y3;
-    triangles[index].z3 = z3;
-    triangles[index].color = color;
-    triangles[index].wireframe = wireframe;
-    return true;
+    return storeTriangle(index, Triangle3D(x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe));
 }

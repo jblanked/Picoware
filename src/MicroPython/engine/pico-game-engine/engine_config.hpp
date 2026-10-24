@@ -92,3 +92,16 @@
 #define ENGINE_STORAGE_FILE_LIST storage_file_list // (const char *pattern, char filenames[][256], uint16_t skip, uint16_t max_count) -> uint16_t
 #define ENGINE_STORAGE_SIZE storage_file_size      // (const char *file_path) -> size_t
 #endif
+
+// psram
+#ifdef PICOCALC
+#include "../lcd/lcd_config.h"
+#include LCD_INCLUDE
+#define ENGINE_USE_PSRAM 1
+#define ENGINE_PSRAM_SIZE PSRAM_SIZE
+#define ENGINE_PSRAM_BASE psram_next_free_addr
+#define ENGINE_PSRAM_LIMIT PSRAM_SIZE
+#define ENGINE_PSRAM_ADVANCE(address) (psram_next_free_addr = (address))
+#define ENGINE_PSRAM_WRITE picoware_psram_write_data
+#define ENGINE_PSRAM_READ picoware_psram_read_data
+#endif

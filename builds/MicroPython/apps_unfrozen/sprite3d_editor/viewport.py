@@ -324,7 +324,8 @@ class ViewportMixin:
             if self.mesh is not None:
                 self.refresh_previews()
                 from .rendercache import clear
-                clear(self)
+                # Shading changes visibility, but not vertex or edge identity.
+                clear(self,preserve_geometry=True)
             self.status = "Shading: "+mode
         except MemoryError as exc:
             self.shading = previous

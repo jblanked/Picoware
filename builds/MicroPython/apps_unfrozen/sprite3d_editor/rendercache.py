@@ -51,7 +51,7 @@ def finish(editor, kind, box, key, lines):
         pass  # A cache failure must never prevent editing or rendering.
 
 
-def clear(editor,geometry_only=False):
+def clear(editor,geometry_only=False,preserve_geometry=False):
     editor._geometry_revision += 1
     if not geometry_only:
         editor._hud_keys = [None,None,None]
@@ -71,8 +71,9 @@ def clear(editor,geometry_only=False):
     if editor._normal_cache is not None:
         editor.history.release(editor._normal_cache)
         editor._normal_cache = None
-    editor._vertex_groups = None
-    editor._wire_topology = None
-    editor._wire_scratch = None
+    if not preserve_geometry:
+        editor._vertex_groups = None
+        editor._wire_topology = None
+        editor._wire_scratch = None
     from .visibilityjobs import cancel as cancel_visibility
     cancel_visibility(editor)

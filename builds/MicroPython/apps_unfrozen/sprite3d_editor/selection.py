@@ -1,6 +1,6 @@
 """Small selection masks and clipped, non-destructive component overlays."""
 
-from struct import unpack_from
+from struct import pack, unpack_from
 
 
 def vertex(records, index):
@@ -33,7 +33,10 @@ class SelectionTools:
             from array import array
             lookup, representatives, groups = {},array('H'),array('H')
             for i in range(len(self.records)//40*3):
-                point = vertex(self.records,i)
+                x,y,z = vertex(self.records,i)
+                # Packed coordinates avoid MicroPython's colliding float-tuple
+                # hashes. Normalize signed zero to preserve numeric equality.
+                point = pack('<3f',x if x else 0.0,y if y else 0.0,z if z else 0.0)
                 representative = lookup.get(point)
                 if representative is None:
                     representative = i

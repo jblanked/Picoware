@@ -294,7 +294,8 @@ def run(view_manager) -> None:
 
     # Clear and draw header
     view_manager.draw.erase()
-    _desktop.draw_header(view_manager._wifi.is_connected(), view_manager._bluetooth is not None)
+    wifi = view_manager.wifi
+    _desktop.draw_header(wifi is not None and wifi.is_connected(), view_manager._bluetooth is not None)
 
     # Draw animated picoware text every frame
     _desktop_picoware.draw()

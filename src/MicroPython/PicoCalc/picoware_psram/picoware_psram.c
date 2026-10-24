@@ -18,7 +18,7 @@ const mp_obj_type_t mp_psram_data_type;
 // Module state
 bool psram_initialized = false;
 psram_qspi_inst_t psram_instance;
-static uint32_t next_free_addr = PSRAM_HEAP_START_ADDR;
+uint32_t psram_next_free_addr = PSRAM_HEAP_START_ADDR;
 #define PSRAM_ALLOC_FAIL ((uint32_t)0xFFFFFFFFu)
 
 MP_REGISTER_ROOT_POINTER(struct psram_block *picoware_psram_free_list);
@@ -52,7 +52,7 @@ static void psram_init_allocator(void)
         alloc_list = next;
     }
 
-    next_free_addr = PSRAM_HEAP_START_ADDR;
+    psram_next_free_addr = PSRAM_HEAP_START_ADDR;
 }
 
 // Register an allocated block
@@ -95,7 +95,7 @@ static uint32_t psram_alloc(uint32_t size)
     if (alloc_list == NULL)
     {
         free_list = NULL;
-        next_free_addr = PSRAM_HEAP_START_ADDR;
+        psram_next_free_addr = PSRAM_HEAP_START_ADDR;
     }
     // Try to find a suitable free block first
     psram_block_t **prev_ptr = &free_list;
@@ -129,13 +129,13 @@ static uint32_t psram_alloc(uint32_t size)
     }
 
     // No suitable free block, allocate from end
-    if (next_free_addr + size > PSRAM_SIZE)
+    if (psram_next_free_addr + size > PSRAM_SIZE)
     {
         return PSRAM_ALLOC_FAIL; // Out of memory
     }
 
-    uint32_t addr = next_free_addr;
-    next_free_addr += size;
+    uint32_t addr = psram_next_free_addr;
+    psram_next_free_addr += size;
     return addr;
 }
 
@@ -146,11 +146,11 @@ static void psram_free(uint32_t addr, uint32_t size)
     psram_unregister_alloc(addr);
 
     // Check if this is the last allocated block (at the end of the heap)
-    // If so, simply reduce next_free_addr instead of adding to free list
-    if (addr + size == next_free_addr)
+    // If so, simply reduce psram_next_free_addr instead of adding to free list
+    if (addr + size == psram_next_free_addr)
     {
         // This is the last block, just move the free pointer back
-        next_free_addr = addr;
+        psram_next_free_addr = addr;
 
         // Check if we can also reclaim any adjacent free blocks at the end
         // Skip if in finaliser to avoid memory allocation
@@ -161,10 +161,10 @@ static void psram_free(uint32_t addr, uint32_t size)
 
             while (current != NULL)
             {
-                if (current->addr + current->size == next_free_addr)
+                if (current->addr + current->size == psram_next_free_addr)
                 {
                     // This free block is now at the end, reclaim it
-                    next_free_addr = current->addr;
+                    psram_next_free_addr = current->addr;
                     *prev_ptr = current->next;
                     psram_block_t *to_delete = current;
                     current = current->next;
@@ -324,8 +324,8 @@ static void psram_free(uint32_t addr, uint32_t size)
             target_addr += block->size;
         }
 
-        // Update next_free_addr to the new end of allocated memory
-        next_free_addr = target_addr;
+        // Update psram_next_free_addr to the new end of allocated memory
+        psram_next_free_addr = target_addr;
 
         // Clear the free list since we've compacted everything
         while (free_list != NULL)
@@ -336,6 +336,24 @@ static void psram_free(uint32_t addr, uint32_t size)
         }
 
         m_del(psram_alloc_block_t *, blocks_to_move, num_blocks);
+    }
+}
+
+void picoware_psram_write_data(uint32_t addr, const void *data, size_t length)
+{
+    const uint8_t *bytes = (const uint8_t *)data;
+    for (size_t i = 0; i < length; i++)
+    {
+        psram_qspi_write8(&psram_instance, addr + i, bytes[i]);
+    }
+}
+
+void picoware_psram_read_data(uint32_t addr, void *data, size_t length)
+{
+    uint8_t *bytes = (uint8_t *)data;
+    for (size_t i = 0; i < length; i++)
+    {
+        bytes[i] = psram_qspi_read8(&psram_instance, addr + i);
     }
 }
 
@@ -1534,7 +1552,7 @@ mp_obj_t picoware_psram_deinit(void)
 
         psram_qspi_deinit(&psram_instance);
         psram_initialized = false;
-        next_free_addr = PSRAM_HEAP_START_ADDR;
+        psram_next_free_addr = PSRAM_HEAP_START_ADDR;
     }
     return mp_const_none;
 }
@@ -2102,7 +2120,7 @@ static MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_malloc_obj, picoware_psram_mallo
 // Get next free address
 mp_obj_t picoware_psram_get_next_free(mp_obj_t self_in)
 {
-    return mp_obj_new_int_from_uint(next_free_addr);
+    return mp_obj_new_int_from_uint(psram_next_free_addr);
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(picoware_psram_get_next_free_obj, picoware_psram_get_next_free);
 
@@ -2114,8 +2132,8 @@ mp_obj_t picoware_psram_mem_free(mp_obj_t self_in)
         return mp_obj_new_int(0);
     }
 
-    // Calculate free memory at the end (after next_free_addr)
-    uint32_t free_at_end = PSRAM_SIZE - next_free_addr;
+    // Calculate free memory at the end (after psram_next_free_addr)
+    uint32_t free_at_end = PSRAM_SIZE - psram_next_free_addr;
 
     // Calculate free memory in the free list (holes in allocated space)
     // Note: After compaction, this should be 0, but may have holes if
@@ -2160,7 +2178,7 @@ mp_obj_t picoware_psram_collect(mp_obj_t self_in)
             m_free(free_list);
             free_list = next;
         }
-        next_free_addr = PSRAM_HEAP_START_ADDR;
+        psram_next_free_addr = PSRAM_HEAP_START_ADDR;
         return mp_obj_new_int(0);
     }
 
@@ -2239,8 +2257,8 @@ mp_obj_t picoware_psram_collect(mp_obj_t self_in)
         target_addr += block->size;
     }
 
-    // Update next_free_addr to end of last block
-    next_free_addr = target_addr;
+    // Update psram_next_free_addr to end of last block
+    psram_next_free_addr = target_addr;
 
     // Clear entire free list - everything is now compacted
     while (free_list != NULL)

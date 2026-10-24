@@ -7,6 +7,11 @@
 #include "py/objstr.h"
 #include "py/objtype.h"
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 extern const mp_obj_type_t psram_mp_type;
 extern const mp_obj_type_t mp_psram_data_type;
 
@@ -57,6 +62,9 @@ typedef struct psram_alloc_block
     struct psram_alloc_block *next;
 } psram_alloc_block_t;
 
+void picoware_psram_write_data(uint32_t addr, const void *data, size_t length);
+void picoware_psram_read_data(uint32_t addr, void *data, size_t length);
+
 void mp_psram_data_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);
 mp_obj_t mp_psram_data_unary_op(mp_unary_op_t op, mp_obj_t self_in);
 mp_obj_t mp_psram_data_binary_op(mp_binary_op_t op, mp_obj_t lhs_in, mp_obj_t rhs_in);
@@ -96,3 +104,7 @@ void psram_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t k
 mp_obj_t psram_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args);
 mp_obj_t psram_mp_del(mp_obj_t self_in);
 void psram_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);
+
+#ifdef __cplusplus
+}
+#endif

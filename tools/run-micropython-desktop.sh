@@ -7,6 +7,8 @@ build_dir=${PICOWARE_DESKTOP_BUILD_DIR:-"$picoware_dir/builds/MicroPython/deskto
 binary="$build_dir/micropython"
 
 if [ ! -x "$binary" ] || ! "$binary" -c 'import engine, ghouls, mjs, vector
+from micropython import alloc_emergency_exception_buf
+alloc_emergency_exception_buf(100)
 assert hasattr(engine, "Billboard")
 assert hasattr(engine.Entity, "set_billboard")
 assert hasattr(engine.Entity, "set_billboard_pose")

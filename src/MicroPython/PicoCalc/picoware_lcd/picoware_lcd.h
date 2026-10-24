@@ -1,13 +1,14 @@
 #pragma once
 
+#include "lcd.h"
+#include "../picoware_psram/psram_qspi.h"
+#include "../picoware_psram/picoware_psram_shared.h"
+#include "../../font/font_mp.h"
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-
-#include "lcd.h"
-#include "../picoware_psram/psram_qspi.h"
-#include "../../font/font_mp.h"
 
 // Display constants
 #define DISPLAY_WIDTH 320

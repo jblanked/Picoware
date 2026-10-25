@@ -23,7 +23,7 @@ class Timer:
         self.stop()
         if self._timer is not None:
             del self._timer
-            self._timer = None
+        self._timer = None
         self._callback = None
 
     @property

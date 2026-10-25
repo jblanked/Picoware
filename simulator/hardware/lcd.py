@@ -69,7 +69,11 @@ class LCD:
         self._mode = lcd_mode
         self._brightness = 100
         self._rgb_led = (0, 0, 0)
-        self._buffer = bytearray(self.width * self.height * 2)
+        try:
+            import sim_psram
+            self._buffer = sim_psram.framebuffer(self.width * self.height * 2)
+        except ImportError:
+            self._buffer = bytearray(self.width * self.height * 2)
         self._clear_buffer = self._buffer
         self._framebuffer = framebuf.FrameBuffer(self._buffer, self.width, self.height, framebuf.RGB565)
         self._sdl = None

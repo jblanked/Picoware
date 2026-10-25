@@ -105,3 +105,13 @@
 #define ENGINE_PSRAM_WRITE picoware_psram_write_data
 #define ENGINE_PSRAM_READ picoware_psram_read_data
 #endif
+#if defined(DESKTOP) && defined(PICOWARE_SIM_PSRAM)
+#include "../../Desktop/sim_psram.h"
+#define ENGINE_USE_PSRAM 1
+#define ENGINE_PSRAM_BASE psram_next_free_addr
+#define ENGINE_PSRAM_ADVANCE(address) (psram_next_free_addr = (address))
+#define ENGINE_PSRAM_SIZE PSRAM_SIZE
+#define ENGINE_PSRAM_LIMIT PSRAM_SIZE
+#define ENGINE_PSRAM_WRITE picoware_psram_write_data
+#define ENGINE_PSRAM_READ picoware_psram_read_data
+#endif

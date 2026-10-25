@@ -1,9 +1,11 @@
 """Reuse native triangle storage, with packed records for edit rollback."""
+from .records import view as record_view
+
 
 from array import array
 from gc import collect
 from math import isfinite
-from struct import unpack_from
+from .records import unpack_from
 from picoware.engine.sprite3d import Sprite3D
 
 
@@ -44,8 +46,8 @@ class MeshUpdate:
             return
         buffer,records=self.buffer,self.records
         count=len(records)//40
-        before = memoryview(buffer.records)
-        after = memoryview(records)
+        before = record_view(buffer.records)
+        after = record_view(records)
         for offset in range(0, len(records), 40):
             if validate:
                 values = unpack_from('<9fHB', records, offset)
@@ -99,6 +101,8 @@ def discard_updates(updates):
 
 def apply_updates(updates):
     """Publish new record snapshots only after every mesh update succeeds."""
+    from .diagnostics import stage
+    stage('native commit')
     try:
         for update in updates:
             update.apply()

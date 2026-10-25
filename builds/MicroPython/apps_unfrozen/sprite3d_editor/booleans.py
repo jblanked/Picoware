@@ -1,4 +1,6 @@
 """SD operand captures and reversible Boolean previews."""
+from .records import new as new_records, paged
+
 from time import ticks_ms, ticks_diff
 from .csg import boolean_steps, MAX_INPUT
 
@@ -30,7 +32,7 @@ class BooleanTools:
             other = self.boolean_operands[1-slot]
             if other is not None and any(i in other[1] for i in indices):
                 raise ValueError('A and B must use different faces')
-            records = bytearray()
+            records = new_records()
             for i in indices:
                 records.extend(self.records[i*40:i*40+40])
             indices = tuple(indices)
@@ -132,7 +134,7 @@ class BooleanTools:
                         break
                 if update[0] == 'done':
                     result = update[1]
-                    records = bytearray()
+                    records = new_records()
                     for i in range(len(self.records)//40):
                         if i not in job['removed']:
                             records.extend(self.records[i*40:i*40+40])

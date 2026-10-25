@@ -1,7 +1,7 @@
 """Sparse vertex depth tests, without a full-screen depth buffer."""
 from array import array
 from gc import collect,mem_free
-from struct import unpack_from
+from .records import unpack_from
 try:
     from time import ticks_us, ticks_diff
 except ImportError:

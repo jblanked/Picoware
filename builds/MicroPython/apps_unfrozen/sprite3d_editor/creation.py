@@ -1,4 +1,6 @@
 """Editable primitive meshes and triangle construction."""
+from .records import new as new_records, paged
+
 
 from struct import pack
 from math import isfinite, sin, cos, pi, sqrt
@@ -108,7 +110,7 @@ def primitive(kind, size, origin, color, quads=None):
         faces = revolved_faces(((0,0),(h,h),(0,size)),4)
     else:
         raise ValueError("Unknown primitive")
-    records = bytearray()
+    records = new_records()
     for face in faces:
         start=len(records)//40
         if quads is not None and len(face)==4:quads.extend((start,start+1))

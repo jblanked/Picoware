@@ -1,6 +1,8 @@
 """Transactional component edits and creation commands."""
+from .records import new as new_records, paged
 
-from struct import pack_into
+
+from .records import pack_into
 from .creation import primitive, triangle
 from .selection import vertex
 
@@ -79,7 +81,7 @@ class GeometryEditing:
             from .quads import remap
             from array import array
             pairs=array('I',self.quads.pairs)
-            records = bytearray(self.records)
+            records = new_records(self.records)
             selected = indices
             if action == "Duplicate":
                 start = len(records)//40
@@ -89,7 +91,7 @@ class GeometryEditing:
                 selected = range(start,len(records)//40)
             elif action == "Delete":
                 chosen = set(indices)
-                records = bytearray()
+                records = new_records()
                 for i in range(len(self.records)//40):
                     if i not in chosen:
                         records.extend(self.records[i*40:i*40+40])
@@ -152,7 +154,7 @@ class GeometryEditing:
             from picoware.engine.sprite3d import Sprite3D
             if start+len(addition)//40 > self.document_capacity():
                 raise ValueError("Triangle limit exceeded")
-            records = bytearray(self.records)
+            records = new_records(self.records)
             records.extend(addition)
             self.apply_geometry(records,"Create "+kind,range(start,len(records)//40),
                                 list(self.quads.pairs)+[start+i for i in addition_pairs])

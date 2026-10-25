@@ -1,16 +1,22 @@
 """Small rest-mesh animation documents; no engine or Blender dependency."""
 from math import sin, cos, pi, isfinite
-from struct import unpack_from
+from .records import unpack_from
 from binascii import hexlify, unhexlify
 from json import dumps, loads
+from array import array
 
 MAX_PARTS = 16
 MAX_METADATA = 65536
 PRESETS = ('Sway', 'Bend', 'Bob', 'Spin', 'Flap')
 
 
+def pose_values(values):
+    from .records import backend
+    return array('d',values) if backend() is not None else list(values)
+
+
 def transform():
-    return [0., 0., 0., 0., 0., 0., 1., 1., 1., 0., 0., 0.]
+    return pose_values((0., 0., 0., 0., 0., 0., 1., 1., 1., 0., 0., 0.))
 
 
 def new(count=0):
@@ -23,7 +29,7 @@ def new(count=0):
 
 def active(data):
     return data is not None and (len(data['parts'])>1 or len(data['poses'])>1 or
-        any(t != transform() for pose in data['poses'] for t in pose))
+        any(tuple(t) != tuple(transform()) for pose in data['poses'] for t in pose))
 
 
 def validate(data, count):
@@ -70,19 +76,37 @@ def validate(data, count):
 
 def encode(data, count):
     validate(data,count)
-    result=dumps(data).encode()
+    from .records import backend
+    if backend() is not None:
+        from .recordjson import encode as encode_paged
+        result=encode_paged(data)
+    else:result=dumps(data).encode()
     if len(result)>MAX_METADATA:raise ValueError('Animation project is too large')
     return result
 
 
 def decode(raw,count):
     if len(raw)>MAX_METADATA:raise ValueError('Animation project is too large')
+    from .records import paged,backend
+    if paged(raw) or backend() is not None:
+        from .recordjson import decode as decode_paged
+        return validate(decode_paged(raw,packed_poses=True),count)
     return validate(loads(raw),count)
+
+
+def same(a,b):
+    """MicroPython float arrays do not implement value equality."""
+    if isinstance(a,dict):
+        return isinstance(b,dict) and len(a)==len(b) and all(k in b and same(v,b[k]) for k,v in a.items())
+    if isinstance(a,(list,tuple,array)):
+        return isinstance(b,(list,tuple,array)) and len(a)==len(b) and all(same(x,y) for x,y in zip(a,b))
+    return a==b
 
 
 def clone(data):
     if isinstance(data,dict):return {key:clone(value) for key,value in data.items()}
     if isinstance(data,list):return [clone(value) for value in data]
+    if isinstance(data,array):return array('d',data)
     return data
 
 
@@ -117,7 +141,7 @@ def set_parent(data,part,parent):
 
 def duplicate_pose(data,index):
     if len(data['poses'])>=8:raise ValueError('Maximum eight poses')
-    data['poses'].insert(index+1,[list(t) for t in data['poses'][index]])
+    data['poses'].insert(index+1,[pose_values(t) for t in data['poses'][index]])
 
 
 def delete_pose(data,index):
@@ -129,7 +153,7 @@ def preset(data,part,kind,axis=2,strength=20.,phase=0.,invert=False):
     if kind not in PRESETS or axis not in (0,1,2):raise ValueError('Invalid motion preset')
     if not isfinite(strength) or not isfinite(phase):raise ValueError('Invalid motion values')
     if len(data['poses'])==1:
-        data['poses']=[[list(t) for t in data['poses'][0]] for _ in range(8)]
+        data['poses']=[[pose_values(t) for t in data['poses'][0]] for _ in range(8)]
     n=len(data['poses']);sign=-1 if invert else 1
     for i,pose in enumerate(data['poses']):
         fraction=i/(n if data['loop'] else max(1,n-1))
@@ -173,7 +197,7 @@ def compiled_parts(data,pose):
         for axis in range(3):
             angle=t[3+axis]*pi/180
             if angle:rotation.append((axis,cos(angle),sin(angle)))
-        identity=not any(t[:6]) and t[6:9]==[1.,1.,1.] and not any(t[9:12])
+        identity=not any(t[:6]) and tuple(t[6:9])==(1.,1.,1.) and not any(t[9:12])
         result.append((p['parent'],p['pivot'],t,rotation,p['length'],identity))
     return result
 

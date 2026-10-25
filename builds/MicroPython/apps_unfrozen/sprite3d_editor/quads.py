@@ -1,6 +1,7 @@
 """Logical four-sided faces over unchanged triangle records."""
-from array import array
-from struct import unpack_from,pack
+from .indices import vector as array
+from struct import pack
+from .records import unpack_from, new as new_records
 
 
 def triangle(records,f):
@@ -33,6 +34,21 @@ def boundary(records,a,b,strict=False):
         turns=[turn2(xy[i],xy[(i+1)%4],xy[(i+2)%4]) for i in range(4)]
         if not(all(v>0 for v in turns) or all(v<0 for v in turns)):raise ValueError('Join needs a convex, simple quad')
     return points,ia,ib
+
+
+def validate_pairs(records,pairs):
+    """Validate save membership with a 512-byte maximum scratch bitset."""
+    count=len(records)//40
+    if len(pairs)%2:raise ValueError('Incomplete quad pair')
+    used=bytearray((count+7)//8)
+    for i in range(0,len(pairs),2):
+        a,b=pairs[i],pairs[i+1]
+        if a==b or not 0<=a<count or not 0<=b<count:raise ValueError('Invalid quad membership')
+        for index in (a,b):
+            slot,bit=index//8,1<<(index%8)
+            if used[slot]&bit:raise ValueError('Repeated quad membership')
+            used[slot]|=bit
+        boundary(records,a,b)
 
 
 class Faces:
@@ -87,6 +103,10 @@ def unchanged(old,records,pairs):
     """Only preserve face identity when the exact source records survive."""
     if not pairs:return array('I')
     if old==records:return array('I',pairs)
+    from .records import paged
+    if paged(old) or paged(records):
+        from .recordfaces import unchanged as bounded_unchanged
+        return bounded_unchanged(old,records,pairs)
     # One chain per identical record, without per-face Python lists/pop(0).
     lookup={};links=array('i',(-1 for _ in range(len(records)//40)))
     for i in range(len(links)-1,-1,-1):
@@ -103,6 +123,10 @@ def unchanged(old,records,pairs):
 
 
 def infer_steps(records):
+    from .records import paged
+    if paged(records):
+        from .recordfaces import infer_steps as bounded_infer
+        return (yield from bounded_infer(records))
     from .topology import Topology,sub,dot,unit
     t=Topology(records);yield from t.build();candidates=[]
     for step,uses in enumerate(t.edges.values()):
@@ -139,7 +163,7 @@ def join(records,pairs,chosen):
 
 
 def encode_pairs(pairs):
-    data=bytearray()
+    data=new_records()
     for i in range(0,len(pairs),2):data.extend(pack('<II',pairs[i],pairs[i+1]))
     return data
 
@@ -157,11 +181,11 @@ def history_encode(e):
     present=1 if pivot is not None else 0
     header=pack('<4sIIIII',b'QH02',len(e.quads.pairs)//2,MODES.index(e.selection_mode),e.selection_cursor,len(e.selection),present)
     extra=pack('<3f',*pivot) if present else b''
-    original=header+encode_pairs(e.quads.pairs)+e.selection+extra
+    original=new_records(header);original.extend(encode_pairs(e.quads.pairs));original.extend(e.selection);original.extend(extra)
     animation=getattr(e,'animation',None)
     if animation is None:return original
     from .animation import encode
-    return b'AH01'+pack('<I',len(original))+original+encode(animation,len(e.records or b'')//40)
+    result=new_records(b'AH01'+pack('<I',len(original)));result.extend(original);result.extend(encode(animation,len(e.records or b'')//40));return result
 
 
 def history_decode(data,records,animation_out=None):

@@ -1,7 +1,7 @@
 """Compact model-space edge measurements, clipped to each editor viewport."""
 from math import sqrt
 from time import ticks_us,ticks_diff
-from struct import unpack_from
+from .records import unpack_from
 
 DIGITS = ((7,5,5,5,7),(2,6,2,2,7),(7,1,7,4,7),(7,1,7,1,7),
           (5,5,7,1,1),(7,4,7,1,7),(7,4,7,5,7),(7,1,2,2,2),

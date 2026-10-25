@@ -1,9 +1,12 @@
 """Cooperative, bounded quadric-error edge collapse for small Sprite3D meshes."""
+from .records import new as new_records, paged
+
 from math import sqrt, isfinite, ceil
 from array import array
 from time import ticks_ms, ticks_diff
 from gc import collect
-from struct import unpack_from, pack
+from struct import pack
+from .records import unpack_from
 from .normals import cross, sub, dot
 
 # Symmetric 4x4 plane quadric, stored as its ten upper-triangle entries.
@@ -217,7 +220,7 @@ def simplify(records,selected,percent):
                 break
         if not changed:
             break
-    output,mask = bytearray(),bytearray()
+    output,mask = new_records(),bytearray()
     for i,face in enumerate(faces):
         if face is not None:
             if i not in selected:

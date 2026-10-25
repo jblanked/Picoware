@@ -1,6 +1,8 @@
 """Viewport diagnostics and single-point translation constraints for posing."""
+from .records import new as new_records, paged
+
 from math import pi
-from struct import unpack_from
+from .records import unpack_from
 from array import array
 from binascii import hexlify
 from . import animation as model, billboard_export as capture
@@ -83,15 +85,15 @@ class PoseHelpers:
                 if not improved:break
             raise ValueError('Pin could not converge; adjustment restored')
         except Exception:
-            t[:]=original;raise
+            for i,value in enumerate(original):t[i]=value
+            raise
 
     def reset_part(self,index):
         if self.candidate is not None:raise ValueError('Accept or cancel adjustment first')
         if self.pin is not None:raise ValueError('Release the pin before resetting')
         self.start();s=self.editor.animation_ui;t=self.data['poses'][s['pose']][s['part']]
         identity=model.transform()
-        if index==4:t[:]=identity
-        else:t[index*3:index*3+3]=identity[index*3:index*3+3]
+        for i in (range(12) if index==4 else range(index*3,index*3+3)):t[i]=identity[i]
         self.kind=('Move','Rotate','Scale','Bend','Rotate')[index]
         self.mirror_pose(self.data,s['part'],s['pose']);self.overlay=None;self.invalidate()
         s['message']='Reset preview: Enter accepts / Esc cancels'
@@ -167,7 +169,7 @@ class PoseHelpers:
         return contacts,trail,rest
 
     def coverage_steps(self,data,pose,direction,fit,part):
-        records=bytearray();owners=bytearray()
+        records=new_records();owners=bytearray()
         for face,owner in enumerate(bytes.fromhex(data['owners'])):
             if owner==part:
                 records.extend(self.editor.records[face*40:face*40+40]);owners.append(owner)

@@ -1,4 +1,6 @@
 """Document state, editor input, transforms, and app lifecycle."""
+from .records import new as new_records, paged
+
 
 from math import sqrt, floor, log10
 from time import ticks_ms,ticks_diff
@@ -192,6 +194,8 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
             if label is not None:
                 self.status = ("Redid " if redo else "Undid ") + label
         except (MemoryError, OSError, ValueError) as exc:
+            from .diagnostics import failure
+            failure(exc)
             self.dialog = ("Redo failed" if redo else "Undo failed", str(exc) or "Not enough memory")
 
 
@@ -223,7 +227,7 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         self.prepare_document_memory()
         from .quadfile import recover,load_steps
         recover(self.vm.storage,path)
-        records=bytearray();mesh,low,high=load_sprite(self.vm.storage,path,records)
+        records=new_records();mesh,low,high=load_sprite(self.vm.storage,path,records)
         pivot_out=[]
         worker=load_steps(self.vm.storage,path,records,prepared=True,pivot_out=pivot_out)
         if cooperative:
@@ -266,7 +270,7 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
 
     def new_document(self, path=""):
         from picoware.engine.sprite3d import Sprite3D
-        records = bytearray()
+        records = new_records()
         mesh = Sprite3D()
         mesh.set_active(True)
         low,high = record_bounds(records)
@@ -275,6 +279,46 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         self.status = "Create a shape to start"
 
     def install_document(self, mesh, records, low, high, path, quads=None, custom_pivot=None, animation=None):
+        """Keep the previous document and native views until all preparation succeeds."""
+        from picoware.engine.camera import Camera, CAMERA_THIRD_PERSON
+        from .quads import history_encode
+        names=tuple(self.__dict__)
+        values=tuple(getattr(self,name) for name in names)
+        old_mesh,old_preview,old_engine=self.mesh,self.render_mesh,self.engine
+        old_history,old_panes=self.history,self.panes
+        attached=self.entity.sprite_3d if self.entity is not None else None
+        history=History(self.vm.storage)
+        history.replace_context=self.history_replace
+        history.metadata_records=self.history_metadata_records
+        history.encode_document=lambda:history_encode(self)
+        camera=Camera(perspective=CAMERA_THIRD_PERSON)
+        try:
+            self.history=history
+            self.camera=camera
+            self.panes=[];self._pane_buffers=[];self.four_view=False
+            self.quad_job=None
+            self._install_document(mesh,records,low,high,path,quads,custom_pivot,animation)
+        except Exception:
+            # Only replacement resources are discarded. The previous native
+            # buffers and history have not been cleared or reset.
+            for pane in self.panes:pane[4].clear_triangles()
+            if self.render_mesh is not None and self.render_mesh is not old_preview:
+                self.render_mesh.clear_triangles()
+            if old_engine is None and self.engine is not None:self.engine.stop()
+            for name,value in zip(names,values):setattr(self,name,value)
+            if self.entity is not None:self.entity.sprite_3d=attached
+            if self.game is not None:self.game.camera=self.camera
+            raise
+        # Publication succeeded. Cleanup failure cannot turn it into a failed
+        # Open or invalidate the newly installed document.
+        for pane in old_panes:pane[4].clear_triangles()
+        for old in (old_mesh,old_preview):
+            if old is not None and old is not mesh and old is not self.render_mesh:old.clear_triangles()
+        try:old_history.reset()
+        except (OSError,MemoryError):self.status='Opened; old history cleanup pending'
+
+
+    def _install_document(self, mesh, records, low, high, path, quads=None, custom_pivot=None, animation=None):
         """Install a prepared document for both Open and New."""
         self.prepare_document_memory()
         from .camera import cancel
@@ -296,16 +340,17 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         fit_distance=radius*(1+height/space)
         scale=max(1.0,.15/radius)
         distance=max(radius+.15/scale,fit_distance)
+        wireframe={"Asset":None,"Solid":0,"Wireframe":-2,"Solid + Wireframe":1}[self.shading]
         model_buffer = MeshBuffer(mesh, records)
         preview_buffer = MeshBuffer()
         try:
             try:
-                rendered = preview_mesh(records, center, basis, wireframe=self.shading_wireframe(),
+                rendered = preview_mesh(records, center, basis, wireframe=wireframe,
                                         perspective_scale=scale,buffer=preview_buffer,
                                         culling=self.backface_culling,camera_distance=distance)
             except MemoryError:
                 from .viewport import initial_preview_mesh
-                rendered=initial_preview_mesh(records,center,basis,self.shading_wireframe(),
+                rendered=initial_preview_mesh(records,center,basis,wireframe,
                                               scale,preview_buffer,self.backface_culling,distance)
         except Exception:
             mesh.clear_triangles()
@@ -345,10 +390,6 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         self._quad_display_mode = self.selection_mode=="Quads"
         self.basis = basis
         self._preview_angles = (-0.7, 0.32)
-        if old_preview is not None:
-            old_preview.clear_triangles()
-        if previous is not None:
-            previous.clear_triangles()
         self.center = center
         self.bounds = (low, high)
         self.radius = radius
@@ -382,6 +423,9 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         self.boolean_job = None
         self.status = ""
         self.error = ""
+        # The prepared initial preview already uses this fitted camera. Reuse it
+        # rather than building a second complete preview during publication.
+        self._preview_angles=(-0.7,0.32,distance,self.shading,scale,self.backface_culling)
         self.reset_camera()
         self.restore_document_preferences()
 
@@ -434,7 +478,11 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         cancel(self)
         if prepared is not None:
             prepared.commit(self);return
+        from .colorupdate import apply_color_edit
+        if not preview and apply_color_edit(self,records,quads):return
         from .quads import Faces,unchanged
+        from .diagnostics import stage
+        stage('face preparation')
         quad_state = quads if isinstance(quads,Faces) else Faces(records,unchanged(self.records,records,self.quads.pairs) if quads is None else quads)
         if metadata_only and records==self.records and self._quad_display_mode==(self.selection_mode=='Quads'):
             from .rendercache import clear
@@ -451,6 +499,8 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
                           self.perspective_scale(),self.backface_culling)
         vertex_visibility_cache, edge_label_cache = {}, {}
         updates = []
+        from .diagnostics import stage
+        stage('preview preparation')
         mesh = self.mesh
         rendered = None
         try:

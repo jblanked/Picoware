@@ -1,7 +1,8 @@
 """Cooperative low-poly mesh operations. No editor or native engine dependency."""
 from .topology import (Topology,Result,add,sub,mul,dot,cross,length,unit,mean,
                        normal,edge,loops,planar,polygon_normal,simple_steps,triangulate,crossing)
-from struct import pack,unpack_from
+from struct import pack
+from .records import unpack_from
 from array import array
 
 def polygon_area(points):
@@ -165,7 +166,7 @@ def face_tools(t,out,chosen,kind,p,cache=None):
                         if len(clipped)==3:out.emit(clipped,t.attributes[f],f,True)
                         else:yield from out.polygon(clipped,t.attributes[f],f,True)
                     yield None
-            from struct import unpack_from
+            from .records import unpack_from
             cap_points=PackedPoints();seen=set()
             for offset in range(cap_start,len(out.records),40):
                 values=unpack_from('<9f',out.records,offset)
@@ -397,7 +398,7 @@ def segment_triangle(a,b,tri):
 
 def check_intersections(out,start):
     records=out.records
-    from struct import unpack_from
+    from .records import unpack_from
     def points(f):
         v=unpack_from('<9f',records,f*40);return [v[:3],v[3:6],v[6:9]]
     count=len(records)//40;bounds=array('f')

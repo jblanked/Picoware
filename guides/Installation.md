@@ -39,8 +39,8 @@ Every supported device except the Flipper Zero can use the online flasher to ins
 
 There are a few options for installing Picoware on the M5Stack Cardputer ADV.
 
-The recommended way is to use M5Burner to install an app called `M5Launcher` that allows you to flash custom firmware to your Cardputer on-the-fly:
-1. Download, install, and open the M5Burner tool from the official M5Stack website: https://docs.m5stack.com/en/download
+The recommended way is to use [M5Burner/WebBurner](https://burner.m5stack.com/) to install an app called `M5Launcher` that allows you to flash custom firmware to your Cardputer on-the-fly:
+1. Visit the official M5Stack website: https://burner.m5stack.com/
 2. Under `Device Type`, select `Cardputer`.
 3. Type in `M5Launcher` in the search bar, then click `Download` next to the M5Launcher firmware.
 4. Turn off your Cardputer, then hold the `Go` button on your Cardputer while connecting it to your computer using a USB-C cable until your computer recognizes a new storage device.
@@ -55,7 +55,7 @@ The recommended way is to use M5Burner to install an app called `M5Launcher` tha
 > If the recommended installation method doesn't work for you, follow the instructions below, otherwise proceed with copying the `apps`, `scripts`, `mmbasic`, and `c` folders from the `builds/MicroPython` directory into the `picoware` folder on the root of SD card. Create a `picoware` folder if it doesn't exist.
 
 The second option is to use the M5Burner tool provided by M5Stack to install Picoware directly to your Cardputer:
-1. Download, install, and open the M5Burner tool from the official M5Stack website: https://docs.m5stack.com/en/download
+1. Visit the official M5Stack website: https://burner.m5stack.com/
 2. Under `Device Type`, select `Cardputer`.
 3. Type in `Picoware` in the search bar, then click `Download` next to the Picoware firmware.
 4. Turn off your Cardputer, then hold the `Go` button on your Cardputer while connecting it to your computer using a USB-C cable until your computer recognizes a new storage device.

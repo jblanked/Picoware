@@ -120,10 +120,12 @@ def transformed_records(source, kind, amounts, pivot, mask=None, base_vertex=0, 
         values = unpack_from("<9f", source, offset)
         output = []
         for vertex in range(0, 9, 3):
-            if mask is not None and not mask[base_vertex+(offset//40)*3+vertex//3]:
+            if mask is not None and not mask[first+vertex//3]:
                 output.extend(values[vertex:vertex+3])
                 continue
-            x, y, z = [values[vertex + i] - pivot[i] for i in range(3)]
+            x = values[vertex] - pivot[0]
+            y = values[vertex+1] - pivot[1]
+            z = values[vertex+2] - pivot[2]
             if kind == "Move":
                 x, y, z = x + amounts[0], y + amounts[1], z + amounts[2]
             elif kind == "Scale":
@@ -138,10 +140,12 @@ def transformed_records(source, kind, amounts, pivot, mask=None, base_vertex=0, 
                 if rz is not None:
                     cc, sc = rz
                     x, y = x*cc-y*sc, x*sc+y*cc
-            point = (x+pivot[0], y+pivot[1], z+pivot[2])
-            if any(not isfinite(v) or abs(v) > 1e12 for v in point):
+            x, y, z = x+pivot[0], y+pivot[1], z+pivot[2]
+            if (not isfinite(x) or abs(x) > 1e12
+                    or not isfinite(y) or abs(y) > 1e12
+                    or not isfinite(z) or abs(z) > 1e12):
                 raise ValueError("Transform exceeds coordinate range")
-            output.extend(point)
+            output.extend((x, y, z))
         pack_into("<9f", result, offset, *output)
     return result
 
@@ -149,14 +153,19 @@ def transformed_records(source, kind, amounts, pivot, mask=None, base_vertex=0, 
 def record_bounds(records):
     if not records:
         return [-.5,0,-.5],[.5,1,.5]
-    low, high = [float("inf")]*3, [-float("inf")]*3
+    lx = ly = lz = float("inf")
+    hx = hy = hz = -float("inf")
     for offset in range(0, len(records), 40):
         values = unpack_from("<9f", records, offset)
         for v in range(0, 9, 3):
-            for i in range(3):
-                low[i] = min(low[i], values[v+i])
-                high[i] = max(high[i], values[v+i])
-    return low, high
+            x, y, z = values[v], values[v+1], values[v+2]
+            if x < lx: lx = x
+            if y < ly: ly = y
+            if z < lz: lz = z
+            if x > hx: hx = x
+            if y > hy: hy = y
+            if z > hz: hz = z
+    return [lx, ly, lz], [hx, hy, hz]
 
 
 def mesh_export_signature(storage,mesh,path,records=None):

@@ -27,6 +27,15 @@ static bool in_finaliser = false; // Track if we're in a finaliser to avoid GC a
 #define free_list MP_STATE_VM(picoware_psram_free_list)
 #define alloc_list MP_STATE_VM(picoware_psram_alloc_list)
 
+static void psram_ensure_init(void)
+{
+    if (!psram_initialized)
+    {
+        psram_instance = psram_qspi_init(pio1, -1, 1.0f);
+        psram_initialized = true;
+    }
+}
+
 static mp_psram_data_obj_t *psram_owner(const psram_alloc_block_t *block)
 {
     return (mp_psram_data_obj_t *)~block->obj_bits;
@@ -341,6 +350,7 @@ static void psram_free(uint32_t addr, uint32_t size)
 
 void picoware_psram_write_data(uint32_t addr, const void *data, size_t length)
 {
+    psram_ensure_init();
     const uint8_t *bytes = (const uint8_t *)data;
     for (size_t i = 0; i < length; i++)
     {
@@ -350,6 +360,7 @@ void picoware_psram_write_data(uint32_t addr, const void *data, size_t length)
 
 void picoware_psram_read_data(uint32_t addr, void *data, size_t length)
 {
+    psram_ensure_init();
     uint8_t *bytes = (uint8_t *)data;
     for (size_t i = 0; i < length; i++)
     {
@@ -979,11 +990,7 @@ mp_obj_t picoware_psram_alloc_buffer(uint32_t size)
 {
     if (!size || size > PSRAM_SIZE - PSRAM_HEAP_START_ADDR)
         mp_raise_ValueError(MP_ERROR_TEXT("Invalid PSRAM buffer size"));
-    if (!psram_initialized)
-    {
-        psram_instance = psram_qspi_init(pio1, -1, 1.0f);
-        psram_initialized = true;
-    }
+    psram_ensure_init();
     mp_psram_data_obj_t *obj = mp_obj_malloc_with_finaliser(mp_psram_data_obj_t, &mp_psram_data_type);
     obj->allocated = false;
     psram_alloc_block_t *block = m_malloc0(sizeof(*block));

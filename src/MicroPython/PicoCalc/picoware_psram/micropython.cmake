@@ -21,3 +21,8 @@ target_compile_definitions(usermod_picoware_psram INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_picoware_psram)
+# Apply the VM reset hook to runtime.c as well as module sources.
+target_compile_options(usermod_picoware_psram INTERFACE
+    -DPICOWARE_PSRAM_VM_HOOK_ONLY=1
+    -include ${CMAKE_CURRENT_LIST_DIR}/picoware_psram.h
+)

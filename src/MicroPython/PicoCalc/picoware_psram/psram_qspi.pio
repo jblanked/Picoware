@@ -48,7 +48,7 @@ writeloop:
     jmp x--, writeloop  side 0b10  ; Clock high - PSRAM reads value, loop if more
 
     jmp !y, begin       side 0b00  ; If y=0 (write-only), go back to beginning
-    set pindirs 0       side 0b10  ; Switch SIO0-3 to inputs for reading
+    set pindirs 0       side 0b00  ; Turn around with SCK low; do not consume a data nibble
 
 readloop_entry:
     jmp readloop_mid    side 0b00  ; Jump to middle for proper clock phase
@@ -126,6 +126,12 @@ static inline void qspi_psram_rw_program_init(PIO pio, uint sm, uint offset,
                                                uint n_bits, float clkdiv,
                                                uint pin_cs, uint pin_sio0) {
     pio_sm_config c = qspi_psram_rw_program_get_default_config(offset);
+
+    // Keep the read turnaround and clock safeguard together, including when
+    // this generated header is used with an older psram_qspi.c initializer.
+    // Picoware can raise the system clock to 240 MHz after initialization.
+    if (clkdiv < 4.0f)
+        clkdiv = 4.0f;
 
     // Data pins SIO0-3 (output and input)
     sm_config_set_out_pins(&c, pin_sio0, 4);

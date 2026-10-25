@@ -58,7 +58,7 @@ static const uint16_t qspi_psram_rw_program_instructions[] = {
     0x6004, //  3: out    pins, 4         side 0
     0x1043, //  4: jmp    x--, 3          side 2
     0x0060, //  5: jmp    !y, 0           side 0
-    0xf080, //  6: set    pindirs, 0      side 2
+    0xe080, //  6: set    pindirs, 0      side 0
     0x0009, //  7: jmp    9               side 0
     0x4004, //  8: in     pins, 4         side 0
     0x1088, //  9: jmp    y--, 8          side 2
@@ -161,6 +161,11 @@ static inline void qspi_psram_rw_program_init(PIO pio, uint sm, uint offset,
                                                uint n_bits, float clkdiv,
                                                uint pin_cs, uint pin_sio0) {
     pio_sm_config c = qspi_psram_rw_program_get_default_config(offset);
+    // Keep the read turnaround and clock safeguard together, including when
+    // this generated header is used with an older psram_qspi.c initializer.
+    // Picoware can raise the system clock to 240 MHz after initialization.
+    if (clkdiv < 4.0f)
+        clkdiv = 4.0f;
     // Data pins SIO0-3 (output and input)
     sm_config_set_out_pins(&c, pin_sio0, 4);
     sm_config_set_in_pins(&c, pin_sio0);

@@ -1,5 +1,31 @@
+// The forced include installs only the VM hook, before mpconfig.h is read.
+// A later ordinary include exposes the MicroPython module interface.
+#ifdef PICOWARE_PSRAM_VM_HOOK_ONLY
+#undef PICOWARE_PSRAM_VM_HOOK_ONLY
+#ifndef __ASSEMBLER__
+// Each soft reset starts a new GC heap; allocator metadata belonged to the old VM.
+#ifdef __cplusplus
+extern "C" {
+#endif
+void picoware_psram_vm_init(void);
+#ifdef __cplusplus
+}
+#endif
+#ifdef MICROPY_PORT_INIT_FUNC
+#error "Compose the existing VM init hook with picoware_psram_vm_init"
+#endif
+#define MICROPY_PORT_INIT_FUNC picoware_psram_vm_init()
+
+#endif
+#else
 #pragma once
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+#include <stdarg.h>
 #include "py/runtime.h"
 #include "py/obj.h"
 #include "py/objarray.h"
@@ -7,10 +33,6 @@
 #include "py/objstr.h"
 #include "py/objtype.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 
 extern const mp_obj_type_t psram_mp_type;
 extern const mp_obj_type_t mp_psram_data_type;
@@ -108,3 +130,4 @@ void psram_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);
 #ifdef __cplusplus
 }
 #endif
+#endif // PICOWARE_PSRAM_VM_HOOK_ONLY

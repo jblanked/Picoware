@@ -100,7 +100,7 @@ extern "C"
      *
      * @param pio PIO instance (pio0 or pio1)
      * @param sm State machine number (-1 for auto)
-     * @param clkdiv Clock divider (1.0 for full speed, 2.0 for stability)
+     * @param clkdiv Requested PIO divider; clamped to at least 4.0 for data integrity
      * @return Initialized QSPI instance
      */
     psram_qspi_inst_t psram_qspi_init(PIO pio, int sm, float clkdiv);
@@ -234,227 +234,51 @@ extern "C"
     // PSRAM Command Buffers (QSPI mode - nibble counts)
     // =============================================================================
 
-    // Write 8 bits: cmd(2) + addr(6) + data(2) = 10 nibbles
-    static uint8_t qspi_write8_cmd[] = {
-        10,      // 10 nibbles to write
-        0,       // 0 nibbles to read
-        0x38u,   // Quad Write command
-        0, 0, 0, // Address (24-bit)
-        0        // Data (8-bit)
-    };
-
-    // Read 8 bits: cmd(2) + addr(6) + dummy(6) = 14 nibbles write, 2 nibbles read
-    static uint8_t qspi_read8_cmd[] = {
-        14,      // 14 nibbles to write
-        2,       // 2 nibbles to read
-        0xEBu,   // Quad Fast Read command
-        0, 0, 0, // Address (24-bit)
-        0, 0, 0  // Dummy cycles
-    };
-
-    // Write 16 bits: 12 nibbles
-    static uint8_t qspi_write16_cmd[] = {
-        12,      // 12 nibbles to write
-        0,       // 0 nibbles to read
-        0x38u,   // Quad Write command
-        0, 0, 0, // Address
-        0, 0     // Data (16-bit)
-    };
-
-    // Read 16 bits: 14 nibbles write, 4 nibbles read
-    static uint8_t qspi_read16_cmd[] = {
-        14,      // 14 nibbles to write
-        4,       // 4 nibbles to read
-        0xEBu,   // Quad Fast Read command
-        0, 0, 0, // Address
-        0, 0, 0  // Dummy cycles
-    };
-
-    // Write 32 bits: 16 nibbles
-    static uint8_t qspi_write32_cmd[] = {
-        16,        // 16 nibbles to write
-        0,         // 0 nibbles to read
-        0x38u,     // Quad Write command
-        0, 0, 0,   // Address
-        0, 0, 0, 0 // Data (32-bit)
-    };
-
-    // Read 32 bits: 14 nibbles write, 8 nibbles read
-    static uint8_t qspi_read32_cmd[] = {
-        14,      // 14 nibbles to write
-        8,       // 8 nibbles to read
-        0xEBu,   // Quad Fast Read command
-        0, 0, 0, // Address
-        0, 0, 0  // Dummy cycles
-    };
-
-    // =============================================================================
-    // High-level PSRAM access functions (QSPI mode)
-    // =============================================================================
-
-    /**
-     * @brief Write 8 bits to PSRAM
-     */
-    __force_inline static void psram_qspi_write8(psram_qspi_inst_t *qspi, uint32_t addr, uint8_t val)
-    {
-        qspi_write8_cmd[3] = addr >> 16;
-        qspi_write8_cmd[4] = addr >> 8;
-        qspi_write8_cmd[5] = addr;
-        qspi_write8_cmd[6] = val;
-        qspi_write_dma_blocking(qspi, qspi_write8_cmd, sizeof(qspi_write8_cmd));
+    // Local commands, one lock per complete transaction. Also compiled by host tests.
+#define PSRAM_TRANSFER_MAX 120u
+static inline void psram_qspi_write(psram_qspi_inst_t *qspi, uint32_t addr,
+                                   const uint8_t *src, size_t count)
+{
+    while (count) {
+        size_t n = count > PSRAM_TRANSFER_MAX ? PSRAM_TRANSFER_MAX : count;
+        uint8_t cmd[6 + PSRAM_TRANSFER_MAX] = {0,0,0x38,0,0,0};
+        cmd[0]=(uint8_t)((4+n)*2);cmd[3]=addr>>16;cmd[4]=addr>>8;cmd[5]=addr;
+        memcpy(cmd+6,src,n);
+        qspi_write_dma_blocking(qspi,cmd,6+n);
+        addr+=n;src+=n;count-=n;
     }
-
-    /**
-     * @brief Read 8 bits from PSRAM
-     */
-    __force_inline static uint8_t psram_qspi_read8(psram_qspi_inst_t *qspi, uint32_t addr)
-    {
-        uint8_t val;
-        qspi_read8_cmd[3] = addr >> 16;
-        qspi_read8_cmd[4] = addr >> 8;
-        qspi_read8_cmd[5] = addr;
-        qspi_write_read_dma_blocking(qspi, qspi_read8_cmd, sizeof(qspi_read8_cmd), &val, 1);
-        return val;
+}
+static inline void psram_qspi_read(psram_qspi_inst_t *qspi, uint32_t addr,
+                                  uint8_t *dst, size_t count)
+{
+    while (count) {
+        size_t n = count > PSRAM_TRANSFER_MAX ? PSRAM_TRANSFER_MAX : count;
+        uint8_t cmd[9]={14,(uint8_t)(n*2),0xeb,(uint8_t)(addr>>16),(uint8_t)(addr>>8),(uint8_t)addr,0,0,0};
+        qspi_write_read_dma_blocking(qspi,cmd,sizeof(cmd),dst,n);
+        addr+=n;dst+=n;count-=n;
     }
-
-    /**
-     * @brief Write 16 bits to PSRAM
-     */
-    __force_inline static void psram_qspi_write16(psram_qspi_inst_t *qspi, uint32_t addr, uint16_t val)
-    {
-        qspi_write16_cmd[3] = addr >> 16;
-        qspi_write16_cmd[4] = addr >> 8;
-        qspi_write16_cmd[5] = addr;
-        qspi_write16_cmd[6] = val;
-        qspi_write16_cmd[7] = val >> 8;
-        qspi_write_dma_blocking(qspi, qspi_write16_cmd, sizeof(qspi_write16_cmd));
-    }
-
-    /**
-     * @brief Read 16 bits from PSRAM
-     */
-    __force_inline static uint16_t psram_qspi_read16(psram_qspi_inst_t *qspi, uint32_t addr)
-    {
-        uint16_t val;
-        qspi_read16_cmd[3] = addr >> 16;
-        qspi_read16_cmd[4] = addr >> 8;
-        qspi_read16_cmd[5] = addr;
-        qspi_write_read_dma_blocking(qspi, qspi_read16_cmd, sizeof(qspi_read16_cmd), (uint8_t *)&val, 2);
-        return val;
-    }
-
-    /**
-     * @brief Write 32 bits to PSRAM (blocking)
-     */
-    __force_inline static void psram_qspi_write32(psram_qspi_inst_t *qspi, uint32_t addr, uint32_t val)
-    {
-        qspi_write32_cmd[3] = addr >> 16;
-        qspi_write32_cmd[4] = addr >> 8;
-        qspi_write32_cmd[5] = addr;
-        qspi_write32_cmd[6] = val;
-        qspi_write32_cmd[7] = val >> 8;
-        qspi_write32_cmd[8] = val >> 16;
-        qspi_write32_cmd[9] = val >> 24;
-        qspi_write_dma_blocking(qspi, qspi_write32_cmd, sizeof(qspi_write32_cmd));
-    }
-
-/**
- * @brief Write 32 bits to PSRAM (async)
- */
+}
+static inline void psram_qspi_write8(psram_qspi_inst_t *qspi,uint32_t addr,uint8_t v)
+{psram_qspi_write(qspi,addr,&v,1);}
+static inline uint8_t psram_qspi_read8(psram_qspi_inst_t *qspi,uint32_t addr)
+{uint8_t v;psram_qspi_read(qspi,addr,&v,1);return v;}
+static inline void psram_qspi_write16(psram_qspi_inst_t *qspi,uint32_t addr,uint16_t v)
+{uint8_t b[2]={(uint8_t)v,(uint8_t)(v>>8)};psram_qspi_write(qspi,addr,b,2);}
+static inline uint16_t psram_qspi_read16(psram_qspi_inst_t *qspi,uint32_t addr)
+{uint8_t b[2];psram_qspi_read(qspi,addr,b,2);return (uint16_t)b[0]|((uint16_t)b[1]<<8);}
+static inline void psram_qspi_write32(psram_qspi_inst_t *qspi,uint32_t addr,uint32_t v)
+{uint8_t b[4]={(uint8_t)v,(uint8_t)(v>>8),(uint8_t)(v>>16),(uint8_t)(v>>24)};psram_qspi_write(qspi,addr,b,4);}
+static inline uint32_t psram_qspi_read32(psram_qspi_inst_t *qspi,uint32_t addr)
+{uint8_t b[4];psram_qspi_read(qspi,addr,b,4);return (uint32_t)b[0]|((uint32_t)b[1]<<8)|((uint32_t)b[2]<<16)|((uint32_t)b[3]<<24);}
 #if defined(PSRAM_QSPI_ASYNC)
-    __force_inline static void psram_qspi_write32_async(psram_qspi_inst_t *qspi, uint32_t addr, uint32_t val)
-    {
-        qspi_write32_cmd[3] = addr >> 16;
-        qspi_write32_cmd[4] = addr >> 8;
-        qspi_write32_cmd[5] = addr;
-        qspi_write32_cmd[6] = val;
-        qspi_write32_cmd[7] = val >> 8;
-        qspi_write32_cmd[8] = val >> 16;
-        qspi_write32_cmd[9] = val >> 24;
-        qspi_write_async(qspi, qspi_write32_cmd, sizeof(qspi_write32_cmd));
-    }
+// No in-tree caller requires deferred completion. Complete before returning so
+// stack commands and caller buffers cannot outlive their ownership.
+static inline void psram_qspi_write32_async(psram_qspi_inst_t *qspi,uint32_t addr,uint32_t v)
+{psram_qspi_write32(qspi,addr,v);}
+static inline void psram_qspi_write_async(psram_qspi_inst_t *qspi,uint32_t addr,uint8_t *src,size_t count)
+{psram_qspi_write(qspi,addr,src,count);}
 #endif
 
-    /**
-     * @brief Read 32 bits from PSRAM
-     */
-    __force_inline static uint32_t psram_qspi_read32(psram_qspi_inst_t *qspi, uint32_t addr)
-    {
-        uint32_t val;
-        qspi_read32_cmd[3] = addr >> 16;
-        qspi_read32_cmd[4] = addr >> 8;
-        qspi_read32_cmd[5] = addr;
-        qspi_write_read_dma_blocking(qspi, qspi_read32_cmd, sizeof(qspi_read32_cmd), (uint8_t *)&val, 4);
-        return val;
-    }
-
-    // =============================================================================
-    // Bulk transfer command buffers
-    // =============================================================================
-    static uint8_t qspi_write_cmd[6] = {
-        0,      // n nibbles to write (set dynamically)
-        0,      // 0 nibbles to read
-        0x38u,  // Quad Write command
-        0, 0, 0 // Address
-    };
-
-    static uint8_t qspi_read_cmd[9] = {
-        14,      // 14 nibbles to write (header)
-        0,       // n nibbles to read (set dynamically)
-        0xEBu,   // Quad Fast Read command
-        0, 0, 0, // Address
-        0, 0, 0  // Dummy cycles
-    };
-
-    /**
-     * @brief Write buffer to PSRAM
-     */
-    __force_inline static void psram_qspi_write(psram_qspi_inst_t *qspi, uint32_t addr,
-                                                const uint8_t *src, size_t count)
-    {
-        qspi_write_cmd[0] = (4 + count) * 2; // Convert bytes to nibbles
-        qspi_write_cmd[3] = addr >> 16;
-        qspi_write_cmd[4] = addr >> 8;
-        qspi_write_cmd[5] = addr;
-        qspi_write_dma_blocking(qspi, qspi_write_cmd, sizeof(qspi_write_cmd));
-        qspi_write_dma_blocking(qspi, src, count);
-    }
-
-    /**
-     * @brief Read buffer from PSRAM
-     */
-    __force_inline static void psram_qspi_read(psram_qspi_inst_t *qspi, uint32_t addr,
-                                               uint8_t *dst, size_t count)
-    {
-        qspi_read_cmd[1] = count * 2; // Convert bytes to nibbles
-        qspi_read_cmd[3] = addr >> 16;
-        qspi_read_cmd[4] = addr >> 8;
-        qspi_read_cmd[5] = addr;
-        qspi_write_read_dma_blocking(qspi, qspi_read_cmd, sizeof(qspi_read_cmd), dst, count);
-    }
-
-    // Async bulk write buffer
-    static uint8_t qspi_write_async_buf[134] = {
-        0,    // n nibbles
-        0,    // 0 read
-        0x38u // Quad Write
-    };
-
-/**
- * @brief Write buffer to PSRAM (async, max 128 bytes)
- */
-#if defined(PSRAM_QSPI_ASYNC)
-    __force_inline static void psram_qspi_write_async(psram_qspi_inst_t *qspi, uint32_t addr,
-                                                      uint8_t *src, size_t count)
-    {
-        qspi_write_async_buf[0] = (4 + count) * 2;
-        qspi_write_async_buf[3] = addr >> 16;
-        qspi_write_async_buf[4] = addr >> 8;
-        qspi_write_async_buf[5] = addr;
-        memcpy(qspi_write_async_buf + 6, src, count);
-        qspi_write_async(qspi, qspi_write_async_buf, 6 + count);
-    }
-#endif
 
 #ifdef __cplusplus
 }

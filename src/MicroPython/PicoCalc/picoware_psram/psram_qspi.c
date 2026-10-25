@@ -102,6 +102,11 @@ psram_qspi_inst_t psram_qspi_init(PIO pio, int sm, float clkdiv)
 {
     psram_qspi_inst_t qspi;
 
+    // Picoware raises RP2350 to 240 MHz after display/PSRAM initialization.
+    // Dividers 1 and 2 produced single-bit errors on mixed data at that clock.
+    // Keep a conservative divider even when initialized at the lower boot clock.
+    if (clkdiv < 4.0f)
+        clkdiv = 4.0f;
     qspi.pio = pio;
     qspi.clkdiv = clkdiv;
     qspi.pin_cs = PSRAM_QSPI_PIN_CS;

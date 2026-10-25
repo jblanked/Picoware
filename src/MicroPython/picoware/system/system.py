@@ -172,6 +172,13 @@ class System:
         return mem_alloc()
 
     @property
+    def used_stack(self):
+        """Return the total stack memory used."""
+        from micropython import stack_use
+
+        return stack_use()
+
+    @property
     def used_psram(self):
         """Return the total PSRAM memory used."""
         from picoware_boards import BOARD_HAS_PSRAM

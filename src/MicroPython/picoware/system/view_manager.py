@@ -226,6 +226,10 @@ class ViewManager:
         if self._thread_manager:
             del self._thread_manager
             self._thread_manager = None
+        if self._timer is not None:
+            self._timer.stop()
+            del self._timer
+            self._timer = None
         if self._battery is not None:
             del self._battery
             self._battery = None
@@ -240,10 +244,6 @@ class ViewManager:
         if self._bluetooth is not None:
             del self._bluetooth
             self._bluetooth = None
-        if self._timer is not None:
-            self._timer.stop()
-            del self._timer
-            self._timer = None
 
         collect()
 

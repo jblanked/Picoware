@@ -107,8 +107,6 @@ class Bluetooth:
             f"[BT] Security config: bond={bonding_configured}, "
             "mitm=False, io=3, le_secure=False"
         )
-        self._ble.active(True)
-        self._ble.irq(self.__irq)
         self._callback = None
         self._scanning = False
         self._scan_data = {}
@@ -151,6 +149,8 @@ class Bluetooth:
         self._passkey = None
         self._passkey_action = None
         self._passkey_conn_handle = None
+        self._ble.irq(self.__irq)
+        self._ble.active(True)
 
     def __del__(self):
         """Clean up Bluetooth resources."""

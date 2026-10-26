@@ -275,3 +275,24 @@ def read(addr, length):
 
 def write(addr, data):
     return PSRAM().write(addr, data)
+
+
+# Optional experimental model: nonmoving pages and a shared native cursor.
+# This capability does not imply current PicoCalc allocator or timing parity.
+try:
+    import sim_psram as _native
+except ImportError:
+    _native=None
+if _native is not None:
+    SHARED_ALLOCATOR=1
+    HEAP_START_ADDR=320*320+1024
+    class PSRAM(PSRAM):
+        def alloc_object(self,value):return _native.alloc(value)
+        def read(self,addr,length):return _native.read(addr,length)
+        def write(self,addr,data):return _native.write(addr,data)
+        def mem_free(self):return SIZE-HEAP_START_ADDR-_native.stats()[0]
+        def collect(self):return 0
+        def read8(self,addr):return self.read(addr,1)[0]
+        def get_next_free(self):raise NotImplementedError('Shared allocator has no caller-owned cursor')
+    def read(addr,length):return _native.read(addr,length)
+    def write(addr,data):return _native.write(addr,data)

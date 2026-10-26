@@ -1,4 +1,6 @@
 """Keyboard transform tools, precision steps, and grid snapping."""
+from .records import new as new_records, paged
+
 
 from math import isfinite, floor
 from .assets import transformed_records, record_bounds
@@ -105,9 +107,9 @@ class TransformTools:
         original = t["original"]
         records = t["buffer"]
         if records is None:
-            records = bytearray(len(original))
+            records = new_records(len(original))
         native = getattr(self.mesh,'transform_buffer',None)
-        if native is not None:
+        if native is not None and not paged(original) and not paged(records):
             bounds = native(original,records,("Move","Scale","Rotate").index(t["kind"]),
                             t["values"],pivot,t["mask"])
         else:

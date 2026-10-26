@@ -1,7 +1,8 @@
 """Editor-only motion aids; runtime geometry and packed assets remain unchanged."""
 from array import array
 from math import sin, cos, pi
-from struct import unpack_from, pack
+from struct import pack
+from .records import unpack_from
 from . import animation as model, billboard_export as capture
 from .preview_jobs import bounded_job
 from .viewport import view_basis
@@ -9,7 +10,7 @@ from .selection import clipped_line
 
 
 def mirrored(values,axis):
-    result=list(values)
+    result=model.pose_values(values)
     result[axis]=-result[axis]
     for offset in (3,9):
         for i in range(3):

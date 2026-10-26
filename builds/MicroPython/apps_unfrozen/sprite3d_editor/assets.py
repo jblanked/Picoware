@@ -1,7 +1,10 @@
 """Sprite3D validation, whole-model geometry, and transactional saving."""
+from .records import new as new_records, paged
+
 
 from math import cos, sin, isfinite, pi
-from struct import unpack_from, pack_into, pack
+from struct import pack
+from .records import unpack_from, pack_into
 
 
 def record_stride(storage,path,size):
@@ -68,7 +71,7 @@ def load_sprite(storage, path, records=None):
     reader = chunks(storage,path,size) if stride==40 else legacy_chunks(storage,path,size)
     try:
         load = getattr(mesh, 'load_buffer', None)
-        if load is not None and records is not None and not records:
+        if load is not None and records is not None and not records and not paged(records):
             for data in reader:
                 records.extend(data)
             low,high = load(records)
@@ -107,7 +110,7 @@ def load_sprite(storage, path, records=None):
 def transformed_records(source, kind, amounts, pivot, mask=None, base_vertex=0, result=None):
     """Transform original float32 vertices once; retain triangle metadata."""
     if result is None:
-        result = bytearray(source)
+        result = new_records(source)
     else:
         result[:] = source
     # Most edits rotate one axis. Skip the other axes even in the Python fallback.
@@ -197,6 +200,16 @@ def mesh_export_signature(storage,mesh,path,records=None):
     return size,crc
 
 
+def write_geometry(storage, mesh, path, records=None):
+    """Stream canonical paged records; preserve the native exporter for RAM data."""
+    if paged(records):
+        if len(records)!=mesh.triangle_count*40:
+            raise ValueError('Geometry count differs from document')
+        from .records import write_file
+        return write_file(storage,path,records)
+    return mesh.to_path(path)
+
+
 def save_sprite(storage, mesh, path, records=None):
     """Validate a temporary mesh file before replacing the destination."""
     if not path.lower().endswith((".sprite3d", ".bin")):
@@ -209,7 +222,7 @@ def save_sprite(storage, mesh, path, records=None):
     from .export_transaction import begin,commit,recover
     temporary,state=begin(storage,path,'mesh-export')
     try:
-        if not mesh.to_path(temporary):
+        if not write_geometry(storage,mesh,temporary,records):
             raise OSError("Could not write temporary file")
         if storage.size(temporary) != mesh.triangle_count * 40:
             raise OSError("Incomplete save: %d/%d bytes" % (storage.size(temporary), mesh.triangle_count * 40))

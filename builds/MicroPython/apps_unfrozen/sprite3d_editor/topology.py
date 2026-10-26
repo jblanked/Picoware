@@ -1,6 +1,9 @@
 """Temporary exact-coordinate adjacency and conservative polygon operations."""
+from .records import new as new_records, paged
+
 from math import sqrt, isfinite
-from struct import unpack_from, pack
+from struct import pack
+from .records import unpack_from
 from array import array
 
 
@@ -224,7 +227,7 @@ def triangulate(points,n=None):
 
 class Result:
     def __init__(self,limit):
-        self.records=bytearray();self.quads=array('I');self.sources=array('i');self.selected=array('H' if limit<=65535 else 'I');self.limit=limit
+        self.records=new_records();self.quads=array('I');self.sources=array('i');self.selected=array('H' if limit<=65535 else 'I');self.limit=limit
     def emit(self,points,attribute,source=-1,selected=False):
         if len(self.sources)>=self.limit: raise ValueError('Triangle limit exceeded')
         if any(not isfinite(v) or abs(v)>1e12 for p in points for v in p): raise ValueError('Coordinate range exceeded')

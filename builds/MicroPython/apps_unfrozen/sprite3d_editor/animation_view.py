@@ -1,6 +1,9 @@
 """Disposable live posing, transactional adjustments and cooperative pixel capture."""
+from .records import new as new_records, paged
+from .records import view as record_view
+
 from time import ticks_ms, ticks_diff
-from struct import pack_into
+from .records import pack_into
 from gc import collect
 from . import animation as model, billboard_export as capture
 from .preview_jobs import bounded_job
@@ -39,9 +42,9 @@ class AnimationView(VisualExtras,PoseHelpers):
         collect();size=len(self.editor.records)
         # Publish only a complete reservation; a failed resume keeps the last view.
         scratch=self.scratch if self.scratch is not None else capture.Scratch(16)
-        work=self.scene_work if getattr(self,'scene_work',None) is not None else bytearray(size)
+        work=self.scene_work if getattr(self,'scene_work',None) is not None else new_records(size)
         previous=self.scene_pool or (None,None)
-        pool=[p if p is not None else bytearray(size) for p in previous]
+        pool=[p if p is not None else new_records(size) for p in previous]
         self.scratch=scratch;self.scene_work=work;self.scene_pool=pool
 
     def suspend(self,keep_scratch=False,release_work=False):
@@ -99,7 +102,7 @@ class AnimationView(VisualExtras,PoseHelpers):
         if self.candidate is not None:
             self.enforce_pin()
             model.validate(self.candidate,len(self.editor.records)//40)
-            if self.candidate!=self.editor.animation:
+            if not model.same(self.candidate,self.editor.animation):
                 self.editor.animation_commit('Pose '+self.kind,self.candidate)
             self.candidate=None
         self.overlay=None
@@ -190,7 +193,7 @@ class AnimationView(VisualExtras,PoseHelpers):
             slot=0 if self.display_slot!=0 else 1;offset=0
             for chunk in chunks:
                 self.scene_pool[slot][offset:offset+len(chunk)]=chunk;offset+=len(chunk);yield None
-            projected=memoryview(self.scene_pool[slot])[:offset]
+            projected=record_view(self.scene_pool[slot])[:offset]
         updates=[]
         try:
             yield from prepare_mesh_steps(self.buffer,projected,updates,validate=False)
@@ -355,7 +358,7 @@ class AnimationView(VisualExtras,PoseHelpers):
             if self.clipboard is None:raise ValueError('Copy a part pose with K first')
             if self.candidate is not None:raise ValueError('Accept or cancel adjustment first')
             if self.pin is not None:raise ValueError('Release the pin before pasting')
-            self.start();self.data['poses'][s['pose']][s['part']]=list(self.clipboard)
+            self.start();self.data['poses'][s['pose']][s['part']]=model.pose_values(self.clipboard)
             self.mirror_pose(self.data,s['part'],s['pose']);self.invalidate()
             s['message']='Pasted preview: Enter / Esc'
         elif button in (BUTTON_H,BUTTON_J):
@@ -453,7 +456,7 @@ class AnimationView(VisualExtras,PoseHelpers):
                 point=vertex(e.records,e.cursor)
             else:
                 from .assets import record_bounds
-                owners=bytes.fromhex(self.data['owners']);records=bytearray()
+                owners=bytes.fromhex(self.data['owners']);records=new_records()
                 for i,owner in enumerate(owners):
                     if owner==s['part']:records.extend(e.records[i*40:i*40+40])
                 if not records:raise ValueError('Part has no faces')

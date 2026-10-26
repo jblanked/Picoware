@@ -1,6 +1,9 @@
 """SD-backed transform backups and exact Undo/Redo history."""
+from .records import new as new_records, paged
+from .records import view as record_view
 
-from binascii import crc32
+
+from .records import crc32, write_file
 
 
 class History:
@@ -85,7 +88,7 @@ class History:
         self.owned.append(path)
         try:
             # Storage's binary writer appends: only write a new, unique file.
-            if not self.storage.write(path,records,"wb"):
+            if not write_file(self.storage,path,records):
                 raise OSError("Cannot write SD edit backup")
             if not self.matches(snapshot,records):
                 raise OSError("SD edit backup verification failed")
@@ -106,11 +109,11 @@ class History:
 
     def document_data(self,snapshot):
         extra=self.documents.get(id(snapshot))
-        return self.read(extra) if extra is not None else None
+        return self.read(extra, geometry=False) if extra is not None else None
 
     def chunks(self, snapshot):
         if len(snapshot) == 4:
-            source = memoryview(snapshot[3])
+            source = record_view(snapshot[3])
             for offset in range(0,len(source),800):
                 yield source[offset:offset+800]
             return
@@ -131,8 +134,10 @@ class History:
         if crc != checksum:
             raise OSError("SD edit backup checksum failed")
 
-    def read(self, snapshot):
-        records = bytearray()
+    def read(self, snapshot, geometry=True):
+        from .diagnostics import stage
+        stage('history read')
+        records = new_records()
         reader = self.chunks(snapshot)
         try:
             for data in reader:

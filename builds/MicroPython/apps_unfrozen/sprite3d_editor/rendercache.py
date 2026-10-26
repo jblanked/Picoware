@@ -1,5 +1,6 @@
 """Disposable SD-backed overlay commands, independent of document history."""
-from struct import pack, unpack_from
+from struct import pack
+from .records import unpack_from
 
 
 class Lines:
@@ -12,7 +13,8 @@ class Lines:
             self.draw._line(x1,y1,x2,y2,color)
         if self.data is not None:
             try:
-                self.data.extend(pack('<4H',x1,y1,x2,y2))
+                if len(self.data)>=4096:self.data=None
+                else:self.data.extend(pack('<4H',x1,y1,x2,y2))
             except MemoryError:
                 self.data = None
 

@@ -1,7 +1,11 @@
 """Native preview meshes, camera layouts, grid, and transform indicators."""
+from .records import new as new_records, paged
+from .records import view as record_view
+
 
 from math import cos, sin, sqrt, floor, pi
-from struct import pack, pack_into, unpack_from
+from struct import pack
+from .records import pack_into, unpack_from
 from gc import collect, mem_free
 from array import array
 from picoware.system.vector import Vector
@@ -110,27 +114,19 @@ def preview_collect():
 
 def depth_order_steps(records,forward):
     """Native depth sorting with bounded scratch churn and no second index buffer."""
+    if paged(records):
+        from .recordsort import depth_order_steps as external_depth_order
+        return (yield from external_depth_order(records,forward))
     count=len(records)//40
-    order=[None]*count
-    checkpoint=4 if mem_free()<262144 else None
+    depths=array('d')
     for i in range(count):
         values=unpack_from('<9f',records,i*40)
-        depth=((values[0]+values[3]+values[6])*forward[0]+
-               (values[1]+values[4]+values[7])*forward[1]+
-               (values[2]+values[5]+values[8])*forward[2])
-        order[i]=(depth,-i)
-        if i%8==0:
-            checkpoint=preview_checkpoint(checkpoint)
-            yield None
-    order.sort(reverse=True)
-    # Convert in place: no growing array allocated while the sorted tuples
-    # and their depth floats still occupy fragmented heap space.
-    for i in range(count):
-        order[i]=-order[i][1]
-        if i%32==0:
-            checkpoint=preview_checkpoint(checkpoint)
-            yield None
-    return order
+        depths.append((values[0]+values[3]+values[6])*forward[0]+
+                      (values[1]+values[4]+values[7])*forward[1]+
+                      (values[2]+values[5]+values[8])*forward[2])
+        if i%16==0:yield None
+    from .recordsort import indices_steps
+    return (yield from indices_steps(count,lambda i:(depths[i],-i),reverse=True))
 
 
 def preview_records_steps(records, center, basis, panel_transform=None, ortho_distance=None, wireframe=None, perspective_scale=1.0, culling=True, camera_distance=None):
@@ -139,12 +135,12 @@ def preview_records_steps(records, center, basis, panel_transform=None, ortho_di
     preview_collect()
     exact=panel_transform is not None and mem_free()<262144
     if not exact:
-        try:output=bytearray(len(records))
+        try:output=new_records(len(records))
         except MemoryError:exact=True
     if exact:
         count=yield from _preview_records_pass(*args,count_only=True)
         collect()
-        output=bytearray(count*40)
+        output=new_records(count*40)
     return (yield from _preview_records_pass(*args,output=output))
 
 
@@ -158,6 +154,9 @@ def _preview_records_pass(records, center, basis, panel_transform=None, ortho_di
     fx,fy,fz = forward
     cx,cy,cz = center
     count = 0
+    if output is not None and paged(output):
+        from .indices import vector
+        output.sources=vector('H')
     offsets = range(len(records)//40) if count_only else (yield from depth_order_steps(records,forward))
     preview_collect()
     checkpoint=4 if mem_free()<262144 else None
@@ -219,6 +218,7 @@ def _preview_records_pass(records, center, basis, panel_transform=None, ortho_di
                 ex,ey,ez=ex*perspective_scale,ey*perspective_scale,ez*perspective_scale
             count+=1
             if count>Sprite3D.MAX_TRIANGLES_PER_SPRITE:raise MemoryError('Clipped preview exceeds triangle capacity')
+            if output is not None and paged(output):output.sources.append(triangle)
             if sink is not None:
                 sink.add_triangle(az,ay+.5,ax,bz,by+.5,bx,ez,ey+.5,ex,values[9],
                                   values[10] if wireframe is None else int(wireframe==1))
@@ -278,6 +278,7 @@ def _preview_records_pass(records, center, basis, panel_transform=None, ortho_di
             count += 1
             if count > Sprite3D.MAX_TRIANGLES_PER_SPRITE:
                 raise MemoryError("Clipped preview exceeds triangle capacity")
+            if output is not None and paged(output):output.sources.append(triangle)
             if sink is not None:
                 sink.add_triangle(*points,values[9],values[10] if wireframe is None else int(wireframe==1))
                 continue
@@ -289,7 +290,7 @@ def _preview_records_pass(records, center, basis, panel_transform=None, ortho_di
     if count_only or sink is not None:return count
     if retain_capacity:
         preview_collect()
-        return memoryview(output)[:count*40]
+        return record_view(output)[:count*40]
     output[count*40:]=b''
     preview_collect()
     return output

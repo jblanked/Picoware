@@ -1,7 +1,9 @@
 """Face-normal display and transactional winding repair for connected islands."""
+from .records import new as new_records, paged
+
 from math import sqrt
 from time import ticks_us,ticks_diff
-from struct import unpack_from
+from .records import unpack_from
 from .selection import clipped_line
 from .islands import detect_islands
 
@@ -83,7 +85,7 @@ def recalculate(records, selected):
                     flips[i] ^= 1
         else:
             open_count += 1
-    result = bytearray(records)
+    result = new_records(records)
     changed = 0
     for i,flip in flips.items():
         if flip:

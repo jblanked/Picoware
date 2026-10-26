@@ -1,6 +1,6 @@
 """Geometry-owned edges and one projection per vertex for wireframe orbit."""
 from array import array
-from struct import unpack_from
+from .records import unpack_from
 from gc import collect
 from .selection import vertex, clipped_line
 

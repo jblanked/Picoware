@@ -77,7 +77,7 @@ def view_steps(e,job):
 
 
 def prepare_steps(e,records):
-    from struct import unpack_from
+    from .records import unpack_from
     from gc import collect
     job=Prepared(e,records);transferred=False
     try:

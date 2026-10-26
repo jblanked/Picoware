@@ -1,6 +1,8 @@
 """Small selection masks and clipped, non-destructive component overlays."""
 
-from struct import pack, unpack_from
+from struct import pack
+
+from .records import unpack_from
 
 
 def vertex(records, index):

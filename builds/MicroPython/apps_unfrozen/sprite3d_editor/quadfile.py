@@ -1,8 +1,9 @@
 """Versioned logical-face metadata and recoverable two-file saves."""
-from struct import pack,unpack_from
-from binascii import crc32
+from struct import pack
+from .records import unpack_from
+from .records import crc32, new as new_records, write_file
 from .streams import chunks
-from .quads import Faces,encode_pairs,decode_pairs
+from .quads import Faces,encode_pairs,decode_pairs,validate_pairs
 
 
 def fingerprint(storage,path):
@@ -12,10 +13,27 @@ def fingerprint(storage,path):
     return (size,crc)
 
 
+def digest(storage,path):
+    from hashlib import sha256
+    from binascii import hexlify
+    size=storage.size(path)
+    if size<0:raise OSError('Cannot read saved file size')
+    hashed=sha256()
+    for part in chunks(storage,path,size):hashed.update(part)
+    return size,hexlify(hashed.digest()).decode()
+
+
+def verify_pair(storage,path):
+    # Check the embedded geometry identity, not only the journal fingerprints.
+    if storage.exists(path+'.editor'):
+        size=storage.size(path)
+        metadata(read(storage,path+'.editor',65604+size//10),fingerprint(storage,path))
+
+
 def read(storage,path,limit):
     size=storage.size(path)
     if size<0 or size>limit:raise ValueError('Invalid editor metadata size')
-    data=bytearray()
+    data=new_records() if limit>8192 else bytearray()
     for part in chunks(storage,path,size):data.extend(part)
     return data
 
@@ -26,12 +44,12 @@ def encode(signature,pairs,pivot=None,animation=None):
     coordinates=tuple(float(value) for value in pivot) if present else (0.0,0.0,0.0)
     if len(coordinates)!=3 or any(not isfinite(value) or abs(value)>1e12 for value in coordinates):
         raise ValueError('Invalid custom pivot')
-    data=(pack('<4sIIII',b'S3QE',3 if animation is not None else 2,signature[0],signature[1],len(pairs)//2)
-          +encode_pairs(pairs)+pack('<B3f',present,*coordinates))
+    data=new_records(pack('<4sIIII',b'S3QE',3 if animation is not None else 2,signature[0],signature[1],len(pairs)//2))
+    data.extend(encode_pairs(pairs));data.extend(pack('<B3f',present,*coordinates))
     if animation is not None:
         from .animation import encode as encode_animation
         extra=encode_animation(animation,signature[0]//40)
-        data+=pack('<I',len(extra))+extra
+        data.extend(pack('<I',len(extra)));data.extend(extra)
     return data+pack('<I',crc32(data))
 
 
@@ -101,13 +119,13 @@ def rename(storage,source,destination):
 
 
 def matches(storage,path,signature):
-    return storage.exists(path) and fingerprint(storage,path)==tuple(signature)
+    return storage.exists(path) and (digest(storage,path) if isinstance(signature[1],str) else fingerprint(storage,path))==tuple(signature)
 
 
 def journal_data(state):
     from json import dumps
     data=dumps(state).encode()
-    return pack('<4sI',b'QJ01',crc32(data))+data
+    return pack('<4sI',b'QJ02',crc32(data))+data
 
 
 def recover(storage,path,rollback=False):
@@ -116,7 +134,7 @@ def recover(storage,path,rollback=False):
     if not storage.exists(journal):return False
     from json import loads
     data=read(storage,journal,8192)
-    if len(data)<8 or data[:4]!=b'QJ01' or unpack_from('<I',data,4)[0]!=crc32(data[8:]):raise OSError('Invalid save recovery journal: '+journal)
+    if len(data)<8 or data[:4] not in (b'QJ01',b'QJ02') or unpack_from('<I',data,4)[0]!=crc32(data[8:]):raise OSError('Invalid save recovery journal: '+journal)
     try:
         state=loads(bytes(data[8:]))
         if not isinstance(state,dict):raise ValueError()
@@ -136,9 +154,13 @@ def recover(storage,path,rollback=False):
                 signature=item[key]
                 if signature is None and key=='old':continue
                 if (not isinstance(signature,list) or len(signature)!=2
-                        or any(type(v) is not int or v<0 or v>0xffffffff for v in signature)):raise ValueError()
+                        or type(signature[0]) is not int or not 0<=signature[0]<=0xffffffff
+                        or (not (type(signature[1]) is int and 0<=signature[1]<=0xffffffff) if data[:4]==b'QJ01'
+                            else not (isinstance(signature[1],str) and len(signature[1])==64 and all(c in '0123456789abcdef' for c in signature[1])))):raise ValueError()
     except (KeyError,TypeError,ValueError):
         raise OSError('Invalid save recovery entries: '+journal)
+    if data[:4]==b'QJ01' and items[1]['old']==items[1]['new']:
+        raise OSError('Legacy save recovery is ambiguous; originals and backups preserved')
     complete=not rollback and all(matches(storage,item['path'],item['new']) for item in items)
     if not complete:
         for item in items:
@@ -154,6 +176,7 @@ def recover(storage,path,rollback=False):
                     remove(storage,target)
                 rename(storage,backup,target)
             else:raise OSError('Recovery requires original backup: '+backup)
+    verify_pair(storage,path)
     # The pair is now consistent. Cleanup can be retried without losing originals.
     for item in items:
         remove(storage,item['stage']);remove(storage,item['backup'])
@@ -174,7 +197,8 @@ def save(storage,mesh,path,records,pairs,pivot=None,animation=None):
         index+=1
     journal=path+'.editor-journal';journal_written=False
     try:
-        if not mesh.to_path(stages[0]):raise OSError('Could not write staged geometry')
+        from .assets import write_geometry
+        if not write_geometry(storage,mesh,stages[0],records):raise OSError('Could not write staged geometry')
         size=storage.size(stages[0]);crc=0;offset=0
         if size!=len(records):raise OSError('Incomplete staged geometry')
         for part in chunks(storage,stages[0],size,3200):
@@ -185,18 +209,18 @@ def save(storage,mesh,path,records,pairs,pivot=None,animation=None):
         signature=(size,crc)
         # Exact serialized geometry equality permits validating membership once
         # against the source, without allocating a duplicate native mesh.
-        Faces(records,pairs)
+        validate_pairs(records,pairs)
         if animation is not None:
             from .animation import active,clone
             if not active(animation):
                 animation=clone(animation);animation['owners']='00'*(len(records)//40)
         data=encode(signature,pairs,pivot,animation)
-        if not storage.write(stages[1],data,'wb'):raise OSError('Could not write staged editor metadata')
-        if read(storage,stages[1],len(data))!=data:raise OSError('Incomplete staged editor metadata')
-        signatures=(signature,(len(data),crc32(data)))
+        if not write_file(storage,stages[1],data):raise OSError('Could not write staged editor metadata')
+        if data!=read(storage,stages[1],len(data)):raise OSError('Incomplete staged editor metadata')
+        signatures=tuple(digest(storage,stage) for stage in stages)
         items=[]
         for index,(target,stage) in enumerate(zip((path,path+'.editor'),stages)):
-            items.append({'path':target,'stage':stage,'backup':stage+'.bak','old':fingerprint(storage,target) if storage.exists(target) else None,'new':signatures[index]})
+            items.append({'path':target,'stage':stage,'backup':stage+'.bak','old':digest(storage,target) if storage.exists(target) else None,'new':signatures[index]})
         data=journal_data({'items':items})
         if not storage.write(journal,data,'wb'):raise OSError('Could not write save recovery journal')
         if read(storage,journal,len(data))!=data:raise OSError('Incomplete save recovery journal')
@@ -205,6 +229,7 @@ def save(storage,mesh,path,records,pairs,pivot=None,animation=None):
             if item['old'] is not None:rename(storage,item['path'],item['backup'])
         for item in items:rename(storage,item['stage'],item['path'])
         if not all(matches(storage,item['path'],item['new']) for item in items):raise OSError('Saved pair verification failed')
+        verify_pair(storage,path)
     except Exception as exc:
         if journal_written:
             try:recover(storage,path,True)

@@ -114,7 +114,7 @@ class AnimationTools:
     def animation_action(self,key,confirmed=False):
         s=self.animation_ui;data=self.animation
         if key in ('clear','delete','apply') and not confirmed:
-            needs=key!='apply' or any(p[s['part']]!=model.transform() for p in data['poses'])
+            needs=key!='apply' or any(tuple(p[s['part']])!=tuple(model.transform()) for p in data['poses'])
             if needs:
                 s['confirm']=(key,None);s['message']='Enter confirms; Esc cancels';return
         if key in ('undo','redo'):

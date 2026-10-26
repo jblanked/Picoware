@@ -1,11 +1,14 @@
 """Remove collapsed triangle records without erasing valid disconnected faces."""
-from struct import unpack_from, pack
+from .records import new as new_records, paged
+
+from struct import pack
+from .records import unpack_from
 
 
 def remove_degenerates(records):
     if len(records)%40:
         raise ValueError('Incomplete triangle record')
-    result = bytearray()
+    result = new_records()
     removed = 0
     for offset in range(0,len(records),40):
         v = unpack_from('<9f',records,offset)
@@ -30,7 +33,7 @@ def remove_duplicates(records):
     """Keep the first same-winding, same-material copy of each exact face."""
     if len(records)%40:
         raise ValueError('Incomplete triangle record')
-    result,seen,removed = bytearray(),set(),0
+    result,seen,removed = new_records(),set(),0
     for offset in range(0,len(records),40):
         values = unpack_from('<9f',records,offset)
         # Packed keys avoid retaining Python tuples/floats for every vertex.

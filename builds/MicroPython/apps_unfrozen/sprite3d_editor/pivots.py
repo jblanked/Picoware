@@ -1,4 +1,6 @@
 """Whole-model centering and custom-pivot editing."""
+from .records import new as new_records, paged
+
 from .assets import record_bounds, transformed_records
 from .selection import vertex
 from .ui import display_number
@@ -43,14 +45,14 @@ class PivotTools:
         if max(abs(value) for value in delta)<1e-7:
             self.status='Object is already centered'
             return
-        shifted=bytearray(len(complete))
+        shifted=new_records(len(complete))
         transformed_records(complete,'Move',delta,(0.0,0.0,0.0),result=shifted)
         if old_context is None:
             visible=shifted
             hidden=None
         else:
-            visible=bytearray()
-            hidden=bytearray()
+            visible=new_records()
+            hidden=new_records()
             mask=isolation_mask(old_context,len(self.records)//40)
             for index,is_visible in enumerate(mask):
                 part=shifted[index*40:index*40+40]

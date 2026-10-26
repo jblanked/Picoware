@@ -3,8 +3,11 @@
 BSP clipping/operation sequences adapted from Evan Wallace's csg.js (MIT).
 See CSG_LICENSE below and https://github.com/evanw/csg.js.
 """
+from .records import new as new_records, paged
+
 from math import sqrt, isfinite
-from struct import unpack_from, pack
+from struct import pack
+from .records import unpack_from
 from time import ticks_ms, ticks_diff
 
 CSG_LICENSE = 'Copyright (c) 2011 Evan Wallace (http://madebyevan.com/)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n'
@@ -319,7 +322,7 @@ def boolean_steps(a_records,b_records,operation,stats=None):
         return tuple(sorted((point[axis],point) for point in points) for axis in range(3))
     vertices = vertex_index(pool.values())
     raw_count = 0
-    result = bytearray()
+    result = new_records()
     def boundary_for(points):
         boundary = []
         for i,p in enumerate(points):

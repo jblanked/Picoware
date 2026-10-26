@@ -1,4 +1,6 @@
 """Transient isolated working sets and independent pane framing."""
+from .records import new as new_records, paged
+
 from math import sqrt
 from .assets import record_bounds
 
@@ -50,7 +52,7 @@ def isolation_mask(context, count):
 
 def full_records(e,records,context):
     if context is None:return records
-    hidden=e.history.read(context['hidden']);result=bytearray();h=v=0
+    hidden=e.history.read(context['hidden']);result=new_records();h=v=0
     for visible in context['mask']:
         if visible:
             if v<len(records):result.extend(records[v:v+40]);v+=40
@@ -84,7 +86,7 @@ class WorkspaceTools:
             return complete
         hidden=self.history.read(context['hidden'])
         if len(complete)!=size+len(hidden):raise ValueError('Metadata history geometry size changed')
-        visible=bytearray();offset=h=0
+        visible=new_records();offset=h=0
         for member in context['mask']:
             if member:
                 if len(visible)<size:
@@ -99,6 +101,8 @@ class WorkspaceTools:
     def history_replace(self,records,context,metadata=None):
         from .quads import history_decode,Faces
         animation_out=[None]
+        from .diagnostics import stage
+        stage('history decode')
         restored=history_decode(metadata,records,animation_out) if metadata is not None else (Faces(records),'Model',bytearray(),0,None)
         faces,mode,mask,cursor,pivot=restored
         animation=animation_out[0]
@@ -114,7 +118,7 @@ class WorkspaceTools:
             self.custom_pivot=pivot
         else:
             complete=full_records(self,records,context)
-            pairs=full_pairs(records,faces.pairs,context)
+            pairs=faces if context is None else full_pairs(records,faces.pairs,context)
             if context is not None:mode,mask,cursor='Model',bytearray(),0
             self.isolation=None;self.selection_mode=mode
             try:
@@ -154,7 +158,7 @@ class WorkspaceTools:
             if not chosen:raise ValueError('Select one island to isolate')
             mask=bytearray(len(self.records)//40)
             for i in chosen:mask[i]=1
-            visible=bytearray();hidden=bytearray()
+            visible=new_records();hidden=new_records()
             for i,value in enumerate(mask):(visible if value else hidden).extend(self.records[i*40:i*40+40])
             from .quads import remap
             shown={old:i for i,old in enumerate(j for j,v in enumerate(mask) if v)}

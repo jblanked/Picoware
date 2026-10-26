@@ -14,7 +14,7 @@ bool Billboard::setDirectionPose(int dir, int pose, Image *image)
 {
     if (dir < 0 || dir >= num_dirs || pose < 0 || pose >= num_poses)
         return false;
-    if (image && (!image->getPixels() || !(image->size.x >= 1 && image->size.x <= 1024 && image->size.y >= 1 && image->size.y <= 1024) ||
+    if (image && (!image->hasData() || !(image->size.x >= 1 && image->size.x <= 1024 && image->size.y >= 1 && image->size.y <= 1024) ||
                   uint16_t(image->size.x) != image->size.x || uint16_t(image->size.y) != image->size.y))
         return false;
     if (dirs[dir][pose] == image)

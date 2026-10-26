@@ -1,4 +1,5 @@
 #include "image.hpp"
+#include "../engine_config.hpp"
 
 #include ENGINE_MEM_INCLUDE
 
@@ -32,17 +33,19 @@ static bool image_pixel_count(const Vector &size, size_t &pixel_count)
 }
 
 Image::Image()
-    : size(Vector(0, 0)), has_mask(false), mask(nullptr), data(nullptr),
+    : size(Vector(0, 0)), mask(nullptr), data(nullptr),
       is_8bit(false), path(""), owned_data(nullptr), owned_data_size(0),
-      owned_mask(nullptr), owned_mask_size(0), owned_path(nullptr)
+      owned_mask(nullptr), owned_mask_size(0), owned_path(nullptr),
+      psram_address(0xFFFFFFFFu), psram_mask_address(0xFFFFFFFFu)
 {
 }
 
 Image::Image(const Vector &image_size, bool image_is_8bit, const void *image_data, const char *image_path)
-    : size(image_size), has_mask(false), mask(nullptr), data(nullptr),
+    : size(image_size), mask(nullptr), data(nullptr),
       is_8bit(image_is_8bit), path(""),
       owned_data(nullptr), owned_data_size(0), owned_mask(nullptr),
-      owned_mask_size(0), owned_path(nullptr)
+      owned_mask_size(0), owned_path(nullptr),
+      psram_address(0xFFFFFFFFu), psram_mask_address(0xFFFFFFFFu)
 {
     if (image_data && !setData(image_data, getDataSize()))
         ENGINE_LOG_INFO("Image failed to copy pixel data\n");
@@ -51,10 +54,11 @@ Image::Image(const Vector &image_size, bool image_is_8bit, const void *image_dat
 }
 
 Image::Image(const Vector &image_size, const void *image_data, const char *image_path, const uint8_t *image_mask)
-    : size(image_size), has_mask(false), mask(nullptr), data(nullptr),
+    : size(image_size), mask(nullptr), data(nullptr),
       is_8bit(true), path(""),
       owned_data(nullptr), owned_data_size(0), owned_mask(nullptr),
-      owned_mask_size(0), owned_path(nullptr)
+      owned_mask_size(0), owned_path(nullptr),
+      psram_address(0xFFFFFFFFu), psram_mask_address(0xFFFFFFFFu)
 {
     if (image_data && !setData(image_data, getDataSize()))
         ENGINE_LOG_INFO("Image failed to copy pixel data\n");
@@ -62,6 +66,24 @@ Image::Image(const Vector &image_size, const void *image_data, const char *image
         ENGINE_LOG_INFO("Image failed to copy path\n");
     if (image_mask && !setMask(image_mask, getMaskSize()))
         ENGINE_LOG_INFO("Image failed to copy transparency mask\n");
+}
+
+Image::Image(const Vector &size, bool is_8bit, uint32_t psram_address)
+    : size(size), mask(nullptr), data(nullptr),
+      is_8bit(is_8bit), path(""),
+      owned_data(nullptr), owned_data_size(0), owned_mask(nullptr),
+      owned_mask_size(0), owned_path(nullptr), psram_address(psram_address),
+      psram_mask_address(0xFFFFFFFFu)
+{
+}
+
+Image::Image(const Vector &size, uint32_t psram_data_address, uint32_t psram_mask_address)
+    : size(size), mask(nullptr), data(nullptr),
+      is_8bit(true), path(""),
+      owned_data(nullptr), owned_data_size(0), owned_mask(nullptr),
+      owned_mask_size(0), owned_path(nullptr), psram_address(psram_data_address),
+      psram_mask_address(psram_mask_address)
+{
 }
 
 Image::~Image()
@@ -115,6 +137,16 @@ bool Image::setData(const void *source, size_t length)
     return true;
 }
 
+bool Image::hasData() const
+{
+    return data != nullptr || psram_address != 0xFFFFFFFFu;
+}
+
+bool Image::hasMask() const
+{
+    return mask != nullptr || psram_mask_address != 0xFFFFFFFFu;
+}
+
 bool Image::setMask(const uint8_t *source, size_t length)
 {
     const size_t mask_size = getMaskSize();
@@ -131,7 +163,6 @@ bool Image::setMask(const uint8_t *source, size_t length)
     owned_mask = copy;
     owned_mask_size = mask_size;
     mask = owned_mask;
-    has_mask = true;
     return true;
 }
 
@@ -182,7 +213,7 @@ Image *Image::copyOwned() const
     copy->owned_data_size = data_size;
     copy->data = pixel_data;
 
-    if (has_mask)
+    if (hasMask())
     {
         const size_t mask_size = getMaskSize();
         if (!mask || mask_size == 0 ||
@@ -202,7 +233,6 @@ Image *Image::copyOwned() const
         copy->owned_mask = mask_data;
         copy->owned_mask_size = mask_size;
         copy->mask = mask_data;
-        copy->has_mask = true;
     }
 
     return copy;
@@ -215,6 +245,17 @@ bool Image::getData(void *buffer, size_t buffer_size) const
     {
         ENGINE_LOG_INFO("Image::getData received an invalid buffer or image size\n");
         return false;
+    }
+
+    if (psram_address != 0xFFFFFFFFu)
+    {
+#ifdef ENGINE_USE_PSRAM
+        ENGINE_PSRAM_READ(psram_address, buffer, data_size);
+        return true;
+#else
+        ENGINE_LOG_INFO("Image::getData PSRAM not available\n");
+        return false;
+#endif
     }
 
     if (this->data != nullptr)
@@ -244,6 +285,40 @@ bool Image::getData(void *buffer, size_t buffer_size) const
 #else
     return false;
 #endif
+}
+
+bool Image::getMask(void *buffer, size_t buffer_size) const
+{
+    const size_t mask_size = getMaskSize();
+    if (!buffer || mask_size == 0 || mask_size > buffer_size)
+    {
+        ENGINE_LOG_INFO("Image::getMask received an invalid buffer or mask size\n");
+        return false;
+    }
+
+    if (psram_mask_address != 0xFFFFFFFFu)
+    {
+#ifdef ENGINE_USE_PSRAM
+        ENGINE_PSRAM_READ(psram_mask_address, buffer, mask_size);
+        return true;
+#else
+        ENGINE_LOG_INFO("Image::getMask PSRAM not available\n");
+        return false;
+#endif
+    }
+
+    if (this->mask != nullptr)
+    {
+        if (mask == owned_mask && owned_mask && owned_mask_size < mask_size)
+        {
+            ENGINE_LOG_INFO("Image::getMask mask data is smaller than its declared size\n");
+            return false;
+        }
+        memcpy(buffer, this->mask, mask_size);
+        return true;
+    }
+
+    return false;
 }
 
 void Image::render(Draw *draw, const Vector &position)
@@ -339,5 +414,43 @@ void Image::render(Draw *draw, int16_t x, int16_t y)
         }
         draw->image(x, y, data_buffer, size.x, size.y);
         ENGINE_MEM_FREE(data_buffer);
+    }
+}
+
+void Image::renderMasked(Draw *draw, int16_t x, int16_t y, uint16_t dst_width, uint16_t dst_height)
+{
+    if (draw == nullptr || !hasData() || !hasMask())
+        return;
+
+    const size_t data_size = getDataSize();
+    if (data != nullptr && mask != nullptr)
+    {
+        draw->imageMasked(x, y, dst_width, dst_height, size.x, size.y,
+                          static_cast<const uint8_t *>(data), mask);
+        return;
+    }
+
+    if (psram_address != 0xFFFFFFFFu && psram_mask_address != 0xFFFFFFFFu)
+    {
+        uint8_t *data_buffer = static_cast<uint8_t *>(ENGINE_MEM_MALLOC(data_size));
+        uint8_t *mask_buffer = static_cast<uint8_t *>(ENGINE_MEM_MALLOC(data_size));
+        if (!data_buffer || !mask_buffer)
+        {
+            ENGINE_MEM_FREE(data_buffer);
+            ENGINE_MEM_FREE(mask_buffer);
+            ENGINE_LOG_INFO("Image::renderMasked failed to allocate memory for PSRAM image data\n");
+            return;
+        }
+        if (!getData(data_buffer, data_size) || !getMask(mask_buffer, data_size))
+        {
+            ENGINE_MEM_FREE(data_buffer);
+            ENGINE_MEM_FREE(mask_buffer);
+            ENGINE_LOG_INFO("Image::renderMasked failed to get PSRAM image data\n");
+            return;
+        }
+        draw->imageMasked(x, y, dst_width, dst_height, size.x, size.y, data_buffer, mask_buffer);
+        ENGINE_MEM_FREE(data_buffer);
+        ENGINE_MEM_FREE(mask_buffer);
+        return;
     }
 }

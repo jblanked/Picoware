@@ -20,8 +20,8 @@ void image_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t k
 
 mp_obj_t image_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
-    // Arguments: size (Vector), is_8bit (bool), data (optional), path (optional), mask (optional)
-    mp_arg_check_num(n_args, n_kw, 2, 5, true);
+    // Arguments: size (Vector), is_8bit (bool), data (optional), path (optional), mask (optional), psram_address (optional), psram_mask_address (optional)
+    mp_arg_check_num(n_args, n_kw, 2, 7, true);
     image_mp_obj_t *self = mp_obj_malloc_with_finaliser(image_mp_obj_t, &image_mp_type);
     self->base.type = &image_mp_type;
     self->context = nullptr;
@@ -66,18 +66,34 @@ mp_obj_t image_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw
             mp_raise_ValueError(MP_ERROR_TEXT("incorrect mask length"));
     }
 
-    Image *ctx = new Image(size, is_8bit);
-    if (has_data && !ctx->setData(data_info.buf, data_info.len))
+    bool has_psram_address = n_args == 6 && args[5] != mp_const_none;
+    bool has_psram_mask_address = n_args == 7 && args[6] != mp_const_none;
+
+    Image *ctx = nullptr;
+    if (has_psram_address && has_psram_mask_address)
+    {
+        ctx = new Image(size, (uint32_t)mp_obj_get_int(args[5]), (uint32_t)mp_obj_get_int(args[6]));
+    }
+    else if (has_psram_address)
+    {
+        ctx = new Image(size, is_8bit, (uint32_t)mp_obj_get_int(args[5]));
+    }
+    else
+    {
+        ctx = new Image(size, is_8bit);
+    }
+
+    if (!has_psram_address && has_data && !ctx->setData(data_info.buf, data_info.len))
     {
         delete ctx;
         mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("unable to copy image pixels"));
     }
-    if (path[0] != '\0' && !ctx->setPath(path))
+    if (!has_psram_address && path[0] != '\0' && !ctx->setPath(path))
     {
         delete ctx;
         mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("unable to copy image path"));
     }
-    if (has_mask && !ctx->setMask(static_cast<const uint8_t *>(mask_info.buf), mask_info.len))
+    if (!has_psram_mask_address && has_mask && !ctx->setMask(static_cast<const uint8_t *>(mask_info.buf), mask_info.len))
     {
         delete ctx;
         mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("unable to copy image mask"));

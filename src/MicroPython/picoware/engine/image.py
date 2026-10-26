@@ -12,6 +12,8 @@ class Image(engine.Image):
         data (bytes-like or None): Optional raw pixel data. Defaults to None.
         path (str): Optional file path for image data. Defaults to "".
         mask (bytes-like or None): Optional 1-bit transparency mask.
+        psram_address (int or None): Optional PSRAM address for image data. Defaults to None.
+        psram_mask_address (int or None): Optional PSRAM address for the image mask. Defaults to None.
 
     Pixel data, masks, and paths are copied into native-owned storage, so the
     original Python buffers and strings do not need to remain alive.

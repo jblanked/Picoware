@@ -1,5 +1,6 @@
-// Opt-in board PSRAM model. Backing bytes are outside the Python heap;
-// Python pages use the firmware allocator; native meshes share its cursor.
+// Opt-in experimental PSRAM model, not current firmware allocator parity.
+// Backing bytes live outside the Python heap. Desktop-owned, nonmoving pages
+// share a cursor with the unchanged native engine. No PicoCalc driver dependency.
 #ifdef PICOWARE_SIM_PSRAM
 #include "py/runtime.h"
 #include "py/objstr.h"
@@ -25,11 +26,90 @@ static unsigned samples;
 static void sample_heap(void){if(measuring && (++samples%64==0)){gc_info_t info;gc_info(&info);if(info.free<min_free)min_free=info.free;}}
 static uint32_t peak,largest,reads,writes;
 static int fail_after=-1;
-static void psram_ensure_init(void) {}
-static mp_psram_data_obj_t *psram_owner(const psram_alloc_block_t *p){return (void *)~p->obj_bits;}
-#define PICOWARE_PSRAM_ALLOCATOR_ONLY
-#include "../PicoCalc/picoware_psram/picoware_psram.c"
-#undef PICOWARE_PSRAM_ALLOCATOR_ONLY
+// Desktop-only ownership policy. Kept here so this optional model builds
+// against upstream without the unmerged firmware allocator experiment.
+static void psram_register_alloc(uint32_t addr, uint32_t size,
+                                mp_psram_data_obj_t *owner,
+                                psram_alloc_block_t *block)
+{
+    block->addr = addr;
+    block->size = size ? size : 1;
+    block->obj_bits = ~(uintptr_t)owner;
+    block->next = alloc_list;
+    alloc_list = block;
+}
+
+static uint32_t psram_alloc(uint32_t size)
+{
+    // An empty Python ownership list does not mean PSRAM is unused: the
+    // native engine advances this same cursor without Python metadata.
+    // Keep native reservations even when no Python pages remain.
+    if (!size) size = 1;
+    psram_block_t **link = &free_list;
+    while (*link) {
+        psram_block_t *block = *link;
+        if (block->size >= size) {
+            uint32_t addr = block->addr;
+            if (block->size > size) {
+                block->addr += size;
+                block->size -= size;
+            } else {
+                *link = block->next;
+                m_free(block);
+            }
+            return addr;
+        }
+        link = &block->next;
+    }
+    if (psram_next_free_addr > PSRAM_SIZE || size > PSRAM_SIZE - psram_next_free_addr)
+        return PSRAM_ALLOC_FAIL;
+    uint32_t addr = psram_next_free_addr;
+    psram_next_free_addr += size;
+    return addr;
+}
+
+// Coalesce sorted free ranges and return trailing space. No allocations or I/O:
+// safe to call from MicroPython's GC finalizer with the heap locked.
+static void psram_coalesce(void)
+{
+    psram_block_t **link = &free_list;
+    while (*link) {
+        psram_block_t *block = *link;
+        while (block->next && block->addr + block->size == block->next->addr) {
+            psram_block_t *next = block->next;
+            block->size += next->size;
+            block->next = next->next;
+            m_free(next);
+        }
+        if (block->addr + block->size == psram_next_free_addr) {
+            psram_next_free_addr = block->addr;
+            *link = block->next;
+            m_free(block);
+        } else link = &block->next;
+    }
+}
+
+static void psram_free(uint32_t addr, uint32_t size)
+{
+    (void)size;  // The ownership record, not the caller, determines the extent.
+    psram_alloc_block_t **link = &alloc_list;
+    while (*link && (*link)->addr != addr) link = &(*link)->next;
+    if (!*link) return;  // Already released or never owned.
+    psram_alloc_block_t *owned = *link;
+    *link = owned->next;
+    uint32_t extent = owned->size;
+    // Reuse the detached metadata allocation instead of allocating during GC.
+    _Static_assert(sizeof(psram_alloc_block_t) >= sizeof(psram_block_t), "free metadata fits");
+    psram_block_t *freed = (psram_block_t *)owned;
+    freed->addr = addr;
+    freed->size = extent;
+    psram_block_t **position = &free_list;
+    while (*position && (*position)->addr < addr) position = &(*position)->next;
+    freed->next = *position;
+    *position = freed;
+    psram_coalesce();
+}
+
 static uint32_t reserved_bytes(void){uint32_t used=psram_next_free_addr-PSRAM_HEAP_START_ADDR;for(psram_block_t *p=free_list;p;p=p->next)used-=p->size;return used;}
 static void measure(size_t requested){sample_heap();uint32_t used=reserved_bytes();if(used>peak)peak=used;if(requested>largest)largest=requested;}
 static void bounds(uint32_t addr,size_t n){if(addr>PSRAM_SIZE || n>PSRAM_SIZE-addr)mp_raise_ValueError(MP_ERROR_TEXT("PSRAM range"));}

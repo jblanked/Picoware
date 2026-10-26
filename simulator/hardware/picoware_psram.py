@@ -277,7 +277,8 @@ def write(addr, data):
     return PSRAM().write(addr, data)
 
 
-# Only the native model provides shared ownership and GC-safe page reclamation.
+# Optional experimental model: nonmoving pages and a shared native cursor.
+# This capability does not imply current PicoCalc allocator or timing parity.
 try:
     import sim_psram as _native
 except ImportError:

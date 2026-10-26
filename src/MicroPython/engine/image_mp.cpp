@@ -145,7 +145,7 @@ mp_obj_t image_mp_set_size(mp_obj_t self_in, mp_obj_t size_obj)
         return mp_const_none;
     }
     Image *ctx = image_get_context(self);
-    if (ctx->has_mask)
+    if (ctx->hasMask())
         mp_raise_ValueError(MP_ERROR_TEXT("masked image size is fixed"));
     mp_obj_t native_vec = mp_obj_cast_to_native_base(size_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
     if (native_vec == MP_OBJ_NULL)

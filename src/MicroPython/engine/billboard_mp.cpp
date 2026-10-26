@@ -104,7 +104,7 @@ mp_obj_t billboard_mp_set_direction_pose(size_t, const mp_obj_t *args)
         copy = source->copyOwned();
         if (!copy)
             mp_raise_ValueError(MP_ERROR_TEXT("image has no readable pixel data"));
-        if (!copy->getPixels())
+        if (!copy->hasData())
         {
             delete copy;
             mp_raise_ValueError(MP_ERROR_TEXT("expected RGB332 image"));

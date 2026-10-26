@@ -517,14 +517,13 @@ void Level::render(Game *game, bool clamp)
         {
             const float facing = atan2f(entityCamera.position.y - ent->position.y, entityCamera.position.x - ent->position.x) - atan2f(ent->direction.y, ent->direction.x);
             Image *img = ent->billboard->viewForFacing(facing, ent->billboard_pose);
-            if (img && img->getPixels() && img->mask)
+            if (img && img->hasData() && img->hasMask())
             {
                 int16_t bx, by;
                 uint16_t bw, bh;
                 if (projectBillboard(entityCamera, ent->position, ent->billboard_world_height, bx, by, bw, bh))
                 {
-                    const uint16_t sw = img->size.x, sh = img->size.y;
-                    game->draw->imageMasked(bx, by, bw, bh, sw, sh, img->getPixels(), img->mask);
+                    img->renderMasked(game->draw, bx, by, bw, bh);
                 }
             }
             continue;

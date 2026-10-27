@@ -138,8 +138,19 @@ static mp_obj_t sim_alloc(mp_obj_t data){
 static MP_DEFINE_CONST_FUN_OBJ_1(sim_alloc_obj,sim_alloc);
 static mp_obj_t sim_read(mp_obj_t address,mp_obj_t length){uint32_t a=mp_obj_get_int(address);size_t n=mp_obj_get_int(length);bounds(a,n);reads+=n;sample_heap();return mp_obj_new_bytes(memory+a,n);}
 static MP_DEFINE_CONST_FUN_OBJ_2(sim_read_obj,sim_read);
-static mp_obj_t sim_write(mp_obj_t address,mp_obj_t data){mp_buffer_info_t b;mp_get_buffer_raise(data,&b,MP_BUFFER_READ);picoware_psram_write_data(mp_obj_get_int(address),b.buf,b.len);return mp_obj_new_int(b.len);}
+static mp_obj_t sim_write(mp_obj_t address,mp_obj_t data){
+ mp_buffer_info_t b;mp_get_buffer_raise(data,&b,MP_BUFFER_READ);
+ uint32_t addr=mp_obj_get_int(address);
+ picoware_psram_write_data(addr,b.buf,b.len);
+ // Caller-owned file/image storage shares the engine's monotonic cursor.
+ // Do not advance on empty writes or writes within an existing reservation.
+ if(b.len && addr+b.len>psram_next_free_addr)psram_next_free_addr=addr+b.len;
+ measure(b.len);
+ return mp_obj_new_int(b.len);
+}
 static MP_DEFINE_CONST_FUN_OBJ_2(sim_write_obj,sim_write);
+static mp_obj_t sim_get_next_free(void){return mp_obj_new_int_from_uint(psram_next_free_addr);}
+static MP_DEFINE_CONST_FUN_OBJ_0(sim_get_next_free_obj,sim_get_next_free);
 static mp_obj_t sim_stats(void){uint32_t used=reserved_bytes(),count=0,native=used;for(psram_alloc_block_t *p=alloc_list;p;p=p->next){native-=p->size;count++;}mp_obj_t out[]={mp_obj_new_int(used),mp_obj_new_int(count),mp_obj_new_int(native),mp_obj_new_int(peak),mp_obj_new_int(largest),mp_obj_new_int(reads),mp_obj_new_int(writes)};return mp_obj_new_tuple(7,out);}
 static MP_DEFINE_CONST_FUN_OBJ_0(sim_stats_obj,sim_stats);
 static mp_obj_t sim_fault(mp_obj_t n){fail_after=mp_obj_get_int(n);return mp_const_none;}
@@ -155,6 +166,7 @@ static const mp_rom_map_elem_t globals_table[]={
  {MP_ROM_QSTR(MP_QSTR_alloc),MP_ROM_PTR(&sim_alloc_obj)},
  {MP_ROM_QSTR(MP_QSTR_read),MP_ROM_PTR(&sim_read_obj)},
  {MP_ROM_QSTR(MP_QSTR_write),MP_ROM_PTR(&sim_write_obj)},
+ {MP_ROM_QSTR(MP_QSTR_get_next_free),MP_ROM_PTR(&sim_get_next_free_obj)},
  {MP_ROM_QSTR(MP_QSTR_stats),MP_ROM_PTR(&sim_stats_obj)},
  {MP_ROM_QSTR(MP_QSTR_fault_after),MP_ROM_PTR(&sim_fault_obj)},
 };

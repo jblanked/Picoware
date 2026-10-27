@@ -46,6 +46,8 @@ _BOARD_DISPLAY_SIZES = {
     "waveshare-c6-2-06": (410, 502),
     "waveshare-2.06-esp32s3": (410, 502),
     "pancake": (320, 480),
+    "waveshare-c5-3.5": (320, 480),
+    "waveshare-c5-3-5": (320, 480),
     "v8": (240, 320),
     "pico-duo": (240, 320),
     "picoduo": (240, 320),
@@ -396,6 +398,7 @@ def _install_view_tracking():
             BOARD_FLIPPER_ZERO,
             BOARD_PANCAKE,
             BOARD_WAVESHARE_2_06,
+            BOARD_WAVESHARE_C5_3_5,
             BOARD_WAVESHARE_C6_2_06,
         )
 
@@ -407,7 +410,7 @@ def _install_view_tracking():
                 self.on_key_callback()
             else:
                 self._poll_touch()
-        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_PANCAKE):
+        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_PANCAKE, BOARD_WAVESHARE_C5_3_5):
             self._poll_touch()
         elif self._current_board_id == BOARD_CARDPUTER:
             from cardputer_keyboard import key_available, poll
@@ -498,6 +501,8 @@ def _board_supports_ghouls(board_name):
         "waveshare-2.06",
         "waveshare-2.06-esp32s3",
         "pancake",
+        "waveshare-c5-3.5",
+        "waveshare-c5-3-5",
         "v8",
         "pico-duo",
         "picoduo",
@@ -764,6 +769,13 @@ def _run_sim_check(opts):
         + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --board v8 --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        _interpreter_command()
+        + " "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --board waveshare-c5-3.5 --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
@@ -1746,6 +1758,7 @@ def _run_touch_check():
         ("crowpanel", picoware_boards.BOARD_CROWPANEL_10_1),
         ("waveshare-2.06", picoware_boards.BOARD_WAVESHARE_2_06),
         ("pancake", picoware_boards.BOARD_PANCAKE),
+        ("waveshare-c5-3.5", picoware_boards.BOARD_WAVESHARE_C5_3_5),
         ("v8", picoware_boards.BOARD_V8),
     )
     expected = (
@@ -1797,7 +1810,7 @@ def _run_touch_check():
                     )
     finally:
         sim_runtime.board = original_board
-    print("[sim-check:ok] touch layout crowpanel waveshare-2.06 pancake v8")
+    print("[sim-check:ok] touch layout crowpanel waveshare-2.06 pancake waveshare-c5-3.5 v8")
 
 
 def _run_v8_battery_check():

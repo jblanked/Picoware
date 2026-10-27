@@ -16,6 +16,7 @@ Attributes:
     BOARD_WAVESHARE_2_06 (int): Board ID for Waveshare 2.06.
     BOARD_WAVESHARE_C6_2_06 (int): Board ID for Waveshare C6 2.06.
     BOARD_PANCAKE (int): Board ID for Pancake.
+    BOARD_WAVESHARE_C5_3_5 (int): Board ID for Waveshare C5 3.5.
     BOARD_V8 (int): Board ID for V8.
     BOARD_FLIPPER_ZERO (int): Board ID for Flipper Zero.
     BOARD_DESKTOP (int): Board ID for the Unix Desktop target.
@@ -54,6 +55,7 @@ BOARD_CARDPUTER = picoware_boards.BOARD_CARDPUTER
 BOARD_WAVESHARE_2_06 = picoware_boards.BOARD_WAVESHARE_2_06
 BOARD_WAVESHARE_C6_2_06 = picoware_boards.BOARD_WAVESHARE_C6_2_06
 BOARD_PANCAKE = picoware_boards.BOARD_PANCAKE
+BOARD_WAVESHARE_C5_3_5 = picoware_boards.BOARD_WAVESHARE_C5_3_5
 BOARD_V8 = picoware_boards.BOARD_V8
 BOARD_FLIPPER_ZERO = picoware_boards.BOARD_FLIPPER_ZERO
 BOARD_DESKTOP = picoware_boards.BOARD_DESKTOP

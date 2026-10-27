@@ -31,6 +31,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_POOM 17
 #define BOARD_WAVESHARE_C6_2_06 18
 #define BOARD_CROWPANEL_WATCH_2_01 19
+#define BOARD_WAVESHARE_C5_3_5 20
 
 #if defined(DESKTOP)
 #define BOARD_ID BOARD_DESKTOP
@@ -127,6 +128,15 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_TOUCH 1     // has touch
 #define BOARD_HAS_WIFI 1      // has wifi
 #define BOARD_HAS_AUDIO 0     // no audio module in esp32 build yet
+#define BOARD_HAS_BLUETOOTH 1 // has bluetooth
+#elif defined(WAVESHARE_C5_3_5)
+// Waveshare ESP32-C5-Touch-LCD-3.5
+#define BOARD_ID BOARD_WAVESHARE_C5_3_5
+#define BOARD_HAS_PSRAM 0     // framebuffer uses PSRAM, but not the PSRAM API
+#define BOARD_HAS_SD 1        // has sd card
+#define BOARD_HAS_TOUCH 1     // has touch
+#define BOARD_HAS_WIFI 1      // has wifi
+#define BOARD_HAS_AUDIO 0     // ES8311 codec, but I2S is off in the C5 build
 #define BOARD_HAS_BLUETOOTH 1 // has bluetooth
 #elif defined(V8)
 // Marauder V8 ESP32-C5
@@ -267,7 +277,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_RP2350 0
 #endif
 
-#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(CROWPANEL_WATCH_2_01) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06)
+#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(CROWPANEL_WATCH_2_01) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06) || defined(WAVESHARE_C5_3_5)
 #define BOARD_HAS_ESP32 1
 #else
 #define BOARD_HAS_ESP32 0

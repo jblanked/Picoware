@@ -12,6 +12,7 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_2_06,
     BOARD_WAVESHARE_C6_2_06,
     BOARD_PANCAKE,
+    BOARD_WAVESHARE_C5_3_5,
     BOARD_V8,
     BOARD_FLIPPER_ZERO,
     BOARD_PICO_DUO,
@@ -72,6 +73,7 @@ class Battery:
             BOARD_WAVESHARE_C6_2_06,
             BOARD_CROWPANEL_WATCH_2_01,
             BOARD_PANCAKE,
+            BOARD_WAVESHARE_C5_3_5,
             BOARD_V8,
             BOARD_FLIPPER_ZERO
         )
@@ -108,6 +110,11 @@ class Battery:
 
         if BOARD_ID == BOARD_PANCAKE:
             from pancake_battery import get_percentage
+
+            return get_percentage()
+
+        if BOARD_ID == BOARD_WAVESHARE_C5_3_5:
+            from ws_c5_35_battery import get_percentage
 
             return get_percentage()
 
@@ -162,6 +169,11 @@ class Battery:
             from pancake_battery import get_voltage
 
             return get_voltage()
+
+        if BOARD_ID == BOARD_WAVESHARE_C5_3_5:
+            from ws_c5_35_battery import get_voltage
+
+            return int(get_voltage() * 1000)
 
         if BOARD_ID == BOARD_V8:
             from v8_battery import get_voltage

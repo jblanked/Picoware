@@ -44,7 +44,7 @@ require_file() {
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 picoware_dir="$(cd "$script_dir/.." && pwd)"
-esp_idf_dir="${ESP_IDF_DIR:-$HOME/esp-idf}"
+esp_idf_dir="${ESP_IDF_DIR:-$HOME/.espressif/v5.5.2/esp-idf}"
 build_dir="${WS_C5_35_BUILD_DIR:-$picoware_dir/builds/MicroPython}"
 
 port="${WS_C5_35_PORT:-}"

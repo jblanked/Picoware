@@ -50,7 +50,7 @@ class Touch:
                 0xB1: (12, 16),
                 13: (120, 160),
             }
-        elif name == "pancake":
+        elif name in ("pancake", "waveshare-c5-3.5", "waveshare-c5-3-5"):
             points = {
                 0xB5: (160, 48),
                 0xB6: (160, 432),

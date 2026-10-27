@@ -6,10 +6,11 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 picoware_dir="$(cd "$script_dir/.." && pwd)"
 
-# Override these with env vars if your setup uses different locations.
-micropython_root="${MICROPYTHON_ROOT:-$HOME/micropython}"
+# The defaults match the other ESP32 build scripts, because micropython-all.sh
+# runs them without env vars. Override them if your setup differs.
+micropython_root="${MICROPYTHON_ROOT:-$HOME/pico/micropython}"
 micropython_dir="${MICROPYTHON_ESP32_PORT:-$micropython_root/ports/esp32}"
-esp_idf_dir="${ESP_IDF_DIR:-$HOME/esp-idf}"
+esp_idf_dir="${ESP_IDF_DIR:-$HOME/.espressif/v5.5.2/esp-idf}"
 idf_tools_dir="${IDF_TOOLS_PATH:-$HOME/.espressif}"
 
 board_src_dir="$picoware_dir/src/MicroPython/Waveshare/ESP32C5-Touch-LCD-3.5"

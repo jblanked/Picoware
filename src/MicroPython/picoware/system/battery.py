@@ -139,7 +139,7 @@ class Battery:
         return self._minutes
 
     @property
-    def voltage(self) -> float:
+    def voltage(self) -> int:
         """Returns the current battery voltage in millivolts."""
         if BOARD_ID in (
             BOARD_WAVESHARE_1_28_RP2350,
@@ -149,7 +149,7 @@ class Battery:
         ):
             from waveshare_battery import get_voltage
 
-            return get_voltage()
+            return int(get_voltage() * 1000)
 
         if BOARD_ID in (
             BOARD_CARDPUTER,
@@ -158,17 +158,17 @@ class Battery:
         ):
             from cardputer_battery import get_voltage
 
-            return get_voltage()
+            return int(get_voltage() * 1000)
 
         if BOARD_ID == BOARD_CROWPANEL_WATCH_2_01:
             from crowpanel_watch_battery import get_voltage
 
-            return get_voltage() * 1000
+            return int(get_voltage() * 1000)
 
         if BOARD_ID == BOARD_PANCAKE:
             from pancake_battery import get_voltage
 
-            return get_voltage()
+            return int(get_voltage() * 1000)
 
         if BOARD_ID == BOARD_WAVESHARE_C5_3_5:
             from ws_c5_35_battery import get_voltage
@@ -178,7 +178,7 @@ class Battery:
         if BOARD_ID == BOARD_V8:
             from v8_battery import get_voltage
 
-            return get_voltage()
+            return int(get_voltage() * 1000)
 
         if BOARD_ID == BOARD_FLIPPER_ZERO:
             from flipper_battery import get_voltage_mv

@@ -388,6 +388,9 @@ bash "$picoware_dir"/tools/micropython-waveshare-c6-2.06.sh
 echo "Starting Pancake build process..."
 bash "$picoware_dir"/tools/micropython-pancake.sh
 
+echo "Starting Waveshare C5 3.5 build process..."
+bash "$picoware_dir"/tools/micropython-waveshare-c5-3.5.sh
+
 echo "Starting Flipper Zero build process..."
 bash "$picoware_dir"/tools/micropython-flipper.sh
 

@@ -15,6 +15,7 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_2_06,
     BOARD_WAVESHARE_C6_2_06,
     BOARD_PANCAKE,
+    BOARD_WAVESHARE_C5_3_5,
     BOARD_V8,
     BOARD_HAS_TOUCH,
     BOARD_FLIPPER_ZERO,
@@ -139,6 +140,7 @@ class Input:
         elif self._current_board_id in (
             BOARD_CROWPANEL_10_1,
             BOARD_PANCAKE,
+            BOARD_WAVESHARE_C5_3_5,
             BOARD_V8,
         ):
             from touch import Touch
@@ -493,6 +495,7 @@ class Input:
             BOARD_WAVESHARE_2_06,
             BOARD_WAVESHARE_C6_2_06,
             BOARD_PANCAKE,
+            BOARD_WAVESHARE_C5_3_5,
             BOARD_V8,
         ):
             from picoware_southbridge import deinit
@@ -511,6 +514,7 @@ class Input:
         elif self._current_board_id in (
             BOARD_CROWPANEL_10_1,
             BOARD_PANCAKE,
+            BOARD_WAVESHARE_C5_3_5,
             BOARD_V8,
         ):
             self._poll_touch()
@@ -607,6 +611,7 @@ class Input:
         if self._current_board_id in (
             BOARD_CROWPANEL_10_1,
             BOARD_PANCAKE,
+            BOARD_WAVESHARE_C5_3_5,
             BOARD_V8,
         ):
             self._poll_touch()

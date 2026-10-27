@@ -9,6 +9,8 @@
 #include "../V8/sd/storage.h"
 #elif defined(PANCAKE)
 #include "../Pancake/sd/storage.h"
+#elif defined(WAVESHARE_C5_3_5)
+#include "../waveshare_c5_35/sd/storage.h"
 #elif defined(POOM)
 #include "../Poom/sd/storage.h"
 #elif !defined(DESKTOP) && !defined(WAVESHARE_1_28) && !defined(WAVESHARE_1_69) && !defined(WAVESHARE_2_06) && !defined(WAVESHARE_C6_2_06)

@@ -10,7 +10,7 @@
 // memory
 #if defined(PICOCALC)
 #define ENGINE_MEM_INCLUDE "../../engine/memory.h"
-#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(PICO_DUO) || defined(POOM) || defined(WAVESHARE_C6_2_06)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(PICO_DUO) || defined(POOM) || defined(WAVESHARE_C6_2_06)
 #define ENGINE_MEM_INCLUDE "../engine/memory.h"
 #else
 #define ENGINE_MEM_INCLUDE "../../../engine/memory.h"
@@ -25,7 +25,7 @@
 #if defined(DESKTOP)
 #define ENGINE_DELAY_INCLUDE "py/mphal.h"
 #define ENGINE_DELAY_MS(ms) mp_hal_delay_ms(ms)
-#elif defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06)
+#elif defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06)
 #define ENGINE_DELAY_INCLUDE "freertos/FreeRTOS.h"
 #define ENGINE_DELAY_MS(ms) vTaskDelay(pdMS_TO_TICKS(ms))
 #else
@@ -36,7 +36,7 @@
 // font
 #if defined(PICOCALC)
 #define ENGINE_FONT_INCLUDE "../../font/font.h"
-#elif defined(CARDPUTER) || defined(PANCAKE) || defined(V8) || defined(PICO_DUO) || defined(POOM)
+#elif defined(CARDPUTER) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(PICO_DUO) || defined(POOM)
 #define ENGINE_FONT_INCLUDE "../font/font.h"
 #else
 #define ENGINE_FONT_INCLUDE "../../../font/font.h"
@@ -81,7 +81,7 @@
 // storage
 #if defined(PICOCALC)
 #define ENGINE_STORAGE_INCLUDE "../../sd/storage.h"
-#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM) || defined(PICO_DUO)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM) || defined(PICO_DUO)
 #define ENGINE_STORAGE_INCLUDE "../sd/storage.h"
 #elif !defined(WAVESHARE_1_28) && !defined(WAVESHARE_1_69) && !defined(WAVESHARE_C6_2_06)
 #define ENGINE_STORAGE_INCLUDE "../../../sd/storage.h"

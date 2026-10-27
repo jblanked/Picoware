@@ -216,8 +216,7 @@ Image *Image::copyOwned() const
     if (hasMask())
     {
         const size_t mask_size = getMaskSize();
-        if (!mask || mask_size == 0 ||
-            (mask == owned_mask && owned_mask && owned_mask_size < mask_size))
+        if (mask_size == 0)
         {
             ENGINE_LOG_INFO("Image::copyOwned transparency mask is smaller than its declared size\n");
             ENGINE_MEM_DELETE copy;
@@ -229,7 +228,12 @@ Image *Image::copyOwned() const
             ENGINE_MEM_DELETE copy;
             return nullptr;
         }
-        memcpy(mask_data, mask, mask_size);
+        if (!getMask(mask_data, mask_size))
+        {
+            ENGINE_MEM_FREE(mask_data);
+            ENGINE_MEM_DELETE copy;
+            return nullptr;
+        }
         copy->owned_mask = mask_data;
         copy->owned_mask_size = mask_size;
         copy->mask = mask_data;

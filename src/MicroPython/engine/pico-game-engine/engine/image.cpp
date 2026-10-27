@@ -33,7 +33,7 @@ static bool image_pixel_count(const Vector &size, size_t &pixel_count)
 }
 
 Image::Image()
-    : size(Vector(0, 0)), mask(nullptr), data(nullptr),
+    : size(Vector(0, 0)), data(nullptr), mask(nullptr),
       is_8bit(false), path(""), owned_data(nullptr), owned_data_size(0),
       owned_mask(nullptr), owned_mask_size(0), owned_path(nullptr),
       psram_address(0xFFFFFFFFu), psram_mask_address(0xFFFFFFFFu)
@@ -41,7 +41,7 @@ Image::Image()
 }
 
 Image::Image(const Vector &image_size, bool image_is_8bit, const void *image_data, const char *image_path)
-    : size(image_size), mask(nullptr), data(nullptr),
+    : size(image_size), data(nullptr), mask(nullptr),
       is_8bit(image_is_8bit), path(""),
       owned_data(nullptr), owned_data_size(0), owned_mask(nullptr),
       owned_mask_size(0), owned_path(nullptr),
@@ -54,7 +54,7 @@ Image::Image(const Vector &image_size, bool image_is_8bit, const void *image_dat
 }
 
 Image::Image(const Vector &image_size, const void *image_data, const char *image_path, const uint8_t *image_mask)
-    : size(image_size), mask(nullptr), data(nullptr),
+    : size(image_size), data(nullptr), mask(nullptr),
       is_8bit(true), path(""),
       owned_data(nullptr), owned_data_size(0), owned_mask(nullptr),
       owned_mask_size(0), owned_path(nullptr),
@@ -69,7 +69,7 @@ Image::Image(const Vector &image_size, const void *image_data, const char *image
 }
 
 Image::Image(const Vector &size, bool is_8bit, uint32_t psram_address)
-    : size(size), mask(nullptr), data(nullptr),
+    : size(size), data(nullptr), mask(nullptr),
       is_8bit(is_8bit), path(""),
       owned_data(nullptr), owned_data_size(0), owned_mask(nullptr),
       owned_mask_size(0), owned_path(nullptr), psram_address(psram_address),
@@ -78,7 +78,7 @@ Image::Image(const Vector &size, bool is_8bit, uint32_t psram_address)
 }
 
 Image::Image(const Vector &size, uint32_t psram_data_address, uint32_t psram_mask_address)
-    : size(size), mask(nullptr), data(nullptr),
+    : size(size), data(nullptr), mask(nullptr),
       is_8bit(true), path(""),
       owned_data(nullptr), owned_data_size(0), owned_mask(nullptr),
       owned_mask_size(0), owned_path(nullptr), psram_address(psram_data_address),

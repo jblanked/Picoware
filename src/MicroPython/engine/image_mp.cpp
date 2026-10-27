@@ -54,7 +54,7 @@ mp_obj_t image_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw
         mp_raise_ValueError(MP_ERROR_TEXT("incorrect pixel data length"));
 
     mp_buffer_info_t mask_info = {};
-    const bool has_mask = n_args == 5 && args[4] != mp_const_none;
+    const bool has_mask = n_args > 4 && args[4] != mp_const_none;
     if (has_mask)
     {
         if (!is_8bit || !has_data ||
@@ -66,8 +66,8 @@ mp_obj_t image_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw
             mp_raise_ValueError(MP_ERROR_TEXT("incorrect mask length"));
     }
 
-    bool has_psram_address = n_args == 6 && args[5] != mp_const_none;
-    bool has_psram_mask_address = n_args == 7 && args[6] != mp_const_none;
+    bool has_psram_address = n_args > 5 && args[5] != mp_const_none;
+    bool has_psram_mask_address = n_args > 6 && args[6] != mp_const_none;
 
     Image *ctx = nullptr;
     if (has_psram_address && has_psram_mask_address)

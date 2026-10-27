@@ -293,6 +293,6 @@ if _native is not None:
         def mem_free(self):return SIZE-HEAP_START_ADDR-_native.stats()[0]
         def collect(self):return 0
         def read8(self,addr):return self.read(addr,1)[0]
-        def get_next_free(self):raise NotImplementedError('Shared allocator has no caller-owned cursor')
+        def get_next_free(self):return _native.get_next_free()
     def read(addr,length):return _native.read(addr,length)
     def write(addr,data):return _native.write(addr,data)

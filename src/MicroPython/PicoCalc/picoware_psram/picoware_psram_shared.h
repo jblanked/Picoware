@@ -1,8 +1,6 @@
 #pragma once
 #include "psram_qspi.h"
-#ifdef __cplusplus
-#include "psram_template.hpp"
-#endif
+#include "picoware_psram.h"
 
 #define PSRAM_SIZE (8 * 1024 * 1024) // 8MB PSRAM
 

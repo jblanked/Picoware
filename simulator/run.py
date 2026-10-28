@@ -1826,7 +1826,7 @@ def _run_v8_battery_check():
         if v8_battery.get_percentage() != 64:
             raise RuntimeError("simulator V8 battery percentage mismatch")
         voltage = v8_battery.get_voltage()
-        if voltage < 3.0 or voltage > 5.0:
+        if not isinstance(voltage, int) or voltage < 3000 or voltage > 5000:
             raise RuntimeError("simulator V8 battery voltage mismatch")
     finally:
         sim_runtime.set_battery_percentage(original_percentage)
@@ -1864,7 +1864,7 @@ def _run_waveshare_169_check():
         if waveshare_battery.get_percentage() != 64:
             raise RuntimeError("simulator Waveshare battery percentage mismatch")
         voltage = waveshare_battery.get_voltage()
-        if voltage < 3.0 or voltage > 5.0:
+        if not isinstance(voltage, int) or voltage < 3000 or voltage > 5000:
             raise RuntimeError("simulator Waveshare battery voltage mismatch")
         raw = waveshare_battery.read()
         if raw < 0 or raw > 4095:

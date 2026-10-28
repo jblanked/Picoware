@@ -9,7 +9,7 @@ def get_voltage():
         percentage = sim_runtime.battery_percentage()
     except Exception:
         percentage = 87
-    return 3.3 + int(percentage) * 0.8 / 100
+    return 3300 + int(percentage) * 800 // 100
 
 
 def get_percentage():

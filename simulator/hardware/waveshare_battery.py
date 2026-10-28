@@ -12,11 +12,11 @@ def get_percentage():
 
 
 def get_voltage():
-    return 3.3 + get_percentage() * 0.9 / 100
+    return 3300 + get_percentage() * 900 // 100
 
 
 def read():
-    return int(get_voltage() * 4096 / 6.6)
+    return get_voltage() * 4096 // 6600
 
 
 def set_percentage(value):

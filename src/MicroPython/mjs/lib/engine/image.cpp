@@ -1,5 +1,6 @@
 #include "image.h"
 #include "../engine/pico-game-engine/engine/image.hpp"
+#include "../engine/memory.h"
 #include "../array_buf.h"
 
 static Image *image_instance = nullptr;

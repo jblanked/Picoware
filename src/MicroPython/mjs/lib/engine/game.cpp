@@ -3,6 +3,7 @@
 #include "level.h"
 #include "../../engine/pico-game-engine/engine/game.hpp"
 #include "../../engine/pico-game-engine/engine/level.hpp"
+#include "../engine/memory.h"
 
 static Game *game_instance = nullptr;
 static Draw *game_draw_instance = nullptr;

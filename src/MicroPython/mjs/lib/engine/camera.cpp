@@ -1,5 +1,6 @@
 #include "camera.h"
 #include "../engine/pico-game-engine/engine/camera.hpp"
+#include "../engine/memory.h"
 
 static Camera *camera_instance = nullptr;
 static Camera *global_camera_instance = nullptr;

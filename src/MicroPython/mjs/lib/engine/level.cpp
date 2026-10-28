@@ -2,6 +2,7 @@
 #include "game.h"
 #include "../../engine/pico-game-engine/engine/level.hpp"
 #include "../../engine/pico-game-engine/engine/game.hpp"
+#include "../engine/memory.h"
 
 static Level *level_instance = nullptr;
 static bool level_name_owned = false;

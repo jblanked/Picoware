@@ -1,5 +1,6 @@
 #include "engine.h"
 #include "../engine/pico-game-engine/engine/engine.hpp"
+#include "../engine/memory.h"
 #include "game.h"
 
 static GameEngine *engine_instance = nullptr;

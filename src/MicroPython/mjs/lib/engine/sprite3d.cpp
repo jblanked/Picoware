@@ -1,5 +1,6 @@
 #include "sprite3d.h"
 #include "../engine/pico-game-engine/engine/sprite3d.hpp"
+#include "../engine/memory.h"
 
 static Sprite3D *sprite3d_instance = nullptr;
 

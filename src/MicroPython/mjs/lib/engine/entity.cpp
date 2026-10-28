@@ -1,5 +1,6 @@
 #include "entity.h"
 #include "../engine/pico-game-engine/engine/entity.hpp"
+#include "../engine/memory.h"
 
 static Entity *entity_instance = nullptr;
 

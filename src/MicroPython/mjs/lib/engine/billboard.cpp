@@ -1,5 +1,6 @@
 #include "billboard.h"
 #include "../engine/pico-game-engine/engine/billboard.hpp"
+#include "../engine/memory.h"
 
 static Billboard *billboard_instance = nullptr;
 

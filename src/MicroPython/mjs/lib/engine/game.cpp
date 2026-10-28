@@ -1,6 +1,6 @@
 #include "game.h"
-#include "../engine/pico-game-engine/engine/game.hpp"
-#include "../engine/pico-game-game/engine/level.hpp"
+#include "../../engine/pico-game-engine/engine/game.hpp"
+#include "../../engine/pico-game-engine/engine/level.hpp"
 
 // Access the live level so the level module can be bound to a game formed later.
 Level *levelGetInstance();

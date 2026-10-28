@@ -4,7 +4,7 @@
 
 // With no cell fitted the board runs from USB, so report a full battery the way
 // the mains-powered boards do instead of raising on every status-bar poll.
-#define NO_CELL_VOLTAGE_V 4.2f
+#define NO_CELL_VOLTAGE_MV 4200
 #define NO_CELL_PERCENTAGE 100
 
 static bool g_battery_ready = false;
@@ -47,7 +47,7 @@ mp_obj_t ws_c5_35_battery_get_voltage(void)
     }
     if (err == ESP_ERR_NOT_FOUND)
     {
-        return mp_obj_new_float(NO_CELL_VOLTAGE_V);
+        return mp_obj_new_int(NO_CELL_VOLTAGE_MV);
     }
 
     if (err != ESP_OK)

@@ -565,6 +565,7 @@ void entity_create(struct mjs *mjs, mjs_val_t *entity_obj)
         return;
     }
     entity_instance = entity;
+    mjs_set(mjs, *entity_obj, "_entity", ~0, mjs_mk_foreign(mjs, entity));
 
     mjs_set_getter(mjs, *entity_obj, "name", ~0, entity_get_name);
     mjs_set_getter(mjs, *entity_obj, "type", ~0, entity_get_type);

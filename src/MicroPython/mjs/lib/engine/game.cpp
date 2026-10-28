@@ -1,15 +1,35 @@
 #include "game.h"
+#include "engine.h"
+#include "level.h"
 #include "../../engine/pico-game-engine/engine/game.hpp"
 #include "../../engine/pico-game-engine/engine/level.hpp"
 
-// Access the live level so the level module can be bound to a game formed later.
-Level *levelGetInstance();
+static Game *game_instance = nullptr;
+static Draw *game_draw_instance = nullptr;
 
-static Game *gameInstance = nullptr;
-static Draw *gameDrawInstance = nullptr;
+mjs_val_t game_get_object(struct mjs *mjs)
+{
+    if (!game_instance)
+        return mjs_mk_undefined();
 
-// Access the live game so the level/element modules can bind to it.
-Game *gameGet()
+    mjs_val_t game_obj = mjs_mk_object(mjs);
+    mjs_set(mjs, game_obj, "_game", ~0, mjs_mk_foreign(mjs, game_instance));
+    mjs_set_getter(mjs, game_obj, "name", ~0, game_get_name);
+    mjs_set_getter(mjs, game_obj, "size", ~0, game_get_size);
+    mjs_set_getter(mjs, game_obj, "position", ~0, game_get_position);
+    mjs_set_getter(mjs, game_obj, "oldPosition", ~0, game_get_old_position);
+    mjs_set_getter(mjs, game_obj, "input", ~0, game_get_input);
+    mjs_set_getter(mjs, game_obj, "isActive", ~0, game_get_is_active);
+    mjs_set_getter(mjs, game_obj, "camera", ~0, game_get_camera);
+    mjs_set_getter(mjs, game_obj, "currentLevel", ~0, game_get_current_level);
+    mjs_set(mjs, game_obj, "set", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)game_set));
+    mjs_set(mjs, game_obj, "levelAdd", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)game_level_add));
+    mjs_set(mjs, game_obj, "levelRemove", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)game_level_remove));
+    mjs_set(mjs, game_obj, "levelSwitch", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)game_level_switch));
+    return game_obj;
+}
+
+void *game_get_instance()
 {
     return game_instance;
 }
@@ -168,8 +188,9 @@ void game_set(struct mjs *mjs)
     if (strcmp(key, "name") == 0)
     {
         size_t value_len = 0;
-        const char *value = mjs_is_string(mjs_arg(mjs, 1))
-                                ? mjs_get_string(mjs, &mjs_arg(mjs, 1), &value_len)
+        mjs_val_t value_val = mjs_arg(mjs, 1);
+        const char *value = mjs_is_string(value_val)
+                                ? mjs_get_string(mjs, &value_val, &value_len)
                                 : NULL;
         if (value)
         {
@@ -181,7 +202,7 @@ void game_set(struct mjs *mjs)
             }
             memcpy(buffer, value, value_len);
             buffer[value_len] = '\0';
-            free(const_cast<char *>(game_instance->name));
+            m_free(const_cast<char *>(game_instance->name));
             game_instance->name = buffer;
         }
     }
@@ -215,8 +236,12 @@ void game_set(struct mjs *mjs)
 void game_create(struct mjs *mjs, mjs_val_t *game_obj)
 {
     // Replace any previous game.
+    engine_destroy();
     if (game_instance)
     {
+        for (int i = 0; i < MAX_LEVELS; i++)
+            game_instance->levels[i] = nullptr;
+        game_instance->current_level = nullptr;
         delete game_instance;
         game_instance = nullptr;
     }
@@ -264,7 +289,7 @@ void game_create(struct mjs *mjs, mjs_val_t *game_obj)
     if (!game_draw_instance)
     {
         mjs_prepend_errorf(mjs, MJS_INTERNAL_ERROR, "Failed to create draw");
-        free(name_buf);
+        m_free(name_buf);
         return;
     }
 
@@ -273,7 +298,7 @@ void game_create(struct mjs *mjs, mjs_val_t *game_obj)
     if (!game_instance)
     {
         mjs_prepend_errorf(mjs, MJS_INTERNAL_ERROR, "Game creation failed");
-        free(name_buf);
+        m_free(name_buf);
         return;
     }
 
@@ -296,7 +321,7 @@ void game_create(struct mjs *mjs, mjs_val_t *game_obj)
     // null gameRef, so entities added through it would be a no-op. Pointing
     // it at the new game fixes `level.entityAdd`.
     {
-        Level *level = level_get_instance();
+        Level *level = static_cast<Level *>(level_get_instance());
         if (level)
         {
             level->setGame(game_instance);
@@ -316,6 +341,7 @@ mjs_val_t game_create_object(struct mjs *mjs)
 
 void game_destroy()
 {
+    engine_destroy();
     if (game_instance)
     {
         // Level ownership lives with the level module; null the non-owning

@@ -7,6 +7,8 @@ extern "C"
 
 #include "../mjs.h"
 
+    void *level_get_instance();
+    //
     mjs_val_t level_get_entity_count(struct mjs *mjs);
     mjs_val_t level_get_light_direction(struct mjs *mjs);
     mjs_val_t level_get_name(struct mjs *mjs);

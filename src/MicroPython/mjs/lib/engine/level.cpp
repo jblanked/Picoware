@@ -1,14 +1,12 @@
 #include "level.h"
+#include "game.h"
 #include "../../engine/pico-game-engine/engine/level.hpp"
 #include "../../engine/pico-game-engine/engine/game.hpp"
-
-Game *game_get_instance();
-Level *level_get_instance();
 
 static Level *level_instance = nullptr;
 static bool level_name_owned = false;
 
-Level *level_get_instance()
+void *level_get_instance()
 {
     return level_instance;
 }
@@ -214,7 +212,7 @@ void level_create(struct mjs *mjs, mjs_val_t *level_obj)
         if (level_name_owned)
             m_free(const_cast<char *>(level_instance->name));
         // Detach from the game's non-owning level references.
-        if (Game *g = game_get_instance())
+        if (Game *g = static_cast<Game *>(game_get_instance()))
         {
             for (int i = 0; i < MAX_LEVELS; i++)
                 if (g->levels[i] == level_instance)
@@ -258,7 +256,7 @@ void level_create(struct mjs *mjs, mjs_val_t *level_obj)
 
     // Constructor binds the level to the live game (gameRef), so entities
     // added through the level take effect immediately.
-    Game *g = game_get_instance();
+    Game *g = static_cast<Game *>(game_get_instance());
     if (g)
     {
         level_instance = new Level(name, size, g);
@@ -315,7 +313,7 @@ void level_destroy()
             m_free(const_cast<char *>(level_instance->name));
         // Detach from the game's non-owning level references before
         // deleting the level so the game holds no dangling pointer.
-        if (Game *g = game_get_instance())
+        if (Game *g = static_cast<Game *>(game_get_instance()))
         {
             for (int i = 0; i < MAX_LEVELS; i++)
                 if (g->levels[i] == level_instance)

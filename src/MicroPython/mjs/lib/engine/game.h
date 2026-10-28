@@ -7,6 +7,9 @@ extern "C"
 
 #include "../mjs.h"
 
+    void *game_get_instance();
+    mjs_val_t game_get_object(struct mjs *mjs);
+    //
     mjs_val_t game_get_camera(struct mjs *mjs);
     mjs_val_t game_get_current_level(struct mjs *mjs);
     mjs_val_t game_get_input(struct mjs *mjs);

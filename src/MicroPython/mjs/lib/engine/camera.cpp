@@ -93,6 +93,16 @@ void camera_set(struct mjs *mjs)
                 camera_instance->plane.z = z;
             }
         }
+        else if (strcmp(name, "direction") == 0)
+        {
+            float x, y, z;
+            if (mjs_get_vector(mjs, 1, &x, &y, &z))
+            {
+                camera_instance->direction.x = x;
+                camera_instance->direction.y = y;
+                camera_instance->direction.z = z;
+            }
+        }
         else if (strcmp(name, "height") == 0)
         {
             camera_instance->height = mjs_get_float(mjs, 1);

@@ -139,7 +139,7 @@ class Battery:
         return self._minutes
 
     @property
-    def voltage(self) -> float:
+    def voltage(self) -> int:
         """Returns the current battery voltage in millivolts."""
         if BOARD_ID in (
             BOARD_WAVESHARE_1_28_RP2350,

@@ -163,7 +163,7 @@ class Battery:
         if BOARD_ID == BOARD_CROWPANEL_WATCH_2_01:
             from crowpanel_watch_battery import get_voltage
 
-            return get_voltage() * 1000
+            return get_voltage()
 
         if BOARD_ID == BOARD_PANCAKE:
             from pancake_battery import get_voltage
@@ -173,7 +173,7 @@ class Battery:
         if BOARD_ID == BOARD_WAVESHARE_C5_3_5:
             from ws_c5_35_battery import get_voltage
 
-            return int(get_voltage() * 1000)
+            return get_voltage()
 
         if BOARD_ID == BOARD_V8:
             from v8_battery import get_voltage

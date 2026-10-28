@@ -55,8 +55,8 @@ mp_obj_t ws_c5_35_battery_get_voltage(void)
         mp_raise_msg_varg(&mp_type_RuntimeError,
                           MP_ERROR_TEXT("battery_read_voltage failed: %d"), err);
     }
-
-    return mp_obj_new_float(voltage_v);
+    const int millivolts = (int)(voltage_v * 1000);
+    return mp_obj_new_int(millivolts);
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(ws_c5_35_battery_get_voltage_obj, ws_c5_35_battery_get_voltage);
 

@@ -6,6 +6,14 @@
 #include "bluetooth.h"
 #include "buttons.h"
 #include "color.h"
+#include "engine/billboard.h"
+#include "engine/camera.h"
+#include "engine/engine.h"
+#include "engine/entity.h"
+#include "engine/game.h"
+#include "engine/level.h"
+#include "engine/sprite3d.h"
+#include "engine/triangle3d.h"
 #include "http.h"
 #include "input.h"
 #include "lcd.h"
@@ -30,6 +38,14 @@ typedef enum
     LIB_MODULE_BLUETOOTH,
     LIB_MODULE_BUTTONS,
     LIB_MODULE_DRAW,
+    LIB_MODULE_ENGINE_BILLBOARD,
+    LIB_MODULE_ENGINE_CAMERA,
+    LIB_MODULE_ENGINE_ENGINE,
+    LIB_MODULE_ENGINE_ENTITY,
+    LIB_MODULE_ENGINE_GAME,
+    LIB_MODULE_ENGINE_LEVEL,
+    LIB_MODULE_ENGINE_SPRITE3D,
+    LIB_MODULE_ENGINE_TRIANGLE3D,
     LIB_MODULE_HTTP,
     LIB_MODULE_INPUT,
     LIB_MODULE_MATH,
@@ -45,7 +61,7 @@ typedef enum
     LIB_MODULE_WIFI,
 } lib_module_t;
 
-#define LIB_MODULE_COUNT 18
+#define LIB_MODULE_COUNT 26
 
 void lib_load_module(struct mjs *mjs);
 lib_module_t lib_module_from_str(const char *str);

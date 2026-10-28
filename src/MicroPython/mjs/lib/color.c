@@ -35,7 +35,7 @@ void color_parse(struct mjs *mjs)
 
     if (mjs_is_number(arg))
     {
-        double num_val = mjs_get_int(mjs, arg);
+        int num_val = mjs_get_int(mjs, arg);
         mjs_return(mjs, mjs_mk_number(mjs, num_val));
         return;
     }

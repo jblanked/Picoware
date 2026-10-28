@@ -1,5 +1,6 @@
 #include "mjs.h"
 #include "array_buf.h"
+#include <math.h>
 
 char *mjs_copy_string_arg(struct mjs *mjs, uint8_t arg)
 {
@@ -66,7 +67,7 @@ mjs_val_t mjs_val_from_mp_obj(struct mjs *mjs, mp_obj_t obj)
     }
     if (mp_obj_is_type(obj, &mp_type_dict))
     {
-        mp_obj_dict_t *dict = MP_OBJ_TO_PTR(obj);
+        mp_obj_dict_t *dict = static_cast<mp_obj_dict_t *>(MP_OBJ_TO_PTR(obj));
         mjs_val_t obj_val = mjs_mk_object(mjs);
         for (size_t i = 0; i < dict->map.alloc; i++)
         {
@@ -148,4 +149,102 @@ bool mjs_get_boolean(struct mjs *mjs, uint8_t arg)
         return false;
     }
     return mjs_get_bool(mjs, val);
+}
+
+mjs_val_t mjs_mk_vector(struct mjs *mjs, float x, float y, float z)
+{
+    mjs_val_t vector_obj = mjs_mk_object(mjs);
+    mjs_set(mjs, vector_obj, "x", ~0, mjs_mk_number(mjs, (double)x));
+    mjs_set(mjs, vector_obj, "y", ~0, mjs_mk_number(mjs, (double)y));
+    mjs_set(mjs, vector_obj, "z", ~0, mjs_mk_number(mjs, (double)z));
+    return vector_obj;
+}
+
+bool mjs_get_vector(struct mjs *mjs, uint8_t arg, float *x, float *y, float *z)
+{
+    mjs_val_t val = mjs_arg(mjs, arg);
+    if (mjs_is_null(val) || mjs_is_undefined(val) || !mjs_is_object(val))
+    {
+        return false;
+    }
+    mjs_val_t x_val = mjs_get(mjs, val, "x", ~0);
+    mjs_val_t y_val = mjs_get(mjs, val, "y", ~0);
+    mjs_val_t z_val = mjs_get(mjs, val, "z", ~0);
+    *x = (float)mjs_get_double(mjs, x_val);
+    *y = (float)mjs_get_double(mjs, y_val);
+    *z = (float)mjs_get_double(mjs, z_val);
+    return true;
+}
+
+void mjs_input_buffer_free(mjs_input_buffer *buffer)
+{
+    if (buffer->owned_data)
+        m_free(buffer->owned_data);
+    buffer->data = nullptr;
+    buffer->length = 0;
+    buffer->owned_data = nullptr;
+}
+
+bool mjs_read_buffer(struct mjs *mjs, mjs_val_t value, size_t expected_length,
+                     bool exact_length, const char *name, mjs_input_buffer *buffer)
+{
+    if (mjs_is_array_buf(value))
+    {
+        buffer->data = static_cast<const uint8_t *>(mjs_array_buf_get_ptr(mjs, value, &buffer->length));
+        if (buffer->length < expected_length || (exact_length && buffer->length != expected_length))
+        {
+            mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "incorrect image %s length", name);
+            return false;
+        }
+        if (!buffer->data)
+        {
+            mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "image %s buffer is null", name);
+            return false;
+        }
+        return true;
+    }
+
+    if (!mjs_is_array(value))
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "image %s must be an array or ArrayBuffer", name);
+        return false;
+    }
+
+    const unsigned long array_length = mjs_array_length(mjs, value);
+    if (array_length < expected_length || (exact_length && array_length != expected_length))
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "incorrect image %s length", name);
+        return false;
+    }
+
+    buffer->owned_data = static_cast<uint8_t *>(m_malloc(expected_length));
+    if (!buffer->owned_data)
+    {
+        mjs_prepend_errorf(mjs, MJS_OUT_OF_MEMORY, "unable to allocate image %s", name);
+        return false;
+    }
+    buffer->data = buffer->owned_data;
+    buffer->length = expected_length;
+
+    for (size_t i = 0; i < expected_length; i++)
+    {
+        const mjs_val_t item = mjs_array_get(mjs, value, static_cast<unsigned long>(i));
+        if (!mjs_is_number(item))
+        {
+            mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "image %s values must be integers from 0 to 255", name);
+            mjs_input_buffer_free(buffer);
+            return false;
+        }
+
+        const double byte = mjs_get_double(mjs, item);
+        if (!isfinite(byte) || byte < 0 || byte > 255 || byte != static_cast<uint8_t>(byte))
+        {
+            mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "image %s values must be integers from 0 to 255", name);
+            mjs_input_buffer_free(buffer);
+            return false;
+        }
+        buffer->owned_data[i] = static_cast<uint8_t>(byte);
+    }
+
+    return true;
 }

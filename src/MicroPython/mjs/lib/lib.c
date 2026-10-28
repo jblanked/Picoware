@@ -50,6 +50,38 @@ void lib_load_module(struct mjs *mjs)
         lcd_create(mjs, &object);
         is_module_loaded = true;
         break;
+    case LIB_MODULE_ENGINE_BILLBOARD:
+        billboard_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_CAMERA:
+        camera_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_ENGINE:
+        engine_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_ENTITY:
+        entity_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_GAME:
+        game_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_LEVEL:
+        level_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_SPRITE3D:
+        sprite3d_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_TRIANGLE3D:
+        triangle3d_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     case LIB_MODULE_HTTP:
         http_create(mjs, &object);
         is_module_loaded = true;
@@ -137,6 +169,38 @@ lib_module_t lib_module_from_str(const char *str)
     {
         return LIB_MODULE_DRAW;
     }
+    else if (strcmp(str, "billboard") == 0)
+    {
+        return LIB_MODULE_ENGINE_BILLBOARD;
+    }
+    else if (strcmp(str, "camera") == 0)
+    {
+        return LIB_MODULE_ENGINE_CAMERA;
+    }
+    else if (strcmp(str, "engine") == 0)
+    {
+        return LIB_MODULE_ENGINE_ENGINE;
+    }
+    else if (strcmp(str, "entity") == 0)
+    {
+        return LIB_MODULE_ENGINE_ENTITY;
+    }
+    else if (strcmp(str, "game") == 0)
+    {
+        return LIB_MODULE_ENGINE_GAME;
+    }
+    else if (strcmp(str, "level") == 0)
+    {
+        return LIB_MODULE_ENGINE_LEVEL;
+    }
+    else if (strcmp(str, "sprite3d") == 0)
+    {
+        return LIB_MODULE_ENGINE_SPRITE3D;
+    }
+    else if (strcmp(str, "triangle3d") == 0)
+    {
+        return LIB_MODULE_ENGINE_TRIANGLE3D;
+    }
     else if (strcmp(str, "http") == 0)
     {
         return LIB_MODULE_HTTP;
@@ -215,6 +279,10 @@ void lib_unload_modules()
         else if (lib_loaded_modules[i] == LIB_MODULE_BLUETOOTH)
         {
             bluetooth_destroy();
+        }
+        else if (lib_loaded_modules[i] == LIB_MODULE_ENGINE_CAMERA)
+        {
+            camera_destroy();
         }
         else if (lib_loaded_modules[i] == LIB_MODULE_INPUT)
         {

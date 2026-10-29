@@ -220,5 +220,7 @@ mjs_val_t camera_get_context(struct mjs *mjs, void *cameraContext)
 
 void camera_destroy()
 {
+    if (camera_instance)
+        delete camera_instance;
     camera_instance = nullptr;
 }

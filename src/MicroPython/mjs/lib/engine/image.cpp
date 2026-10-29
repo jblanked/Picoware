@@ -147,5 +147,7 @@ void image_create(struct mjs *mjs, mjs_val_t *image_obj)
 
 void image_destroy()
 {
+    if (image_instance)
+        delete image_instance;
     image_instance = nullptr;
 }

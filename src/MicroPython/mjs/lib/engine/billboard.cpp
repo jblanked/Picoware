@@ -64,5 +64,7 @@ void billboard_create(struct mjs *mjs, mjs_val_t *billboard_obj)
 
 void billboard_destroy()
 {
+    if (billboard_instance)
+        delete billboard_instance;
     billboard_instance = nullptr;
 }

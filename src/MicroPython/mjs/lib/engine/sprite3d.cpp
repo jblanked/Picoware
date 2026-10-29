@@ -474,5 +474,7 @@ void sprite3d_create(struct mjs *mjs, mjs_val_t *sprite3d_obj)
 
 void sprite3d_destroy()
 {
+    if (sprite3d_instance)
+        delete sprite3d_instance;
     sprite3d_instance = nullptr;
 }

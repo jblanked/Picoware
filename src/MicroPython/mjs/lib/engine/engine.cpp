@@ -172,7 +172,8 @@ void engine_create(struct mjs *mjs, mjs_val_t *engine_obj)
 
 void engine_destroy()
 {
-    delete engine_instance;
+    if (engine_instance)
+        delete engine_instance;
     engine_instance = nullptr;
     engine_fps = 30.0f;
     engine_clamp = false;

@@ -175,5 +175,7 @@ void triangle3d_create(struct mjs *mjs, mjs_val_t *triangle3d_obj)
 
 void triangle3d_destroy()
 {
+    if (triangle3d_instance)
+        delete triangle3d_instance;
     triangle3d_instance = nullptr;
 }

@@ -654,5 +654,7 @@ void entity_create(struct mjs *mjs, mjs_val_t *entity_obj)
 
 void entity_destroy()
 {
+    if (entity_instance)
+        delete entity_instance;
     entity_instance = nullptr;
 }

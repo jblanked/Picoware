@@ -137,12 +137,13 @@ void game_level_add(struct mjs *mjs)
 
     Level *level = static_cast<Level *>(level_get_pointer(mjs, 0));
     if (!level)
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "Invalid argument, expected Level");
         return;
+    }
 
     game_instance->level_add(level);
-
-    if (!game_instance->current_level)
-        game_instance->current_level = level;
+    mjs_return(mjs, mjs_mk_boolean(mjs, true));
 }
 
 void game_level_remove(struct mjs *mjs)
@@ -153,18 +154,13 @@ void game_level_remove(struct mjs *mjs)
 
     Level *level = static_cast<Level *>(level_get_pointer(mjs, 0));
     if (!level)
-        return;
-
-    for (int i = 0; i < MAX_LEVELS; i++)
     {
-        if (game_instance->levels[i] == level)
-        {
-            game_instance->levels[i] = nullptr;
-            break;
-        }
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "Invalid argument, expected Level");
+        return;
     }
-    if (game_instance->current_level == level)
-        game_instance->current_level = nullptr;
+
+    game_instance->level_remove(level);
+    mjs_return(mjs, mjs_mk_boolean(mjs, true));
 }
 
 void game_level_switch(struct mjs *mjs)

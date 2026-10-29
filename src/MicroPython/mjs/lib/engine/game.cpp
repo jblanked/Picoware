@@ -277,14 +277,8 @@ void game_create(struct mjs *mjs, mjs_val_t *game_obj)
             size = Vector(x, y, z, false);
     }
 
-    uint16_t fg = 0x0000;
-    uint16_t bg = 0xFFFF;
-    mjs_val_t fg_val = mjs_arg(mjs, 3);
-    if (mjs_is_number(fg_val))
-        fg = mjs_get_color(mjs, fg_val);
-    mjs_val_t bg_val = mjs_arg(mjs, 4);
-    if (mjs_is_number(bg_val))
-        bg = mjs_get_color(mjs, bg_val);
+    uint16_t fg = mjs_get_color(mjs, mjs_arg(mjs, 3));
+    uint16_t bg = mjs_get_color(mjs, mjs_arg(mjs, 4));
 
     game_draw_instance = new Draw();
     if (!game_draw_instance)

@@ -70,6 +70,10 @@ void lib_load_module(struct mjs *mjs)
         game_create(mjs, &object);
         is_module_loaded = true;
         break;
+    case LIB_MODULE_ENGINE_IMAGE:
+        image_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     case LIB_MODULE_ENGINE_LEVEL:
         level_create(mjs, &object);
         is_module_loaded = true;
@@ -189,6 +193,10 @@ lib_module_t lib_module_from_str(const char *str)
     {
         return LIB_MODULE_ENGINE_GAME;
     }
+    else if (strcmp(str, "image") == 0)
+    {
+        return LIB_MODULE_ENGINE_IMAGE;
+    }
     else if (strcmp(str, "level") == 0)
     {
         return LIB_MODULE_ENGINE_LEVEL;
@@ -291,6 +299,10 @@ void lib_unload_modules()
         else if (lib_loaded_modules[i] == LIB_MODULE_ENGINE_GAME)
         {
             game_destroy();
+        }
+        else if (lib_loaded_modules[i] == LIB_MODULE_ENGINE_IMAGE)
+        {
+            image_destroy();
         }
         else if (lib_loaded_modules[i] == LIB_MODULE_ENGINE_LEVEL)
         {

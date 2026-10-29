@@ -134,17 +134,21 @@ mp_obj_t mjs_val_to_mp_obj(struct mjs *mjs, mjs_val_t val)
 
 uint16_t mjs_get_color(struct mjs *mjs, mjs_val_t value)
 {
+    if (mjs_is_null(value) || mjs_is_undefined(value))
+    {
+        return 0x0000;
+    }
     if (mjs_is_number(value))
     {
         return static_cast<uint16_t>(mjs_get_double(mjs, value));
     }
-    else if (mjs_is_string(value))
+    if (mjs_is_string(value))
     {
         size_t len;
         const char *str = mjs_get_string(mjs, &value, &len);
         return static_cast<uint16_t>(color_parse_str(str));
     }
-    return 0;
+    return 0x0000;
 }
 
 float mjs_get_float(struct mjs *mjs, uint8_t arg)

@@ -22,12 +22,19 @@ print("\nImage: %s" % js.run("""
 let image = import('image', {"width": 20, "height": 16}, true, bird_pixels);
 """))
 
-print("Image has mask: %s" % js.run("let hasMask = image.hasMask;"))
-print("Image data size: %s" % js.run("let dataSize = image.dataSize;"))
-print("Image size: %s" % js.run("let size = image.size;"))
-print("Image mask size: %s" % js.run("let maskSize = image.maskSize;"))
+print("Image has mask: %s" % js.run("let hasMask = image.get('hasMask');"))
+print("Image data size: %s" % js.run("let dataSize = image.get('dataSize');"))
+print("Image size: %s" % js.run("let size = image.get('size');"))
+print("Image mask size: %s" % js.run("let maskSize = image.get('maskSize');"))
 
-# no setters currently, mask/data should be added in init
+# must delete when done
+js.run('image.destroy();')
+
+try:
+    # should throw error
+    print("Image has mask: %s" % js.run("let hasMask = image.get('hasMask');"))
+except Exception as e:
+    print(e)
 
 del js
 js = None

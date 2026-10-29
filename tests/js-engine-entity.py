@@ -4,7 +4,7 @@ js = JS()
 
 
 def get(prop):
-    return js.run("entity.%s;" % prop)
+    return js.run("entity.get('%s');" % prop)
 
 
 def set_(name, value_js):

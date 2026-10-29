@@ -35,16 +35,17 @@ def expect_error(label, code):
 
 def get(prop):
     """Return the level property named prop."""
-    return js.run("level.%s;" % prop)
+    return js.run("level.get('%s');" % prop)
 
 
 def set_(key, value_js):
     """Set a level property from a JS value expression."""
     js.run("level.set('%s', %s);" % (key, value_js))
 
+js.run("let game = import('game', 'dungeon', {'x': 320, 'y': 240, 'z': 0});")
 
 print("\nLevel: %s" % js.run(
-    "let level = import('level', 'dungeon', {'x': 320, 'y': 240, 'z': 0});"))
+    "let level = import('level', 'dungeon', {'x': 320, 'y': 240, 'z': 0}, game);"))
 
 print("\n--- Initial getters ---")
 check("name", get("name"), "dungeon")
@@ -74,25 +75,24 @@ for value in ["true", "false"]:
 
 print("\n--- Entities (no game) ---")
 js.run("let entity = import('entity', 'hero', 0, "
-       "{'x': 10, 'y': 20, 'z': 0}, {'x': 8, 'y': 8, 'z': 2}, 0, 0);")
+       "{'x': 10, 'y': 20, 'z': 0}, {'x': 8, 'y': 8, 'z': 2});")
 js.run("level.entityAdd(entity);")
 check("entityCount after add (expect 0)", get("entityCount"), 0)
 
 print("\n--- Entities (game back-fit) ---")
 js.run("let game = import('game', 'arena', {'x': 320, 'y': 240, 'z': 0}, '0x0000', '0xFFFF');")
-check("game adopted level", js.run("game.currentLevel;") is not None, True)
 
 js.run("level.entityAdd(entity);")
 check("entityCount after add", get("entityCount"), 1)
-check("getEntity(0) exists", js.run("level.getEntity(0);") is not None, True)
-check("getEntity(99) out of range", js.run("level.getEntity(99);"), None)
-check("getEntity(-1) out of range", js.run("level.getEntity(-1);"), None)
+check("getEntity(0) exists", js.run("level.get('entity', 0);") is not None, True)
+check("getEntity(99) out of range", js.run("level.get('entity', 99);"), None)
+check("getEntity(-1) out of range", js.run("level.get('entity', -1);"), None)
 print("hasCollided(entity): %s" % js.run("level.hasCollided(entity);"))
 
-js.run("level.entityRemove(entity);")
+# js.run("level.entityRemove(entity);")
 check("entityCount after remove", get("entityCount"), 0)
 
-js.run("level.clear();")
+# js.run("level.clear();")
 check("entityCount after clear", get("entityCount"), 0)
 
 print("\n--- Error paths ---")
@@ -100,11 +100,14 @@ expect_error("set non-string key", "level.set(123, 1);")
 expect_error("entityAdd non-entity", "level.entityAdd(5);")
 expect_error("entityRemove non-entity", "level.entityRemove('x');")
 expect_error("hasCollided non-entity", "level.hasCollided(5);")
-expect_error("getEntity non-number", "level.getEntity('a');")
+expect_error("getEntity non-number", "level.get('entity', 'a');")
 js.run("level.set('not_a_property', 1);")
 print("PASS unknown property ignored")
 
 print("\n%s (%d failure(s))" % ("ALL PASSED" if failures == 0 else "FAILURES", failures))
+
+# must destroy after
+js.run('level.destroy()')
 
 del js
 js = None

@@ -2,65 +2,153 @@
 #include "../engine/pico-game-engine/engine/triangle3d.hpp"
 #include "../engine/memory.h"
 
-static Triangle3D *triangle3d_instance = nullptr;
-
-mjs_val_t triangle3d_get_x1(struct mjs *mjs)
+static Triangle3D *triangle3d_get_this(struct mjs *mjs)
 {
-    return mjs_mk_number(mjs, triangle3d_instance ? triangle3d_instance->x1 : 0.0f);
+    mjs_val_t this_obj = mjs_get_this(mjs);
+    if (!mjs_is_object(this_obj))
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "must be called on a Triangle3d");
+        return nullptr;
+    }
+    mjs_val_t triangle3d_ptr = mjs_get(mjs, this_obj, "_triangle3d", ~0);
+    if (!mjs_is_foreign(triangle3d_ptr))
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "triangle3d must be a Triangle3d");
+        return nullptr;
+    }
+    return (Triangle3D *)mjs_get_ptr(mjs, triangle3d_ptr);
 }
 
-mjs_val_t triangle3d_get_y1(struct mjs *mjs)
+void triangle3d_destroy(struct mjs *mjs)
 {
-    return mjs_mk_number(mjs, triangle3d_instance ? triangle3d_instance->y1 : 0.0f);
+    Triangle3D *triangle3d = triangle3d_get_this(mjs);
+    if (!triangle3d)
+    {
+        return;
+    }
+    mjs_set(mjs, mjs_get_this(mjs), "_triangle3d", ~0, mjs_mk_undefined());
+    delete triangle3d;
+    triangle3d = nullptr;
 }
 
-mjs_val_t triangle3d_get_z1(struct mjs *mjs)
+void triangle3d_get(struct mjs *mjs)
 {
-    return mjs_mk_number(mjs, triangle3d_instance ? triangle3d_instance->z1 : 0.0f);
+    Triangle3D *triangle3d = triangle3d_get_this(mjs);
+    if (!triangle3d)
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "invalid triangle3d instance");
+        mjs_return(mjs, mjs_mk_undefined());
+        return;
+    }
+    mjs_val_t name_val = mjs_arg(mjs, 0);
+    if (!mjs_is_string(name_val))
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "name must be a string");
+        mjs_return(mjs, mjs_mk_undefined());
+        return;
+    }
+    size_t len;
+    const char *name = mjs_get_string(mjs, &name_val, &len);
+
+    if (strcmp(name, "x1") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, static_cast<double>(triangle3d->x1)));
+        return;
+    }
+    else if (strcmp(name, "y1") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, static_cast<double>(triangle3d->y1)));
+        return;
+    }
+    else if (strcmp(name, "z1") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, static_cast<double>(triangle3d->z1)));
+        return;
+    }
+    else if (strcmp(name, "x2") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, static_cast<double>(triangle3d->x2)));
+        return;
+    }
+    else if (strcmp(name, "y2") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, static_cast<double>(triangle3d->y2)));
+        return;
+    }
+    else if (strcmp(name, "z2") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, static_cast<double>(triangle3d->z2)));
+        return;
+    }
+    else if (strcmp(name, "x3") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, static_cast<double>(triangle3d->x3)));
+        return;
+    }
+    else if (strcmp(name, "y3") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, static_cast<double>(triangle3d->y3)));
+        return;
+    }
+    else if (strcmp(name, "z3") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, static_cast<double>(triangle3d->z3)));
+        return;
+    }
+    else if (strcmp(name, "color") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, static_cast<double>(triangle3d->color)));
+        return;
+    }
+    else if (strcmp(name, "wireframe") == 0)
+    {
+        mjs_return(mjs, mjs_mk_boolean(mjs, triangle3d->wireframe));
+        return;
+    }
+    else
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "unknown property");
+        mjs_return(mjs, mjs_mk_undefined());
+        return;
+    }
 }
 
-mjs_val_t triangle3d_get_x2(struct mjs *mjs)
+mjs_val_t triangle3d_get_object(struct mjs *mjs, void *triangle3d_instance_ptr)
 {
-    return mjs_mk_number(mjs, triangle3d_instance ? triangle3d_instance->x2 : 0.0f);
+    Triangle3D *triangle3d = static_cast<Triangle3D *>(triangle3d_instance_ptr);
+    if (!triangle3d)
+        return mjs_mk_undefined();
+
+    mjs_val_t triangle3d_obj = mjs_mk_object(mjs);
+
+    mjs_set(mjs, triangle3d_obj, "_triangle3d", ~0,
+            mjs_mk_foreign(mjs, static_cast<void *>(triangle3d)));
+    mjs_set(mjs, triangle3d_obj, "destroy", ~0,
+            mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)triangle3d_destroy));
+    mjs_set(mjs, triangle3d_obj, "get", ~0,
+            mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)triangle3d_get));
+    mjs_set(mjs, triangle3d_obj, "set", ~0,
+            mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)triangle3d_set));
+
+    return triangle3d_obj;
 }
 
-mjs_val_t triangle3d_get_y2(struct mjs *mjs)
+void *triangle3d_get_pointer(struct mjs *mjs, uint8_t arg)
 {
-    return mjs_mk_number(mjs, triangle3d_instance ? triangle3d_instance->y2 : 0.0f);
-}
-
-mjs_val_t triangle3d_get_z2(struct mjs *mjs)
-{
-    return mjs_mk_number(mjs, triangle3d_instance ? triangle3d_instance->z2 : 0.0f);
-}
-
-mjs_val_t triangle3d_get_x3(struct mjs *mjs)
-{
-    return mjs_mk_number(mjs, triangle3d_instance ? triangle3d_instance->x3 : 0.0f);
-}
-
-mjs_val_t triangle3d_get_y3(struct mjs *mjs)
-{
-    return mjs_mk_number(mjs, triangle3d_instance ? triangle3d_instance->y3 : 0.0f);
-}
-
-mjs_val_t triangle3d_get_z3(struct mjs *mjs)
-{
-    return mjs_mk_number(mjs, triangle3d_instance ? triangle3d_instance->z3 : 0.0f);
-}
-
-mjs_val_t triangle3d_get_color(struct mjs *mjs)
-{
-    return mjs_mk_number(mjs, triangle3d_instance ? triangle3d_instance->color : 0);
-}
-
-mjs_val_t triangle3d_get_wireframe(struct mjs *mjs)
-{
-    return mjs_mk_boolean(mjs, triangle3d_instance && triangle3d_instance->wireframe);
+    mjs_val_t triangle3d_arg = mjs_arg(mjs, arg);
+    mjs_val_t triangle3d_ptr = mjs_is_object(triangle3d_arg)
+                                   ? mjs_get(mjs, triangle3d_arg, "_triangle3d", ~0)
+                                   : triangle3d_arg;
+    if (!mjs_is_foreign(triangle3d_ptr))
+    {
+        return nullptr;
+    }
+    return (Triangle3D *)mjs_get_ptr(mjs, triangle3d_ptr);
 }
 
 void triangle3d_set(struct mjs *mjs)
 {
+    Triangle3D *triangle3d_instance = (Triangle3D *)triangle3d_get_this(mjs);
     if (triangle3d_instance)
     {
         mjs_val_t name_val = mjs_arg(mjs, 0);
@@ -122,8 +210,6 @@ void triangle3d_set(struct mjs *mjs)
 
 void triangle3d_create(struct mjs *mjs, mjs_val_t *triangle3d_obj)
 {
-    *triangle3d_obj = mjs_mk_object(mjs);
-
     // shifted because parent func has the first arg as the import name
     mjs_val_t val = mjs_arg(mjs, 1);
     if (mjs_is_null(val) || mjs_is_undefined(val) || !mjs_is_object(val))
@@ -155,27 +241,7 @@ void triangle3d_create(struct mjs *mjs, mjs_val_t *triangle3d_obj)
     uint16_t color = mjs_get_color(mjs, color_val);
     bool wireframe = mjs_is_boolean(wireframe_val) ? mjs_get_bool(mjs, wireframe_val) : false;
 
-    triangle3d_instance = new Triangle3D(x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe);
+    Triangle3D *triangle3d_instance = new Triangle3D(x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe);
 
-    mjs_set_getter(mjs, *triangle3d_obj, "x1", ~0, triangle3d_get_x1);
-    mjs_set_getter(mjs, *triangle3d_obj, "y1", ~0, triangle3d_get_y1);
-    mjs_set_getter(mjs, *triangle3d_obj, "z1", ~0, triangle3d_get_z1);
-    mjs_set_getter(mjs, *triangle3d_obj, "x2", ~0, triangle3d_get_x2);
-    mjs_set_getter(mjs, *triangle3d_obj, "y2", ~0, triangle3d_get_y2);
-    mjs_set_getter(mjs, *triangle3d_obj, "z2", ~0, triangle3d_get_z2);
-    mjs_set_getter(mjs, *triangle3d_obj, "x3", ~0, triangle3d_get_x3);
-    mjs_set_getter(mjs, *triangle3d_obj, "y3", ~0, triangle3d_get_y3);
-    mjs_set_getter(mjs, *triangle3d_obj, "z3", ~0, triangle3d_get_z3);
-    mjs_set_getter(mjs, *triangle3d_obj, "color", ~0, triangle3d_get_color);
-    mjs_set_getter(mjs, *triangle3d_obj, "wireframe", ~0, triangle3d_get_wireframe);
-
-    mjs_set(mjs, *triangle3d_obj, "set", ~0,
-            mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)triangle3d_set));
-}
-
-void triangle3d_destroy()
-{
-    if (triangle3d_instance)
-        delete triangle3d_instance;
-    triangle3d_instance = nullptr;
+    *triangle3d_obj = triangle3d_get_object(mjs, static_cast<void *>(triangle3d_instance));
 }

@@ -7,17 +7,12 @@ extern "C"
 
 #include "../mjs.h"
 
-    void *level_get_instance();
+    void level_destroy(struct mjs *mjs);
+    void level_get(struct mjs *mjs);
+    mjs_val_t level_get_object(struct mjs *mjs, void *level_instance_ptr);
+    void *level_get_pointer(struct mjs *mjs, uint8_t arg);
     //
-    mjs_val_t level_get_entity_count(struct mjs *mjs);
-    mjs_val_t level_get_light_direction(struct mjs *mjs);
-    mjs_val_t level_get_name(struct mjs *mjs);
-    mjs_val_t level_get_size(struct mjs *mjs);
-    mjs_val_t level_get_shadow_color(struct mjs *mjs);
-    mjs_val_t level_is_clear_allowed(struct mjs *mjs);
-    //
-    mjs_val_t level_get_entity(struct mjs *mjs);
-    mjs_val_t level_has_collided(struct mjs *mjs);
+    void level_has_collided(struct mjs *mjs);
     //
     void level_clear(struct mjs *mjs);
     void level_entity_add(struct mjs *mjs);
@@ -26,7 +21,6 @@ extern "C"
     void level_set(struct mjs *mjs);
     //
     void level_create(struct mjs *mjs, mjs_val_t *level_obj);
-    void level_destroy();
 
 #ifdef __cplusplus
 }

@@ -288,26 +288,6 @@ void lib_unload_modules()
         {
             bluetooth_destroy();
         }
-        else if (lib_loaded_modules[i] == LIB_MODULE_ENGINE_CAMERA)
-        {
-            camera_destroy();
-        }
-        else if (lib_loaded_modules[i] == LIB_MODULE_ENGINE_ENGINE)
-        {
-            engine_destroy();
-        }
-        else if (lib_loaded_modules[i] == LIB_MODULE_ENGINE_GAME)
-        {
-            game_destroy();
-        }
-        else if (lib_loaded_modules[i] == LIB_MODULE_ENGINE_IMAGE)
-        {
-            image_destroy();
-        }
-        else if (lib_loaded_modules[i] == LIB_MODULE_ENGINE_LEVEL)
-        {
-            level_destroy();
-        }
         else if (lib_loaded_modules[i] == LIB_MODULE_INPUT)
         {
             input_destroy();

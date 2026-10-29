@@ -2,10 +2,52 @@
 #include "../engine/pico-game-engine/engine/billboard.hpp"
 #include "../engine/memory.h"
 
-static Billboard *billboard_instance = nullptr;
+static Billboard *billboard_get_this(struct mjs *mjs)
+{
+    mjs_val_t this_obj = mjs_get_this(mjs);
+    if (!mjs_is_object(this_obj))
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "must be called on a Billboard");
+        return nullptr;
+    }
+    mjs_val_t billboard_ptr = mjs_get(mjs, this_obj, "_billboard", ~0);
+    if (!mjs_is_foreign(billboard_ptr))
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "billboard must be a Billboard");
+        return nullptr;
+    }
+    return (Billboard *)mjs_get_ptr(mjs, billboard_ptr);
+}
+
+void *billboard_get_pointer(struct mjs *mjs, uint8_t arg)
+{
+    mjs_val_t billboard_arg = mjs_arg(mjs, arg);
+    mjs_val_t billboard_ptr = mjs_is_object(billboard_arg)
+                                  ? mjs_get(mjs, billboard_arg, "_billboard", ~0)
+                                  : billboard_arg;
+    if (!mjs_is_foreign(billboard_ptr))
+    {
+        return nullptr;
+    }
+
+    return (Billboard *)mjs_get_ptr(mjs, billboard_ptr);
+}
+
+void billboard_destroy(struct mjs *mjs)
+{
+    Billboard *img = billboard_get_this(mjs);
+    if (!img)
+    {
+        return;
+    }
+    mjs_set(mjs, mjs_get_this(mjs), "_billboard", ~0, mjs_mk_undefined());
+    delete img;
+    img = nullptr;
+}
 
 void billboard_set(struct mjs *mjs)
 {
+    Billboard *billboard_instance = billboard_get_this(mjs);
     if (billboard_instance)
     {
         mjs_val_t name_val = mjs_arg(mjs, 0);
@@ -39,8 +81,8 @@ void billboard_set(struct mjs *mjs)
                 int pose = mjs_get_int(mjs, pose_val);
                 uint16_t width = static_cast<uint16_t>(mjs_get_int(mjs, width_val));
                 uint16_t height = static_cast<uint16_t>(mjs_get_int(mjs, height_val));
-                mjs_input_buffer pixels_buffer;
-                mjs_input_buffer mask_buffer;
+                mjs_input_buffer pixels_buffer = {};
+                mjs_input_buffer mask_buffer = {};
 
                 if (!mjs_read_buffer(mjs, pixels_val, width * height * 4, true, "pixels", &pixels_buffer))
                     return;
@@ -59,12 +101,8 @@ void billboard_create(struct mjs *mjs, mjs_val_t *billboard_obj)
 {
     *billboard_obj = mjs_mk_object(mjs);
 
-    billboard_instance = new Billboard();
-}
-
-void billboard_destroy()
-{
-    if (billboard_instance)
-        delete billboard_instance;
-    billboard_instance = nullptr;
+    Billboard *billboard_instance = new Billboard();
+    mjs_set(mjs, *billboard_obj, "_billboard", ~0, mjs_mk_foreign(mjs, billboard_instance));
+    mjs_set(mjs, *billboard_obj, "destroy", ~0, mjs_mk_foreign(mjs, (void *)billboard_destroy));
+    mjs_set(mjs, *billboard_obj, "set", ~0, mjs_mk_foreign(mjs, (void *)billboard_set));
 }

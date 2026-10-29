@@ -35,7 +35,7 @@ def expect_error(label, code):
 
 def get(prop):
     """Return the game property named prop."""
-    return js.run("game.%s;" % prop)
+    return js.run("game.get('%s');" % prop)
 
 
 def set_(key, value_js):
@@ -68,7 +68,7 @@ for value in ["true", "false"]:
     check("isActive=%s" % value, get("isActive"), value == "true")
 
 print("\n--- Levels ---")
-js.run("let level = import('level', 'dungeon', {'x': 320, 'y': 240, 'z': 0});")
+js.run("let level = import('level', 'dungeon', {'x': 320, 'y': 240, 'z': 0}, game);")
 check("currentLevel after level import", get("currentLevel") is not None, True)
 check("isActive after level import", get("isActive"), True)
 
@@ -98,6 +98,9 @@ check("position unchanged by non-vector", get("position"), {"x": 1, "y": 2, "z":
 
 
 print("\n%s (%d failure(s))" % ("ALL PASSED" if failures == 0 else "FAILURES", failures))
+
+# must delete after
+js.run('game.destroy()')
 
 del js
 js = None

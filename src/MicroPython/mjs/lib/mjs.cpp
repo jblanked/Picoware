@@ -237,7 +237,7 @@ bool mjs_read_buffer(struct mjs *mjs, mjs_val_t value, size_t expected_length,
         return false;
     }
 
-    buffer->owned_data = static_cast<uint8_t *>(m_malloc(expected_length));
+    buffer->owned_data = static_cast<uint8_t *>(m_malloc0(expected_length));
     if (!buffer->owned_data)
     {
         mjs_prepend_errorf(mjs, MJS_OUT_OF_MEMORY, "unable to allocate image %s", name);

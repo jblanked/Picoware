@@ -7,12 +7,11 @@ extern "C"
 
 #include "../mjs.h"
 
-    mjs_val_t sprite3d_get_position(struct mjs *mjs);
-    mjs_val_t sprite3d_get_rotation(struct mjs *mjs);
-    mjs_val_t sprite3d_get_scale(struct mjs *mjs);
-    mjs_val_t sprite3d_get_triangle_count(struct mjs *mjs);
-    mjs_val_t sprite3d_get_type(struct mjs *mjs);
-    mjs_val_t sprite3d_is_active(struct mjs *mjs);
+    void sprite3d_destroy(struct mjs *mjs);
+    mjs_val_t sprite3d_get_object(struct mjs *mjs, void *sprite3d_instance_ptr);
+    void *sprite3d_get_pointer(struct mjs *mjs, uint8_t arg);
+    //
+    void sprite3d_get(struct mjs *mjs);
     //
     void sprite3d_add_triangle(struct mjs *mjs);
     void sprite3d_bake_transform(struct mjs *mjs);
@@ -34,7 +33,6 @@ extern "C"
     void sprite3d_set(struct mjs *mjs);
     //
     void sprite3d_create(struct mjs *mjs, mjs_val_t *sprite3d_obj);
-    void sprite3d_destroy();
 
 #ifdef __cplusplus
 }

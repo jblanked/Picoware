@@ -3,70 +3,143 @@
 #include "../engine/memory.h"
 #include "../array_buf.h"
 
-static Image *image_instance = nullptr;
-
-mjs_val_t image_get_data(struct mjs *mjs)
+static Image *image_get_this(struct mjs *mjs)
 {
-    const size_t data_size = image_instance->getDataSize();
-    void *data = (void *)m_malloc(data_size);
-    if (!data)
+    mjs_val_t this_obj = mjs_get_this(mjs);
+    if (!mjs_is_object(this_obj))
     {
-        mjs_prepend_errorf(mjs, MJS_OUT_OF_MEMORY, "unable to allocate image data");
-        return mjs_mk_undefined();
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "must be called on a Image");
+        return nullptr;
     }
-    if (!image_instance->getData(data, data_size))
+    mjs_val_t image_ptr = mjs_get(mjs, this_obj, "_image", ~0);
+    if (!mjs_is_foreign(image_ptr))
     {
-        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "unable to get image data");
-        m_free(data);
-        return mjs_mk_undefined();
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "image must be a Image");
+        return nullptr;
     }
-    return mjs_mk_array_buf(mjs, data, data_size);
+    return (Image *)mjs_get_ptr(mjs, image_ptr);
 }
 
-mjs_val_t image_get_data_size(struct mjs *mjs)
+void image_destroy(struct mjs *mjs)
 {
-    return mjs_mk_number(mjs, image_instance ? (double)image_instance->getDataSize() : 0);
-}
-
-mjs_val_t image_get_mask(struct mjs *mjs)
-{
-    const size_t data_size = image_instance->getMaskSize();
-    void *data = (void *)m_malloc(data_size);
-    if (!data)
+    Image *img = image_get_this(mjs);
+    if (!img)
     {
-        mjs_prepend_errorf(mjs, MJS_OUT_OF_MEMORY, "unable to allocate mask data");
-        return mjs_mk_undefined();
+        return;
     }
-    if (!image_instance->getMask(data, data_size))
+    mjs_set(mjs, mjs_get_this(mjs), "_image", ~0, mjs_mk_undefined());
+    delete img;
+    img = nullptr;
+}
+
+void image_get(struct mjs *mjs)
+{
+    Image *image = image_get_this(mjs);
+    if (!image)
     {
-        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "unable to get image mask");
-        m_free(data);
-        return mjs_mk_undefined();
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "invalid image instance");
+        mjs_return(mjs, mjs_mk_undefined());
+        return;
     }
-    return mjs_mk_array_buf(mjs, data, data_size);
-}
 
-mjs_val_t image_get_mask_size(struct mjs *mjs)
-{
-    return mjs_mk_number(mjs, image_instance ? (double)image_instance->getMaskSize() : 0);
-}
-
-mjs_val_t image_get_size(struct mjs *mjs)
-{
-    if (!image_instance)
+    mjs_val_t name_val = mjs_arg(mjs, 0);
+    if (!mjs_is_string(name_val))
     {
-        return mjs_mk_undefined();
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "name must be a string");
+        mjs_return(mjs, mjs_mk_undefined());
+        return;
     }
-    const Vector size = image_instance->size;
-    mjs_val_t size_obj = mjs_mk_object(mjs);
-    mjs_set(mjs, size_obj, "width", ~0, mjs_mk_number(mjs, size.x));
-    mjs_set(mjs, size_obj, "height", ~0, mjs_mk_number(mjs, size.y));
-    return size_obj;
+    size_t len;
+    const char *name = mjs_get_string(mjs, &name_val, &len);
+
+    if (strcmp(name, "width") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, (double)image->size.x));
+    }
+    else if (strcmp(name, "height") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, (double)image->size.y));
+    }
+    else if (strcmp(name, "size") == 0)
+    {
+        mjs_val_t size_obj = mjs_mk_object(mjs);
+        mjs_set(mjs, size_obj, "width", ~0, mjs_mk_number(mjs, (double)image->size.x));
+        mjs_set(mjs, size_obj, "height", ~0, mjs_mk_number(mjs, (double)image->size.y));
+        mjs_return(mjs, size_obj);
+    }
+    else if (strcmp(name, "dataSize") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, (double)image->getDataSize()));
+    }
+    else if (strcmp(name, "maskSize") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, (double)image->getMaskSize()));
+    }
+    else if (strcmp(name, "hasMask") == 0)
+    {
+        mjs_return(mjs, mjs_mk_boolean(mjs, image->hasMask()));
+    }
+    else if (strcmp(name, "data") == 0)
+    {
+        const size_t size = image->getDataSize();
+        void *data = (void *)m_malloc(size);
+        if (!data)
+        {
+            mjs_prepend_errorf(mjs, MJS_OUT_OF_MEMORY, "unable to allocate image data");
+            mjs_return(mjs, mjs_mk_undefined());
+            return;
+        }
+        if (!image->getData(data, size))
+        {
+            m_free(data);
+            mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "unable to get image data");
+            mjs_return(mjs, mjs_mk_undefined());
+            return;
+        }
+        mjs_return(mjs, mjs_mk_array_buf(mjs, data, size));
+    }
+    else if (strcmp(name, "mask") == 0)
+    {
+        if (!image->hasMask())
+        {
+            mjs_return(mjs, mjs_mk_undefined());
+            return;
+        }
+        const size_t size = image->getMaskSize();
+        void *data = (void *)m_malloc(size);
+        if (!data)
+        {
+            mjs_prepend_errorf(mjs, MJS_OUT_OF_MEMORY, "unable to allocate mask data");
+            mjs_return(mjs, mjs_mk_undefined());
+            return;
+        }
+        if (!image->getMask(data, size))
+        {
+            m_free(data);
+            mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "unable to get image mask");
+            mjs_return(mjs, mjs_mk_undefined());
+            return;
+        }
+        mjs_return(mjs, mjs_mk_array_buf(mjs, data, size));
+    }
+    else
+    {
+        mjs_return(mjs, mjs_mk_undefined());
+    }
 }
 
-mjs_val_t image_has_mask(struct mjs *mjs)
+void *image_get_pointer(struct mjs *mjs, uint8_t arg)
 {
-    return mjs_mk_boolean(mjs, image_instance && image_instance->hasMask());
+    mjs_val_t image_arg = mjs_arg(mjs, arg);
+    mjs_val_t image_ptr = mjs_is_object(image_arg)
+                              ? mjs_get(mjs, image_arg, "_image", ~0)
+                              : image_arg;
+    if (!mjs_is_foreign(image_ptr))
+    {
+        return nullptr;
+    }
+
+    return (Image *)mjs_get_ptr(mjs, image_ptr);
 }
 
 void image_create(struct mjs *mjs, mjs_val_t *image_obj)
@@ -120,8 +193,8 @@ void image_create(struct mjs *mjs, mjs_val_t *image_obj)
         return;
     }
 
-    mjs_input_buffer data_buffer;
-    mjs_input_buffer mask_buffer;
+    mjs_input_buffer data_buffer = {};
+    mjs_input_buffer mask_buffer = {};
     if (has_data && !mjs_read_buffer(mjs, data_value, static_cast<size_t>(mjs_array_length(mjs, data_value)), false, "pixel data", &data_buffer))
     {
         return;
@@ -132,22 +205,20 @@ void image_create(struct mjs *mjs, mjs_val_t *image_obj)
         return;
     }
 
-    image_instance = new Image(Vector(width, height), has_data ? data_buffer.data : nullptr, has_path ? path : nullptr, has_mask ? mask_buffer.data : nullptr);
+    const Vector sz = Vector(width, height);
+
+    Image *image_instance = new Image(sz, has_data ? data_buffer.data : nullptr, has_path ? path : nullptr, has_mask ? mask_buffer.data : nullptr);
 
     mjs_input_buffer_free(&data_buffer);
     mjs_input_buffer_free(&mask_buffer);
 
-    mjs_set_getter(mjs, *image_obj, "hasMask", ~0, image_has_mask);
-    mjs_set_getter(mjs, *image_obj, "size", ~0, image_get_size);
-    mjs_set_getter(mjs, *image_obj, "data", ~0, image_get_data);
-    mjs_set_getter(mjs, *image_obj, "mask", ~0, image_get_mask);
-    mjs_set_getter(mjs, *image_obj, "dataSize", ~0, image_get_data_size);
-    mjs_set_getter(mjs, *image_obj, "maskSize", ~0, image_get_mask_size);
-}
+    if (!image_instance)
+    {
+        mjs_prepend_errorf(mjs, MJS_INTERNAL_ERROR, "Failed to create image instance");
+        return;
+    }
 
-void image_destroy()
-{
-    if (image_instance)
-        delete image_instance;
-    image_instance = nullptr;
+    mjs_set(mjs, *image_obj, "_image", ~0, mjs_mk_foreign(mjs, image_instance));
+    mjs_set(mjs, *image_obj, "destroy", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)image_destroy));
+    mjs_set(mjs, *image_obj, "get", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)image_get));
 }

@@ -1,44 +1,159 @@
 #include "sprite3d.h"
+#include "triangle3d.h"
 #include "../engine/pico-game-engine/engine/sprite3d.hpp"
 #include "../engine/memory.h"
 
-static Sprite3D *sprite3d_instance = nullptr;
-
-mjs_val_t sprite3d_get_position(struct mjs *mjs)
+static Sprite3D *sprite3d_get_this(struct mjs *mjs)
 {
+    mjs_val_t this_obj = mjs_get_this(mjs);
+    if (!mjs_is_object(this_obj))
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "must be called on a Sprite3d");
+        return nullptr;
+    }
+    mjs_val_t sprite3d_ptr = mjs_get(mjs, this_obj, "_sprite3d", ~0);
+    if (!mjs_is_foreign(sprite3d_ptr))
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "sprite3d must be a Sprite3d");
+        return nullptr;
+    }
+    return (Sprite3D *)mjs_get_ptr(mjs, sprite3d_ptr);
+}
+
+void sprite3d_destroy(struct mjs *mjs)
+{
+    Sprite3D *sprite3d = sprite3d_get_this(mjs);
+    if (!sprite3d)
+    {
+        return;
+    }
+    mjs_set(mjs, mjs_get_this(mjs), "_sprite3d", ~0, mjs_mk_undefined());
+    delete sprite3d;
+    sprite3d = nullptr;
+}
+
+mjs_val_t sprite3d_get_object(struct mjs *mjs, void *sprite3d_instance_ptr)
+{
+    Sprite3D *sprite3d_instance = static_cast<Sprite3D *>(sprite3d_instance_ptr);
     if (!sprite3d_instance)
         return mjs_mk_undefined();
-    const Vector position = sprite3d_instance->getPosition();
-    return mjs_mk_vector(mjs, position.x, position.y, position.z);
+
+    mjs_val_t sprite3d_obj = mjs_mk_object(mjs);
+
+    mjs_set(mjs, sprite3d_obj, "_sprite3d", ~0, mjs_mk_foreign(mjs, static_cast<void *>(sprite3d_instance)));
+    mjs_set(mjs, sprite3d_obj, "destroy", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_destroy));
+    mjs_set(mjs, sprite3d_obj, "get", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_get));
+    mjs_set(mjs, sprite3d_obj, "set", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_set));
+
+    mjs_set(mjs, sprite3d_obj, "addTriangle", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_add_triangle));
+    mjs_set(mjs, sprite3d_obj, "bakeTransform", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_bake_transform));
+    mjs_set(mjs, sprite3d_obj, "clearTriangles", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_clear_triangles));
+    mjs_set(mjs, sprite3d_obj, "reserveTriangles", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_reserve_triangles));
+    mjs_set(mjs, sprite3d_obj, "fromPath", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_from_path));
+    mjs_set(mjs, sprite3d_obj, "toPath", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_to_path));
+    mjs_set(mjs, sprite3d_obj, "updateTriangle", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_update_triangle));
+    mjs_set(mjs, sprite3d_obj, "createHumanoid", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_humanoid));
+    mjs_set(mjs, sprite3d_obj, "createTree", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_tree));
+    mjs_set(mjs, sprite3d_obj, "createHouse", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_house));
+    mjs_set(mjs, sprite3d_obj, "createPillar", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_pillar));
+    mjs_set(mjs, sprite3d_obj, "createWall", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_wall));
+    mjs_set(mjs, sprite3d_obj, "createCube", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_cube));
+    mjs_set(mjs, sprite3d_obj, "createCylinder", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_cylinder));
+    mjs_set(mjs, sprite3d_obj, "createSphere", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_sphere));
+    mjs_set(mjs, sprite3d_obj, "createTriangularPrism", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_triangular_prism));
+
+    return sprite3d_obj;
 }
 
-mjs_val_t sprite3d_get_rotation(struct mjs *mjs)
+void *sprite3d_get_pointer(struct mjs *mjs, uint8_t arg)
 {
-    return mjs_mk_number(mjs, sprite3d_instance ? (double)sprite3d_instance->getRotation() : 0.0);
+    mjs_val_t sprite3d_arg = mjs_arg(mjs, arg);
+    mjs_val_t sprite3d_ptr = mjs_is_object(sprite3d_arg)
+                                 ? mjs_get(mjs, sprite3d_arg, "_sprite3d", ~0)
+                                 : sprite3d_arg;
+    if (!mjs_is_foreign(sprite3d_ptr))
+    {
+        return nullptr;
+    }
+    return (Sprite3D *)mjs_get_ptr(mjs, sprite3d_ptr);
 }
 
-mjs_val_t sprite3d_get_scale(struct mjs *mjs)
+void sprite3d_get(struct mjs *mjs)
 {
-    return mjs_mk_number(mjs, sprite3d_instance ? (double)sprite3d_instance->getScale() : 0.0);
-}
+    Sprite3D *sprite3d = sprite3d_get_this(mjs);
+    if (!sprite3d)
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "invalid sprite3d instance");
+        mjs_return(mjs, mjs_mk_undefined());
+        return;
+    }
+    mjs_val_t name_val = mjs_arg(mjs, 0);
+    if (!mjs_is_string(name_val))
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "name must be a string");
+        mjs_return(mjs, mjs_mk_undefined());
+        return;
+    }
+    size_t len;
+    const char *name = mjs_get_string(mjs, &name_val, &len);
 
-mjs_val_t sprite3d_get_triangle_count(struct mjs *mjs)
-{
-    return mjs_mk_number(mjs, sprite3d_instance ? (double)sprite3d_instance->getTriangleCount() : 0.0);
-}
-
-mjs_val_t sprite3d_get_type(struct mjs *mjs)
-{
-    return mjs_mk_number(mjs, sprite3d_instance ? (double)sprite3d_instance->getType() : 0.0);
-}
-
-mjs_val_t sprite3d_is_active(struct mjs *mjs)
-{
-    return mjs_mk_boolean(mjs, sprite3d_instance ? sprite3d_instance->isActive() : false);
+    if (strcmp(name, "position") == 0)
+    {
+        const Vector position = sprite3d->getPosition();
+        mjs_return(mjs, mjs_mk_vector(mjs, position.x, position.y, position.z));
+        return;
+    }
+    else if (strcmp(name, "rotation") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, sprite3d->getRotation()));
+        return;
+    }
+    else if (strcmp(name, "scale") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, sprite3d->getScale()));
+        return;
+    }
+    else if (strcmp(name, "triangleCount") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, sprite3d->getTriangleCount()));
+        return;
+    }
+    else if (strcmp(name, "type") == 0)
+    {
+        mjs_return(mjs, mjs_mk_number(mjs, sprite3d->getType()));
+        return;
+    }
+    else if (strcmp(name, "active") == 0)
+    {
+        mjs_return(mjs, mjs_mk_boolean(mjs, sprite3d->isActive()));
+        return;
+    }
+    else if (strcmp(name, "triangle") == 0)
+    {
+        mjs_val_t index = mjs_get_int(mjs, mjs_arg(mjs, 1));
+        float x1, y1, z1, x2, y2, z2, x3, y3, z3;
+        uint16_t color;
+        bool wireframe;
+        if (!sprite3d->getTriangle(index, x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe))
+        {
+            mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "invalid triangle index");
+            mjs_return(mjs, mjs_mk_undefined());
+            return;
+        }
+        mjs_return(mjs, triangle3d_get_object(mjs, static_cast<void *>(new Triangle3D{x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe})));
+        return;
+    }
+    else
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "unknown property name");
+        mjs_return(mjs, mjs_mk_undefined());
+        return;
+    }
 }
 
 void sprite3d_add_triangle(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (sprite3d_instance)
     {
         const float x1 = mjs_get_float(mjs, 0);
@@ -54,12 +169,15 @@ void sprite3d_add_triangle(struct mjs *mjs)
         const uint16_t color = mjs_get_color(mjs, color_val);
         mjs_val_t wireframe_val = mjs_arg(mjs, 10);
         const bool wireframe = mjs_is_boolean(wireframe_val) ? mjs_get_bool(mjs, wireframe_val) : false;
-        sprite3d_instance->addTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe);
+        mjs_return(mjs, mjs_mk_boolean(mjs, sprite3d_instance->addTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe)));
+        return;
     }
+    mjs_return(mjs, mjs_mk_boolean(mjs, false));
 }
 
 void sprite3d_bake_transform(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (sprite3d_instance)
     {
         sprite3d_instance->bakeTransform();
@@ -68,6 +186,7 @@ void sprite3d_bake_transform(struct mjs *mjs)
 
 void sprite3d_clear_triangles(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (sprite3d_instance)
     {
         sprite3d_instance->clearTriangles();
@@ -76,6 +195,7 @@ void sprite3d_clear_triangles(struct mjs *mjs)
 
 void sprite3d_set(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (sprite3d_instance)
     {
         mjs_val_t name_val = mjs_arg(mjs, 0);
@@ -125,6 +245,7 @@ void sprite3d_set(struct mjs *mjs)
 
 void sprite3d_reserve_triangles(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     mjs_val_t val = mjs_arg(mjs, 0);
     if (sprite3d_instance && mjs_is_number(val))
     {
@@ -138,6 +259,7 @@ void sprite3d_reserve_triangles(struct mjs *mjs)
 
 void sprite3d_from_path(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (!sprite3d_instance)
     {
         mjs_return(mjs, mjs_mk_boolean(mjs, false));
@@ -158,6 +280,7 @@ void sprite3d_from_path(struct mjs *mjs)
 
 void sprite3d_to_path(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (!sprite3d_instance)
     {
         mjs_return(mjs, mjs_mk_boolean(mjs, false));
@@ -176,6 +299,7 @@ void sprite3d_to_path(struct mjs *mjs)
 
 void sprite3d_update_triangle(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (!sprite3d_instance)
     {
         mjs_return(mjs, mjs_mk_boolean(mjs, false));
@@ -207,6 +331,7 @@ void sprite3d_update_triangle(struct mjs *mjs)
 
 void sprite3d_create_humanoid(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (!sprite3d_instance)
     {
         mjs_return(mjs, MJS_UNDEFINED);
@@ -225,6 +350,7 @@ void sprite3d_create_humanoid(struct mjs *mjs)
 
 void sprite3d_create_tree(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (!sprite3d_instance)
     {
         mjs_return(mjs, MJS_UNDEFINED);
@@ -243,6 +369,7 @@ void sprite3d_create_tree(struct mjs *mjs)
 
 void sprite3d_create_house(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (!sprite3d_instance)
     {
         mjs_return(mjs, MJS_UNDEFINED);
@@ -267,6 +394,7 @@ void sprite3d_create_house(struct mjs *mjs)
 
 void sprite3d_create_pillar(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (!sprite3d_instance)
     {
         mjs_return(mjs, MJS_UNDEFINED);
@@ -291,6 +419,7 @@ void sprite3d_create_pillar(struct mjs *mjs)
 
 void sprite3d_create_wall(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (!sprite3d_instance)
     {
         mjs_return(mjs, MJS_UNDEFINED);
@@ -324,6 +453,7 @@ void sprite3d_create_wall(struct mjs *mjs)
 
 void sprite3d_create_cube(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (!sprite3d_instance)
     {
         mjs_return(mjs, MJS_UNDEFINED);
@@ -342,6 +472,7 @@ void sprite3d_create_cube(struct mjs *mjs)
 
 void sprite3d_create_cylinder(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (!sprite3d_instance)
     {
         mjs_return(mjs, MJS_UNDEFINED);
@@ -361,6 +492,7 @@ void sprite3d_create_cylinder(struct mjs *mjs)
 
 void sprite3d_create_sphere(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (!sprite3d_instance)
     {
         mjs_return(mjs, MJS_UNDEFINED);
@@ -379,6 +511,7 @@ void sprite3d_create_sphere(struct mjs *mjs)
 
 void sprite3d_create_triangular_prism(struct mjs *mjs)
 {
+    Sprite3D *sprite3d_instance = sprite3d_get_this(mjs);
     if (!sprite3d_instance)
     {
         mjs_return(mjs, MJS_UNDEFINED);
@@ -397,39 +530,6 @@ void sprite3d_create_triangular_prism(struct mjs *mjs)
 
 void sprite3d_create(struct mjs *mjs, mjs_val_t *sprite3d_obj)
 {
-    *sprite3d_obj = mjs_mk_object(mjs);
-
-    sprite3d_instance = new Sprite3D();
-
-    mjs_set_getter(mjs, *sprite3d_obj, "position", ~0, sprite3d_get_position);
-    mjs_set_getter(mjs, *sprite3d_obj, "rotation", ~0, sprite3d_get_rotation);
-    mjs_set_getter(mjs, *sprite3d_obj, "scale", ~0, sprite3d_get_scale);
-    mjs_set_getter(mjs, *sprite3d_obj, "triangleCount", ~0, sprite3d_get_triangle_count);
-    mjs_set_getter(mjs, *sprite3d_obj, "type", ~0, sprite3d_get_type);
-    mjs_set_getter(mjs, *sprite3d_obj, "active", ~0, sprite3d_is_active);
-
-    mjs_set(mjs, *sprite3d_obj, "addTriangle", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_add_triangle));
-    mjs_set(mjs, *sprite3d_obj, "bakeTransform", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_bake_transform));
-    mjs_set(mjs, *sprite3d_obj, "clearTriangles", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_clear_triangles));
-    mjs_set(mjs, *sprite3d_obj, "reserveTriangles", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_reserve_triangles));
-    mjs_set(mjs, *sprite3d_obj, "fromPath", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_from_path));
-    mjs_set(mjs, *sprite3d_obj, "toPath", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_to_path));
-    mjs_set(mjs, *sprite3d_obj, "updateTriangle", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_update_triangle));
-    mjs_set(mjs, *sprite3d_obj, "set", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_set));
-    mjs_set(mjs, *sprite3d_obj, "createHumanoid", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_humanoid));
-    mjs_set(mjs, *sprite3d_obj, "createTree", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_tree));
-    mjs_set(mjs, *sprite3d_obj, "createHouse", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_house));
-    mjs_set(mjs, *sprite3d_obj, "createPillar", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_pillar));
-    mjs_set(mjs, *sprite3d_obj, "createWall", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_wall));
-    mjs_set(mjs, *sprite3d_obj, "createCube", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_cube));
-    mjs_set(mjs, *sprite3d_obj, "createCylinder", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_cylinder));
-    mjs_set(mjs, *sprite3d_obj, "createSphere", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_sphere));
-    mjs_set(mjs, *sprite3d_obj, "createTriangularPrism", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_create_triangular_prism));
-}
-
-void sprite3d_destroy()
-{
-    if (sprite3d_instance)
-        delete sprite3d_instance;
-    sprite3d_instance = nullptr;
+    Sprite3D *sprite3d_instance = new Sprite3D();
+    *sprite3d_obj = sprite3d_get_object(mjs, sprite3d_instance);
 }

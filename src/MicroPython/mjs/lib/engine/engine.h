@@ -7,9 +7,9 @@ extern "C"
 
 #include "../mjs.h"
 
-    mjs_val_t engine_get_game(struct mjs *mjs);
-    mjs_val_t engine_get_clamp(struct mjs *mjs);
-    mjs_val_t engine_get_input(struct mjs *mjs);
+    void engine_destroy(struct mjs *mjs);
+    void engine_get(struct mjs *mjs);
+    void *engine_get_pointer(struct mjs *mjs, uint8_t arg);
     //
     void engine_set(struct mjs *mjs);
     void engine_run(struct mjs *mjs);
@@ -19,7 +19,6 @@ extern "C"
     void engine_set_clamp(struct mjs *mjs);
     //
     void engine_create(struct mjs *mjs, mjs_val_t *engine_obj);
-    void engine_destroy();
 
 #ifdef __cplusplus
 }

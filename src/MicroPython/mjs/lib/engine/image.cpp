@@ -98,7 +98,7 @@ void image_create(struct mjs *mjs, mjs_val_t *image_obj)
     const Image image_template(size, is_8bit);
     const size_t data_size = image_template.getDataSize();
     const size_t mask_size = image_template.getMaskSize();
-    if (data_size == 0)
+    if (has_data && data_size == 0)
     {
         mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "invalid image size");
         return;

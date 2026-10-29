@@ -3,10 +3,10 @@
 bl_info = {
     'name': 'Picoware Mesh and Billboard Export',
     'author': 'Sprite3D Tools',
-    'version': (1, 4, 5),
+    'version': (1, 5, 0),
     'blender': (5, 0, 0),
     'location': 'File > Import/Export; View3D > Sidebar > Sprite3D',
-    'description': 'Import Sprite3D meshes and export packed pixel-art billboards',
+    'description': 'Edit meshes, bake billboards, and optionally generate scenes with a local AI helper',
     'category': 'Import-Export',
 }
 
@@ -1143,18 +1143,402 @@ def _menu_export(self, context):
     animated.animated = True
 
 
+# Optional AI helper integration. No third-party packages are imported in Blender.
+import concurrent.futures
+import json
+import urllib.request
+import urllib.error
+import urllib.parse
+import webbrowser
+import time
+from bpy.props import PointerProperty
+
+_AI_EXECUTOR = None
+_AI_RUNNING = set()
+
+
+def _ai_executor():
+    global _AI_EXECUTOR
+    if _AI_EXECUTOR is None:
+        _AI_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=3, thread_name_prefix='picoware-ai')
+    return _AI_EXECUTOR
+
+
+def _ai_http(base, token, path, payload=None, binary=False):
+    url = urllib.parse.urlsplit(base)
+    if url.scheme != 'http' or url.hostname not in ('127.0.0.1', 'localhost', '::1') or url.username or url.password or url.query or url.fragment:
+        raise ValueError('Helper must be a local http://localhost address')
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *args, **kwargs):
+            raise ValueError('Helper redirects are not permitted')
+    request = urllib.request.Request(base.rstrip('/') + path,
+        None if payload is None else json.dumps(payload).encode(),
+        {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'})
+    try:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect).open(request, timeout=30 if binary else 5) as response:
+            data = response.read(20_000_001)
+        if len(data) > 20_000_000:
+            raise ValueError('Helper response exceeds 20 MB')
+        return data if binary else json.loads(data)
+    except urllib.error.HTTPError as exc:
+        try: message = json.loads(exc.read(4096)).get('error', str(exc))
+        except Exception: message = str(exc)
+        raise ValueError(message) from None
+
+
+def _ai_download(base, token, job, preview=False):
+    root = Path(tempfile.mkdtemp(prefix='picoware-ai-'))
+    names = ('preview.png',) if preview else ('scene.glb', 'report.json')
+    for name in names:
+        (root / name).write_bytes(_ai_http(base, token, f'/jobs/{job}/artifacts/{name}', binary=True))
+    return str(root)
+
+
+def import_ai_scene(context, filepath, report):
+    """Import transactionally; leave existing objects and timeline settings intact."""
+    before = set(bpy.data.objects)
+    before_materials = set(bpy.data.materials)
+    selected = list(context.selected_objects)
+    active = context.view_layer.objects.active
+    collection = bpy.data.collections.new('AI Generated Scene')
+    context.scene.collection.children.link(collection)
+    try:
+        result = bpy.ops.import_scene.gltf(filepath=str(filepath))
+        if 'FINISHED' not in result:
+            raise ValueError('Blender glTF import failed')
+        imported = set(bpy.data.objects) - before
+        if not imported:
+            raise ValueError('GLB contains no objects')
+        for obj in imported:
+            for owner in list(obj.users_collection): owner.objects.unlink(obj)
+            collection.objects.link(obj)
+        for material in set(bpy.data.materials) - before_materials:
+            # Helper names include a job UUID, avoiding collisions with existing materials.
+            sources = report.get('materials', {})
+            source = sources.get(material.name)
+            if source is None:
+                base, separator, suffix = material.name.rpartition('.')
+                if separator and suffix.isdecimal(): source = sources.get(base)
+            if source:
+                material['picoware_ai_rgba'] = source['rgba']
+                material['picoware_ai_unlit'] = source['unlit']
+        if report.get('animated'):
+            # glTF import uses the existing scene FPS. Remember its actual frame span,
+            # without changing the timing of unrelated animation in this scene.
+            collection['picoware_ai_start'] = 0
+            collection['picoware_ai_end'] = report['duration'] * context.scene.render.fps / context.scene.render.fps_base
+        collection['picoware_ai_triangles'] = report['triangles']
+        for obj in list(context.selected_objects): obj.select_set(False)
+        for obj in imported: obj.select_set(True)
+        context.view_layer.objects.active = next((o for o in imported if o.type == 'MESH'), next(iter(imported)))
+        return collection
+    except Exception:
+        for obj in set(bpy.data.objects) - before: bpy.data.objects.remove(obj, do_unlink=True)
+        bpy.data.collections.remove(collection)
+        for obj in selected:
+            if obj.name in context.view_layer.objects: obj.select_set(True)
+        if active and active.name in context.view_layer.objects: context.view_layer.objects.active = active
+        raise
+
+
+def _ai_current_material_color(material):
+    """Read editable material state, including glTF's unlit emission graph."""
+    if _principled(material) is not None or not material.get('picoware_ai_unlit'):
+        return _flat_material_color(material)
+    if material.node_tree is None or getattr(material, 'use_nodes', True) is False:
+        return tuple(material.diffuse_color[:3])
+    outputs = [n for n in material.node_tree.nodes if n.type == 'OUTPUT_MATERIAL']
+    output = next((n for n in outputs if n.is_active_output), None)
+    pending = [link.from_node for link in output.inputs['Surface'].links] if output else []
+    visited, emissions = set(), []
+    while pending:
+        node = pending.pop()
+        if node.as_pointer() in visited: continue
+        visited.add(node.as_pointer())
+        if node.type == 'EMISSION':
+            emissions.append(node)
+        elif node.type not in ('MIX_SHADER', 'BSDF_TRANSPARENT', 'LIGHT_PATH', 'REROUTE', 'VALUE'):
+            raise FormatError('Unsupported unlit material graph; use a solid Emission or Principled Base Color')
+        pending.extend(link.from_node for socket in node.inputs for link in socket.links)
+    if len(emissions) != 1 or emissions[0].inputs['Color'].is_linked:
+        raise FormatError('Use one unlinked solid Emission color for an imported unlit material')
+    return tuple(emissions[0].inputs['Color'].default_value[:3])
+
+
+def prepare_ai_materials(context):
+    """Duplicate selected hierarchies; never change source meshes, materials or actions."""
+    originals = set(context.selected_objects)
+    for obj in list(originals): originals.update(obj.children_recursive)
+    # Selected meshes may depend on an unselected animated parent. Preserve that chain.
+    for obj in list(originals):
+        parent = obj.parent
+        while parent is not None:
+            originals.add(parent)
+            parent = parent.parent
+    if not any(o.type == 'MESH' for o in originals):
+        raise ValueError('Select a mesh or a generated hierarchy')
+    # Resolve every color first, so unsupported user materials do not leave partial copies.
+    colors = {}
+    changes = []
+    for obj in originals:
+        if obj.type != 'MESH': continue
+        for material in obj.data.materials:
+            if material is None or material in colors: continue
+            rgba = (*_ai_current_material_color(material), 1.0)
+            colors[material] = tuple(rgba)
+            changes.append(material.name)
+    collection = bpy.data.collections.new('Picoware Flat Colors')
+    context.scene.collection.children.link(collection)
+    copies, materials = {}, {}
+    try:
+        for source, rgba in colors.items():
+            material = bpy.data.materials.new(source.name + '_Picoware')
+            material.use_nodes = True
+            shader = next(n for n in material.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
+            shader.inputs['Base Color'].default_value = (*rgba[:3], 1.0)
+            shader.inputs['Roughness'].default_value = 1.0
+            material.diffuse_color = (*rgba[:3], 1.0)
+            materials[source] = material
+        for original in originals:
+            obj = original.copy()
+            if original.type == 'MESH':
+                obj.data = original.data.copy()
+                for i, material in enumerate(original.data.materials):
+                    if material: obj.data.materials[i] = materials[material]
+            if obj.animation_data and obj.animation_data.action:
+                obj.animation_data.action = obj.animation_data.action.copy()
+            collection.objects.link(obj)
+            copies[original] = obj
+        for original, obj in copies.items():
+            if original.parent in copies:
+                obj.parent = copies[original.parent]
+            else:
+                world = original.matrix_world.copy()
+                obj.parent = None
+                obj.matrix_world = world
+        for obj in list(context.selected_objects): obj.select_set(False)
+        for obj in copies.values(): obj.select_set(True)
+        context.view_layer.objects.active = next(o for o in copies.values() if o.type == 'MESH')
+        collection['picoware_material_changes'] = json.dumps(changes)
+        ranges = [(c['picoware_ai_start'], c['picoware_ai_end']) for o in originals for c in o.users_collection if 'picoware_ai_end' in c]
+        if ranges:
+            collection['picoware_ai_start'] = min(r[0] for r in ranges)
+            collection['picoware_ai_end'] = max(r[1] for r in ranges)
+        return collection, len(changes)
+    except Exception:
+        for obj in copies.values(): bpy.data.objects.remove(obj, do_unlink=True)
+        bpy.data.collections.remove(collection)
+        for material in materials.values():
+            if material.users == 0: bpy.data.materials.remove(material)
+        raise
+
+
+class SPRITE3D_AI_settings(bpy.types.PropertyGroup):
+    helper: StringProperty(name='Local Helper', default='http://127.0.0.1:8766')
+    token: StringProperty(name='Helper Token', subtype='PASSWORD', options={'SKIP_SAVE'})
+    endpoint: StringProperty(name='Model API', default='http://127.0.0.1:11438/v1')
+    model: StringProperty(name='Model', default='qwen3.5-4b-3d-coder-Q8_0')
+    prompt: StringProperty(name='Describe Asset', default='A low-poly tree with a brown trunk and green crown')
+    animated: BoolProperty(name='Capture Object Animation', default=False)
+    duration: FloatProperty(name='Seconds', default=4.0, min=0.1, max=30)
+    fps: IntProperty(name='Samples / Second', default=24, min=1, max=60)
+    triangle_target: IntProperty(name='Triangle Target', default=1000, min=12, max=4096)
+    seed: IntProperty(name='Seed', default=1, min=0)
+    job: StringProperty(options={'SKIP_SAVE'})
+    status: StringProperty(default='Start the optional helper, then check connection', options={'SKIP_SAVE'})
+    busy: BoolProperty(default=False, options={'SKIP_SAVE'})
+    complete: BoolProperty(default=False, options={'SKIP_SAVE'})
+
+
+class SPRITE3D_OT_ai(bpy.types.Operator):
+    bl_idname = 'sprite3d.ai'
+    bl_label = 'Generate with AI'
+    bl_description = 'Use the optional local scene-generation helper'
+    action: EnumProperty(items=[(x,x.title(),'') for x in ('CHECK','GENERATE','CANCEL','REFRESH','IMPORT','PREVIEW')])
+
+    def execute(self, context):
+        settings = context.window_manager.sprite3d_ai
+        if not context.window:
+            self.report({'ERROR'}, 'This operation requires a Blender window')
+            return {'CANCELLED'}
+        if self.action == 'GENERATE' and settings.busy:
+            return {'CANCELLED'}
+        self._base, self._token, self._job = settings.helper, settings.token, settings.job
+        self._cancel_requested = False
+        self._next = 0
+        self._generating = self.action == 'GENERATE'
+        if self.action == 'GENERATE':
+            payload = {key:getattr(settings,key) for key in ('endpoint','model','prompt','animated','duration','fps','triangle_target','seed')}
+            settings.busy, settings.complete, settings.job = True, False, ''
+            settings.status = 'Submitting generation…'
+            self._future = _ai_executor().submit(_ai_http,self._base,self._token,'/jobs',payload)
+        elif self.action in ('IMPORT','PREVIEW'):
+            if not settings.complete: return {'CANCELLED'}
+            self._future = _ai_executor().submit(_ai_download,self._base,self._token,self._job,self.action=='PREVIEW')
+        else:
+            path = '/health' if self.action == 'CHECK' else '/jobs/'+self._job+('/cancel' if self.action=='CANCEL' else '')
+            self._future = _ai_executor().submit(_ai_http,self._base,self._token,path,{} if self.action=='CANCEL' else None)
+        self._timer = context.window_manager.event_timer_add(0.2, window=context.window)
+        _AI_RUNNING.add(self)
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
+
+    def finish(self, context):
+        if getattr(self,'_timer',None):
+            context.window_manager.event_timer_remove(self._timer); self._timer = None
+        _AI_RUNNING.discard(self)
+        if self._generating: context.window_manager.sprite3d_ai.busy = False
+        return {'FINISHED'}
+
+    def cancel(self, context):
+        # Window closure/unregister must not leave a generation running unnoticed.
+        if self._generating:
+            base, token, job = self._base, self._token, self._job
+            if job: _ai_executor().submit(_ai_http,base,token,'/jobs/'+job+'/cancel',{})
+            elif self.action == 'GENERATE':
+                def cancel_submitted(future):
+                    try: _ai_http(base,token,'/jobs/'+future.result()['id']+'/cancel',{})
+                    except Exception: pass
+                self._future.add_done_callback(cancel_submitted)
+        self.finish(context)
+
+    def modal(self, context, event):
+        if event.type == 'ESC' and self._generating:
+            self._cancel_requested = True
+        if event.type != 'TIMER': return {'PASS_THROUGH'}
+        if not self._future.done() or time.monotonic() < self._next: return {'PASS_THROUGH'}
+        settings = context.window_manager.sprite3d_ai
+        try:
+            result = self._future.result()
+            if self.action == 'CHECK':
+                if result.get('api_version') != 1: raise ValueError('Unsupported helper API version')
+                settings.status = result.get('dependency_error') or 'Helper connected (API v1)'
+                return self.finish(context)
+            if self.action == 'IMPORT':
+                root = Path(result)
+                report = json.loads((root/'report.json').read_text())
+                collection = import_ai_scene(context,root/'scene.glb',report)
+                settings.status = f'Imported {report["triangles"]} triangles into {collection.name}'
+                return self.finish(context)
+            if self.action == 'PREVIEW':
+                webbrowser.open((Path(result)/'preview.png').as_uri())
+                return self.finish(context)
+            self._job = result['id']; settings.job = self._job
+            settings.status = f'{result["status"]}: {result.get("phase", "")} (attempt {result.get("attempt", 0)}/3)'
+            if result['status'] in ('complete','failed','cancelled'):
+                settings.complete = result['status'] == 'complete'
+                if settings.complete:
+                    settings.status = f'Technical checks passed: {result["triangles"]} triangles, {result["tracks"]} animation tracks. Visual review required.'
+                    if result.get('warnings'): settings.status += ' — ' + '; '.join(result['warnings'])
+                elif result.get('error'): settings.status = result['error']
+                return self.finish(context)
+            if not self._generating: return self.finish(context)
+            self.action = 'REFRESH'
+            path = '/jobs/'+self._job
+            payload = None
+            if self._cancel_requested:
+                path += '/cancel'; payload = {}; self._cancel_requested = False
+            self._future = _ai_executor().submit(_ai_http,self._base,self._token,path,payload)
+            self._next = time.monotonic()+1
+            if context.area: context.area.tag_redraw()
+        except Exception as exc:
+            settings.status = str(exc)
+            self.report({'ERROR'}, str(exc)[:900])
+            return self.finish(context)
+        return {'PASS_THROUGH'}
+
+
+class SPRITE3D_OT_ai_prepare(bpy.types.Operator):
+    bl_idname = 'sprite3d.ai_prepare'
+    bl_label = 'Prepare for Picoware'
+    bl_description = 'Create a separate flat-color copy; discard transparency, emission and shader effects in that copy'
+    bl_options = {'REGISTER','UNDO'}
+
+    def execute(self, context):
+        try:
+            collection, count = prepare_ai_materials(context)
+            self.report({'INFO'}, f'{collection.name}: {count} materials flattened; transparency and shader effects discarded in copy')
+            return {'FINISHED'}
+        except Exception as exc: return _error(self,exc)
+
+
+class SPRITE3D_OT_ai_timeline(bpy.types.Operator):
+    bl_idname = 'sprite3d.ai_timeline'
+    bl_label = 'Use Generated Clip Range'
+    bl_description = 'Set the scene timeline to the selected generated collection for billboard baking'
+    bl_options = {'REGISTER','UNDO'}
+    def execute(self, context):
+        for obj in context.selected_objects:
+            for collection in obj.users_collection:
+                if 'picoware_ai_end' in collection:
+                    context.scene.frame_start = int(collection['picoware_ai_start'])
+                    context.scene.frame_end = round(collection['picoware_ai_end'])
+                    self.report({'INFO'}, 'Timeline set; select meshes and Export Animated Billboard')
+                    return {'FINISHED'}
+        self.report({'ERROR'}, 'Select objects from an imported animated collection')
+        return {'CANCELLED'}
+
+
+class SPRITE3D_PT_ai(bpy.types.Panel):
+    bl_label = 'Generate with AI'
+    bl_idname = 'SPRITE3D_PT_ai'
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Sprite3D'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        s = context.window_manager.sprite3d_ai
+        settings = layout.column(); settings.enabled = not s.busy
+        for key in ('helper','token','endpoint','model'): settings.prop(s,key)
+        settings.operator('sprite3d.ai',text='Check Connection').action='CHECK'
+        for key in ('prompt','triangle_target','seed','animated'): settings.prop(s,key)
+        if s.animated:
+            row=settings.row();row.prop(s,'duration');row.prop(s,'fps')
+            settings.label(text='Object motion only; no deformation or material animation')
+        settings.operator('sprite3d.ai',text='Generate / Retry',icon='PLAY').action='GENERATE'
+        row=layout.row()
+        if s.busy: row.operator('sprite3d.ai',text='Cancel').action='CANCEL'
+        if s.job: row.operator('sprite3d.ai',text='Refresh').action='REFRESH'
+        # Keep long model errors inspectable rather than truncating them to one label.
+        box=layout.box()
+        import textwrap
+        for line in textwrap.wrap(s.status, width=48): box.label(text=line)
+        row=layout.row();row.enabled=s.complete
+        row.operator('sprite3d.ai',text='Preview').action='PREVIEW'
+        row.operator('sprite3d.ai',text='Import into Blender',icon='IMPORT').action='IMPORT'
+        if s.complete:
+            layout.label(text='Review appearance and a full animation loop in Blender', icon='INFO')
+        layout.operator('sprite3d.ai_prepare')
+        layout.operator('sprite3d.ai_timeline')
+        layout.label(text='Mesh export is static; use billboards for animation')
+
+
+AI_CLASSES = (SPRITE3D_AI_settings, SPRITE3D_OT_ai, SPRITE3D_OT_ai_prepare,
+              SPRITE3D_OT_ai_timeline, SPRITE3D_PT_ai)
+
+
 CLASSES = (SPRITE3D_OT_import, SPRITE3D_OT_export, SPRITE3D_OT_export_billboard,
-           SPRITE3D_OT_save_source, SPRITE3D_PT_tools)
+           SPRITE3D_OT_save_source, SPRITE3D_PT_tools) + AI_CLASSES
 
 
 def register():
     for cls in CLASSES:
         bpy.utils.register_class(cls)
+    bpy.types.WindowManager.sprite3d_ai = PointerProperty(type=SPRITE3D_AI_settings, options={'SKIP_SAVE'})
     bpy.types.TOPBAR_MT_file_import.append(_menu_import)
     bpy.types.TOPBAR_MT_file_export.append(_menu_export)
 
 
 def unregister():
+    global _AI_EXECUTOR
+    for operator in list(_AI_RUNNING):
+        operator.cancel(bpy.context)
+    if _AI_EXECUTOR is not None:
+        _AI_EXECUTOR.shutdown(wait=False)
+        _AI_EXECUTOR = None
+    del bpy.types.WindowManager.sprite3d_ai
     bpy.types.TOPBAR_MT_file_export.remove(_menu_export)
     bpy.types.TOPBAR_MT_file_import.remove(_menu_import)
     for cls in reversed(CLASSES):

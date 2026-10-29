@@ -367,44 +367,44 @@ void entity_set(struct mjs *mjs)
         }
     }
 
-    else if (strcmp(name, "is_active") == 0)
+    else if (strcmp(name, "isActive") == 0)
     {
-        entity_instance->is_active = (mjs_get_boolean(mjs, 1)) ? 1 : 0;
+        entity_instance->is_active = mjs_get_boolean(mjs, 1);
     }
-    else if (strcmp(name, "is_visible") == 0)
+    else if (strcmp(name, "isVisible") == 0)
     {
-        entity_instance->is_visible = (mjs_get_boolean(mjs, 1)) ? 1 : 0;
+        entity_instance->is_visible = mjs_get_boolean(mjs, 1);
     }
-    else if (strcmp(name, "is_player") == 0)
+    else if (strcmp(name, "isPlayer") == 0)
     {
-        entity_instance->is_player = (mjs_get_boolean(mjs, 1)) ? 1 : 0;
+        entity_instance->is_player = mjs_get_boolean(mjs, 1);
     }
 
-    else if (strcmp(name, "move_timer") == 0)
+    else if (strcmp(name, "moveTimer") == 0)
         entity_instance->move_timer = mjs_get_float(mjs, 1);
-    else if (strcmp(name, "elapsed_move_timer") == 0)
+    else if (strcmp(name, "elapsedMoveTimer") == 0)
         entity_instance->elapsed_move_timer = mjs_get_float(mjs, 1);
     else if (strcmp(name, "radius") == 0)
         entity_instance->radius = mjs_get_float(mjs, 1);
     else if (strcmp(name, "speed") == 0)
         entity_instance->speed = mjs_get_float(mjs, 1);
-    else if (strcmp(name, "attack_timer") == 0)
+    else if (strcmp(name, "attackTimer") == 0)
         entity_instance->attack_timer = mjs_get_float(mjs, 1);
-    else if (strcmp(name, "elapsed_attack_timer") == 0)
+    else if (strcmp(name, "elapsedAttackTimer") == 0)
         entity_instance->elapsed_attack_timer = mjs_get_float(mjs, 1);
     else if (strcmp(name, "strength") == 0)
         entity_instance->strength = mjs_get_float(mjs, 1);
     else if (strcmp(name, "health") == 0)
         entity_instance->health = mjs_get_float(mjs, 1);
-    else if (strcmp(name, "max_health") == 0)
+    else if (strcmp(name, "maxHealth") == 0)
         entity_instance->max_health = mjs_get_float(mjs, 1);
     else if (strcmp(name, "level") == 0)
         entity_instance->level = mjs_get_float(mjs, 1);
     else if (strcmp(name, "xp") == 0)
         entity_instance->xp = mjs_get_float(mjs, 1);
-    else if (strcmp(name, "health_regen") == 0)
+    else if (strcmp(name, "healthRegen") == 0)
         entity_instance->health_regen = mjs_get_float(mjs, 1);
-    else if (strcmp(name, "elapsed_health_regen") == 0)
+    else if (strcmp(name, "elapsedHealthRegen") == 0)
         entity_instance->elapsed_health_regen = mjs_get_float(mjs, 1);
     else if (strcmp(name, "rotation") == 0)
         entity_instance->set3DSpriteRotation(mjs_get_float(mjs, 1));
@@ -423,19 +423,19 @@ void entity_set(struct mjs *mjs)
         if (mjs_is_number(v))
             entity_instance->type = (EntityType)mjs_get_int(mjs, v);
     }
-    else if (strcmp(name, "sprite_3d_type") == 0)
+    else if (strcmp(name, "sprite3DType") == 0)
     {
         mjs_val_t v = mjs_arg(mjs, 1);
         if (mjs_is_number(v))
             entity_instance->sprite_3d_type = (Sprite3DType)mjs_get_int(mjs, v);
     }
-    else if (strcmp(name, "billboard_pose") == 0)
+    else if (strcmp(name, "billboardPose") == 0)
     {
         mjs_val_t v = mjs_arg(mjs, 1);
         if (mjs_is_number(v))
             entity_instance->setBillboardPose((int)mjs_get_int(mjs, v));
     }
-    else if (strcmp(name, "billboard_world_height") == 0)
+    else if (strcmp(name, "billboardWorldHeight") == 0)
     {
         entity_instance->billboard_world_height = mjs_get_float(mjs, 1);
     }
@@ -586,7 +586,7 @@ void entity_create(struct mjs *mjs, mjs_val_t *entity_obj)
     mjs_set_getter(mjs, *entity_obj, "isPlayer", ~0, entity_get_is_player);
     mjs_set_getter(mjs, *entity_obj, "aabbDirty", ~0, entity_get_aabb_dirty);
     mjs_set_getter(mjs, *entity_obj, "moved", ~0, entity_get_moved);
-    mjs_set_getter(mjs, *entity_obj, "has3dSprite", ~0, entity_get_has_3d_sprite);
+    mjs_set_getter(mjs, *entity_obj, "has3DSprite", ~0, entity_get_has_3d_sprite);
     mjs_set_getter(mjs, *entity_obj, "hasChangedPosition", ~0, entity_get_has_changed_position);
     mjs_set_getter(mjs, *entity_obj, "moveTimer", ~0, entity_get_move_timer);
     mjs_set_getter(mjs, *entity_obj, "elapsedMoveTimer", ~0, entity_get_elapsed_move_timer);
@@ -603,7 +603,7 @@ void entity_create(struct mjs *mjs, mjs_val_t *entity_obj)
     mjs_set_getter(mjs, *entity_obj, "elapsedHealthRegen", ~0, entity_get_elapsed_health_regen);
     mjs_set_getter(mjs, *entity_obj, "spriteRotation", ~0, entity_get_sprite_rotation);
     mjs_set_getter(mjs, *entity_obj, "spriteScale", ~0, entity_get_sprite_scale);
-    mjs_set_getter(mjs, *entity_obj, "sprite3dType", ~0, entity_get_sprite_3d_type);
+    mjs_set_getter(mjs, *entity_obj, "sprite3DType", ~0, entity_get_sprite_3d_type);
     mjs_set_getter(mjs, *entity_obj, "billboardPose", ~0, entity_get_billboard_pose);
     mjs_set_getter(mjs, *entity_obj, "billboardWorldHeight", ~0, entity_get_billboard_world_height);
 

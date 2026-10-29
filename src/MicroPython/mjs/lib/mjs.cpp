@@ -1,5 +1,6 @@
 #include "mjs.h"
 #include "array_buf.h"
+#include "color.h"
 #include <math.h>
 
 char *mjs_copy_string_arg(struct mjs *mjs, uint8_t arg)
@@ -228,22 +229,31 @@ bool mjs_read_buffer(struct mjs *mjs, mjs_val_t value, size_t expected_length,
 
     for (size_t i = 0; i < expected_length; i++)
     {
-        const mjs_val_t item = mjs_array_get(mjs, value, static_cast<unsigned long>(i));
-        if (!mjs_is_number(item))
+        mjs_val_t item = mjs_array_get(mjs, value, static_cast<unsigned long>(i));
+        if (mjs_is_number(item))
         {
-            mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "image %s values must be integers from 0 to 255", name);
+            const double byte = mjs_get_double(mjs, item);
+            if (!isfinite(byte) || byte < 0 || byte > 255 || byte != static_cast<uint8_t>(byte))
+            {
+                mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "image %s values must be integers from 0 to 255", name);
+                mjs_input_buffer_free(buffer);
+                return false;
+            }
+            buffer->owned_data[i] = static_cast<uint8_t>(byte);
+        }
+        else if (mjs_is_string(item))
+        {
+            size_t len;
+            const char *str = mjs_get_string(mjs, &item, &len);
+            uint32_t _color = color_parse_str(str);
+            buffer->owned_data[i] = static_cast<uint8_t>(_color & 0xFF);
+        }
+        else
+        {
+            mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "image %s values must be numbers (0 to 255) or strings", name);
             mjs_input_buffer_free(buffer);
             return false;
         }
-
-        const double byte = mjs_get_double(mjs, item);
-        if (!isfinite(byte) || byte < 0 || byte > 255 || byte != static_cast<uint8_t>(byte))
-        {
-            mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "image %s values must be integers from 0 to 255", name);
-            mjs_input_buffer_free(buffer);
-            return false;
-        }
-        buffer->owned_data[i] = static_cast<uint8_t>(byte);
     }
 
     return true;

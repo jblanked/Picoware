@@ -201,7 +201,7 @@ void level_set(struct mjs *mjs)
             level_instance->setLightDirection(x, y, z);
     }
     else if (strcmp(name, "shadowColor") == 0)
-        level_instance->setShadowColor((uint16_t)mjs_get_int(mjs, mjs_arg(mjs, 1)));
+        level_instance->setShadowColor(mjs_get_color(mjs, mjs_arg(mjs, 1)));
     else if (strcmp(name, "clearAllowed") == 0)
         level_instance->setClearAllowed(mjs_get_bool(mjs, mjs_arg(mjs, 1)));
 }

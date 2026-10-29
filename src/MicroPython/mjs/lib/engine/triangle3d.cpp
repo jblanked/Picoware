@@ -152,7 +152,7 @@ void triangle3d_create(struct mjs *mjs, mjs_val_t *triangle3d_obj)
     float z1 = mjs_is_number(z1_val) ? static_cast<float>(mjs_get_double(mjs, z1_val)) : 0.0;
     float z2 = mjs_is_number(z2_val) ? static_cast<float>(mjs_get_double(mjs, z2_val)) : 0.0;
     float z3 = mjs_is_number(z3_val) ? static_cast<float>(mjs_get_double(mjs, z3_val)) : 0.0;
-    uint16_t color = mjs_is_number(color_val) ? static_cast<uint16_t>(mjs_get_int(mjs, color_val)) : 0x0000;
+    uint16_t color = mjs_get_color(mjs, color_val);
     bool wireframe = mjs_is_boolean(wireframe_val) ? mjs_get_bool(mjs, wireframe_val) : false;
 
     triangle3d_instance = new Triangle3D(x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe);

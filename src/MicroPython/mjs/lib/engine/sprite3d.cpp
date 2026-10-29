@@ -51,7 +51,7 @@ void sprite3d_add_triangle(struct mjs *mjs)
         const float y3 = mjs_get_float(mjs, 7);
         const float z3 = mjs_get_float(mjs, 8);
         mjs_val_t color_val = mjs_arg(mjs, 9);
-        const uint16_t color = mjs_is_number(color_val) ? (uint16_t)mjs_get_int(mjs, color_val) : 0x0000;
+        const uint16_t color = mjs_get_color(mjs, color_val);
         mjs_val_t wireframe_val = mjs_arg(mjs, 10);
         const bool wireframe = mjs_is_boolean(wireframe_val) ? mjs_get_bool(mjs, wireframe_val) : false;
         sprite3d_instance->addTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe);
@@ -198,7 +198,7 @@ void sprite3d_update_triangle(struct mjs *mjs)
     const float y3 = mjs_get_float(mjs, 8);
     const float z3 = mjs_get_float(mjs, 9);
     mjs_val_t color_val = mjs_arg(mjs, 10);
-    const uint16_t color = mjs_is_number(color_val) ? (uint16_t)mjs_get_int(mjs, color_val) : 0x0000;
+    const uint16_t color = mjs_get_color(mjs, color_val);
     mjs_val_t wireframe_val = mjs_arg(mjs, 11);
     const bool wireframe = mjs_is_boolean(wireframe_val) ? mjs_get_bool(mjs, wireframe_val) : true;
     bool result = sprite3d_instance->updateTriangle(index, x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe);
@@ -218,12 +218,7 @@ void sprite3d_create_humanoid(struct mjs *mjs)
     {
         height = (float)mjs_get_double(mjs, height_val);
     }
-    uint16_t color = 0x0000;
-    mjs_val_t color_val = mjs_arg(mjs, 1);
-    if (mjs_is_number(color_val))
-    {
-        color = (uint16_t)mjs_get_int(mjs, color_val);
-    }
+    uint16_t color = mjs_get_color(mjs, mjs_arg(mjs, 1));
     sprite3d_instance->createHumanoid(height, color);
     mjs_return(mjs, MJS_UNDEFINED);
 }
@@ -241,12 +236,7 @@ void sprite3d_create_tree(struct mjs *mjs)
     {
         height = (float)mjs_get_double(mjs, height_val);
     }
-    uint16_t color = 0x0000;
-    mjs_val_t color_val = mjs_arg(mjs, 1);
-    if (mjs_is_number(color_val))
-    {
-        color = (uint16_t)mjs_get_int(mjs, color_val);
-    }
+    uint16_t color = mjs_get_color(mjs, mjs_arg(mjs, 1));
     sprite3d_instance->createTree(height, color);
     mjs_return(mjs, MJS_UNDEFINED);
 }
@@ -270,12 +260,7 @@ void sprite3d_create_house(struct mjs *mjs)
     {
         height = (float)mjs_get_double(mjs, height_val);
     }
-    uint16_t color = 0x0000;
-    mjs_val_t color_val = mjs_arg(mjs, 2);
-    if (mjs_is_number(color_val))
-    {
-        color = (uint16_t)mjs_get_int(mjs, color_val);
-    }
+    uint16_t color = mjs_get_color(mjs, mjs_arg(mjs, 2));
     sprite3d_instance->createHouse(width, height, color);
     mjs_return(mjs, MJS_UNDEFINED);
 }
@@ -299,12 +284,7 @@ void sprite3d_create_pillar(struct mjs *mjs)
     {
         radius = (float)mjs_get_double(mjs, radius_val);
     }
-    uint16_t color = 0x0000;
-    mjs_val_t color_val = mjs_arg(mjs, 2);
-    if (mjs_is_number(color_val))
-    {
-        color = (uint16_t)mjs_get_int(mjs, color_val);
-    }
+    uint16_t color = mjs_get_color(mjs, mjs_arg(mjs, 2));
     sprite3d_instance->createPillar(height, radius, color);
     mjs_return(mjs, MJS_UNDEFINED);
 }
@@ -337,12 +317,7 @@ void sprite3d_create_wall(struct mjs *mjs)
     {
         depth = (float)mjs_get_double(mjs, depth_val);
     }
-    uint16_t color = 0x0000;
-    mjs_val_t color_val = mjs_arg(mjs, 6);
-    if (mjs_is_number(color_val))
-    {
-        color = (uint16_t)mjs_get_int(mjs, color_val);
-    }
+    uint16_t color = mjs_get_color(mjs, mjs_arg(mjs, 6));
     sprite3d_instance->createWall(x, y, z, width, height, depth, color);
     mjs_return(mjs, MJS_UNDEFINED);
 }
@@ -360,12 +335,7 @@ void sprite3d_create_cube(struct mjs *mjs)
     const float width = mjs_get_float(mjs, 3);
     const float height = mjs_get_float(mjs, 4);
     const float depth = mjs_get_float(mjs, 5);
-    uint16_t color = 0x0000;
-    mjs_val_t color_val = mjs_arg(mjs, 6);
-    if (mjs_is_number(color_val))
-    {
-        color = (uint16_t)mjs_get_int(mjs, color_val);
-    }
+    uint16_t color = mjs_get_color(mjs, mjs_arg(mjs, 6));
     sprite3d_instance->createCube(x, y, z, width, height, depth, color);
     mjs_return(mjs, MJS_UNDEFINED);
 }
@@ -384,12 +354,7 @@ void sprite3d_create_cylinder(struct mjs *mjs)
     const float height = mjs_get_float(mjs, 4);
     mjs_val_t segments_val = mjs_arg(mjs, 5);
     uint8_t segments = (uint8_t)(mjs_is_number(segments_val) ? mjs_get_int(mjs, segments_val) : 0);
-    uint16_t color = 0x0000;
-    mjs_val_t color_val = mjs_arg(mjs, 6);
-    if (mjs_is_number(color_val))
-    {
-        color = (uint16_t)mjs_get_int(mjs, color_val);
-    }
+    uint16_t color = mjs_get_color(mjs, mjs_arg(mjs, 6));
     sprite3d_instance->createCylinder(x, y, z, radius, height, segments, color);
     mjs_return(mjs, MJS_UNDEFINED);
 }
@@ -407,12 +372,7 @@ void sprite3d_create_sphere(struct mjs *mjs)
     const float radius = mjs_get_float(mjs, 3);
     mjs_val_t segments_val = mjs_arg(mjs, 4);
     uint8_t segments = (uint8_t)(mjs_is_number(segments_val) ? mjs_get_int(mjs, segments_val) : 0);
-    uint16_t color = 0x0000;
-    mjs_val_t color_val = mjs_arg(mjs, 5);
-    if (mjs_is_number(color_val))
-    {
-        color = (uint16_t)mjs_get_int(mjs, color_val);
-    }
+    uint16_t color = mjs_get_color(mjs, mjs_arg(mjs, 5));
     sprite3d_instance->createSphere(x, y, z, radius, segments, color);
     mjs_return(mjs, MJS_UNDEFINED);
 }
@@ -430,12 +390,7 @@ void sprite3d_create_triangular_prism(struct mjs *mjs)
     const float width = mjs_get_float(mjs, 3);
     const float height = mjs_get_float(mjs, 4);
     const float depth = mjs_get_float(mjs, 5);
-    uint16_t color = 0x0000;
-    mjs_val_t color_val = mjs_arg(mjs, 6);
-    if (mjs_is_number(color_val))
-    {
-        color = (uint16_t)mjs_get_int(mjs, color_val);
-    }
+    uint16_t color = mjs_get_color(mjs, mjs_arg(mjs, 6));
     sprite3d_instance->createTriangularPrism(x, y, z, width, height, depth, color);
     mjs_return(mjs, MJS_UNDEFINED);
 }

@@ -226,11 +226,11 @@ void game_set(struct mjs *mjs)
     }
     else if (strcmp(key, "fgColor") == 0)
     {
-        game_instance->fg_color = (uint16_t)mjs_get_int(mjs, mjs_arg(mjs, 1));
+        game_instance->fg_color = mjs_get_color(mjs, mjs_arg(mjs, 1));
     }
     else if (strcmp(key, "bgColor") == 0)
     {
-        game_instance->bg_color = (uint16_t)mjs_get_int(mjs, mjs_arg(mjs, 1));
+        game_instance->bg_color = mjs_get_color(mjs, mjs_arg(mjs, 1));
     }
 }
 
@@ -281,10 +281,10 @@ void game_create(struct mjs *mjs, mjs_val_t *game_obj)
     uint16_t bg = 0xFFFF;
     mjs_val_t fg_val = mjs_arg(mjs, 3);
     if (mjs_is_number(fg_val))
-        fg = (uint16_t)mjs_get_int(mjs, fg_val);
+        fg = mjs_get_color(mjs, fg_val);
     mjs_val_t bg_val = mjs_arg(mjs, 4);
     if (mjs_is_number(bg_val))
-        bg = (uint16_t)mjs_get_int(mjs, bg_val);
+        bg = mjs_get_color(mjs, bg_val);
 
     game_draw_instance = new Draw();
     if (!game_draw_instance)

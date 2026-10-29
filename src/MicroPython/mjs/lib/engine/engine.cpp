@@ -120,7 +120,7 @@ void engine_update_game_input(struct mjs *mjs)
 void engine_set_clamp(struct mjs *mjs)
 {
     if (engine_instance)
-        engine_instance->setClamp(mjs_get_bool(mjs, mjs_arg(mjs, 0)));
+        engine_instance->setClamp(mjs_get_boolean(mjs, 0));
 }
 
 void engine_create(struct mjs *mjs, mjs_val_t *engine_obj)
@@ -147,7 +147,7 @@ void engine_create(struct mjs *mjs, mjs_val_t *engine_obj)
         return;
     }
 
-    bool clamp = mjs_get_bool(mjs, mjs_arg(mjs, 2));
+    bool clamp = mjs_get_boolean(mjs, 2);
     engine_instance = new GameEngine(game, fps, clamp);
     if (!engine_instance)
     {

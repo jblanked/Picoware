@@ -115,7 +115,7 @@ void triangle3d_set(struct mjs *mjs)
         }
         else if (strcmp(name, "wireframe") == 0)
         {
-            triangle3d_instance->wireframe = mjs_get_boolean(mjs, mjs_arg(mjs, 1));
+            triangle3d_instance->wireframe = mjs_get_boolean(mjs, 1);
         }
     }
 }

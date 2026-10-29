@@ -200,7 +200,7 @@ void sprite3d_update_triangle(struct mjs *mjs)
     mjs_val_t color_val = mjs_arg(mjs, 10);
     const uint16_t color = mjs_get_color(mjs, color_val);
     mjs_val_t wireframe_val = mjs_arg(mjs, 11);
-    const bool wireframe = mjs_is_boolean(wireframe_val) ? mjs_get_bool(mjs, wireframe_val) : true;
+    const bool wireframe = mjs_is_boolean(wireframe_val) ? mjs_get_bool(mjs, wireframe_val) : false;
     bool result = sprite3d_instance->updateTriangle(index, x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe);
     mjs_return(mjs, mjs_mk_boolean(mjs, result));
 }

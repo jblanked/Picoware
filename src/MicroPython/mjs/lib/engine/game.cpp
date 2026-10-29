@@ -222,7 +222,7 @@ void game_set(struct mjs *mjs)
     }
     else if (strcmp(key, "isActive") == 0)
     {
-        game_instance->is_active = (mjs_get_bool(mjs, mjs_arg(mjs, 1))) ? 1 : 0;
+        game_instance->is_active = mjs_get_boolean(mjs, 1);
     }
     else if (strcmp(key, "fgColor") == 0)
     {

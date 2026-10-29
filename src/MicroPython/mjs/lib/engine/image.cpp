@@ -83,8 +83,8 @@ void image_create(struct mjs *mjs, mjs_val_t *image_obj)
     }
     mjs_val_t width_val = mjs_get(mjs, size_obj, "width", ~0);
     mjs_val_t height_val = mjs_get(mjs, size_obj, "height", ~0);
-    float width = mjs_get_float(mjs, width_val);
-    float height = mjs_get_float(mjs, height_val);
+    float width = (float)mjs_get_double(mjs, width_val);
+    float height = (float)mjs_get_double(mjs, height_val);
     bool is_8bit = mjs_get_boolean(mjs, 2);
 
     const mjs_val_t data_value = mjs_arg(mjs, 3);
@@ -93,16 +93,6 @@ void image_create(struct mjs *mjs, mjs_val_t *image_obj)
     const bool has_data = !mjs_is_undefined(data_value) && !mjs_is_null(data_value);
     const bool has_path = !mjs_is_undefined(path_value) && !mjs_is_null(path_value);
     const bool has_mask = !mjs_is_undefined(mask_value) && !mjs_is_null(mask_value);
-
-    const Vector size(width, height);
-    const Image image_template(size, is_8bit);
-    const size_t data_size = image_template.getDataSize();
-    const size_t mask_size = image_template.getMaskSize();
-    if (has_data && data_size == 0)
-    {
-        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "invalid image size");
-        return;
-    }
 
     const char *path = "";
     size_t path_length = 0;
@@ -132,29 +122,20 @@ void image_create(struct mjs *mjs, mjs_val_t *image_obj)
 
     mjs_input_buffer data_buffer;
     mjs_input_buffer mask_buffer;
-    if (has_data && !mjs_read_buffer(mjs, data_value, data_size, false, "pixel data", &data_buffer))
+    if (has_data && !mjs_read_buffer(mjs, data_value, static_cast<size_t>(mjs_array_length(mjs, data_value)), false, "pixel data", &data_buffer))
+    {
         return;
-    if (has_mask && !mjs_read_buffer(mjs, mask_value, mask_size, true, "mask", &mask_buffer))
+    }
+    if (has_mask && !mjs_read_buffer(mjs, mask_value, static_cast<size_t>(mjs_array_length(mjs, mask_value)), true, "mask", &mask_buffer))
     {
         mjs_input_buffer_free(&data_buffer);
         return;
     }
 
-    Image *new_instance = new Image(size, is_8bit);
-    if ((has_data && !new_instance->setData(data_buffer.data, data_buffer.length)) ||
-        (has_path && path_length > 0 && !new_instance->setPath(path)) ||
-        (has_mask && !new_instance->setMask(mask_buffer.data, mask_buffer.length)))
-    {
-        delete new_instance;
-        mjs_input_buffer_free(&data_buffer);
-        mjs_input_buffer_free(&mask_buffer);
-        mjs_prepend_errorf(mjs, MJS_OUT_OF_MEMORY, "unable to copy image data");
-        return;
-    }
+    image_instance = new Image(Vector(width, height), has_data ? data_buffer.data : nullptr, has_path ? path : nullptr, has_mask ? mask_buffer.data : nullptr);
 
     mjs_input_buffer_free(&data_buffer);
     mjs_input_buffer_free(&mask_buffer);
-    image_instance = new_instance;
 
     mjs_set_getter(mjs, *image_obj, "hasMask", ~0, image_has_mask);
     mjs_set_getter(mjs, *image_obj, "size", ~0, image_get_size);

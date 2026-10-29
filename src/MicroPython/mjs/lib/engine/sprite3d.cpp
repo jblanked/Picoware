@@ -53,7 +53,7 @@ void sprite3d_add_triangle(struct mjs *mjs)
         mjs_val_t color_val = mjs_arg(mjs, 9);
         const uint16_t color = mjs_is_number(color_val) ? (uint16_t)mjs_get_int(mjs, color_val) : 0x0000;
         mjs_val_t wireframe_val = mjs_arg(mjs, 10);
-        const bool wireframe = mjs_is_boolean(wireframe_val) ? mjs_get_bool(mjs, wireframe_val) : true;
+        const bool wireframe = mjs_is_boolean(wireframe_val) ? mjs_get_bool(mjs, wireframe_val) : false;
         sprite3d_instance->addTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe);
     }
 }

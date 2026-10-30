@@ -3,6 +3,8 @@
  * All rights reserved
  */
 
+#include "mjs_util.h"
+
 #include "common/cs_varint.h"
 
 #include "mjs_bcode.h"
@@ -515,11 +517,11 @@ static enum mjs_err parse_literal(struct pstate *p, const struct tok *t)
   }
   case TOK_NUM:
   {
-    double d = strtod(t->ptr, NULL);
-    unsigned long uv = strtoul(t->ptr + 2, NULL, 16);
+    double d = mystrtod(t->ptr, NULL);
     if (t->ptr[0] == '0' && t->ptr[1] == 'x')
-      d = uv;
-    if (d == (double)(int64_t)d && !isinf(d))
+      d = strtoul(t->ptr + 2, NULL, 16);
+    if (d >= -9223372036854775808.0 && d < 9223372036854775808.0 &&
+        d == (double)(int64_t)d)
     {
       emit_byte(p, OP_PUSH_INT);
       emit_int(p, (int64_t)d);

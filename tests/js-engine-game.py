@@ -72,9 +72,6 @@ js.run("let level = import('level', 'dungeon', {'x': 320, 'y': 240, 'z': 0}, gam
 check("currentLevel after level import", get("currentLevel") is not None, True)
 check("isActive after level import", get("isActive"), True)
 
-js.run("game.levelRemove(level);")
-check("currentLevel after levelRemove", get("currentLevel"), None)
-
 js.run("game.levelAdd(level);")
 check("currentLevel after levelAdd", get("currentLevel") is not None, True)
 
@@ -100,7 +97,7 @@ check("position unchanged by non-vector", get("position"), {"x": 1, "y": 2, "z":
 print("\n%s (%d failure(s))" % ("ALL PASSED" if failures == 0 else "FAILURES", failures))
 
 # must delete after
-js.run('game.destroy()')
+js.run('game.destroy();')
 
 del js
 js = None

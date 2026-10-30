@@ -149,8 +149,11 @@ print("aabbMax after set (should be unchanged): %s" % get("aabbMax"))
 print("\n--- Read-only checks ---")
 for key in ["is8bit", "aabbDirty", "moved", "has3DSprite", "hasChangedPosition"]:
     before = get(key)
-    set_(key, "true")
-    print("%s before/after set: %s / %s" % (key, before, get(key)))
+    try:
+        set_(key, "true")
+        print("%s before/after set: %s / %s" % (key, before, get(key)))
+    except Exception as e:
+        print("%s raised: %s" % (key, e))
 
 # errors
 print("\n--- Error paths ---")

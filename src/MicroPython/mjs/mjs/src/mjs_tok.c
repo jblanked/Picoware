@@ -3,6 +3,8 @@
  * All rights reserved
  */
 
+#include "mjs_util.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -75,7 +77,7 @@ static int getnum(struct pstate *p) {
     // MSVC6 strtod cannot parse 0x... numbers, thus this ugly workaround.
     strtoul(p->pos + 2, (char **) &p->pos, 16);
   } else {
-    strtod(p->pos, (char **) &p->pos);
+    mystrtod(p->pos, (char **) &p->pos);
   }
   p->tok.len = p->pos - p->tok.ptr;
   p->pos--;

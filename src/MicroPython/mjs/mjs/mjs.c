@@ -3376,6 +3376,8 @@ extern "C"
 
   struct mjs_bcode_part;
 
+MJS_PRIVATE double mystrtod(const char *str, char **end);
+
 #if MJS_ENABLE_DEBUG
   MJS_PRIVATE const char *opcodetostr(uint8_t opcode);
   MJS_PRIVATE size_t mjs_disasm_single(const uint8_t *code, size_t i);
@@ -9887,7 +9889,7 @@ MJS_PRIVATE mjs_err_t mjs_execute(struct mjs *mjs, size_t off, mjs_val_t *res)
     {
       int llen, n = cs_varint_decode_unsafe(&code[i + 1], &llen);
       mjs_push(mjs, mjs_mk_number(
-                        mjs, strtod((char *)code + i + 1 + llen, NULL)));
+                        mjs, mystrtod((char *)code + i + 1 + llen, NULL)));
       i += llen + n;
       break;
     }
@@ -12815,7 +12817,7 @@ static void frozen_cb(void *data, const char *name, size_t name_len,
     break;
   }
   case JSON_TYPE_NUMBER:
-    v = mjs_mk_number(ctx->mjs, strtod(token->ptr, NULL));
+    v = mjs_mk_number(ctx->mjs, mystrtod(token->ptr, NULL));
     break;
   case JSON_TYPE_TRUE:
     v = mjs_mk_boolean(ctx->mjs, 1);
@@ -12861,7 +12863,7 @@ static void frozen_cb(void *data, const char *name, size_t name_len,
          * TODO(dfrank): consult name_len. Currently it's not a problem due to
          * the implementation details of frozen, but it might change
          */
-        int idx = (int)strtod(name, NULL);
+        int idx = (int)mystrtod(name, NULL);
         mjs_array_set(ctx->mjs, ctx->frame->val, idx, v);
       }
       else
@@ -13923,11 +13925,11 @@ static enum mjs_err parse_literal(struct pstate *p, const struct tok *t)
   }
   case TOK_NUM:
   {
-    double d = strtod(t->ptr, NULL);
-    unsigned long uv = strtoul(t->ptr + 2, NULL, 16);
+    double d = mystrtod(t->ptr, NULL);
     if (t->ptr[0] == '0' && t->ptr[1] == 'x')
-      d = uv;
-    if (d == (double)(int64_t)d && !isinf(d))
+      d = strtoul(t->ptr + 2, NULL, 16);
+    if (d >= -9223372036854775808.0 && d < 9223372036854775808.0 &&
+        d == (double)(int64_t)d)
     {
       emit_byte(p, OP_PUSH_INT);
       emit_int(p, (int64_t)d);
@@ -15757,7 +15759,7 @@ static int getnum(struct pstate *p)
   }
   else
   {
-    strtod(p->pos, (char **)&p->pos);
+    mystrtod(p->pos, (char **)&p->pos);
   }
   p->tok.len = p->pos - p->tok.ptr;
   p->pos--;
@@ -15986,6 +15988,89 @@ MJS_PRIVATE int pnext(struct pstate *p)
 /* Amalgamated: #include "mjs_util.h" */
 /* Amalgamated: #include "mjs_tok.h" */
 
+/* Like mjson's mystrtod, avoid libc's allocating decimal converter. Keep a
+ * bounded significand and scale in logarithmic time, even for huge exponents.
+ * This parses decimal numbers, not libc's hex/inf/nan extensions. */
+MJS_PRIVATE double mystrtod(const char *str, char **end)
+{
+  static const double powers[] = {1e1, 1e2, 1e4, 1e8, 1e16,
+                                  1e32, 1e64, 1e128, 1e256};
+  const char *p = str;
+  uint64_t significand = 0;
+  int negative = 0, digits = 0, fraction = 0, seen = 0;
+  int scale = 0, exponent = 0, exponent_negative = 0;
+  double value;
+
+  while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r' ||
+         *p == '\f' || *p == '\v') p++;
+  if (*p == '-' || *p == '+') negative = *p++ == '-';
+  for (;;) {
+    if (*p >= '0' && *p <= '9') {
+      int digit = *p++ - '0';
+      seen = 1;
+      if (digits < 19) {
+        significand = significand * 10 + digit;
+        if (significand != 0) digits++;
+        if (fraction && scale > -1000000) scale--;
+      } else if (!fraction && scale < 1000000) {
+        scale++;
+      }
+    } else if (*p == '.' && !fraction) {
+      fraction = 1;
+      p++;
+    } else {
+      break;
+    }
+  }
+  if (!seen) {
+    if (end != NULL) *end = (char *) str;
+    return 0.0;
+  }
+  if (*p == 'e' || *p == 'E') {
+    const char *e = p + 1;
+    if (*e == '-' || *e == '+') exponent_negative = *e++ == '-';
+    if (*e >= '0' && *e <= '9') {
+      do {
+        if (exponent < 1000000) {
+          exponent = exponent * 10 + (*e - '0');
+          if (exponent > 1000000) exponent = 1000000;
+        }
+        e++;
+      } while (*e >= '0' && *e <= '9');
+      p = e;
+      scale += exponent_negative ? -exponent : exponent;
+    }
+  }
+  if (end != NULL) *end = (char *) p;
+  value = (double) significand;
+  /* Normalize near DBL_MAX so intermediate scaling cannot overflow first. */
+  if (scale > 0 && scale + digits - 1 >= 308 && digits > 1) {
+    double divisor = 1.0;
+    int n;
+    for (n = 1; n < digits; n++) divisor *= 10.0;
+    value /= divisor;
+    scale += digits - 1;
+  }
+  if (significand != 0) {
+    if (scale > 308) {
+      value = INFINITY;
+    } else if (scale < -400) {
+      value = 0.0;
+    } else {
+      unsigned int magnitude = scale < 0 ? (unsigned int) -scale : (unsigned int) scale;
+      unsigned int i = 0;
+      while (magnitude != 0) {
+        if (magnitude & 1) {
+          value = scale < 0 ? value / powers[i] : value * powers[i];
+        }
+        magnitude >>= 1;
+        i++;
+      }
+    }
+  }
+  return negative ? -value : value;
+}
+
 const char *mjs_typeof(mjs_val_t v)
 {
   return mjs_stringify_type(mjs_get_type(v));
@@ -16055,7 +16140,8 @@ void mjs_jprintf(mjs_val_t v, struct mjs *mjs, struct json_out *out)
     char buf[64];
     int pos = 0;
 
-    if (d == (double)(int64_t)d && !isinf(d))
+    if (d >= -9223372036854775808.0 && d < 9223372036854775808.0 &&
+        d == (double)(int64_t)d)
     {
       pos = write_i64(buf, (int64_t)d);
     }

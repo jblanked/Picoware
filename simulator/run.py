@@ -1396,8 +1396,9 @@ def _run_uart_parity_check():
     original_board_id = boards.BOARD_ID
     port = None
     try:
+        boards.BOARD_ID = boards.BOARD_PICOCALC_PICO_2W
         port = UART()
-        if (port._uart_id, port.tx_pin, port.rx_pin) != (0, 0, 1):
+        if (port._uart_id, port.tx_pin, port.rx_pin) != (1, 4, 5):
             raise RuntimeError("simulator PicoCalc UART defaults mismatch")
         del port
         port = None

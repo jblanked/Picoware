@@ -6,14 +6,26 @@ picoware_dir=$(CDPATH= cd -- "$script_dir/.." && pwd)
 build_dir=${PICOWARE_DESKTOP_BUILD_DIR:-"$picoware_dir/builds/MicroPython/desktop"}
 binary="$build_dir/micropython"
 
-if [ ! -x "$binary" ] || ! "$binary" -c 'import engine, ghouls, mjs, vector
+# API probes alone cannot detect behavioral fixes in an existing native module.
+# Rebuild after native source/build-input changes, including mJS lifetime fixes.
+native_sources_newer() {
+    [ -n "$(find "$picoware_dir/src/MicroPython" -type f \
+        \( -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \
+        -o -name '*.S' -o -name '*.mk' -o -name '*.cmake' \) \
+        -newer "$binary" -print -quit)" ]
+}
+
+if [ ! -x "$binary" ] || native_sources_newer || ! "$binary" -c 'import engine, ghouls, mjs, vector
 from micropython import alloc_emergency_exception_buf
 alloc_emergency_exception_buf(100)
 assert hasattr(engine, "Billboard")
 assert hasattr(engine.Entity, "set_billboard")
 assert hasattr(engine.Entity, "set_billboard_pose")
 assert hasattr(engine.Sprite3D, "reserve_triangles")
-engine.Image(vector.Vector(1, 1), True, bytes([255]), None, bytes([128]))' >/dev/null 2>&1; then
+engine.Image(vector.Vector(1, 1), True, bytes([255]), None, bytes([128]))
+js = mjs.MJS()
+js.run("let camera = import(\"camera\");")
+assert js.run("camera.get(\"height\");") is not None' >/dev/null 2>&1; then
     sh "$script_dir/micropython-desktop.sh"
 fi
 

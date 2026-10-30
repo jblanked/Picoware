@@ -64,6 +64,9 @@
 // ESP-IDF: DRAM state, avoids flash gap
 #define UDATA __attribute__((section(".noinit.ccudata")))
 #elif defined(PSHELL_MICROPYTHON)
+#ifdef UDATA
+#undef UDATA
+#endif
 #define UDATA __attribute__((section("ccudata")))
 #else
 #define UDATA __attribute__((section(".ccudata")))
@@ -220,7 +223,7 @@ static int nrelocs UDATA;            // relocation list size
 static char *p UDATA, *lp UDATA;     // current position in source code
 static char *data UDATA;             // data/bss pointer
 static char *data_base UDATA;        // data/bss pointer
-static int *base_sp UDATA;           // stack
+// static int *base_sp UDATA;           // stack
 static uint16_t *le UDATA;           //
 static uint16_t *ecas UDATA;         // case statement patch-up pointer
 static int *ncas UDATA;              // case statement patch-up pointer
@@ -489,8 +492,8 @@ static int wrap_lseek(int handle, int pos, int set)
 
 static int wrap_popcount(int n) { return __builtin_popcount(n); };
 
-static int wrap_printf(void) { return 0; }
-static int wrap_sprintf(void) { return 0; }
+// static int wrap_printf(void) { return 0; }
+// static int wrap_sprintf(void) { return 0; }
 
 #define IS_PRINTF(a) (!strcmp((a)->name, "printf"))
 #define IS_SPRINTF(a) (!strcmp((a)->name, "sprintf"))
@@ -571,7 +574,7 @@ static const struct
                 {0}};
 
 static lfs_file_t *fd UDATA;
-static char *fp UDATA;
+// static char *fp UDATA;
 
 #define NUMOF(a) (sizeof(a) / sizeof(a[0]))
 
@@ -4978,7 +4981,7 @@ int cc(int mode, int argc, char **argv)
     extern char __ccudata_start__, __ccudata_end__;
     memset(&__ccudata_start__, 0, &__ccudata_end__ - &__ccudata_start__);
 #endif
-    extern const char *pshell_version;
+    // extern const char *pshell_version;
     int rslt = -1;
     struct exe_s exe;
 

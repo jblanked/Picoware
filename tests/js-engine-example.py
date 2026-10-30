@@ -7,6 +7,8 @@ let UP = %d;
 let DOWN = %d;
 let LEFT = %d;
 let RIGHT = %d;
+let BACK = %d;
+let input = import('input');
 
 let bird_pixels = [
     "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0xF6", "0xED", "0xED", "0xF2", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0xF6", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0xF6", "0xE9",
@@ -43,83 +45,73 @@ function tick(button) {
         player.set('position', p);
         player.updatePosition();
     }
-    engine.runAsync(false);
+    engine.runAsync(true);
 }
 
-engine.runAsync(false);
+while (true) {
+    let button = input.button;
+    input.reset();
+    if (button === BACK) { break; }
+    tick(button);
+}
+input.reset();
+engine.stop();
+engine.destroy();
 """
 
 
 def start(view_manager) -> bool:
-    """Create the JS interpreter and run the setup script. Returns True when ready."""
+    """Run the entire JavaScript game, returning when Back is pressed."""
     from picoware.system.js import JS
     from picoware.system.buttons import (
         BUTTON_UP,
         BUTTON_DOWN,
         BUTTON_LEFT,
         BUTTON_RIGHT,
+        BUTTON_BACK,
     )
 
     global _js
 
     size = view_manager.draw.size
     _js = JS()
-    _js.run(
-        SETUP
-        % (size.x, size.y, BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT)
-    )
-    print("started")
-    return True
+    try:
+        _js.run(
+            SETUP
+            % (size.x, size.y, BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_BACK)
+        )
+    finally:
+        stop(view_manager)
+    return False
 
 
 def run(view_manager) -> None:
-    """Forward the current button to the JS tick and handle back."""
-    from picoware.system.buttons import BUTTON_BACK
-    
-    print("running")
-
-    button = view_manager.button
-
-    if _js:
-        _js.run("tick(%d);" % button)
-
-    if button == BUTTON_BACK:
-        view_manager.back()
+    """The game loop runs entirely inside start()."""
+    pass
 
 
 def stop(view_manager) -> None:
-    """Stop the engine and release the interpreter."""
+    """Release the interpreter after the JavaScript game has finished."""
     from gc import collect
 
     global _js
 
     if _js is not None:
-        _js.run("engine.stop();")
-        _js.run("engine.destroy();")
         del _js
         _js = None
 
     collect()
+    if view_manager is not None:
+        view_manager.clear()
+
 
 from picoware.system.view_manager import ViewManager
-from picoware.system.view import View
 
 vm = None
-
 try:
     vm = ViewManager()
-    vm.add(
-        View(
-            "app_tester",
-            run,
-            start,
-            stop,
-        )
-    )
-    vm.switch_to("app_tester")
-    while True:
-        vm.run()
+    start(vm)
 finally:
+    stop(vm)
     del vm
     vm = None
-    # collect()

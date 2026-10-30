@@ -18,3 +18,6 @@ res = js.run("""
 """)
 
 print(f"Hello world is {res} pixels long")
+
+print(js.run("let width = draw.size.width;"))
+print(js.run("let height = draw.size.height;"))

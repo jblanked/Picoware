@@ -43,10 +43,10 @@ mp_obj_t mjs_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
 
 mp_obj_t mjs_mp_del(mp_obj_t self_in)
 {
-    lib_unload_modules();
     mjs_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (!self)
+    if (!self || !self->is_initialized)
         return mp_const_none;
+    lib_unload_modules();
     if (self->mjs)
     {
         mjs_destroy(self->mjs);

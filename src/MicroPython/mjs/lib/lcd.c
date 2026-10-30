@@ -271,12 +271,12 @@ void lcd_js_triangle(struct mjs *mjs)
     mjs_return(mjs, MJS_UNDEFINED);
 }
 
-void lcd_js_size(struct mjs *mjs)
+mjs_val_t lcd_js_size(struct mjs *mjs)
 {
     mjs_val_t size_obj = mjs_mk_object(mjs);
     mjs_set(mjs, size_obj, "width", ~0, mjs_mk_number(mjs, (double)LCD_MP_WIDTH));
     mjs_set(mjs, size_obj, "height", ~0, mjs_mk_number(mjs, (double)LCD_MP_HEIGHT));
-    mjs_return(mjs, size_obj);
+    return size_obj;
 }
 
 void lcd_js_screenshot(struct mjs *mjs)
@@ -430,8 +430,8 @@ void lcd_create(struct mjs *mjs, mjs_val_t *lcd_obj)
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_char));
     mjs_set(mjs, *lcd_obj, "text", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_text));
-    mjs_set(mjs, *lcd_obj, "size", ~0,
-            mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_size));
     mjs_set(mjs, *lcd_obj, "swap", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_swap));
+
+    mjs_set_getter(mjs, *lcd_obj, "size", ~0, lcd_js_size);
 }

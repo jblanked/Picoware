@@ -22,5 +22,13 @@
             "picoware/scripts/engine-example.js"
         ],
         "version": "1.0"
+    },
+    {
+        "title": "Flappy Bird",
+        "description": "A Flappy Bird clone",
+        "file_structure": [
+            "picoware/scripts/flappy-bird.js"
+        ],
+        "version": "1.0"
     }
 ]

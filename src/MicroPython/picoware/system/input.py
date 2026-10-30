@@ -649,6 +649,8 @@ class Input:
             from poom_input import key_available
 
             return key_available()
+        if self._current_board_id == BOARD_PICO_DUO:
+            return self._last_button
 
         from picoware_keyboard import key_available
 
@@ -715,6 +717,9 @@ class Input:
 
             return get_key()
 
+        if self._current_board_id == BOARD_PICO_DUO:
+            return self._last_button
+
         from picoware_keyboard import get_key
 
         return get_key()
@@ -744,6 +749,8 @@ class Input:
             from poom_input import get_key_nonblocking
 
             return get_key_nonblocking()
+        if self._current_board_id == BOARD_PICO_DUO:
+            return self._last_button
         from picoware_keyboard import get_key_nonblocking
 
         key = get_key_nonblocking()

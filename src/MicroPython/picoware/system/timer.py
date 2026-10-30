@@ -74,7 +74,7 @@ class Timer:
             mode=Timer.PERIODIC if self._mode == self.PERIODIC else Timer.ONE_SHOT,
             period=self._interval,
             callback=self._callback,
-            hard=False
+            hard=BOARD_HAS_ESP32
         )
 
     def stop(self):

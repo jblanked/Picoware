@@ -3,7 +3,7 @@
 #include "mjs/mjs.h"
 #include "lib/lib.h"
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM) || defined(PICO_DUO)
 #include "../sd/storage.h"
 #elif defined(FLIPPER_ZERO)
 #include "../Flippper/sd/storage.h"

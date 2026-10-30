@@ -121,7 +121,7 @@ void engine_set(struct mjs *mjs)
             mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "Input must be a number");
             return;
         }
-        engine_instance->updateGameInput((uint8_t)mjs_get_int(mjs, value));
+        engine_instance->updateGameInput(mjs_get_int(mjs, value));
     }
 }
 
@@ -180,7 +180,7 @@ void engine_update_game_input(struct mjs *mjs)
         mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "Input must be a number");
         return;
     }
-    engine_instance->updateGameInput((uint8_t)mjs_get_int(mjs, input));
+    engine_instance->updateGameInput(mjs_get_int(mjs, input));
 }
 
 void engine_set_clamp(struct mjs *mjs)

@@ -163,7 +163,8 @@ void level_has_collided(struct mjs *mjs)
     Entity *entity = (Entity *)entity_get_pointer(mjs, 0);
     if (!entity)
     {
-        mjs_return(mjs, mjs_mk_boolean(mjs, 0));
+        mjs_prepend_errorf(mjs, MJS_INTERNAL_ERROR, "No entity instance");
+        mjs_return(mjs, mjs_mk_boolean(mjs, false));
         return;
     }
 

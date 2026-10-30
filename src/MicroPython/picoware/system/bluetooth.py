@@ -1117,7 +1117,7 @@ class Bluetooth:
         """
         return self.advertise(interval_us=None)
 
-    def send(self, data):
+    def send(self, data) -> bool:
         """Send data to all connected central devices (peripheral mode).
 
         Sends a notification to all connected centrals.
@@ -1207,7 +1207,7 @@ class Bluetooth:
             print(f"[Bluetooth] Subscribe error: {e}")
             return False
 
-    def write(self, data, handle=None, response=False):
+    def write(self, data, handle=None, response=False) -> bool:
         """Write data to the connected peripheral (central mode).
 
         Args:

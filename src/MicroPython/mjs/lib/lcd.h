@@ -16,6 +16,7 @@ void lcd_js_polygon(struct mjs *mjs);
 void lcd_js_rectangle(struct mjs *mjs);
 void lcd_js_text(struct mjs *mjs);
 void lcd_js_triangle(struct mjs *mjs);
+void lcd_js_size(struct mjs *mjs);
 void lcd_js_screenshot(struct mjs *mjs);
 void lcd_js_swap(struct mjs *mjs);
 //

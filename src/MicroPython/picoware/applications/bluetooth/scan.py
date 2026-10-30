@@ -73,7 +73,6 @@ def start(view_manager) -> bool:
     """
     from picoware.gui.loading import Loading
     from picoware.gui.menu import Menu
-    from picoware.system.bluetooth import Bluetooth
 
     global _menu, _bluetooth, _loading, _scanned_devices
 

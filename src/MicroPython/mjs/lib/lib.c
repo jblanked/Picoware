@@ -3,6 +3,16 @@
 static lib_module_t lib_loaded_modules[LIB_MODULE_COUNT] = {0};
 static uint8_t lib_loaded_modules_count = 0;
 
+static bool lib_is_multi_instance(lib_module_t module)
+{
+    return module == LIB_MODULE_ENGINE_CAMERA ||
+           module == LIB_MODULE_ENGINE_IMAGE ||
+           module == LIB_MODULE_ENGINE_ENTITY ||
+           module == LIB_MODULE_ENGINE_SPRITE3D ||
+           module == LIB_MODULE_ENGINE_TRIANGLE3D ||
+           module == LIB_MODULE_ENGINE_BILLBOARD;
+}
+
 static bool lib_is_module_loaded(lib_module_t module)
 {
     for (size_t i = 0; i < LIB_MODULE_COUNT; i++)
@@ -23,7 +33,8 @@ void lib_load_module(struct mjs *mjs)
     const char *name = mjs_get_string(mjs, &arg, &len);
     const lib_module_t module = lib_module_from_str(name);
     bool is_module_loaded = false;
-    if (lib_is_module_loaded(module))
+    const bool multi = lib_is_multi_instance(module);
+    if (!multi && lib_is_module_loaded(module))
     {
         mjs_return(mjs, object);
         return;
@@ -141,7 +152,7 @@ void lib_load_module(struct mjs *mjs)
         is_module_loaded = false;
         break;
     }
-    if (is_module_loaded)
+    if (is_module_loaded && !multi && !mjs_is_undefined(object))
     {
         if (lib_loaded_modules_count < LIB_MODULE_COUNT)
         {

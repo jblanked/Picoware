@@ -175,6 +175,12 @@ void Level::entity_add(Entity *entity)
 // Remove an entity from the level
 void Level::entity_remove(Entity *entity)
 {
+    if (!entity)
+    {
+        ENGINE_LOG_INFO("Level::entity_remove called with null entity pointer\n");
+        return;
+    }
+
     if (entity_count == 0)
     {
         ENGINE_LOG_INFO("Level::entity_remove called but no entities are present\n");
@@ -223,6 +229,16 @@ void Level::entity_remove(Entity *entity)
     // Shrink the depth-sort scratch buffer to match
     ENGINE_MEM_FREE(renderOrder);
     renderOrder = entity_count > 0 ? (int *)ENGINE_MEM_MALLOC(entity_count * sizeof(int)) : nullptr;
+}
+
+Entity *Level::getEntity(int index) const
+{
+    if (index < 0 || index >= entity_count)
+    {
+        ENGINE_LOG_INFO("Level::getEntity called with out-of-bounds index\n");
+        return nullptr;
+    }
+    return entities[index];
 }
 
 // Check if any entity has collided with the given entity

@@ -28,7 +28,7 @@ public:
     Entity **collision_list(Entity *entity, int &count) const;
     void entity_add(Entity *entity);
     void entity_remove(Entity *entity);
-    Entity *getEntity(int index) const { return entities[index]; }
+    Entity *getEntity(int index) const;
     int getEntityCount() const { return entity_count; }
     const Vector &getLightDirection() const { return lightDirection; }
     uint16_t getShadowColor() const { return shadowColor; }

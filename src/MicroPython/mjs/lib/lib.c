@@ -330,4 +330,5 @@ void lib_unload_modules()
         lib_loaded_modules[i] = LIB_MODULE_NONE;
     }
     lib_loaded_modules_count = 0;
+    mjs_slot_sweep();
 }

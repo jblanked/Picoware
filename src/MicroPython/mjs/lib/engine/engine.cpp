@@ -31,6 +31,7 @@ void engine_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_engine", ~0, mjs_mk_undefined());
+    mjs_slot_release(engine);
     delete engine;
     engine_fps = 30.0f;
     engine_clamp = false;
@@ -220,6 +221,7 @@ void engine_create(struct mjs *mjs, mjs_val_t *engine_obj)
         *engine_obj = mjs_mk_undefined();
         return;
     }
+    mjs_slot_set(engine_instance);
     engine_fps = fps;
     engine_clamp = clamp;
 

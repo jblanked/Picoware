@@ -36,6 +36,9 @@ extern "C"
     void mjs_input_buffer_free(mjs_input_buffer *buffer);
     bool mjs_read_buffer(struct mjs *mjs, mjs_val_t value, size_t expected_length,
                          bool exact_length, const char *name, mjs_input_buffer *buffer);
+    void mjs_slot_release(void *p);
+    void mjs_slot_set(void *p);
+    void mjs_slot_sweep(void);
 
 #ifdef __cplusplus
 }

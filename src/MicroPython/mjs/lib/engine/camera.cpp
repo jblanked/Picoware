@@ -27,6 +27,7 @@ void camera_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_camera", ~0, mjs_mk_undefined());
+    mjs_slot_release(camera);
     delete camera;
     camera = nullptr;
 }
@@ -257,6 +258,6 @@ void camera_create(struct mjs *mjs, mjs_val_t *camera_obj)
         mjs_prepend_errorf(mjs, MJS_INTERNAL_ERROR, "Failed to create camera instance");
         return;
     }
-
+    mjs_slot_set(camera_instance);
     *camera_obj = camera_get_object(mjs, camera_instance);
 }

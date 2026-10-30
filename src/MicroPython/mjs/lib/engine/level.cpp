@@ -32,6 +32,7 @@ void level_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_level", ~0, mjs_mk_undefined());
+    mjs_slot_release(level);
     delete level;
     level = nullptr;
     level_name_owned = false;
@@ -326,6 +327,8 @@ void level_create(struct mjs *mjs, mjs_val_t *level_obj)
         g->current_level = level_instance;
         g->is_active = true;
     }
+
+    mjs_slot_set(level_instance);
 
     *level_obj = level_get_object(mjs, level_instance);
 }

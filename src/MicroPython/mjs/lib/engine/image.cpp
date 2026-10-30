@@ -28,6 +28,7 @@ void image_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_image", ~0, mjs_mk_undefined());
+    mjs_slot_release(img);
     delete img;
     img = nullptr;
 }
@@ -207,7 +208,10 @@ void image_create(struct mjs *mjs, mjs_val_t *image_obj)
 
     const Vector sz = Vector(width, height);
 
-    Image *image_instance = new Image(sz, has_data ? data_buffer.data : nullptr, has_path ? path : nullptr, has_mask ? mask_buffer.data : nullptr);
+    Image *image_instance = new Image(sz,
+                                      has_data ? data_buffer.data : nullptr,
+                                      has_path ? path : nullptr,
+                                      has_mask ? mask_buffer.data : nullptr);
 
     mjs_input_buffer_free(&data_buffer);
     mjs_input_buffer_free(&mask_buffer);
@@ -217,6 +221,8 @@ void image_create(struct mjs *mjs, mjs_val_t *image_obj)
         mjs_prepend_errorf(mjs, MJS_INTERNAL_ERROR, "Failed to create image instance");
         return;
     }
+
+    mjs_slot_set(image_instance);
 
     mjs_set(mjs, *image_obj, "_image", ~0, mjs_mk_foreign(mjs, image_instance));
     mjs_set(mjs, *image_obj, "destroy", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)image_destroy));

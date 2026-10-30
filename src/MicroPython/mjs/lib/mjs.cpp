@@ -3,6 +3,9 @@
 #include "color.h"
 #include <math.h>
 
+#define MJS_MAX_ROOT_POINTERS 2048
+MP_REGISTER_ROOT_POINTER(void *mjs_ptrs[MJS_MAX_ROOT_POINTERS]);
+
 char *mjs_copy_string_arg(struct mjs *mjs, uint8_t arg)
 {
     mjs_val_t t_arg = mjs_arg(mjs, arg);
@@ -276,4 +279,39 @@ bool mjs_read_buffer(struct mjs *mjs, mjs_val_t value, size_t expected_length,
     }
 
     return true;
+}
+
+void mjs_slot_release(void *p)
+{
+    for (int i = 0; i < MJS_MAX_ROOT_POINTERS; i++)
+    {
+        if (MP_STATE_VM(mjs_ptrs)[i] == p)
+        {
+            MP_STATE_VM(mjs_ptrs)[i] = nullptr;
+            return;
+        }
+    }
+}
+
+void mjs_slot_set(void *p)
+{
+    for (int i = 0; i < MJS_MAX_ROOT_POINTERS; i++)
+    {
+        if (MP_STATE_VM(mjs_ptrs)[i] == nullptr)
+        {
+            MP_STATE_VM(mjs_ptrs)[i] = p;
+            return;
+        }
+    }
+}
+
+void mjs_slot_sweep(void)
+{
+    for (int i = 0; i < MJS_MAX_ROOT_POINTERS; i++)
+    {
+        if (MP_STATE_VM(mjs_ptrs)[i] != nullptr)
+        {
+            MP_STATE_VM(mjs_ptrs)[i] = nullptr;
+        }
+    }
 }

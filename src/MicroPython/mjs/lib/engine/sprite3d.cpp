@@ -28,6 +28,7 @@ void sprite3d_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_sprite3d", ~0, mjs_mk_undefined());
+    mjs_slot_release(sprite3d);
     delete sprite3d;
     sprite3d = nullptr;
 }
@@ -531,5 +532,6 @@ void sprite3d_create_triangular_prism(struct mjs *mjs)
 void sprite3d_create(struct mjs *mjs, mjs_val_t *sprite3d_obj)
 {
     Sprite3D *sprite3d_instance = new Sprite3D();
+    mjs_slot_set(sprite3d_instance);
     *sprite3d_obj = sprite3d_get_object(mjs, sprite3d_instance);
 }

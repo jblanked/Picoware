@@ -30,6 +30,7 @@ void entity_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_entity", ~0, mjs_mk_undefined());
+    mjs_slot_release(entity);
     delete entity;
     entity = nullptr;
 }
@@ -605,5 +606,6 @@ void entity_create(struct mjs *mjs, mjs_val_t *entity_obj)
         m_free(name_buf);
         return;
     }
+    mjs_slot_set(entity);
     *entity_obj = entity_get_object(mjs, entity);
 }

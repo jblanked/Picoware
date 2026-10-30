@@ -31,7 +31,9 @@ void game_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_game", ~0, mjs_mk_undefined());
+    mjs_slot_release(game);
     delete game;
+    game = nullptr;
 }
 
 void game_get(struct mjs *mjs)
@@ -295,6 +297,7 @@ void game_create(struct mjs *mjs, mjs_val_t *game_obj)
         m_free(name_buf);
         return;
     }
+    mjs_slot_set(game_instance);
 
     *game_obj = game_get_object(mjs, game_instance);
 }

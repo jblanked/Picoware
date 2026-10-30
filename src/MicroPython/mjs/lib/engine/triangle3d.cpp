@@ -27,6 +27,7 @@ void triangle3d_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_triangle3d", ~0, mjs_mk_undefined());
+    mjs_slot_release(triangle3d);
     delete triangle3d;
     triangle3d = nullptr;
 }
@@ -242,6 +243,6 @@ void triangle3d_create(struct mjs *mjs, mjs_val_t *triangle3d_obj)
     bool wireframe = mjs_is_boolean(wireframe_val) ? mjs_get_bool(mjs, wireframe_val) : false;
 
     Triangle3D *triangle3d_instance = new Triangle3D(x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe);
-
+    mjs_slot_set(triangle3d_instance);
     *triangle3d_obj = triangle3d_get_object(mjs, static_cast<void *>(triangle3d_instance));
 }

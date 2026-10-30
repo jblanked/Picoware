@@ -35,14 +35,15 @@ void *billboard_get_pointer(struct mjs *mjs, uint8_t arg)
 
 void billboard_destroy(struct mjs *mjs)
 {
-    Billboard *img = billboard_get_this(mjs);
-    if (!img)
+    Billboard *billboard = billboard_get_this(mjs);
+    if (!billboard)
     {
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_billboard", ~0, mjs_mk_undefined());
-    delete img;
-    img = nullptr;
+    mjs_slot_release(billboard);
+    delete billboard;
+    billboard = nullptr;
 }
 
 void billboard_set(struct mjs *mjs)
@@ -102,6 +103,7 @@ void billboard_create(struct mjs *mjs, mjs_val_t *billboard_obj)
     *billboard_obj = mjs_mk_object(mjs);
 
     Billboard *billboard_instance = new Billboard();
+    mjs_slot_set(billboard_instance);
     mjs_set(mjs, *billboard_obj, "_billboard", ~0, mjs_mk_foreign(mjs, billboard_instance));
     mjs_set(mjs, *billboard_obj, "destroy", ~0, mjs_mk_foreign(mjs, (void *)billboard_destroy));
     mjs_set(mjs, *billboard_obj, "set", ~0, mjs_mk_foreign(mjs, (void *)billboard_set));

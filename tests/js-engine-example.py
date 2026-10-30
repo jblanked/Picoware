@@ -33,16 +33,17 @@ let engine = import('engine', game, 240, false);
 function tick(button) {
     engine.updateGameInput(button);
     let p = player.get('position');
-    if (button === UP) { player.set('position', {'x': p.x, 'y': p.y - 5, 'z': p.z}); }
-    else if (button === DOWN) { player.set('position', {'x': p.x, 'y': p.y + 5, 'z': p.z}); }
-    else if (button === LEFT) { player.set('position', {'x': p.x - 5, 'y': p.y, 'z': p.z}); }
-    else if (button === RIGHT) { player.set('position', {'x': p.x + 5, 'y': p.y, 'z': p.z}); }
+    if (button === UP) { p.y -= 5; }
+    else if (button === DOWN) { p.y += 5; }
+    else if (button === LEFT) { p.x -= 5; }
+    else if (button === RIGHT) { p.x += 5; }
     let gameSize = game.get('size');
     let playerSize = player.get('size');
     if (p.x >= 0 && p.x < gameSize.x - playerSize.x && p.y >= 0 && p.y < gameSize.y - playerSize.y) {
         player.set('position', p);
         player.updatePosition();
     }
+    engine.runAsync(false);
 }
 
 engine.runAsync(false);

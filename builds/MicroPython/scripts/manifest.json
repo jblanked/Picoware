@@ -14,5 +14,13 @@
             "picoware/scripts/hello.js"
         ],
         "version": "1.0"
+    },
+    {
+        "title": "Engine Example",
+        "description": "An example of using the JavaScript game engine",
+        "file_structure": [
+            "picoware/scripts/engine-example.js"
+        ],
+        "version": "1.0"
     }
 ]

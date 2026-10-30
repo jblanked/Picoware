@@ -1,14 +1,17 @@
 _js = None
 
 SETUP = """
-let W = %d;
-let H = %d;
-let UP = %d;
-let DOWN = %d;
-let LEFT = %d;
-let RIGHT = %d;
-let BACK = %d;
 let input = import('input');
+let buttons = import('buttons');
+let draw = import('draw');
+
+let W = draw.size.width;
+let H = draw.size.height;
+let UP = buttons.BUTTON_UP;
+let DOWN = buttons.BUTTON_DOWN;
+let LEFT = buttons.BUTTON_LEFT;
+let RIGHT = buttons.BUTTON_RIGHT;
+let BACK = buttons.BUTTON_BACK;
 
 let bird_pixels = [
     "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0xF6", "0xED", "0xED", "0xF2", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0xF6", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0xF6", "0xE9",
@@ -23,12 +26,12 @@ let bird_pixels = [
     "0xFB", "0xFE", "0xFE", "0xFE", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0xFB", "0xED", "0xED", "0xED", "0xED", "0xF6", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F", "0x1F"
 ];
 
-let game = import('game', 'Example', {'x': W, 'y': H, 'z': 0}, '0x0000', '0xFFFF');
-let level = import('level', 'Example Level', {'x': W, 'y': H, 'z': 0}, game);
-let sprite = import('image', {'width': 20, 'height': 16}, true, bird_pixels);
-let sprite_left = import('image', {'width': 20, 'height': 16}, true, bird_pixels);
-let sprite_right = import('image', {'width': 20, 'height': 16}, true, bird_pixels);
-let player = import('entity', 'Player', 0, {'x': W / 2, 'y': H / 2, 'z': 0}, {'x': 20, 'y': 16, 'z': 0}, sprite, sprite_left, sprite_right);
+let game = import('game', 'Example', { 'x': W, 'y': H, 'z': 0 }, '0x0000', '0xFFFF');
+let level = import('level', 'Example Level', { 'x': W, 'y': H, 'z': 0 }, game);
+let sprite = import('image', { 'width': 20, 'height': 16 }, true, bird_pixels);
+let sprite_left = import('image', { 'width': 20, 'height': 16 }, true, bird_pixels);
+let sprite_right = import('image', { 'width': 20, 'height': 16 }, true, bird_pixels);
+let player = import('entity', 'Player', 0, { 'x': W / 2, 'y': H / 2, 'z': 0 }, { 'x': 20, 'y': 16, 'z': 0 }, sprite, sprite_left, sprite_right);
 level.entityAdd(player);
 let engine = import('engine', game, 240, false);
 
@@ -63,23 +66,12 @@ engine.destroy();
 def start(view_manager) -> bool:
     """Run the entire JavaScript game, returning when Back is pressed."""
     from picoware.system.js import JS
-    from picoware.system.buttons import (
-        BUTTON_UP,
-        BUTTON_DOWN,
-        BUTTON_LEFT,
-        BUTTON_RIGHT,
-        BUTTON_BACK,
-    )
 
     global _js
 
-    size = view_manager.draw.size
     _js = JS()
     try:
-        _js.run(
-            SETUP
-            % (size.x, size.y, BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_BACK)
-        )
+        _js.run(SETUP)
     finally:
         stop(view_manager)
     return False
@@ -87,7 +79,6 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """The game loop runs entirely inside start()."""
-    pass
 
 
 def stop(view_manager) -> None:

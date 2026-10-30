@@ -30,8 +30,8 @@ class Thread:
         try:
             import _thread
             self._lock = _thread.allocate_lock()
-        except ImportError:
-            pass
+        except Exception:
+            self._lock = None
 
         self._args = args
         self._error = None
@@ -50,7 +50,7 @@ class Thread:
     @property
     def error(self):
         """Get the error if any occurred during thread execution."""
-        if self._lock is None:
+        if not hasattr(self, "_lock") or self._lock is None:
             return None
         
         with self._lock:
@@ -59,7 +59,7 @@ class Thread:
     @property
     def is_running(self) -> bool:
         """Check if the thread is running."""
-        if self._lock is None:
+        if not hasattr(self, "_lock") or self._lock is None:
             return False
         
         with self._lock:
@@ -68,8 +68,8 @@ class Thread:
     @property
     def should_stop(self) -> bool:
         """Check if stop was requested."""
-        if self._lock is None:
-            return False
+        if not hasattr(self, "_lock") or self._lock is None:
+            return True
 
         with self._lock:
             return self._stop_requested
@@ -79,10 +79,11 @@ class Thread:
         try:
             self._function(*self._args)
         except Exception as e:
-            with self._lock:
-                self._error = e
+            if hasattr(self, "_lock") and self._lock is not None:
+                with self._lock:
+                    self._error = e
         finally:
-            if self._lock is not None:
+            if hasattr(self, "_lock") and self._lock is not None:
                 with self._lock:
                     self._running = False
                     self._stop_requested = False

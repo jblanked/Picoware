@@ -1,4 +1,5 @@
 #include "engine.h"
+#include <math.h>
 #include "../engine/pico-game-engine/engine/engine.hpp"
 #include "../engine/memory.h"
 #include "game.h"
@@ -206,7 +207,7 @@ void engine_create(struct mjs *mjs, mjs_val_t *engine_obj)
     mjs_val_t fps_val = mjs_arg(mjs, 2);
     if (mjs_is_number(fps_val))
         fps = (float)mjs_get_double(mjs, fps_val);
-    if (fps <= 0.0f)
+    if (!isfinite(fps) || fps <= 0.0f)
     {
         mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "FPS must be greater than zero");
         *engine_obj = mjs_mk_undefined();

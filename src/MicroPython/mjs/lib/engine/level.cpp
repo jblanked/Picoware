@@ -1,4 +1,5 @@
 #include "level.h"
+#include <math.h>
 #include "entity.h"
 #include "game.h"
 #include "../../engine/pico-game-engine/engine/level.hpp"
@@ -98,15 +99,14 @@ void level_get(struct mjs *mjs)
             mjs_return(mjs, mjs_mk_undefined());
             return;
         }
-        int index = mjs_get_int(mjs, index_val);
-
-        if (index < 0 || index >= level->getEntityCount())
+        double index_value = mjs_get_double(mjs, index_val);
+        if (!isfinite(index_value) || index_value < 0 || index_value >= level->getEntityCount() || floor(index_value) != index_value)
         {
             mjs_return(mjs, mjs_mk_undefined());
             return;
         }
 
-        Entity *e = level->getEntity(index);
+        Entity *e = level->getEntity(static_cast<int>(index_value));
         if (!e)
         {
             mjs_return(mjs, mjs_mk_undefined());

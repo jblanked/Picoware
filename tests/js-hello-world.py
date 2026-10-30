@@ -1,4 +1,7 @@
 from picoware.system.js import JS
+from picoware.gui.draw import Draw
+
+d = Draw()
 
 js = JS()
 

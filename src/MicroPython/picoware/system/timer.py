@@ -67,15 +67,20 @@ class Timer:
         from picoware.system.boards import BOARD_HAS_ESP32
         if self._callback is None:
             raise ValueError("Callback function must be provided")
-        # The ESP32 port has no virtual timers, so machine.Timer needs a
-        # hardware timer id; rp2 creates a virtual timer when none is given.
-        self._timer = Timer(0) if BOARD_HAS_ESP32 else Timer()
-        self._timer.init(
-            mode=Timer.PERIODIC if self._mode == self.PERIODIC else Timer.ONE_SHOT,
-            period=self._interval,
-            callback=self._callback,
-            hard=BOARD_HAS_ESP32
-        )
+        try:
+            # The ESP32 port has no virtual timers, so machine.Timer needs a
+            # hardware timer id; rp2 creates a virtual timer when none is given.
+            self._timer = Timer(0) if BOARD_HAS_ESP32 else Timer()
+            self._timer.init(
+                mode=Timer.PERIODIC if self._mode == self.PERIODIC else Timer.ONE_SHOT,
+                period=self._interval,
+                callback=self._callback,
+                hard=BOARD_HAS_ESP32
+            )
+        except Exception as e:
+            self.stop()
+            self._timer = None
+            print("Failed to start timer:", e)
 
     def stop(self):
         """Stop the timer."""

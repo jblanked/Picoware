@@ -1,6 +1,7 @@
 #include "pin.h"
 
-static mp_obj_t pin_mp_instance;
+MP_REGISTER_ROOT_POINTER(mp_obj_t mjs_pin_mp_instance);
+#define pin_mp_instance MP_STATE_VM(mjs_pin_mp_instance)
 
 static void pin_high(struct mjs *mjs)
 {

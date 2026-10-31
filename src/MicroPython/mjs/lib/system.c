@@ -2,7 +2,8 @@
 #include <string.h>
 #include "py/runtime.h"
 
-static mp_obj_t system_mp_instance;
+MP_REGISTER_ROOT_POINTER(mp_obj_t mjs_system_mp_instance);
+#define system_mp_instance MP_STATE_VM(mjs_system_mp_instance)
 
 static mjs_val_t system_board_id(struct mjs *mjs)
 {

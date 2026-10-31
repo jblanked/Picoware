@@ -2,7 +2,8 @@
 #include <string.h>
 #include "py/runtime.h"
 
-static mp_obj_t video_mp_instance;
+MP_REGISTER_ROOT_POINTER(mp_obj_t mjs_video_mp_instance);
+#define video_mp_instance MP_STATE_VM(mjs_video_mp_instance)
 
 static void video_run(struct mjs *mjs)
 {

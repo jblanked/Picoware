@@ -622,3 +622,200 @@ class WiFiUART:
         """
         self.error = ""
     
+class WiFiBLE:
+    """Class to manage WiFi functionality on a MicroPython device.
+        
+    Attributes:
+        bluetooth: The Bluetooth object for communication with the WiFi module.
+        error (str): The last error message encountered during WiFi operations.
+        timeout_ms (int): The timeout for BLE connecting in milliseconds. Defaults to 10000.
+    """
+    RECEIVER = 0
+    SENDER = 1
+
+    __slots__ = ("ble", "error", "timeout_ms", "_last_message", "_type")
+
+    def __init__(self, bluetooth, timeout_ms: int = 10000, _type: int = RECEIVER):
+        """Initialize the WiFiBLE instance.
+
+        Args:
+            bluetooth: The BLE object for communication with the WiFi module.
+            timeout_ms (int): The timeout for BLE connecting in milliseconds. Defaults to 10000.
+            _type (int): The type of BLE device, either RECEIVER (peripheral) or SENDER (central). Defaults to RECEIVER.
+        """
+        self.ble = bluetooth
+        if self.ble is None or not self.ping():
+            print("Bluetooth board not connected...")
+            self.ble = None
+        else:
+            self.ble.on_notify(self.__on_data_received)
+        self.error = ""
+        self.timeout_ms = timeout_ms # for connecting
+        self._last_message = None
+        self._type = _type
+
+    @property
+    def device_ip(self):
+        """Get the current device IP address."""
+        if not self.ble:
+            return ""
+        return self.__send_and_wait("[IP/ADDRESS]")
+
+    @property
+    def last_error(self):
+        """Get the last error message encountered during WiFi operations."""
+        return self.error
+
+    @property
+    def mac_address(self):
+        """Get the current device MAC address."""
+        if not self.ble:
+            return ""
+        return self.__send_and_wait("[MAC/ADDRESS]")
+
+    @property
+    def state(self):
+        """Get the current WiFi state."""
+        _status = self.__send_and_wait("[WIFI/STATUS]")
+        if "true" in _status:
+            return WIFI_STATE_CONNECTED
+        return WIFI_STATE_IDLE
+
+    def __on_data_received(self, data) -> None:
+        """Store an incoming chat message.
+
+        Args:
+            data (bytes): Raw data received over BLE.
+        """
+        if isinstance(data, str):
+            text = data.strip()
+        else:
+            payload = bytes(data)
+            try:
+                text = payload.decode("utf-8").strip()
+            except UnicodeError:
+                text = payload.hex()
+        if text:
+            self._last_message = text
+
+    def __send(self, command: str) -> bool:
+        """Send a command to the UART without waiting for a response.
+
+        Args:
+            command (str): The command to send.
+        """
+        if not self.ble:
+            return False
+        if self._type == self.RECEIVER:
+            return self.ble.send(command)
+        return self.ble.write(command)
+
+    def __send_and_wait(self, command: str) -> str:
+        """Send a command to the UART and wait for a response.
+
+        Args:
+            command (str): The command to send.
+
+        Returns:
+            str: The response from the UART.
+        """
+        if not self.ble:
+            return ""
+        self._last_message = None
+        self.__send(command)
+        while self._last_message is None:
+            pass
+        data = self._last_message
+        if not data:
+            return "[ERROR] No data returned"
+        if "[ERROR]" in data:
+            self.error = data
+        return data
+
+    def connect(self, ssid: str, password: str = "", sta_mode: bool = True) -> bool:
+        """Connect to a Wi-Fi network.
+
+        Args:
+            ssid (str): SSID of the Wi-Fi network.
+            password (str): Password for the Wi-Fi network. Defaults to "".
+            sta_mode (bool): True for station mode (STA_IF), False for access point mode (AP_IF). Defaults to True.
+
+        Returns:
+            bool: True if the connection succeeded, False otherwise.
+        """
+        if not self.ble:
+            return False
+        if sta_mode:
+            response = self.__send_and_wait("[WIFI/SAVE]{\"ssid\":\"%s\",\"password\":\"%s\"}" % (ssid, password))
+            return "[ERROR]" not in response
+        response = self.__send_and_wait("[WIFI/AP]{\"ssid\":\"%s\"}" % ssid)
+        return "[AP/CONNECTED]" in response
+    
+    def connect_async(self, ssid: str, password: str = "", sta_mode: bool = True) -> bool:
+        """Initiate an asynchronous connection to a Wi-Fi network.
+
+        Args:
+            ssid (str): SSID of the Wi-Fi network.
+            password (str): Password for the Wi-Fi network. Defaults to "".
+            sta_mode (bool): True for station mode (STA_IF), False for access point mode (AP_IF). Defaults to True.
+
+        Returns:
+            bool: True if the command to initiate the connection was sent successfully, False otherwise.
+        """
+        if not self.ble:
+            return False
+        # for now, this is mainly for Flipper, so leave as synch
+        return self.connect(ssid, password, sta_mode)
+
+    def disconnect(self) -> None:
+        """Disconnect from the current Wi-Fi network.
+
+        Returns:
+            None
+        """
+        if not self.ble:
+            return
+        self.__send("[WIFI/DISCONNECT]")
+
+    def is_connected(self) -> bool:
+        """Check if the device is currently connected to a Wi-Fi network.
+
+        Returns:
+            bool: True if connected, False otherwise.
+        """
+        return self.state == WIFI_STATE_CONNECTED
+    
+    def ping(self) -> bool:
+        """Check for pong response"""
+        return "PONG" in self.__send_and_wait("[PING]")
+
+    def scan(self) -> list:
+        """Scan for available Wi-Fi networks."""
+        if not "[GET/SUCCESS]" in self.__send_and_wait("[WIFI/SCAN]"):
+            return []
+        response = self._last_message
+        if response:
+            end = response.find("]}") + 2
+            _res = response[:end]
+            try:
+                d = loads(_res)
+                return d["networks"]
+            except Exception as e:
+                print(f"Failed to load response: {e}")
+        return []
+
+    def status(self) -> int:
+        """Get the current Wi-Fi status.
+
+        Returns:
+            int: The current Wi-Fi status as one of the WIFI_STATE_* constants.
+        """
+        return self.state
+
+    def reset(self) -> None:
+        """Reset the Wi-Fi module.
+
+        Returns:
+            None
+        """
+        self.error = ""

@@ -1700,3 +1700,287 @@ class HTTPUART:
             send_file=send_file
         )
         return self._response is not None
+
+class HTTPBLE:
+    """HTTPUART - Handle HTTP requests over UART."""
+
+    RECEIVER = 0
+    SENDER = 1
+
+    def __init__(self, ble, chunk_size: int = (1024 * 4), timeout_ms: int = 5000, _type: int = RECEIVER) -> None:
+        """Initialize the HTTP class.
+
+        Args:
+            ble: The Bluetooth instance for communication.
+            chunk_size (int): Transfer chunk size in bytes. Defaults to 4096.
+            timeout_ms (int): The timeout for UART receiving in milliseconds. Defaults to 5000.
+            _type (int): The type of HTTPBLE instance RECEIVER (Peripheral) or SENDER (Central). Defaults to RECEIVER.
+        """
+        self.ble = ble
+        if self.ble is None or not self.ping():
+            print("Bluetooth board not connected...")
+            self.ble = None
+        else:
+            self.ble.on_notify(self.__on_data_received)
+        self.chunk_size = chunk_size
+        self.timeout_ms = timeout_ms
+        self.error = None
+        self._response = None
+        self._type = _type
+        self._last_message = None
+
+    @property
+    def response(self) -> Response:
+        """Get the latest HTTP response received from the UART.
+
+        Returns:
+            Response: The latest HTTP response received from the UART.
+        """
+        return self._response
+
+    def __on_data_received(self, data) -> None:
+        """Store an incoming chat message.
+
+        Args:
+            data (bytes): Raw data received over BLE.
+        """
+        if isinstance(data, str):
+            text = data.strip()
+        else:
+            payload = bytes(data)
+            try:
+                text = payload.decode("utf-8").strip()
+            except UnicodeError:
+                text = payload.hex()
+        if text:
+            self._last_message = text
+
+    def __send(self, command: str) -> bool:
+        """Send a command to the UART without waiting for a response.
+
+        Args:
+            command (str): The command to send.
+        """
+        if not self.ble:
+            return False
+        if self._type == self.RECEIVER:
+            return self.ble.send(command)
+        return self.ble.write(command)
+
+    def __send_and_wait(self, command, add_newline: bool = True) -> str:
+        """Send a command to the UART and wait for a response.
+
+        Args:
+            command (str/bytes): The command to send.
+
+        Returns: 
+            str: The response from the UART.
+        """
+        if not self.ble:
+            return ""
+        self._last_message = None
+        if add_newline:
+            self.__send(command + "\n")
+        else:
+            self.__send(command)
+        while self._last_message is None:
+            pass
+        data = self._last_message
+        if not data:
+            return "[ERROR] No data returned"
+        if "[ERROR]" in data:
+            self.error = data
+        return data
+
+    def close(self) -> None:
+        """Close the UART connection."""
+        self.error = None
+    
+    def ping(self) -> bool:
+        """Check for pong response"""
+        return "PONG" in self.__send_and_wait("[PING]")
+
+    def request(
+        self,
+        method,
+        url,
+        data=None,
+        json_data=None,
+        headers=None,
+        auth=None,
+        timeout=None,
+        parse_headers=True,
+        uart=None,
+        save_to_file=None,
+        storage=None,
+        send_file=None,
+    ) -> Response:
+        """Make an HTTP request.
+
+        Args:
+            method (str): HTTP method (GET, POST, etc.).
+            url (str): URL to request.
+            data (str or bytes): Request body data. Defaults to None.
+            json_data (dict): JSON data to send (will be serialized). Defaults to None.
+            headers (dict): HTTP headers dict. Defaults to None.
+            auth (tuple): Authentication tuple (username, password). Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to None.
+            parse_headers (bool or callable): Whether to parse response headers. Defaults to True.
+            uart (UART): UART object for streaming output. Defaults to None.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+            send_file (str): File path to send as request body (requires storage). Defaults to None.
+
+        Returns:
+            Response: The HTTP response.
+        """
+        if not self.ble:
+            return None
+        _response_str = None
+        if method == "GET":
+            if headers is None:
+                _response_str = self.__send_and_wait(f"[GET]{url}")
+            else:
+                _response_str = self.__send_and_wait("[GET/HTTP]{\"url\":\"%s\",\"headers\":%s}" % (url, headers))
+        elif method == "POST":
+            if headers is None:
+                print("POST requires headers")
+                return None
+            if data is None and json_data is None and send_file is None:
+                print("POST requires data, json_data, or send_file")
+                return None
+            if storage is not None and send_file is not None:
+                _path = send_file 
+                if not storage.exists(send_file):
+                    if storage.exists(f"/sd/{send_file}"):
+                        _path = f"/sd/{send_file}"
+                    else:
+                        print("File not found in storage")
+                        return None
+                file_obj = storage.file_open(_path)
+                buffer = bytearray(self.chunk_size)
+                # write initial without payload
+                self.__send("[POST/HTTP]{\"url\":\"%s\",\"headers\":%s}" % (url, headers))
+                # send payload key and colon
+                self.__send("\"payload\":")
+                try:
+                    while True:
+                        bytes_read = storage.file_readinto(file_obj, buffer)
+                        if not bytes_read:
+                            break
+                        self.__send(buffer[:bytes_read])
+                finally:
+                    storage.file_close(file_obj)
+                    buffer = None
+                # add newline
+                self.__send("\n")
+            elif data is not None:
+                _response_str = self.__send_and_wait("[POST/HTTP]{\"url\":\"%s\",\"headers\":%s,\"payload\":%s}" % (url, headers, data))
+            elif json_data is not None:
+                _response_str = self.__send_and_wait("[POST/HTTP]{\"url\":\"%s\",\"headers\":%s,\"payload\":%s}" % (url, headers, json_data))
+            else:
+                print("POST requires data, json_data, or send_file")
+                return None
+        elif method == "PUT":
+            if headers is None:
+                print("PUT requires headers")
+                return None
+            if data is None and json_data is None:
+                print("PUT requires data or json_data")
+                return None
+            if data is not None:
+                _response_str = self.__send_and_wait("[PUT/HTTP]{\"url\":\"%s\",\"headers\":%s,\"payload\":%s}" % (url, headers, data))
+            elif json_data is not None:
+                _response_str = self.__send_and_wait("[PUT/HTTP]{\"url\":\"%s\",\"headers\":%s,\"payload\":%s}" % (url, headers, json_data))
+            else:
+                print("PUT requires data or json_data")
+                return None
+        elif method == "DELETE":
+            if headers is None:
+                print("DELETE requires headers")
+                return None
+            if data is None and json_data is None:
+                print("DELETE requires data or json_data")
+                return None
+            _response_str = self.__send_and_wait("[DELETE/HTTP]{\"url\":\"%s\",\"headers\":%s,\"payload\":%s}" % (url, headers, data if data is not None else json_data))
+        elif method == "PATCH":
+            if headers is None:
+                print("PATCH requires headers")
+                return None
+            if data is None and json_data is None:
+                print("PATCH requires data or json_data")
+                return None
+            if data is not None:
+                _response_str = self.__send_and_wait("[PATCH/HTTP]{\"url\":\"%s\",\"headers\":%s,\"payload\":%s}" % (url, headers, data))
+            elif json_data is not None:
+                _response_str = self.__send_and_wait("[PATCH/HTTP]{\"url\":\"%s\",\"headers\":%s,\"payload\":%s}" % (url, headers, json_data))
+            else:
+                print("PATCH requires data or json_data")
+                return None
+        elif method == "HEAD":
+            if headers is None:
+                print("HEAD requires headers")
+                return None
+            _response_str = self.__send_and_wait("[HEAD/HTTP]{\"url\":\"%s\",\"headers\":%s}" % (url, headers))
+        else:
+            print("Unsupported HTTP method")
+            return None
+        if storage is not None and save_to_file is not None:
+            _path = save_to_file
+            if not storage.exists(save_to_file):
+                if storage.exists(f"/sd/{save_to_file}"):
+                    _path = f"/sd/{save_to_file}"
+                else:
+                    print("File not found in storage")
+                    return None
+            if not storage.write(_path, _response_str):
+                print("Failed to write response to storage")
+            return None
+        r = Response(_response_str)
+        if headers is not None:
+            r.headers = headers
+        return r
+
+
+    def request_async(
+        self,
+        method,
+        url,
+        payload=None,
+        headers=None,
+        timeout: float = 10.0,
+        save_to_file=None,
+        storage=None,
+        send_file=None,
+        stack_size: int = 8 * 1024,
+    ) -> bool:
+        """Handle async requests.
+
+        Args:
+            method (str): HTTP method (GET, POST, etc.).
+            url (str): URL to request.
+            payload (str, bytes, or dict): Request payload. Defaults to None.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+            send_file (str): File path to send as request payload (requires storage). Defaults to None.
+
+        Returns:
+            bool: True if the request was started.
+        """
+        if not self.ble:
+            return False
+        is_instance = isinstance(payload, (str, bytes))
+        self._response = self.request(
+            method,
+            url,
+            payload if is_instance else None,
+            None if is_instance else dumps(payload),
+            headers,
+            timeout=timeout,
+            save_to_file=save_to_file,
+            storage=storage,
+            send_file=send_file
+        )
+        return self._response is not None

@@ -1702,7 +1702,7 @@ class HTTPUART:
         return self._response is not None
 
 class HTTPBLE:
-    """HTTPUART - Handle HTTP requests over UART."""
+    """Handle HTTP requests over a connected BLE command peer."""
 
     RECEIVER = 0
     SENDER = 1
@@ -1717,17 +1717,15 @@ class HTTPBLE:
             _type (int): The type of HTTPBLE instance RECEIVER (Peripheral) or SENDER (Central). Defaults to RECEIVER.
         """
         self.ble = ble
-        if self.ble is None or not self.ping():
-            print("Bluetooth board not connected...")
-            self.ble = None
-        else:
-            self.ble.on_notify(self.__on_data_received)
         self.chunk_size = chunk_size
         self.timeout_ms = timeout_ms
         self.error = None
         self._response = None
         self._type = _type
         self._last_message = None
+        if self.ble is None or not self.ping():
+            print("Bluetooth board not connected...")
+            self.ble = None
 
     @property
     def response(self) -> Response:
@@ -1778,13 +1776,23 @@ class HTTPBLE:
         """
         if not self.ble:
             return ""
+        self.error = None
         self._last_message = None
-        if add_newline:
-            self.__send(command + "\n")
+        # A WiFiBLE and HTTPBLE may share one connection; route each reply
+        # to the client currently making the synchronous request.
+        if self._type == self.RECEIVER:
+            self.ble.on_write(self.__on_data_received)
         else:
-            self.__send(command)
+            self.ble.on_notify(self.__on_data_received)
+        if not self.__send(command + "\n" if add_newline else command):
+            self.error = "[ERROR] BLE send failed"
+            return self.error
+        started = ticks_ms()
         while self._last_message is None:
-            pass
+            if ticks_diff(ticks_ms(), started) >= self.timeout_ms:
+                self.error = "[ERROR] BLE response timed out"
+                return self.error
+            sleep_ms(1)
         data = self._last_message
         if not data:
             return "[ERROR] No data returned"
@@ -1936,7 +1944,9 @@ class HTTPBLE:
             if not storage.write(_path, _response_str):
                 print("Failed to write response to storage")
             return None
-        r = Response(_response_str)
+        if _response_str is None or _response_str.startswith("[ERROR]"):
+            return None
+        r = Response(_response_str.encode("utf-8"))
         if headers is not None:
             r.headers = headers
         return r

@@ -1,6 +1,6 @@
 """WiFi - WiFi networking interface."""
 
-from utime import ticks_ms, sleep
+from utime import ticks_ms, ticks_diff, sleep, sleep_ms
 from ujson import loads
 from micropython import const
 
@@ -644,15 +644,13 @@ class WiFiBLE:
             _type (int): The type of BLE device, either RECEIVER (peripheral) or SENDER (central). Defaults to RECEIVER.
         """
         self.ble = bluetooth
-        if self.ble is None or not self.ping():
-            print("Bluetooth board not connected...")
-            self.ble = None
-        else:
-            self.ble.on_notify(self.__on_data_received)
         self.error = ""
         self.timeout_ms = timeout_ms # for connecting
         self._last_message = None
         self._type = _type
+        if self.ble is None or not self.ping():
+            print("Bluetooth board not connected...")
+            self.ble = None
 
     @property
     def device_ip(self):
@@ -721,10 +719,23 @@ class WiFiBLE:
         """
         if not self.ble:
             return ""
+        self.error = None
         self._last_message = None
-        self.__send(command)
+        # A WiFiBLE and HTTPBLE may share one connection; route each reply
+        # to the client currently making the synchronous request.
+        if self._type == self.RECEIVER:
+            self.ble.on_write(self.__on_data_received)
+        else:
+            self.ble.on_notify(self.__on_data_received)
+        if not self.__send(command):
+            self.error = "[ERROR] BLE send failed"
+            return self.error
+        started = ticks_ms()
         while self._last_message is None:
-            pass
+            if ticks_diff(ticks_ms(), started) >= self.timeout_ms:
+                self.error = "[ERROR] BLE response timed out"
+                return self.error
+            sleep_ms(1)
         data = self._last_message
         if not data:
             return "[ERROR] No data returned"
@@ -795,8 +806,9 @@ class WiFiBLE:
             return []
         response = self._last_message
         if response:
-            end = response.find("]}") + 2
-            _res = response[:end]
+            start = response.find("{")
+            end = response.rfind("}") + 1
+            _res = response[start:end]
             try:
                 d = loads(_res)
                 return d["networks"]

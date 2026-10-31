@@ -187,7 +187,12 @@ class BLE:
         self._advertising = False
         self._adv_data = b""
         self._notify_queue = []
+        self._command_peer = None
         self._config = {"gap_name": "", "bond": False, "mitm": False}
+
+    def sim_set_command_peer(self, handler):
+        """Attach an optional bytes-to-bytes peer; None preserves chat echo."""
+        self._command_peer = handler
 
     def active(self, value=None):
         if value is None:
@@ -298,6 +303,13 @@ class BLE:
         if data is None:
             data = self._values.get(value_handle, b"")
         self._notify_queue.append((conn_handle, value_handle, bytes(data)))
+        if self._command_peer is not None:
+            reply = self._command_peer(bytes(data))
+            if reply and self._registered:
+                rx_handle = self._registered[0][1]
+                self._values[rx_handle] = bytes(reply)
+                self._emit(_IRQ_GATTS_WRITE, (conn_handle, rx_handle))
+            return None
         self._emit(_IRQ_GATTC_NOTIFY, (conn_handle, value_handle, bytes(data)))
         return None
 
@@ -323,9 +335,10 @@ class BLE:
         self._values[value_handle] = data
         self._emit(_IRQ_GATTC_WRITE_DONE, (conn_handle, value_handle, 0))
         if value_handle in (5, 6):
-            reply = b"echo:" + data
-            self._notify_queue.append((conn_handle, 3, reply))
-            self._emit(_IRQ_GATTC_NOTIFY, (conn_handle, 3, reply))
+            reply = self._command_peer(data) if self._command_peer is not None else b"echo:" + data
+            if reply:
+                self._notify_queue.append((conn_handle, 3, reply))
+                self._emit(_IRQ_GATTC_NOTIFY, (conn_handle, 3, reply))
         return None
 
     def gap_pair(self, conn_handle):

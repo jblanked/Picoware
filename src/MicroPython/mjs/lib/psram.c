@@ -2,7 +2,8 @@
 #include "array_buf.h"
 #include "color.h"
 
-static mp_obj_t psram_mp_instance;
+MP_REGISTER_ROOT_POINTER(mp_obj_t mjs_psram_mp_instance);
+#define psram_mp_instance MP_STATE_VM(mjs_psram_mp_instance)
 
 static mp_obj_t psram_parse_mp_int(struct mjs *mjs, mjs_val_t val)
 {

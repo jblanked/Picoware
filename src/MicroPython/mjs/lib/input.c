@@ -2,7 +2,8 @@
 #include <string.h>
 #include "py/runtime.h"
 
-static mp_obj_t input_mp_instance;
+MP_REGISTER_ROOT_POINTER(mp_obj_t mjs_input_mp_instance);
+#define input_mp_instance MP_STATE_VM(mjs_input_mp_instance)
 
 static void input_button_to_char(struct mjs *mjs)
 {

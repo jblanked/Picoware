@@ -1,6 +1,7 @@
 #include "array_buf.h"
 #include <string.h>
 #include "py/runtime.h"
+#include "py/gc.h"
 
 #define ARRAY_BUF_MAGIC 0xAB
 
@@ -31,7 +32,7 @@ int mjs_is_array_buf(mjs_val_t v)
         return 0;
     }
     void *ptr = (void *)(uintptr_t)(v & 0xFFFFFFFFFFFFUL);
-    if (ptr == NULL)
+    if (gc_nbytes(ptr) < sizeof(struct array_buf_hdr))
     {
         return 0;
     }
@@ -42,19 +43,13 @@ int mjs_is_array_buf(mjs_val_t v)
 const void *mjs_array_buf_get_ptr(struct mjs *mjs, mjs_val_t v, size_t *len)
 {
     (void)mjs;
-    if ((v & MJS_TAG_MASK) != MJS_TAG_FOREIGN)
+    if (!mjs_is_array_buf(v))
     {
         if (len)
             *len = 0;
         return NULL;
     }
     struct array_buf_hdr *hdr = (struct array_buf_hdr *)(uintptr_t)(v & 0xFFFFFFFFFFFFUL);
-    if (hdr == NULL || hdr->magic != ARRAY_BUF_MAGIC)
-    {
-        if (len)
-            *len = 0;
-        return NULL;
-    }
     if (len)
         *len = hdr->len;
     return hdr->ptr;

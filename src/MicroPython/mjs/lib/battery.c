@@ -2,7 +2,8 @@
 #include <string.h>
 #include "py/runtime.h"
 
-static mp_obj_t battery_mp_instance;
+MP_REGISTER_ROOT_POINTER(mp_obj_t mjs_battery_mp_instance);
+#define battery_mp_instance MP_STATE_VM(mjs_battery_mp_instance)
 
 static mjs_val_t battery_percentage(struct mjs *mjs)
 {

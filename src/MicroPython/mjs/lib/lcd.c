@@ -274,8 +274,13 @@ void lcd_js_triangle(struct mjs *mjs)
 mjs_val_t lcd_js_size(struct mjs *mjs)
 {
     mjs_val_t size_obj = mjs_mk_object(mjs);
+#ifdef DESKTOP
+    mjs_set(mjs, size_obj, "width", ~0, mjs_mk_number(mjs, desktop_lcd_width()));
+    mjs_set(mjs, size_obj, "height", ~0, mjs_mk_number(mjs, desktop_lcd_height()));
+#else
     mjs_set(mjs, size_obj, "width", ~0, mjs_mk_number(mjs, (double)LCD_MP_WIDTH));
     mjs_set(mjs, size_obj, "height", ~0, mjs_mk_number(mjs, (double)LCD_MP_HEIGHT));
+#endif
     return size_obj;
 }
 

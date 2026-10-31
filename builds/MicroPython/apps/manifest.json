@@ -978,5 +978,13 @@
             "picoware/apps/gbrowser.mpy"
         ],
         "version": "1.0"
+    },
+    {
+        "title": "Fish Tank",
+        "description": "An aquarium-like screensaver",
+        "file_structure": [
+            "picoware/apps/screensavers/Fish-Tank.mpy"
+        ],
+        "version": "1.0"
     }
 ]

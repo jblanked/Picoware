@@ -95,8 +95,6 @@ def start(view_manager) -> bool:
     Returns:
         bool: True if advertising started, False on failure.
     """
-    from picoware.system.bluetooth import Bluetooth
-
     global _bluetooth, _advertising, _connections, _received_data, _state
     global _pairing_status, _passkey_action, _passkey, _passkey_input_active
 
@@ -118,7 +116,7 @@ def start(view_manager) -> bool:
     _bluetooth.on_write(on_data_received)
 
     try:
-        if _bluetooth.start_peripheral(name="Picoware"):
+        if _bluetooth.start_peripheral(name=view_manager.board_name):
             _advertising = True
             _state = STATE_ADVERTISING
         else:

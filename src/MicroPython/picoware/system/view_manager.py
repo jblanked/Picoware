@@ -400,7 +400,9 @@ class ViewManager:
     @property
     def has_sd_card(self):
         """Return whether the current board has an SD card."""
-        return self._storage is not None
+        from picoware.system.boards import BOARD_HAS_SD
+
+        return BOARD_HAS_SD == 1
 
     @property
     def has_wifi(self):

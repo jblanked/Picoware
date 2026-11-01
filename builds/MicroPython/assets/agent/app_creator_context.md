@@ -19,7 +19,7 @@ Each application should be structured in a specific way to ensure compatibility 
 - `stop(view_manager)`: This method is called when the application is closed. It should contain the cleanup code for the application.
 - `run(view_manager)`: This method is called repeatedly while the application is running. It should contain the main logic of the application.
 
-Note that the `view_manager` parameter is an instance of the `ViewManager` class, which provides methods to manage views and interact with the device's display. Lastly, the `run` method should be **non-blocking** to ensure the application remains responsive and contains a `view_manager.back()` call to allow users to exit the application.
+Note that the `view_manager` parameter is an instance of the `ViewManager` class, which provides methods to manage views and interact with the device's display, so no need to create new ViewManager instances or store a reference to it globally. Lastly, the `run` method should be **non-blocking** to ensure the application remains responsive and contains a `view_manager.back()` call to allow users to exit the application.
 
 ## Example Application
 Here is a simple example of an application that displays a message on the screen:
@@ -67,26 +67,36 @@ def stop(view_manager):
   - [picoware.system.app_loader](#picoware-system-app_loader)
   - [picoware.system.audio](#picoware-system-audio)
   - [picoware.system.auto_complete](#picoware-system-auto_complete)
+  - [picoware.system.battery](#picoware-system-battery)
   - [picoware.system.bluetooth](#picoware-system-bluetooth)
   - [picoware.system.boards](#picoware-system-boards)
   - [picoware.system.buttons](#picoware-system-buttons)
   - [picoware.system.colors](#picoware-system-colors)
+  - [picoware.system.decorator](#picoware-system-decorator)
+  - [picoware.system.ducky](#picoware-system-ducky)
   - [picoware.system.font](#picoware-system-font)
   - [picoware.system.gameboy](#picoware-system-gameboy)
   - [picoware.system.http](#picoware-system-http)
   - [picoware.system.input](#picoware-system-input)
+  - [picoware.system.infrared](#picoware-system-infrared)
+  - [picoware.system.js](#picoware-system-js)
   - [picoware.system.jsmn](#picoware-system-jsmn)
   - [picoware.system.LED](#picoware-system-led)
   - [picoware.system.log](#picoware-system-log)
+  - [picoware.system.mmbasic](#picoware-system-mmbasic)
   - [picoware.system.psram](#picoware-system-psram)
   - [picoware.system.response](#picoware-system-response)
+  - [picoware.system.settings](#picoware-system-settings)
   - [picoware.system.storage](#picoware-system-storage)
   - [picoware.system.system](#picoware-system-system)
   - [picoware.system.thread](#picoware-system-thread)
   - [picoware.system.time](#picoware-system-time)
+  - [picoware.system.timer](#picoware-system-timer)
   - [picoware.system.uart](#picoware-system-uart)
+  - [picoware.system.uf2loader](#picoware-system-uf2loader)
   - [picoware.system.usb](#picoware-system-usb)
   - [picoware.system.vector](#picoware-system-vector)
+  - [picoware.system.video](#picoware-system-video)
   - [picoware.system.view](#picoware-system-view)
   - [picoware.system.view_manager](#picoware-system-view_manager)
   - [picoware.system.websocket](#picoware-system-websocket)
@@ -101,6 +111,7 @@ def stop(view_manager):
   - [picoware.gui.image](#picoware-gui-image)
   - [picoware.gui.jpeg](#picoware-gui-jpeg)
   - [picoware.gui.keyboard](#picoware-gui-keyboard)
+  - [picoware.gui.keyboard_rotation](#picoware-gui-keyboard_rotation)
   - [picoware.gui.list](#picoware-gui-list)
   - [picoware.gui.loading](#picoware-gui-loading)
   - [picoware.gui.menu](#picoware-gui-menu)
@@ -111,6 +122,7 @@ def stop(view_manager):
   - [picoware.gui.toggle](#picoware-gui-toggle)
   - [picoware.gui.toggle_list](#picoware-gui-toggle_list)
 - [Engine](#engine)
+  - [picoware.engine.billboard](#picoware-engine-billboard)
   - [picoware.engine.camera](#picoware-engine-camera)
   - [picoware.engine.engine](#picoware-engine-engine)
   - [picoware.engine.entity](#picoware-engine-entity)
@@ -185,6 +197,15 @@ def stop(view_manager):
     - `suggestion_count`: Property - number of current suggestions (int).
     - `suggestions`: Property - tuple of current suggestion strings.
     - `add_words(words)`: Add a list of strings to the word database. Returns the count of words added.
+
+#### picoware-system-battery
+- `Battery` class: Battery monitoring for the current board.
+    - `__init__(interval_ms=300000)`: Initialize battery monitoring. `interval_ms` is the sampling interval for time-remaining estimation (default 5 minutes).
+    - `has_voltage`: Property (r/o) - True if the board can read battery voltage.
+    - `percentage`: Property (r/o) - current battery level as a percentage (0 through 100).
+    - `time_remaining`: Property (r/o) - estimated minutes remaining (0 = unknown).
+    - `voltage`: Property (r/o) - current battery voltage in millivolts.
+    - `sample()`: Call once per interval to update the time-remaining estimate.
 
 #### picoware-system-bluetooth
 - `_IRQ_CENTRAL_CONNECT`: Constant for central connect event (1)
@@ -262,11 +283,32 @@ def stop(view_manager):
 - `BOARD_WAVESHARE_1_69_RP2350`: Board ID for Waveshare 1.69" RP2350.
 - `BOARD_WAVESHARE_3_49_RP2350`: Board ID for Waveshare 3.49" RP2350.
 - `BOARD_PICOCALC_PIMORONI_2W`: Board ID for PicoCalc with Pimoroni Pico Plus 2W.
+- `BOARD_CROWPANEL_10_1`: Board ID for CrowPanel 10.1.
+- `BOARD_CROWPANEL_WATCH_2_01`: Board ID for Elecrow CrowPanel Watch 2.01.
+- `BOARD_CARDPUTER`: Board ID for Cardputer.
+- `BOARD_WAVESHARE_2_06`: Board ID for Waveshare 2.06.
+- `BOARD_WAVESHARE_C6_2_06`: Board ID for Waveshare C6 2.06.
+- `BOARD_PANCAKE`: Board ID for Pancake.
+- `BOARD_WAVESHARE_C5_3_5`: Board ID for Waveshare C5 3.5.
+- `BOARD_V8`: Board ID for V8.
+- `BOARD_FLIPPER_ZERO`: Board ID for Flipper Zero.
+- `BOARD_DESKTOP`: Board ID for the Unix Desktop target.
+- `BOARD_PICO_DUO`: Board ID for PicoDuo.
+- `BOARD_POOM`: Board ID for POOM.
 - `BOARD_ID`: The current board ID integer (read from C module at import time).
 - `BOARD_HAS_PSRAM`: True if the current board has PSRAM.
 - `BOARD_HAS_SD`: True if the current board has an SD card slot.
 - `BOARD_HAS_TOUCH`: True if the current board has a touch screen.
 - `BOARD_HAS_WIFI`: True if the current board has WiFi.
+- `BOARD_HAS_AUDIO`: True if the current board has audio.
+- `BOARD_HAS_BLUETOOTH`: True if the current board has Bluetooth.
+- `BOARD_HAS_IR`: True if the current board has an infrared transmitter.
+- `BOARD_HAS_IR_RX`: True if the current board has an infrared receiver.
+- `BOARD_HAS_KEYBOARD`: True if the current board has a keyboard.
+- `BOARD_HAS_RP2040`: True if the board uses an RP2040 MCU.
+- `BOARD_HAS_RP2350`: True if the board uses an RP2350 MCU.
+- `BOARD_HAS_ESP32`: True if the board uses an ESP32 MCU.
+- `BOARD_HAS_PICOCALC`: True if the board is a PicoCalc board.
 
 #### picoware-system-buttons
 - `BUTTON_NONE`: No button pressed (-1)
@@ -310,6 +352,23 @@ def stop(view_manager):
 - `TFT_PINK`: Pink (0xFE19)
 
 All color constants are RGB565 format and defined as `micropython.const` integers.
+
+#### picoware-system-decorator
+- `audio_required(func)`: Decorator that raises `RuntimeError` when the decorated function is called on a board without audio.
+- `native(func)`: Decorator that wraps a function with `micropython.native` on supported boards.
+- `psram_required(func)`: Decorator that raises `RuntimeError` when the decorated function is called on a board without PSRAM.
+- `server_settings_required(func)`: Decorator that raises `RuntimeError` when the decorated function is called on a board without SD card.
+
+#### picoware-system-ducky
+- `Ducky` class: DuckyScript interpreter for USB HID keyboard input.
+    - `__init__(usb_device, storage=None, media_device=None, mouse_device=None, button_reader=None)`: Create an interpreter. `usb_device` is a `USBKeyboard` instance. Optional `storage` for `exec()`, `media_device` for media keys, `mouse_device` for mouse, `button_reader` callable for `WAIT_FOR_BUTTON_PRESS`.
+    - `default_delay`: Property (r/w) - default delay in milliseconds between commands.
+    - `default_string_delay`: Property (r/w) - default delay in milliseconds between characters.
+    - `device_id`: Property (r/w) - USB device ID.
+    - `exec(file_path)`: Read a DuckyScript file from SD storage and execute it.
+    - `run(code)`: Execute DuckyScript source code synchronously.
+
+Supported DuckyScript commands: `DELAY`, `DEFAULT_DELAY`, `STRING_DELAY`, `STRING`, `STRINGLN`, `HOLD`, `RELEASE`, `ALTCHAR`, `ALTSTRING`, `SYSRQ`, `MEDIA`, `GLOBE`, `REPEAT`, `WAIT_FOR_BUTTON_PRESS`, `LEFTCLICK`, `RIGHTCLICK`, `MOUSEMOVE`, `MOUSESCROLL`, `ID`, `REM`.
 
 #### picoware-system-font
 - `FONT_XTRA_SMALL`: Extra-small font size index (0)
@@ -387,6 +446,32 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `read_non_blocking()`: Non-blocking read - returns the raw key code, or -1 if no key is available.
     - `reset()`: Resets all input state (clears the last button, gesture, and touch point).
 
+#### picoware-system-infrared
+- `RemoteFormatError`: Exception raised when an infrared remote file is invalid.
+- `Signal` class: One parsed or raw signal from a Flipper `.ir` file.
+    - `name`: Signal name string.
+    - `signal_type`: `"parsed"` or `"raw"`.
+    - `protocol`: Protocol name (parsed signals only).
+    - `address`: Address integer (parsed signals only).
+    - `command`: Command integer (parsed signals only).
+    - `toggle`: Toggle integer (parsed signals only).
+    - `frequency`: Carrier frequency in Hz.
+    - `duty_cycle`: Carrier duty cycle (0 through 1).
+    - `data`: Tuple of raw timing integers (raw signals only).
+    - `is_raw`: Property - True when the signal contains raw timings.
+    - `is_parsed`: Property - True when the signal has a known protocol.
+- `RemoteFile` class: A remote loaded `.ir` file.
+    - `__init__(path, text=None, storage=None, file_size=None)`: Load a `.ir` file from text or SD storage.
+    - `path`: File path string.
+    - `signals`: Property - tuple of `Signal` objects.
+- `parse_ir(text)`: Parse a Flipper `.ir` remote text and return a tuple of `Signal` objects.
+
+#### picoware-system-js
+- `JS` class: MicroPython wrapper for the MJS JavaScript engine. Inherits from `mjs.MJS`.
+    - `__init__()`: Create a JS engine instance.
+    - `exec(path)`: Execute JavaScript code from a file on the SD card. Returns the result.
+    - `run(js_code)`: Execute the provided JavaScript code string. Returns the result.
+
 #### picoware-system-jsmn
 - `value(key, json_string)`: Get the value for a key from a JSON string. Returns the value as a string, or `None` if the key is not found.
 - `array_value(key, index, json_string)`: Get the value at a specific index from a JSON array for a key. Returns the value as a string, or `None` if the key or index is not found.
@@ -415,6 +500,12 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `log(message, log_type=LOG_TYPE_NONE)`: Append a log entry.
     - `reset()`: Clear all log entries and the log file.
 
+#### picoware-system-mmbasic
+- `MMBasic` class: MMBasic interpreter for Picoware. Inherits from the C `mmbasic.MMBasic` module.
+    - `__init__(view_manager, present_ticks=20)`: Initialize the interpreter. `present_ticks` controls the interval between graphics screen updates.
+    - `is_over`: Property (r/o) - True when the program has reached a terminal state (END/STOP).
+    - `run()`: Poll buttons, tick the interpreter, and redraw the console/graphics. Returns False when the program is over or the user pressed BACK.
+
 #### picoware-system-psram
 - `PSRAMObject` class: Wraps a C `picoware_psram.Object` - a reference to an allocated PSRAM block.
     - `__str__()`: Returns a string description of the object.
@@ -442,6 +533,32 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `text`: Attribute - response body decoded as UTF-8 string.
     - `status_code`: Attribute - HTTP status code integer.
     - `headers`: Attribute - dict of response headers.
+
+#### picoware-system-settings
+- `Settings` class: Persistent device settings stored in `picoware/settings/picoware.json` on the SD card.
+    - `__init__(storage)`: Initialize settings, loading from storage if present.
+    - `anthropic_api_key`: Property (r/w) - Anthropic API key string.
+    - `dark_mode`: Property (r/w) - True if dark mode is enabled.
+    - `deepseek_api_key`: Property (r/w) - DeepSeek API key string.
+    - `debug`: Property (r/w) - True if debug mode is enabled.
+    - `exit_button`: Property (r/w) - exit button preference (`BUTTON_*` constant).
+    - `gemini_api_key`: Property (r/w) - Gemini API key string.
+    - `gmt_offset`: Property (r/w) - GMT timezone offset in hours.
+    - `jblanked_api_key`: Property (r/w) - JBlanked API key string.
+    - `lcd_mode`: Property (r/w) - LCD rendering mode integer.
+    - `local_url`: Property (r/w) - local LLM server URL string.
+    - `lvgl_mode`: Property (r/w) - True if LVGL rendering is enabled.
+    - `mcp_servers`: Property (r/w) - list of MCP server configs.
+    - `onscreen_keyboard`: Property (r/w) - True if on-screen keyboard is enabled.
+    - `openai_api_key`: Property (r/w) - OpenAI API key string.
+    - `screen_brightness`: Property (r/w) - screen brightness percentage (0 through 100).
+    - `server_username`: Property (r/w) - server username string.
+    - `server_password`: Property (r/w) - server password string.
+    - `theme_color`: Property (r/w) - UI theme color integer.
+    - `usb_stream`: Property (r/w) - True if USB streaming is enabled.
+    - `wifi_ssid`: Property (r/w) - WiFi SSID string.
+    - `wifi_password`: Property (r/w) - WiFi password string.
+    - `xai_api_key`: Property (r/w) - xAI API key string.
 
 #### picoware-system-storage
 - `FAT32File` class: Wraps a C `sd_mp.fat32_file` handle (available when `sd_mp` module is present).
@@ -541,6 +658,18 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `fetch(offset=0)`: Synchronize the RTC with NTP (`pool.ntp.org`). `offset` is the UTC offset in hours. Uses `ThreadManager` if available. Returns True if started/successful.
     - `set(year, month, day, hour, minute, second)`: Manually set the RTC time.
 
+#### picoware-system-timer
+- `Timer` class: Hardware/virtual timer with a Python callback.
+    - `ONE_SHOT`: One-shot mode constant (0).
+    - `PERIODIC`: Periodic mode constant (1).
+    - `__init__(mode=PERIODIC, callback=None, interval_ms=1000)`: Create a timer. `mode` is `ONE_SHOT` or `PERIODIC`, `callback` takes one argument (the `machine.Timer` object), `interval_ms` is the period in milliseconds.
+    - `callback`: Property (r/w) - the callback function.
+    - `interval`: Property (r/w) - the interval in milliseconds.
+    - `mode`: Property (r/w) - the timer mode integer.
+    - `timer`: Property (r/o) - the underlying `machine.Timer` object.
+    - `start()`: Start the timer with the configured mode and interval.
+    - `stop()`: Stop the timer.
+
 #### picoware-system-uart
 - `UART` class: Wraps `machine.UART` for serial communication.
     - `__init__(uart_id=0, tx_pin=0, rx_pin=1, baud_rate=115200, timeout=2000)`: Initializes UART with specified parameters.
@@ -559,6 +688,10 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `read_serial_line()`: Non-blocking read - returns available data as a string.
     - `set_callback(callback)`: Set a UART IRQ callback function.
     - `write(message)`: Write raw bytes to the UART.
+
+#### picoware-system-uf2loader
+- `UF2Loader` class: Flash UF2 firmware files to the device.
+    - `flash(filename)`: Flash a UF2 firmware file to the device. `filename` is the path to the UF2 file.
 
 #### picoware-system-usb
 - `USBKeyboard` class: Composite CDC + HID keyboard USB device. Presents both the REPL serial port and a HID keyboard to the host simultaneously.
@@ -613,6 +746,20 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `reset()`: Deactivate WLAN and reset all state.
     - `scan()`: Scan for available networks. Returns a list of scan result tuples.
     - `status()`: Returns the current WiFi state as a `WIFI_STATE_*` constant.
+
+#### picoware-system-video
+- `Video` class: Video output for Picoware. Inherits from the C `video.Video` module.
+    - `__init__(path, x=0, y=0, scale=1.0)`: Create a video player. `path` is the video file path, `x`/`y` are the display position, `scale` is the scale factor.
+    - `path`: Property (r/o) - path to the video file.
+    - `active`: Property (r/o) - True if video is currently active.
+    - `width`: Property (r/o) - width of the video display.
+    - `height`: Property (r/o) - height of the video display.
+    - `frames`: Property (r/o) - total number of frames.
+    - `frame`: Property (r/o) - current frame index.
+    - `fps`: Property (r/o) - frames per second.
+    - `play()`: Blocking video playback.
+    - `start()`: Start video playback asynchronously.
+    - `run()`: Run one video playback frame.
 
 #### picoware-system-view
 - `View` class: Represents a named view with start/run/stop lifecycle callbacks.
@@ -804,6 +951,15 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `run(swap=True, force=False)`: Process one input frame and redraw if needed. Returns False when input is complete.
     - `set_save_callback(callback)`: Set the function to call when text is submitted.
 
+#### picoware-gui-keyboard_rotation
+- `KeyboardRotation` class: Drawing coordinates for a keyboard dialog rotated counterclockwise.
+    - `__init__(draw)`: Initialize with a `Draw` instance. Swaps the X/Y axes for rotated rendering.
+    - `size`: Attribute - swapped display dimensions as a `Vector`.
+    - `scale_x(value, screen_width=320)`: Scale a horizontal value along the rotated display width.
+    - `scale_y(value, screen_height=320)`: Scale a vertical value along the rotated display height.
+    - `touch_point(x, y)`: Map a physical touch point back into the landscape dialog.
+    - All other `Draw` methods are proxied through `__getattr__` with coordinates automatically rotated.
+
 #### picoware-gui-list
 - `List` class: A scrollable list widget with optional LVGL rendering.
     - `__init__(draw, y, height, text_color=0xFFFF, background_color=0x0000, selected_color=0x001F, border_color=0xFFFF, border_width=2)`: Initialize the list with position, size, and styling.
@@ -916,6 +1072,12 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `update_toggle(index, text, state)`: Update the text and state of a toggle. Returns True on success.
 
 ### Engine
+
+#### picoware-engine-billboard
+- `Billboard` class: Store directional and pose images for a billboard in the game engine. Inherits from the C `engine.Billboard` module.
+    - `__init__(dirs=8, poses=1)`: Create a billboard. `dirs` is the number of directions (1 through 8), `poses` is the number of poses (1 through 8).
+    - `set_counts(dirs, poses)`: Set the number of directions and poses.
+    - `set_direction_pose(direction, pose, image)`: Set an image for a direction and pose. Images must have RGB332 pixel data with dimensions from 1 to 1024 pixels. Pass `None` to clear a direction and pose.
 
 #### picoware-engine-camera
 - `CAMERA_FIRST_PERSON`: First-person camera mode constant (0)

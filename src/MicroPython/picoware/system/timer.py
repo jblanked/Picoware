@@ -64,7 +64,7 @@ class Timer:
     def start(self):
         """Start the timer with the configured mode and interval."""
         from machine import Timer
-        from picoware.system.boards import BOARD_HAS_ESP32
+        from picoware.system.boards import BOARD_HAS_ESP32, BOARD_CARDPUTER, BOARD_ID
         if self._callback is None:
             raise ValueError("Callback function must be provided")
         try:
@@ -75,7 +75,7 @@ class Timer:
                 mode=Timer.PERIODIC if self._mode == self.PERIODIC else Timer.ONE_SHOT,
                 period=self._interval,
                 callback=self._callback,
-                hard=BOARD_HAS_ESP32
+                hard=BOARD_HAS_ESP32 and BOARD_ID != BOARD_CARDPUTER
             )
         except Exception as e:
             self.stop()

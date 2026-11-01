@@ -1232,7 +1232,11 @@ class Bluetooth:
             data = data.encode()
 
         try:
-            self._ble.gattc_write(self._conn_handle, handle, data, 1 if response else 0)
+            while len(data) > 20:
+                self._ble.gattc_write(self._conn_handle, handle, data[:20], 1 if response else 0)
+                data = data[20:]
+            if data:
+                self._ble.gattc_write(self._conn_handle, handle, data, 1 if response else 0)
             return True
         except Exception as e:
             print(f"[Bluetooth] Write error: {e}")

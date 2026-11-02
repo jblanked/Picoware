@@ -10,9 +10,12 @@ target_include_directories(usermod_audio INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}
 )
 
-target_link_libraries(usermod_audio INTERFACE
-    pico_multicore
-    pico_sync
-)
+# The RP2 back end uses core 1; the ESP32 back end uses ESP-IDF I2S instead.
+if(NOT ESP32)
+    target_link_libraries(usermod_audio INTERFACE
+        pico_multicore
+        pico_sync
+    )
+endif()
 
 target_link_libraries(usermod INTERFACE usermod_audio) 

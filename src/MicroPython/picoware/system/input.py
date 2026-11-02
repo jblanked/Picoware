@@ -47,6 +47,7 @@ class Input:
         "_character_map",
         "_touch_read_data_fast",
         "_touch_down_1_69",
+        "touch_down",
         "_uart",
         "_gpio_buttons",
         "_gpio_button_state",
@@ -202,6 +203,7 @@ class Input:
         self._last_button = -1
         self._was_pressed = False
         self._was_capitalized = False
+        self.touch_down = False
 
         ansi_button_map = {
             # printable/symbol keys
@@ -854,8 +856,10 @@ class Input:
             self._last_button = buttons.BUTTON_NONE
             self._was_pressed = False
             self._elapsed_time = 0
+            self.touch_down = False
             return
 
+        self.touch_down = True
         x = self._touch.x
         y = self._touch.y
 

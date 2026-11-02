@@ -75,8 +75,12 @@ def _get_status_text(view_manager) -> str:
         if state == WIFI_STATE_IDLE:
             text += f"Ready to connect{extension}"
         elif state == WIFI_STATE_CONNECTING:
-            elapsed = (ticks_ms() - wifi.connection_start_time) // 1000
-            text += f"Connecting... ({elapsed}s){extension}"
+            start_time = wifi.connection_start_time
+            if start_time is None:
+                text += f"Connecting...{extension}"
+            else:
+                elapsed = (ticks_ms() - start_time) // 1000
+                text += f"Connecting... ({elapsed}s){extension}"
         elif state == WIFI_STATE_CONNECTED:
             text += f"Connected!{extension}"
         elif state == WIFI_STATE_TIMEOUT:

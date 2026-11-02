@@ -249,6 +249,7 @@ class Keyboard:
         self.KEY_MARGIN = 0 if self._is_flipper else max(1, draw.scale_x(2))
         self.KEY_SPACING = 1
         self._touch_enabled = input_manager.has_touch_support
+        self._touch_latched = False
 
         font_height = draw.font_size.y
         padding_x = 1 if self._is_flipper else max(1, draw.scale_x(3))
@@ -519,6 +520,8 @@ class Keyboard:
                 BUTTON_UP: BUTTON_RIGHT, BUTTON_RIGHT: BUTTON_DOWN,
                 BUTTON_DOWN: BUTTON_LEFT, BUTTON_LEFT: BUTTON_UP,
             }.get(self.dpad_input, self.dpad_input)
+        if self._touch_latched and not self.input_manager.touch_down:
+            self._touch_latched = False
         has_touch_point = (
             self._touch_enabled
             and self.input_manager.point
@@ -680,6 +683,10 @@ class Keyboard:
         hit = self._key_at_point(point[0], point[1])
         if hit is None:
             return False
+
+        if self._touch_latched and self.ROWS[hit[0]][hit[1]].normal != "\b":
+            return True
+        self._touch_latched = True
 
         self.cursor_row, self.cursor_col = hit
         self.is_in_textbox = False

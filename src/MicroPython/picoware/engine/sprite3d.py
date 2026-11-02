@@ -30,29 +30,29 @@ class Sprite3D(engine.Sprite3D):
     Methods:
         - add_triangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, color=0x0000, wireframe=True): Add a triangle to the sprite.
         - get_triangle(index): Return a Triangle3D object.
-        - update_triangle(index, x1, y1, z1, x2, y2, z2, x3, y3, z3, color=0x0000, wireframe=True): Replace one triangle.
+        - update_triangle(index, x1, y1, z1, x2, y2, z2, x3, y3, z3, color=0x0000, wireframe=True): Replace one triangle. Returns True on success.
         - clear_triangles(): Remove all triangles from the sprite.
-        - create_humanoid(height=1.8, color=0x0000): Create a humanoid mesh.
-        - create_tree(height=2.0, color=0x0000): Create a tree mesh.
-        - create_house(width=2.0, height=2.5, color=0x0000): Create a house mesh.
-        - create_pillar(height=3.0, radius=0.3, color=0x0000): Create a pillar mesh.
-        - create_wall(x, y, z, width=4.0, height=1.5, depth=0.2, color=0x0000): Create a wall mesh.
-        - create_cube(x, y, z, width, height, depth, color=0x0000): Create a cube mesh.
-        - create_cylinder(x, y, z, radius, height, segments, color=0x0000): Create a cylinder mesh.
-        - create_sphere(x, y, z, radius, segments, color=0x0000): Create a sphere mesh.
-        - create_triangular_prism(x, y, z, width, height, depth, color=0x0000): Create a triangular prism mesh.
-        - initialize_as_house(position, width, height, rotation, color=0x0000): Initialize a house at a position.
-        - initialize_as_humanoid(position, height, rotation, color=0x0000): Initialize a humanoid at a position.
-        - initialize_as_pillar(position, height, radius, color=0x0000): Initialize a pillar at a position.
-        - initialize_as_tree(position, height, color=0x0000): Initialize a tree at a position.
+        - create_humanoid(height=1.8, color=0x0000): Create a humanoid mesh. Returns True on success.
+        - create_tree(height=2.0, color=0x0000): Create a tree mesh. Returns True on success.
+        - create_house(width=2.0, height=2.5, color=0x0000): Create a house mesh. Returns True on success.
+        - create_pillar(height=3.0, radius=0.3, color=0x0000): Create a pillar mesh. Returns True on success.
+        - create_wall(x, y, z, width=4.0, height=1.5, depth=0.2, color=0x0000): Create a wall mesh. Returns True on success.
+        - create_cube(x, y, z, width, height, depth, color=0x0000): Create a cube mesh. Returns True on success.
+        - create_cylinder(x, y, z, radius, height, segments, color=0x0000): Create a cylinder mesh. Returns True on success.
+        - create_sphere(x, y, z, radius, segments, color=0x0000): Create a sphere mesh. Returns True on success.
+        - create_triangular_prism(x, y, z, width, height, depth, color=0x0000): Create a triangular prism mesh. Returns True on success.
+        - initialize_as_house(position, width, height, rotation, color=0x0000): Initialize a house at a position. Returns True on success.
+        - initialize_as_humanoid(position, height, rotation, color=0x0000): Initialize a humanoid at a position. Returns True on success.
+        - initialize_as_pillar(position, height, radius, color=0x0000): Initialize a pillar at a position. Returns True on success.
+        - initialize_as_tree(position, height, color=0x0000): Initialize a tree at a position. Returns True on success.
         - set_position(position): Set the sprite position.
         - set_rotation_y(rotation_y): Set the Y-axis rotation.
         - set_scale(scale_factor): Set the sprite scale.
         - set_active(active): Set whether the sprite is active.
         - set_wireframe(wireframe): Set wireframe rendering for the mesh.
-        - from_path(path, wireframe=True): Load a sprite mesh from a file.
-        - to_path(path): Save the sprite mesh to a file.
-        - bake_transform(): Apply rotation and scale to stored triangles.
+        - from_path(path, wireframe=True): Load a sprite mesh from a file. Returns True on success.
+        - to_path(path): Save the sprite mesh to a file. Returns True on success.
+        - bake_transform(): Apply rotation and scale to stored triangles. Returns True on success.
         - __del__(): Release the native sprite resources.
     """
 

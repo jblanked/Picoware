@@ -152,8 +152,7 @@ mp_obj_t sprite3d_mp_add_triangle(size_t n_args, const mp_obj_t *args)
     float z3 = mp_obj_get_float(args[9]);
     uint16_t color = n_args > 10 ? static_cast<uint16_t>(mp_obj_get_int(args[10])) : 0x0000;
     bool wireframe = n_args > 11 ? mp_obj_is_true(args[11]) : true;
-    ctx->addTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe);
-    return mp_const_none;
+    return ctx->addTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_add_triangle_obj, 10, 12, sprite3d_mp_add_triangle);
 
@@ -182,12 +181,12 @@ mp_obj_t sprite3d_mp_update_triangle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("triangle index out of range"));
     uint16_t color = n_args > 11 ? static_cast<uint16_t>(mp_obj_get_int(args[11])) : 0x0000;
     bool wireframe = n_args > 12 ? mp_obj_is_true(args[12]) : true;
-    if (!ctx->updateTriangle(static_cast<uint16_t>(index), mp_obj_get_float(args[2]), mp_obj_get_float(args[3]), mp_obj_get_float(args[4]),
-                             mp_obj_get_float(args[5]), mp_obj_get_float(args[6]), mp_obj_get_float(args[7]),
-                             mp_obj_get_float(args[8]), mp_obj_get_float(args[9]), mp_obj_get_float(args[10]),
-                             color, wireframe))
-        mp_raise_ValueError(MP_ERROR_TEXT("triangle index out of range"));
-    return mp_const_none;
+    return ctx->updateTriangle(static_cast<uint16_t>(index), mp_obj_get_float(args[2]), mp_obj_get_float(args[3]), mp_obj_get_float(args[4]),
+                               mp_obj_get_float(args[5]), mp_obj_get_float(args[6]), mp_obj_get_float(args[7]),
+                               mp_obj_get_float(args[8]), mp_obj_get_float(args[9]), mp_obj_get_float(args[10]),
+                               color, wireframe)
+               ? mp_const_true
+               : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_update_triangle_obj, 11, 13, sprite3d_mp_update_triangle);
 
@@ -208,8 +207,7 @@ mp_obj_t sprite3d_mp_create_humanoid(size_t n_args, const mp_obj_t *args)
     Sprite3D *ctx = sprite3d_get_context(self);
     float height = n_args > 1 ? mp_obj_get_float(args[1]) : 1.8f;
     uint16_t color = n_args > 2 ? static_cast<uint16_t>(mp_obj_get_int(args[2])) : 0x0000;
-    ctx->createHumanoid(height, color);
-    return mp_const_none;
+    return ctx->createHumanoid(height, color) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_create_humanoid_obj, 1, 3, sprite3d_mp_create_humanoid);
 
@@ -220,8 +218,7 @@ mp_obj_t sprite3d_mp_create_tree(size_t n_args, const mp_obj_t *args)
     Sprite3D *ctx = sprite3d_get_context(self);
     float height = n_args > 1 ? mp_obj_get_float(args[1]) : 2.0f;
     uint16_t color = n_args > 2 ? static_cast<uint16_t>(mp_obj_get_int(args[2])) : 0x0000;
-    ctx->createTree(height, color);
-    return mp_const_none;
+    return ctx->createTree(height, color) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_create_tree_obj, 1, 3, sprite3d_mp_create_tree);
 
@@ -233,8 +230,7 @@ mp_obj_t sprite3d_mp_create_house(size_t n_args, const mp_obj_t *args)
     float width = n_args > 1 ? mp_obj_get_float(args[1]) : 2.0f;
     float height = n_args > 2 ? mp_obj_get_float(args[2]) : 2.5f;
     uint16_t color = n_args > 3 ? static_cast<uint16_t>(mp_obj_get_int(args[3])) : 0x0000;
-    ctx->createHouse(width, height, color);
-    return mp_const_none;
+    return ctx->createHouse(width, height, color) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_create_house_obj, 1, 4, sprite3d_mp_create_house);
 
@@ -246,8 +242,7 @@ mp_obj_t sprite3d_mp_create_pillar(size_t n_args, const mp_obj_t *args)
     float height = n_args > 1 ? mp_obj_get_float(args[1]) : 3.0f;
     float radius = n_args > 2 ? mp_obj_get_float(args[2]) : 0.3f;
     uint16_t color = n_args > 3 ? static_cast<uint16_t>(mp_obj_get_int(args[3])) : 0x0000;
-    ctx->createPillar(height, radius, color);
-    return mp_const_none;
+    return ctx->createPillar(height, radius, color) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_create_pillar_obj, 1, 4, sprite3d_mp_create_pillar);
 
@@ -263,8 +258,7 @@ mp_obj_t sprite3d_mp_create_wall(size_t n_args, const mp_obj_t *args)
     float height = n_args > 5 ? mp_obj_get_float(args[5]) : 1.5f;
     float depth = n_args > 6 ? mp_obj_get_float(args[6]) : 0.2f;
     uint16_t color = n_args > 7 ? static_cast<uint16_t>(mp_obj_get_int(args[7])) : 0x0000;
-    ctx->createWall(x, y, z, width, height, depth, color);
-    return mp_const_none;
+    return ctx->createWall(x, y, z, width, height, depth, color) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_create_wall_obj, 4, 8, sprite3d_mp_create_wall);
 
@@ -280,8 +274,7 @@ mp_obj_t sprite3d_mp_create_cube(size_t n_args, const mp_obj_t *args)
     float height = mp_obj_get_float(args[5]);
     float depth = mp_obj_get_float(args[6]);
     uint16_t color = n_args > 7 ? static_cast<uint16_t>(mp_obj_get_int(args[7])) : 0x0000;
-    ctx->createCube(x, y, z, width, height, depth, color);
-    return mp_const_none;
+    return ctx->createCube(x, y, z, width, height, depth, color) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_create_cube_obj, 7, 8, sprite3d_mp_create_cube);
 
@@ -297,8 +290,7 @@ mp_obj_t sprite3d_mp_create_cylinder(size_t n_args, const mp_obj_t *args)
     float height = mp_obj_get_float(args[5]);
     uint8_t segments = static_cast<uint8_t>(mp_obj_get_int(args[6]));
     uint16_t color = n_args > 7 ? static_cast<uint16_t>(mp_obj_get_int(args[7])) : 0x0000;
-    ctx->createCylinder(x, y, z, radius, height, segments, color);
-    return mp_const_none;
+    return ctx->createCylinder(x, y, z, radius, height, segments, color) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_create_cylinder_obj, 7, 8, sprite3d_mp_create_cylinder);
 
@@ -313,8 +305,7 @@ mp_obj_t sprite3d_mp_create_sphere(size_t n_args, const mp_obj_t *args)
     float radius = mp_obj_get_float(args[4]);
     uint8_t segments = static_cast<uint8_t>(mp_obj_get_int(args[5]));
     uint16_t color = n_args > 6 ? static_cast<uint16_t>(mp_obj_get_int(args[6])) : 0x0000;
-    ctx->createSphere(x, y, z, radius, segments, color);
-    return mp_const_none;
+    return ctx->createSphere(x, y, z, radius, segments, color) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_create_sphere_obj, 6, 7, sprite3d_mp_create_sphere);
 
@@ -330,8 +321,7 @@ mp_obj_t sprite3d_mp_create_triangular_prism(size_t n_args, const mp_obj_t *args
     float height = mp_obj_get_float(args[5]);
     float depth = mp_obj_get_float(args[6]);
     uint16_t color = n_args > 7 ? static_cast<uint16_t>(mp_obj_get_int(args[7])) : 0x0000;
-    ctx->createTriangularPrism(x, y, z, width, height, depth, color);
-    return mp_const_none;
+    return ctx->createTriangularPrism(x, y, z, width, height, depth, color) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_create_triangular_prism_obj, 7, 8, sprite3d_mp_create_triangular_prism);
 
@@ -349,8 +339,7 @@ mp_obj_t sprite3d_mp_initialize_as_house(size_t n_args, const mp_obj_t *args)
     float height = mp_obj_get_float(args[3]);
     float rotation = mp_obj_get_float(args[4]);
     uint16_t color = n_args > 5 ? static_cast<uint16_t>(mp_obj_get_int(args[5])) : 0x0000;
-    ctx->initializeAsHouse(pos, width, height, rotation, color);
-    return mp_const_none;
+    return ctx->initializeAsHouse(pos, width, height, rotation, color) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_initialize_as_house_obj, 5, 6, sprite3d_mp_initialize_as_house);
 
@@ -367,8 +356,7 @@ mp_obj_t sprite3d_mp_initialize_as_humanoid(size_t n_args, const mp_obj_t *args)
     float height = mp_obj_get_float(args[2]);
     float rotation = mp_obj_get_float(args[3]);
     uint16_t color = n_args > 4 ? static_cast<uint16_t>(mp_obj_get_int(args[4])) : 0x0000;
-    ctx->initializeAsHumanoid(pos, height, rotation, color);
-    return mp_const_none;
+    return ctx->initializeAsHumanoid(pos, height, rotation, color) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_initialize_as_humanoid_obj, 4, 5, sprite3d_mp_initialize_as_humanoid);
 
@@ -385,8 +373,7 @@ mp_obj_t sprite3d_mp_initialize_as_pillar(size_t n_args, const mp_obj_t *args)
     float height = mp_obj_get_float(args[2]);
     float radius = mp_obj_get_float(args[3]);
     uint16_t color = n_args > 4 ? static_cast<uint16_t>(mp_obj_get_int(args[4])) : 0x0000;
-    ctx->initializeAsPillar(pos, height, radius, color);
-    return mp_const_none;
+    return ctx->initializeAsPillar(pos, height, radius, color) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_initialize_as_pillar_obj, 4, 5, sprite3d_mp_initialize_as_pillar);
 
@@ -402,8 +389,7 @@ mp_obj_t sprite3d_mp_initialize_as_tree(size_t n_args, const mp_obj_t *args)
     Vector pos(pos_vec->x, pos_vec->y, pos_vec->z, pos_vec->integer);
     float height = mp_obj_get_float(args[2]);
     uint16_t color = n_args > 3 ? static_cast<uint16_t>(mp_obj_get_int(args[3])) : 0x0000;
-    ctx->initializeAsTree(pos, height, color);
-    return mp_const_none;
+    return ctx->initializeAsTree(pos, height, color) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_initialize_as_tree_obj, 3, 4, sprite3d_mp_initialize_as_tree);
 
@@ -485,8 +471,7 @@ mp_obj_t sprite3d_mp_bake_transform(mp_obj_t self_in)
 {
     sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
     Sprite3D *ctx = sprite3d_get_context(self);
-    ctx->bakeTransform();
-    return mp_const_none;
+    return ctx->bakeTransform() ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(sprite3d_mp_bake_transform_obj, sprite3d_mp_bake_transform);
 

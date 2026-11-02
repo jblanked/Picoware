@@ -136,7 +136,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_SD 1        // has sd card
 #define BOARD_HAS_TOUCH 1     // has touch
 #define BOARD_HAS_WIFI 1      // has wifi
-#define BOARD_HAS_AUDIO 0     // ES8311 codec, but I2S is off in the C5 build
+#define BOARD_HAS_AUDIO 1     // ES8311 codec over I2S
 #define BOARD_HAS_BLUETOOTH 1 // has bluetooth
 #elif defined(V8)
 // Marauder V8 ESP32-C5

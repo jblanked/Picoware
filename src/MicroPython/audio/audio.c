@@ -1,3 +1,18 @@
+#include "audio_config.h"
+
+#if defined(AUDIO_ESP32_I2S)
+// ESP32: an I2S master streams 16-bit stereo PCM into an ES8311 codec. A
+// FreeRTOS task mixes the tones, WAV streams and pushed PCM in software.
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "driver/i2s_std.h"
+#include "driver/i2c_master.h"
+#include "py/runtime.h"
+#include "py/mpthread.h"
+#include AUDIO_I2C_HEADER
+#else
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
 #include "hardware/clocks.h"
@@ -7,6 +22,7 @@
 #include "hardware/irq.h"
 #include "hardware/structs/pwm.h"
 #include "pico/time.h"
+#endif
 #include "../log/log_mp.h"
 
 #ifndef PRINT
@@ -14,7 +30,9 @@
 #endif
 
 #include "audio.h"
+#if !defined(AUDIO_ESP32_I2S)
 #include "audio.pio.h"
+#endif
 #include "audio_config.h"
 #ifdef AUDIO_MEMORY_INCLUDE
 #include AUDIO_MEMORY_INCLUDE
@@ -31,12 +49,15 @@
 volatile bool user_interrupt = false;
 #endif
 
+#if !defined(AUDIO_ESP32_I2S)
 #include "pico/multicore.h"
 #include "pico/mutex.h"
+#endif
 #include <string.h>
 
 #include "py/gc.h"
 
+#if !defined(AUDIO_ESP32_I2S) // MP3 is not supported on ESP32 yet
 #define MINIMP3_MALLOC(sz) m_malloc(sz)
 #define MINIMP3_FREE(p) m_free(p)
 #define MINIMP3_REALLOC(p, sz) m_realloc(p, sz)
@@ -48,14 +69,16 @@ volatile bool user_interrupt = false;
 #define MP3D_SEEK_TO_SAMPLE 1
 #define MINIMP3_PREDECODE_FRAMES 2
 #include "minimp3/minimp3_ex.h"
+#endif
 
 static bool audio_initialised = false;
-PIO pio = pio0;
-
 static bool is_playing = false;
-static alarm_id_t tone_alarm_id = -1;
 static uint8_t audio_volume = 100;
+#if !defined(AUDIO_ESP32_I2S)
+PIO pio = pio0;
+static alarm_id_t tone_alarm_id = -1;
 static uint32_t channel_period[2] = {0, 0};
+#endif
 static volatile int64_t mp3_pending_seek = -1;
 static volatile uint32_t mp3_pending_seek_serial = 0;
 static volatile uint32_t mp3_seek_done_serial = 0;
@@ -78,6 +101,7 @@ static uint32_t *stream_ring;
 static volatile uint32_t stream_ring_write = 0;
 static volatile uint32_t stream_ring_read = 0;
 static bool streaming = false;
+#if !defined(AUDIO_ESP32_I2S)
 static unsigned int stream_pwm_slice = 0;
 static int stream_dma_channel = -1;
 static int stream_dma_timer = -1;
@@ -98,6 +122,7 @@ static uint32_t stream_gain = 0;
 static uint16_t stream_last_left = AUDIO_STREAM_PWM_MIDPOINT;
 static uint16_t stream_last_right = AUDIO_STREAM_PWM_MIDPOINT;
 static uint32_t stream_dma_buffer[STREAM_DMA_BLOCK_SIZE];
+#endif
 
 // WAV streaming (up to 4 simultaneous files decoded on core 1)
 #define MAX_WAV_STREAMS 4
@@ -113,6 +138,19 @@ typedef struct
 {
 #if SD_AVAILABLE
     fat32_file_t file;
+#elif defined(AUDIO_ESP32_I2S)
+    // fopen("/sdcard/...") goes through MicroPython's VFS, so the file is only
+    // opened, read and closed from MicroPython context. The audio task only
+    // reads the ring.
+    FILE *file;
+    uint8_t *ring;                  // raw PCM read ahead from the file
+    volatile uint32_t ring_head;    // bytes written (MicroPython context)
+    volatile uint32_t ring_tail;    // bytes consumed (audio task)
+    volatile bool eof;              // the whole data chunk is in the ring
+    volatile bool done;             // finished playing; the file still needs closing
+    int16_t buf[WAV_MIX_CHUNK * 2]; // decoded stereo frames
+    uint32_t buf_frames;
+    uint32_t pos; // 16.16 position in buf
 #endif
     bool active;
     uint32_t data_remaining; // PCM bytes left in the data chunk
@@ -122,9 +160,38 @@ typedef struct
 } wav_stream_t;
 
 static wav_stream_t wav_streams[MAX_WAV_STREAMS];
+static uint32_t wav_active_sample_rate = 0;
+#if defined(AUDIO_ESP32_I2S)
+#define AUDIO_DEFAULT_RATE 22050
+#define AUDIO_TONE_AMPLITUDE 6000 // square wave peak, about -15 dBFS
+#define AUDIO_TASK_STACK 8192
+#define AUDIO_TASK_PRIORITY 3 // above the MicroPython task
+#define WAV_RING_BYTES 32768  // raw PCM read ahead per stream; must be a power of 2
+#define WAV_RING_MASK (WAV_RING_BYTES - 1)
+
+// Keeps the WAV rings (on the MicroPython heap) alive across GC.
+// The size must match MAX_WAV_STREAMS.
+MP_REGISTER_ROOT_POINTER(uint8_t *audio_wav_ring[4]);
+
+static SemaphoreHandle_t audio_lock = NULL; // held while the task mixes a chunk
+static TaskHandle_t audio_task = NULL;
+static i2s_chan_handle_t audio_tx = NULL;
+static i2c_master_dev_handle_t audio_codec = NULL;
+static uint32_t audio_rate = 0; // current I2S sample rate
+static uint32_t stream_sample_rate = 0;
+static volatile bool wav_refill_pending = false;
+
+// Tones: square waves, one per channel. tone_frames_left < 0 means until stopped.
+static uint32_t tone_frequency[2];
+static uint32_t tone_phase[2];
+static int64_t tone_frames_left = 0;
+
+static int32_t mix_acc[WAV_MIX_CHUNK * 2];
+static int16_t mix_out[WAV_MIX_CHUNK * 2];
+#else
 static volatile bool wav_core1_running = false;
 static mutex_t wav_sd_mutex;
-static uint32_t wav_active_sample_rate = 0;
+#endif
 
 // MP3 streaming
 #if SD_AVAILABLE
@@ -171,6 +238,428 @@ static int mp3_seek_cb(uint64_t position, void *user_data)
 static uint32_t audio_core1_stack[AUDIO_CORE1_STACK_SIZE] __attribute__((aligned(4)));
 #endif
 
+#if defined(AUDIO_ESP32_I2S)
+// Waits without holding the GIL, so other MicroPython threads can run.
+static void audio_sleep_ms(uint32_t ms)
+{
+    TickType_t ticks = pdMS_TO_TICKS(ms);
+    MP_THREAD_GIL_EXIT();
+    vTaskDelay(ticks ? ticks : 1);
+    MP_THREAD_GIL_ENTER();
+}
+
+// Wakes the audio task when there is something new to play.
+static void audio_wake(void)
+{
+    if (audio_task)
+        xTaskNotifyGive(audio_task);
+}
+
+static esp_err_t es8311_write(uint8_t reg, uint8_t value)
+{
+    uint8_t buf[2] = {reg, value};
+    return i2c_master_transmit(audio_codec, buf, sizeof(buf), 100);
+}
+
+static esp_err_t es8311_read(uint8_t reg, uint8_t *value)
+{
+    return i2c_master_transmit_receive(audio_codec, &reg, 1, value, 1, 100);
+}
+
+// DAC playback, I2S slave, 16-bit, internal clock taken from SCLK (no MCLK).
+// With BCLK = 32 x fs, REG01 = 0xBF and REG02 = 0x18 give 256 x fs inside the
+// codec at any sample rate, so the rate can change without touching the codec.
+static bool es8311_init(void)
+{
+    uint8_t id1 = 0, id2 = 0;
+    if (es8311_read(0xFD, &id1) != ESP_OK || es8311_read(0xFE, &id2) != ESP_OK)
+    {
+        PRINT("ES8311 did not answer on I2C\n");
+        return false;
+    }
+    if (id1 != 0x83 || id2 != 0x11)
+    {
+        PRINT("Unexpected ES8311 chip ID %02x%02x\n", id1, id2);
+    }
+
+    static const uint8_t init_seq[][2] = {
+        {0x45, 0x00},
+        {0x01, 0x30},
+        {0x02, 0x00},
+        {0x03, 0x10},
+        {0x16, 0x24},
+        {0x04, 0x10},
+        {0x05, 0x00},
+        {0x0B, 0x00},
+        {0x0C, 0x00},
+        {0x10, 0x1F},
+        {0x11, 0x7F},
+        {0x00, 0x80}, // power on, slave mode
+        {0x01, 0xBF}, // all clocks on, internal MCLK from SCLK
+        {0x02, 0x18}, // pre-divide 1, pre-multiply x8
+        {0x05, 0x00}, // ADC/DAC clock divide 1
+        {0x03, 0x10}, // single speed, ADC OSR
+        {0x04, 0x10}, // DAC OSR
+        {0x07, 0x00}, // LRCK divider (master only)
+        {0x08, 0xFF},
+        {0x06, 0x03}, // BCLK divider (master only), SCLK not inverted
+        {0x13, 0x10},
+        {0x1B, 0x0A},
+        {0x1C, 0x6A},
+        {0x44, 0x08}, // no DAC reference fed to the ADC
+        {0x09, 0x0C}, // DAC input: I2S, 16-bit, enabled
+        {0x0A, 0x4C}, // ADC output: I2S, 16-bit, disabled
+        {0x17, 0xBF},
+        {0x0E, 0x02},
+        {0x12, 0x00}, // power up the DAC
+        {0x14, 0x1A},
+        {0x0D, 0x01}, // power up the analog circuits
+        {0x15, 0x40},
+        {0x37, 0x08},
+        {0x45, 0x00},
+        {0x31, 0x00}, // DAC unmuted
+        {0x32, 0xBF}, // DAC volume 0 dB; volume is applied in software
+    };
+    for (size_t i = 0; i < sizeof(init_seq) / sizeof(init_seq[0]); i++)
+    {
+        if (es8311_write(init_seq[i][0], init_seq[i][1]) != ESP_OK)
+        {
+            PRINT("ES8311 register 0x%02x write failed\n", init_seq[i][0]);
+            return false;
+        }
+    }
+    return true;
+}
+
+static void es8311_power_down(void)
+{
+    es8311_write(0x31, 0x60); // mute
+    es8311_write(0x12, 0x02); // power down the DAC
+}
+
+static bool audio_i2s_start(uint32_t sample_rate)
+{
+    i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
+    chan_cfg.auto_clear = true; // send silence when the task has nothing queued
+    chan_cfg.dma_desc_num = 6;
+    chan_cfg.dma_frame_num = 240;
+    if (i2s_new_channel(&chan_cfg, &audio_tx, NULL) != ESP_OK)
+    {
+        audio_tx = NULL;
+        return false;
+    }
+    i2s_std_config_t std_cfg = {
+        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(sample_rate),
+        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
+        .gpio_cfg = {
+            .mclk = I2S_GPIO_UNUSED,
+            .bclk = AUDIO_I2S_BCLK_PIN,
+            .ws = AUDIO_I2S_WS_PIN,
+            .dout = AUDIO_I2S_DOUT_PIN,
+            .din = I2S_GPIO_UNUSED,
+            .invert_flags = {0},
+        },
+    };
+    if (i2s_channel_init_std_mode(audio_tx, &std_cfg) != ESP_OK || i2s_channel_enable(audio_tx) != ESP_OK)
+    {
+        i2s_del_channel(audio_tx);
+        audio_tx = NULL;
+        return false;
+    }
+    audio_rate = sample_rate;
+    return true;
+}
+
+static void audio_i2s_set_rate(uint32_t sample_rate)
+{
+    if (sample_rate == 0 || sample_rate == audio_rate)
+        return;
+    i2s_std_clk_config_t clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(sample_rate);
+    i2s_channel_disable(audio_tx);
+    if (i2s_channel_reconfig_std_clock(audio_tx, &clk_cfg) == ESP_OK)
+        audio_rate = sample_rate;
+    i2s_channel_enable(audio_tx);
+}
+
+static mp_obj_t audio_wav_refill_cb(mp_obj_t arg); // with the WAV file helpers below
+static MP_DEFINE_CONST_FUN_OBJ_1(audio_wav_refill_obj, audio_wav_refill_cb);
+
+// Audio task: ask MicroPython to top up the rings and close finished files.
+static void audio_wav_request_refill(void)
+{
+    if (wav_refill_pending)
+        return;
+    wav_refill_pending = true;
+    if (!mp_sched_schedule(MP_OBJ_FROM_PTR(&audio_wav_refill_obj), mp_const_none))
+        wav_refill_pending = false; // queue full; the next chunk asks again
+}
+
+// Audio task: decode the next block from the ring into the stereo buffer.
+// Returns the frame count, 0 if the ring is empty, or -1 at the end.
+static int audio_wav_decode(wav_stream_t *w)
+{
+    uint32_t bytes_per_frame = ((w->bits_per_sample + 7) / 8) * w->num_channels;
+    uint32_t tail = w->ring_tail;
+    uint32_t frames = (w->ring_head - tail) / bytes_per_frame;
+    __sync_synchronize(); // read the data only after reading the head
+    if (frames == 0)
+        return w->eof ? -1 : 0;
+    if (frames > WAV_MIX_CHUNK)
+        frames = WAV_MIX_CHUNK;
+    // Only the first two channels are used: at most 6 bytes (stereo 24-bit).
+    uint32_t used_bytes = bytes_per_frame < 6 ? bytes_per_frame : 6;
+    for (uint32_t i = 0; i < frames; i++)
+    {
+        uint8_t p[6];
+        for (uint32_t k = 0; k < used_bytes; k++)
+            p[k] = w->ring[(tail + k) & WAV_RING_MASK];
+        tail += bytes_per_frame;
+        int16_t l, r;
+        if (w->bits_per_sample == 8)
+        {
+            // 8-bit WAV is unsigned; shift to int16 range
+            l = (int16_t)(((int16_t)p[0] - 128) << 8);
+            r = w->num_channels > 1 ? (int16_t)(((int16_t)p[1] - 128) << 8) : l;
+        }
+        else if (w->bits_per_sample == 24)
+        {
+            // keep the upper 16 bits of each 24-bit little-endian sample
+            l = (int16_t)((uint16_t)p[1] | ((uint16_t)p[2] << 8));
+            r = w->num_channels > 1 ? (int16_t)((uint16_t)p[4] | ((uint16_t)p[5] << 8)) : l;
+        }
+        else
+        {
+            l = (int16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8));
+            r = w->num_channels > 1 ? (int16_t)((uint16_t)p[2] | ((uint16_t)p[3] << 8)) : l;
+        }
+        w->buf[i * 2] = l;
+        w->buf[i * 2 + 1] = r;
+    }
+    w->ring_tail = tail;
+    w->buf_frames = frames;
+    if (!w->eof && (w->ring_head - tail) < WAV_RING_BYTES / 2)
+        audio_wav_request_refill();
+    return (int)frames;
+}
+
+static bool audio_wav_any_active(void)
+{
+    for (int i = 0; i < MAX_WAV_STREAMS; i++)
+        if (wav_streams[i].active)
+            return true;
+    return false;
+}
+
+// Mix one chunk at the current rate. Called with audio_lock held.
+static bool audio_mix(uint32_t frames)
+{
+    bool any = false;
+    memset(mix_acc, 0, frames * 2 * sizeof(mix_acc[0]));
+
+    if ((tone_frequency[0] || tone_frequency[1]) && tone_frames_left != 0)
+    {
+        any = true;
+        uint32_t n = frames;
+        if (tone_frames_left > 0 && (int64_t)n > tone_frames_left)
+            n = (uint32_t)tone_frames_left;
+        for (int ch = 0; ch < 2; ch++)
+        {
+            if (!tone_frequency[ch])
+                continue;
+            uint32_t step = (uint32_t)(((uint64_t)tone_frequency[ch] << 32) / audio_rate);
+            for (uint32_t i = 0; i < n; i++)
+            {
+                tone_phase[ch] += step;
+                mix_acc[i * 2 + ch] += (tone_phase[ch] & 0x80000000u) ? -AUDIO_TONE_AMPLITUDE : AUDIO_TONE_AMPLITUDE;
+            }
+        }
+        if (tone_frames_left > 0)
+        {
+            tone_frames_left -= n;
+            if (tone_frames_left == 0)
+                tone_frequency[0] = tone_frequency[1] = 0;
+        }
+    }
+
+    for (int s = 0; s < MAX_WAV_STREAMS; s++)
+    {
+        wav_stream_t *w = &wav_streams[s];
+        if (!w->active)
+            continue;
+        any = true;
+        // resample to the output rate (nearest frame)
+        uint32_t step = (uint32_t)(((uint64_t)w->sample_rate << 16) / audio_rate);
+        bool starved = false;
+        for (uint32_t i = 0; i < frames; i++)
+        {
+            while ((w->pos >> 16) >= w->buf_frames)
+            {
+                w->pos -= w->buf_frames << 16;
+                w->buf_frames = 0;
+                int got = audio_wav_decode(w);
+                if (got < 0)
+                {
+                    // finished: MicroPython context closes the file
+                    w->active = false;
+                    w->done = true;
+                    audio_wav_request_refill();
+                    break;
+                }
+                if (got == 0)
+                {
+                    starved = true; // ring empty; silence until the refill lands
+                    audio_wav_request_refill();
+                    break;
+                }
+            }
+            if (!w->active || starved)
+                break;
+            uint32_t idx = w->pos >> 16;
+            mix_acc[i * 2] += w->buf[idx * 2];
+            mix_acc[i * 2 + 1] += w->buf[idx * 2 + 1];
+            w->pos += step;
+        }
+    }
+
+    for (uint32_t i = 0; i < frames * 2; i++)
+        mix_acc[i] = mix_acc[i] * (int32_t)audio_volume / 100;
+
+    if (streaming)
+    {
+        any = true;
+        uint32_t read = stream_ring_read;
+        uint32_t available = stream_ring_write - read;
+        __sync_synchronize(); // read the samples only after reading the write index
+        uint32_t n = available < frames ? available : frames;
+        for (uint32_t i = 0; i < n; i++)
+        {
+            // audio_push_samples already applied the volume
+            uint32_t sample = stream_ring[(read + i) & AUDIO_STREAM_RING_MASK];
+            mix_acc[i * 2] += (int16_t)(sample & 0xffffu);
+            mix_acc[i * 2 + 1] += (int16_t)(sample >> 16);
+        }
+        __sync_synchronize(); // finish reading before the slots are reused
+        stream_ring_read = read + n;
+    }
+
+    for (uint32_t i = 0; i < frames * 2; i++)
+    {
+        int32_t v = mix_acc[i];
+        mix_out[i] = (int16_t)(v > 32767 ? 32767 : (v < -32768 ? -32768 : v));
+    }
+    return any;
+}
+
+static void audio_task_entry(void *arg)
+{
+    (void)arg;
+    for (;;)
+    {
+        xSemaphoreTake(audio_lock, portMAX_DELAY);
+        uint32_t wanted = streaming ? stream_sample_rate : (audio_wav_any_active() ? wav_active_sample_rate : audio_rate);
+        audio_i2s_set_rate(wanted);
+        bool any = audio_mix(WAV_MIX_CHUNK);
+        is_playing = any;
+        xSemaphoreGive(audio_lock);
+        if (!any)
+        {
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            continue;
+        }
+        size_t written = 0;
+        i2s_channel_write(audio_tx, mix_out, sizeof(mix_out), &written, portMAX_DELAY);
+    }
+}
+
+// frames < 0 plays until stopped; the mixer counts the rest down.
+static void audio_set_tone(uint32_t left_frequency, uint32_t right_frequency, int64_t frames)
+{
+    xSemaphoreTake(audio_lock, portMAX_DELAY);
+    tone_frequency[0] = left_frequency;
+    tone_frequency[1] = right_frequency;
+    tone_frames_left = (left_frequency || right_frequency) ? frames : 0;
+    xSemaphoreGive(audio_lock);
+    audio_wake();
+}
+
+// Stops the task and releases the codec, I2S and the lock (any that exist).
+static void audio_hw_stop(void)
+{
+    if (audio_task)
+    {
+        // Take the lock so the task is not in the middle of a chunk.
+        xSemaphoreTake(audio_lock, portMAX_DELAY);
+        vTaskDelete(audio_task);
+        audio_task = NULL;
+        xSemaphoreGive(audio_lock);
+    }
+    if (audio_codec)
+        es8311_power_down();
+    if (audio_tx)
+    {
+        i2s_channel_disable(audio_tx);
+        i2s_del_channel(audio_tx);
+        audio_tx = NULL;
+    }
+    if (audio_codec)
+    {
+        i2c_master_bus_rm_device(audio_codec);
+        audio_codec = NULL;
+        AUDIO_I2C_RELEASE();
+    }
+    if (audio_lock)
+    {
+        vSemaphoreDelete(audio_lock);
+        audio_lock = NULL;
+    }
+}
+
+// Starts the codec, I2S and the mixer task.
+static bool audio_hw_start(void)
+{
+    audio_lock = xSemaphoreCreateMutex();
+    if (!audio_lock)
+    {
+        PRINT("Audio: out of memory\n");
+        return false;
+    }
+    if (AUDIO_I2C_ADD_DEVICE(AUDIO_ES8311_I2C_ADDR, &audio_codec) != ESP_OK)
+    {
+        PRINT("Audio: could not add the ES8311 to the I2C bus\n");
+        audio_codec = NULL;
+        audio_hw_stop();
+        return false;
+    }
+    // The codec runs from BCLK, so start the clocks before configuring it.
+    if (!audio_i2s_start(AUDIO_DEFAULT_RATE))
+    {
+        PRINT("Audio: I2S setup failed\n");
+        audio_hw_stop();
+        return false;
+    }
+    vTaskDelay(pdMS_TO_TICKS(10));
+    if (!es8311_init())
+    {
+        audio_hw_stop();
+        return false;
+    }
+
+    tone_frequency[0] = tone_frequency[1] = 0;
+    tone_frames_left = 0;
+    streaming = false;
+    stream_ring_read = stream_ring_write = 0;
+    wav_refill_pending = false;
+    is_playing = false;
+    if (xTaskCreate(audio_task_entry, "audio", AUDIO_TASK_STACK, NULL, AUDIO_TASK_PRIORITY, &audio_task) != pdPASS)
+    {
+        PRINT("Audio: could not start the audio task\n");
+        audio_task = NULL;
+        audio_hw_stop();
+        return false;
+    }
+    return true;
+}
+#else
 // Forward declarations
 static void set_pwm_frequency(uint8_t channel, uint32_t frequency);
 
@@ -426,10 +915,27 @@ static int64_t tone_stop_callback(alarm_id_t id, void *user_data)
 
     return 0; // Don't repeat the alarm
 }
+#endif
 
 void audio_deinit(void)
 {
+#if defined(AUDIO_ESP32_I2S)
+    if (!audio_initialised)
+        return;
+#endif
     audio_stop();
+#if defined(AUDIO_ESP32_I2S)
+    audio_hw_stop();
+    for (int i = 0; i < MAX_WAV_STREAMS; i++)
+    {
+        wav_streams[i].ring = NULL;
+        if (MP_STATE_VM(audio_wav_ring)[i])
+        {
+            AUDIO_MEMORY_FREE(MP_STATE_VM(audio_wav_ring)[i]);
+            MP_STATE_VM(audio_wav_ring)[i] = NULL;
+        }
+    }
+#endif
     if (stream_ring)
     {
         AUDIO_MEMORY_FREE(stream_ring);
@@ -460,9 +966,11 @@ bool audio_init(void)
 
     // Initialize WAV streaming state
     memset(wav_streams, 0, sizeof(wav_streams));
-    wav_core1_running = false;
     wav_active_sample_rate = 0;
+#if !defined(AUDIO_ESP32_I2S)
+    wav_core1_running = false;
     mutex_init(&wav_sd_mutex);
+#endif
 
     stream_ring = (uint32_t *)AUDIO_MEMORY_MALLOC(AUDIO_STREAM_RING_SIZE * sizeof(*stream_ring));
 #if SD_AVAILABLE
@@ -483,12 +991,21 @@ bool audio_init(void)
         return false; // Failed to allocate memory
     }
 
+#if defined(AUDIO_ESP32_I2S)
+    if (!audio_hw_start())
+    {
+        AUDIO_MEMORY_FREE(stream_ring);
+        stream_ring = NULL;
+        return false;
+    }
+#else
     uint offset = pio_add_program(pio, &audio_pwm_program);
 
     audio_pwm_program_init(pio, LEFT_CHANNEL, offset, AUDIO_LEFT_PIN);
     audio_pwm_program_init(pio, RIGHT_CHANNEL, offset, AUDIO_RIGHT_PIN);
 
     stream_pwm_active = false;
+#endif
     audio_initialised = true;
     audio_set_volume(100);
     return true;
@@ -836,7 +1353,11 @@ void audio_play_song_blocking(const audio_song_t *song)
         if (notes[note_index].left_frequency != SILENCE ||
             notes[note_index].right_frequency != SILENCE)
         {
+#if defined(AUDIO_ESP32_I2S)
+            audio_sleep_ms(20);
+#else
             sleep_ms(20);
+#endif
         }
 
         note_index++;
@@ -862,6 +1383,10 @@ void audio_play_sound(uint32_t left_frequency, uint32_t right_frequency)
         return;
     }
 
+#if defined(AUDIO_ESP32_I2S)
+    // Plays until stopped; silent at volume 0
+    audio_set_tone(left_frequency, right_frequency, audio_volume == 0 ? 0 : -1);
+#else
     // Cancel any existing tone alarm
     if (tone_alarm_id >= 0)
     {
@@ -878,6 +1403,7 @@ void audio_play_sound(uint32_t left_frequency, uint32_t right_frequency)
 
     set_pwm_frequency(LEFT_CHANNEL, left_frequency);
     set_pwm_frequency(RIGHT_CHANNEL, right_frequency);
+#endif
 }
 
 // Play a stereo sound for a specific duration (blocking)
@@ -891,11 +1417,21 @@ void audio_play_sound_blocking(uint32_t left_frequency, uint32_t right_frequency
 
     if (audio_volume == 0)
     {
+#if defined(AUDIO_ESP32_I2S)
+        audio_set_tone(SILENCE, SILENCE, 0);
+#else
         set_pwm_frequency(LEFT_CHANNEL, SILENCE);
         set_pwm_frequency(RIGHT_CHANNEL, SILENCE);
+#endif
         return;
     }
 
+#if defined(AUDIO_ESP32_I2S)
+    // The mixer counts the tone down, so it stops on time by itself
+    audio_set_tone(left_frequency, right_frequency, (int64_t)duration_ms * audio_rate / 1000);
+    if ((left_frequency != SILENCE || right_frequency != SILENCE) && duration_ms > 0)
+        audio_sleep_ms(duration_ms);
+#else
     // Cancel any existing tone alarm
     if (tone_alarm_id >= 0)
     {
@@ -914,6 +1450,7 @@ void audio_play_sound_blocking(uint32_t left_frequency, uint32_t right_frequency
         // Wait for the duration
         sleep_ms(duration_ms);
     }
+#endif
 }
 
 #if SD_AVAILABLE
@@ -1103,11 +1640,122 @@ static void __time_critical_func(audio_wav_core1_entry)(void)
             audio_push_samples(mix_buf, WAV_MIX_CHUNK);
     }
 }
+#elif defined(AUDIO_ESP32_I2S)
+static bool audio_wav_parse_header(FILE *file,
+                                   uint16_t *num_channels,
+                                   uint32_t *sample_rate,
+                                   uint16_t *bits_per_sample,
+                                   uint32_t *data_size)
+{
+    uint8_t buf[12];
+    if (fread(buf, 1, 12, file) < 12)
+        return false;
+    if (memcmp(buf, "RIFF", 4) != 0 || memcmp(buf + 8, "WAVE", 4) != 0)
+        return false;
+
+    bool found_fmt = false;
+    for (;;)
+    {
+        uint8_t chunk_hdr[8];
+        if (fread(chunk_hdr, 1, 8, file) < 8)
+            return false;
+
+        uint32_t chunk_size = (uint32_t)chunk_hdr[4] | ((uint32_t)chunk_hdr[5] << 8) | ((uint32_t)chunk_hdr[6] << 16) | ((uint32_t)chunk_hdr[7] << 24);
+
+        if (memcmp(chunk_hdr, "fmt ", 4) == 0)
+        {
+            uint8_t fmt[16];
+            uint32_t to_read = chunk_size < 16 ? chunk_size : 16;
+            if (to_read < 16 || fread(fmt, 1, to_read, file) < to_read)
+                return false;
+
+            uint16_t audio_format = (uint16_t)fmt[0] | ((uint16_t)fmt[1] << 8);
+            if (audio_format != 1)
+                return false; // Only uncompressed PCM supported
+
+            *num_channels = (uint16_t)fmt[2] | ((uint16_t)fmt[3] << 8);
+            *sample_rate = (uint32_t)fmt[4] | ((uint32_t)fmt[5] << 8) | ((uint32_t)fmt[6] << 16) | ((uint32_t)fmt[7] << 24);
+            *bits_per_sample = (uint16_t)fmt[14] | ((uint16_t)fmt[15] << 8);
+
+            // Skip any extra bytes in the fmt chunk, keep word alignment
+            uint32_t skip = (chunk_size - 16) + (chunk_size & 1);
+            if (skip && fseek(file, (long)skip, SEEK_CUR) != 0)
+                return false;
+
+            found_fmt = true;
+        }
+        else if (memcmp(chunk_hdr, "data", 4) == 0)
+        {
+            if (!found_fmt)
+                return false;
+            *data_size = chunk_size;
+            return true; // file is now positioned at the start of PCM data
+        }
+        else if (fseek(file, (long)(chunk_size + (chunk_size & 1)), SEEK_CUR) != 0)
+        {
+            return false; // Skip unknown chunk (word-aligned)
+        }
+    }
+}
+
+// MicroPython context: read as much of the file as fits in the ring.
+static void audio_wav_fill(wav_stream_t *w)
+{
+    while (w->file && !w->eof)
+    {
+        uint32_t space = WAV_RING_BYTES - (w->ring_head - w->ring_tail);
+        if (space < 512)
+            break;
+        uint32_t idx = w->ring_head & WAV_RING_MASK;
+        uint32_t chunk = WAV_RING_BYTES - idx;
+        if (chunk > space)
+            chunk = space;
+        if (chunk > w->data_remaining)
+            chunk = w->data_remaining;
+        size_t got = chunk ? fread(w->ring + idx, 1, chunk, w->file) : 0;
+        w->data_remaining -= got;
+        __sync_synchronize(); // publish the data before the new head
+        w->ring_head += got;
+        if (got < chunk || w->data_remaining == 0)
+            w->eof = true;
+    }
+}
+
+// MicroPython context: stop mixing a stream and close its file.
+static void audio_wav_close(wav_stream_t *w)
+{
+    w->active = false;
+    if (w->file)
+    {
+        fclose(w->file);
+        w->file = NULL;
+    }
+    w->done = false;
+}
+
+// MicroPython context, scheduled by the audio task: close finished streams
+// and refill the others.
+static mp_obj_t audio_wav_refill_cb(mp_obj_t arg)
+{
+    (void)arg;
+    wav_refill_pending = false;
+    if (!audio_initialised)
+        return mp_const_none;
+    for (int i = 0; i < MAX_WAV_STREAMS; i++)
+    {
+        wav_stream_t *w = &wav_streams[i];
+        if (w->done)
+            audio_wav_close(w);
+        else if (w->active)
+            audio_wav_fill(w);
+    }
+    return mp_const_none;
+}
 #endif
 
 bool audio_play_wav(const char *filename)
 {
-#if SD_AVAILABLE
+#if SD_AVAILABLE || defined(AUDIO_ESP32_I2S)
     if (!audio_initialised && !audio_init())
     {
         PRINT("Audio not initialized and failed to initialize\n");
@@ -1119,6 +1767,7 @@ bool audio_play_wav(const char *filename)
         return false;
     }
 
+#if SD_AVAILABLE
     // stop MP3 core1 if running
     if (mp3_core1_running)
     {
@@ -1127,12 +1776,19 @@ bool audio_play_wav(const char *filename)
     }
     if (mp3_dec.file.buffer)
         audio_mp3_close();
+#endif
 
     // Find a free slot
     int slot = -1;
     for (int i = 0; i < MAX_WAV_STREAMS; i++)
     {
+#if defined(AUDIO_ESP32_I2S)
+        if (wav_streams[i].done)
+            audio_wav_close(&wav_streams[i]); // finished; close its file now
+        if (!wav_streams[i].active && !wav_streams[i].file)
+#else
         if (!wav_streams[i].active)
+#endif
         {
             slot = i;
             break;
@@ -1144,6 +1800,31 @@ bool audio_play_wav(const char *filename)
         return false; // all 4 slots busy
     }
 
+#if defined(AUDIO_ESP32_I2S)
+    // The ring lives on the MicroPython heap and is kept for the next file.
+    if (!MP_STATE_VM(audio_wav_ring)[slot])
+        MP_STATE_VM(audio_wav_ring)[slot] = m_malloc_maybe(WAV_RING_BYTES);
+    if (!MP_STATE_VM(audio_wav_ring)[slot])
+    {
+        PRINT("Audio: out of memory for WAV playback\n");
+        return false;
+    }
+
+    // Paths from Python are relative to the SD card root.
+    char path[256];
+    size_t root_len = strlen(AUDIO_SD_ROOT);
+    if (strncmp(filename, AUDIO_SD_ROOT, root_len) == 0 && (filename[root_len] == '/' || filename[root_len] == '\0'))
+        snprintf(path, sizeof(path), "%s", filename);
+    else
+        snprintf(path, sizeof(path), "%s%s%s", AUDIO_SD_ROOT, filename[0] == '/' ? "" : "/", filename);
+
+    FILE *f = fopen(path, "rb");
+    if (!f)
+    {
+        PRINT("Failed to open WAV file: %s\n", filename);
+        return false;
+    }
+#else
     fat32_file_t *f = &wav_streams[slot].file;
 
     mutex_enter_blocking(&wav_sd_mutex);
@@ -1154,17 +1835,24 @@ bool audio_play_wav(const char *filename)
         PRINT("Failed to open WAV file: %s\n", filename);
         return false;
     }
+#endif
 
     uint16_t num_channels = 0, bits_per_sample = 0;
     uint32_t sample_rate = 0, data_size = 0;
     bool ok = audio_wav_parse_header(f, &num_channels, &sample_rate, &bits_per_sample, &data_size);
+#if !defined(AUDIO_ESP32_I2S)
     mutex_exit(&wav_sd_mutex);
+#endif
 
-    if (!ok || (bits_per_sample != 8 && bits_per_sample != 16 && bits_per_sample != 24))
+    if (!ok || num_channels == 0 || sample_rate == 0 || (bits_per_sample != 8 && bits_per_sample != 16 && bits_per_sample != 24))
     {
+#if defined(AUDIO_ESP32_I2S)
+        fclose(f);
+#else
         mutex_enter_blocking(&wav_sd_mutex);
         fat32_close(f);
         mutex_exit(&wav_sd_mutex);
+#endif
         PRINT("Unsupported WAV format in file: %s\n", filename);
         return false;
     }
@@ -1173,6 +1861,26 @@ bool audio_play_wav(const char *filename)
     wav_streams[slot].sample_rate = sample_rate;
     wav_streams[slot].bits_per_sample = bits_per_sample;
     wav_streams[slot].data_remaining = data_size;
+#if defined(AUDIO_ESP32_I2S)
+    // The slot is idle, so the audio task does not touch it yet.
+    wav_stream_t *w = &wav_streams[slot];
+    w->file = f;
+    w->ring = MP_STATE_VM(audio_wav_ring)[slot];
+    w->ring_head = w->ring_tail = 0;
+    w->eof = false;
+    w->done = false;
+    w->buf_frames = 0;
+    w->pos = 0;
+    audio_wav_fill(w); // read ahead before the task starts mixing it
+
+    xSemaphoreTake(audio_lock, portMAX_DELAY);
+    if (!audio_wav_any_active())
+        wav_active_sample_rate = sample_rate; // the first stream sets the output rate
+    w->active = true;
+    is_playing = true;
+    xSemaphoreGive(audio_lock);
+    audio_wake();
+#else
     __dmb(); // ensure fields are visible to core 1 before active is set
     wav_streams[slot].active = true;
 
@@ -1205,6 +1913,7 @@ bool audio_play_wav(const char *filename)
                                           sizeof(audio_core1_stack));
     }
     is_playing = true;
+#endif
     return true;
 #else
     (void)filename;
@@ -1234,13 +1943,22 @@ void audio_push_samples(const int16_t *samples, int count)
         r = (int16_t)(((int32_t)r * (int32_t)audio_volume) / 100);
 
         uint32_t idx = stream_ring_write & AUDIO_STREAM_RING_MASK;
+#if defined(AUDIO_ESP32_I2S)
+        // The mixer takes the int16_t samples as they are
+        stream_ring[idx] = (uint32_t)(uint16_t)l | ((uint32_t)(uint16_t)r << 16);
+        __sync_synchronize();
+#else
         // int16_t [-32768,32767] → 10-bit PWM duty cycle
         uint32_t left = ((((uint32_t)((int32_t)l + 32768)) * AUDIO_STREAM_PWM_LEVELS) >> 16);
         uint32_t right = ((((uint32_t)((int32_t)r + 32768)) * AUDIO_STREAM_PWM_LEVELS) >> 16);
         stream_ring[idx] = left | (right << 16);
         __dmb();
+#endif
         stream_ring_write++;
     }
+#if defined(AUDIO_ESP32_I2S)
+    audio_wake();
+#endif
 }
 
 void audio_set_volume(uint8_t volume)
@@ -1248,7 +1966,9 @@ void audio_set_volume(uint8_t volume)
     if (volume > 100)
         volume = 100;
     audio_volume = volume;
+#if !defined(AUDIO_ESP32_I2S) // ESP32 applies the volume in the mixer
     audio_apply_volume();
+#endif
 }
 
 bool audio_start_stream(uint32_t sample_rate)
@@ -1262,6 +1982,18 @@ bool audio_start_stream(uint32_t sample_rate)
     if (streaming)
         audio_stop_stream();
 
+#if defined(AUDIO_ESP32_I2S)
+    if (sample_rate == 0)
+        return false;
+    xSemaphoreTake(audio_lock, portMAX_DELAY);
+    stream_ring_read = 0;
+    stream_ring_write = 0;
+    stream_sample_rate = sample_rate; // the task switches I2S to this rate
+    streaming = true;
+    xSemaphoreGive(audio_lock);
+    audio_wake();
+    return true;
+#else
     uint16_t timer_numerator, timer_denominator;
     if (!stream_get_dma_rate(sample_rate, &timer_numerator, &timer_denominator))
     {
@@ -1350,6 +2082,7 @@ bool audio_start_stream(uint32_t sample_rate)
     irq_set_enabled(DMA_IRQ_0, true);
     stream_dma_schedule_next();
     return true;
+#endif
 }
 
 // Stop audio output
@@ -1360,7 +2093,16 @@ void audio_stop(void)
         PRINT("Audio not initialized and failed to initialize\n");
         return;
     }
-#if SD_AVAILABLE
+#if defined(AUDIO_ESP32_I2S)
+    // Stop WAV playback; the files are closed here, in MicroPython context
+    xSemaphoreTake(audio_lock, portMAX_DELAY);
+    for (int i = 0; i < MAX_WAV_STREAMS; i++)
+    {
+        if (wav_streams[i].active || wav_streams[i].file)
+            audio_wav_close(&wav_streams[i]);
+    }
+    xSemaphoreGive(audio_lock);
+#elif SD_AVAILABLE
     // Stop WAV streaming on core 1
     if (wav_core1_running)
     {
@@ -1397,6 +2139,9 @@ void audio_stop(void)
         audio_stop_stream();
     }
 
+#if defined(AUDIO_ESP32_I2S)
+    audio_set_tone(SILENCE, SILENCE, 0);
+#else
     // Cancel any existing tone alarm
     if (tone_alarm_id >= 0)
     {
@@ -1406,11 +2151,15 @@ void audio_stop(void)
 
     set_pwm_frequency(LEFT_CHANNEL, SILENCE);
     set_pwm_frequency(RIGHT_CHANNEL, SILENCE);
+#endif
     is_playing = false;
 }
 
 void audio_stop_stream(void)
 {
+#if defined(AUDIO_ESP32_I2S)
+    streaming = false; // the task stops reading the ring with its next chunk
+#else
     if (!streaming && stream_dma_channel < 0 && stream_dma_timer < 0)
         return;
 
@@ -1459,4 +2208,5 @@ void audio_stop_stream(void)
 
     pwm_set_gpio_level(AUDIO_LEFT_PIN, AUDIO_STREAM_PWM_MIDPOINT);
     pwm_set_gpio_level(AUDIO_RIGHT_PIN, AUDIO_STREAM_PWM_MIDPOINT);
+#endif
 }

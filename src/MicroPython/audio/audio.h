@@ -5,7 +5,13 @@ Source: https://github.com/jblanked/Picoware/blob/main/src/MicroPython/audio/aud
 */
 #pragma once
 
+#include "audio_config.h"
+#if defined(AUDIO_ESP32_I2S)
+#include <stdbool.h>
+#include <stdint.h>
+#else
 #include "pico/stdlib.h"
+#endif
 
 // Channels
 #define LEFT_CHANNEL (0)

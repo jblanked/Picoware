@@ -210,7 +210,7 @@ def run(view_manager) -> None:
     fg = view_manager.foreground_color
 
     draw._text(5, 5, "BLE Peripheral Mode", fg)
-    draw._text(5, 25, "Name: Picoware", fg)
+    draw._text(5, 25, f"Name: {view_manager.board_name}", fg)
     draw._text(5, 45, f"MAC: {_bluetooth.mac_address}", fg)
 
     # Status

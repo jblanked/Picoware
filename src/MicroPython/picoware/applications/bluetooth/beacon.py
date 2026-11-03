@@ -15,8 +15,6 @@ def start(view_manager) -> bool:
     Returns:
         bool: True if broadcasting started, False on failure.
     """
-    from picoware.system.bluetooth import Bluetooth
-
     global _bluetooth, _broadcasting, _beacon_count
 
     if _bluetooth is not None:
@@ -29,7 +27,7 @@ def start(view_manager) -> bool:
     _bluetooth = view_manager.bluetooth
 
     try:
-        if _bluetooth.start_peripheral(name="Picoware-Beacon", interval_us=100000):
+        if _bluetooth.start_peripheral(name=view_manager.board_name, interval_us=100000):
             _broadcasting = True
         else:
             view_manager.alert("Failed to start BLE peripheral.")
@@ -75,7 +73,7 @@ def run(view_manager) -> None:
 
     draw.text(text_vec, "BLE Beacon")
     text_vec.y = 30
-    draw.text(text_vec, "Name: Picoware-Beacon")
+    draw.text(text_vec, f"Name: {view_manager.board_name}")
     text_vec.y = 50
     draw.text(text_vec, f"MAC: {_bluetooth.mac_address}")
 

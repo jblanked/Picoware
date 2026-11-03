@@ -559,7 +559,7 @@
             "picoware/apps/games/Gorillas.mpy",
             "picoware/apps/games/gorillas_game/__init__.py",
             "picoware/apps/games/gorillas_game/assets.mpy",
-            "picoware/apps/games/gorillas_game/game.mpy",
+            "picoware/apps/games/gorillas_game/game.py",
             "picoware/apps/games/gorillas_game/sound.mpy",
             "picoware/apps/games/gorillas_game/sprites.mpy",
             "picoware/apps/games/gorillas_game/art.bin",
@@ -991,7 +991,7 @@
         "title": "Valley Quest",
         "description": "A simple 3D valley exploration game, created by Sonnet-5.5 + Picoware MCP",
         "file_structure": [
-            "picoware/apps/games/valley-quest.mpy"
+            "picoware/apps/games/valley-quest.py"
         ],
         "version": "1.0"
     }

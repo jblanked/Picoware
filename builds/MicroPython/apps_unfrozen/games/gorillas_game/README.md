@@ -194,9 +194,9 @@ methods, avoiding a Python dispatch per rectangle. Sprite records are clipped
 before taking payload views and call the bytearray method directly, without a
 separate per-patch wrapper. Integer conversion happens at scene geometry
 boundaries rather than again inside rectangle, circle and text submission.
-The palette-blending math uses `picoware.system.decorator.native`; the current
-helper compiles a calling wrapper, not the original function body, so it is
-not treated as evidence of native math acceleration or a frame-rate guarantee.
+Palette blending uses `@micropython.native` directly. `freeze-all.sh` keeps
+this module as `.py` so each board compiles its native code for its own
+architecture when the module is imported.
 
 Small displays and heaps with less than 192 KiB free when the renderer is
 constructed use direct drawing without retained scene commands. This trades

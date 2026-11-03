@@ -1,10 +1,11 @@
 """Picoware Agent - LLM-powered assistant with chat GUI."""
+import micropython
 from micropython import const
 from picoware.system.buttons import (
     BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK, BUTTON_D
 )
 from picoware.system.colors import TFT_WHITE, TFT_DARKGREY
-from picoware.system.decorator import native, storage_required, wifi_required
+from picoware.system.decorator import storage_required, wifi_required
 from picoware.system.agent.session import Session
 
 STATE_MENU = const(0)
@@ -35,7 +36,7 @@ _session_id     = None
 _loading        = None
 
 
-@native
+@micropython.native
 def _wrap_text(text: str, max_chars: int):
     """Wrap text to max_chars per line, preserving words.
 
@@ -99,7 +100,7 @@ def _chat_layout(view_manager):
     return header_h, prompt_h, chat_y, chat_h, max_chars, font, bubble_w, pad
 
 
-@native
+@micropython.native
 def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
                   clip_top=0):
     """Draw a rounded-rect bubble clipped to screen bounds.
@@ -148,7 +149,7 @@ def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
 
     return y + bubble_h + draw.scale_y(4)
 
-@native
+@micropython.native
 def _render_chat(view_manager):
     """Draw conversation as chat bubbles with scroll and prompt bar.
 

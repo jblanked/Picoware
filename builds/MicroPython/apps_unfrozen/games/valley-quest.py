@@ -1,7 +1,7 @@
-import micropython
 from array import array
 from math import sin, cos, pi
 from random import randint
+import micropython
 from micropython import const
 from picoware.system.buttons import (
     BUTTON_BACK,
@@ -709,8 +709,8 @@ def _minimap(draw, st):
     fill(mx + int(cos(st.pa) * 4), my + int(sin(st.pa) * 4), 1, 1, _WHITE)
 
 
-@micropython.viper
-def _march(buf: ptr32, world: ptr8, tab: ptr32) -> int:
+@micropython.native
+def _march(buf, world, tab):
     '''March one ray with integer math and write its draw runs into buf.
 
     Reads the ray and view setup from buf[0:8]. Writes (y, height, color)

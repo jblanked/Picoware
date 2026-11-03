@@ -197,6 +197,7 @@ def __request_process(view_manager) -> None:
         if _http.state == 2: # HTTP_ISSUE
             __set_error(f"Request failed: {_http.error}")
             __close_http()
+            __advance_state()
             return
 
         try:

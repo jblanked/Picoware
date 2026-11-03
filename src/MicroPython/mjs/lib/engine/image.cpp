@@ -28,8 +28,11 @@ void image_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_image", ~0, mjs_mk_undefined());
+    if (mjs_is_owned(mjs))
+    {
+        delete img;
+    }
     mjs_slot_release(img);
-    delete img;
     img = nullptr;
 }
 
@@ -225,6 +228,7 @@ void image_create(struct mjs *mjs, mjs_val_t *image_obj)
     mjs_slot_set(image_instance);
 
     mjs_set(mjs, *image_obj, "_image", ~0, mjs_mk_foreign(mjs, image_instance));
+    mjs_set_owned(mjs, *image_obj, true);
     mjs_set(mjs, *image_obj, "destroy", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)image_destroy));
     mjs_set(mjs, *image_obj, "get", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)image_get));
 }

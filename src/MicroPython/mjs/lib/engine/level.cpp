@@ -2,6 +2,7 @@
 #include <math.h>
 #include "entity.h"
 #include "game.h"
+#include "../../engine/pico-game-engine/engine/entity.hpp"
 #include "../../engine/pico-game-engine/engine/level.hpp"
 #include "../../engine/pico-game-engine/engine/game.hpp"
 #include "../engine/memory.h"
@@ -33,8 +34,11 @@ void level_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_level", ~0, mjs_mk_undefined());
+    if (mjs_is_owned(mjs))
+    {
+        delete level;
+    }
     mjs_slot_release(level);
-    delete level;
     level = nullptr;
     level_name_owned = false;
 }
@@ -126,6 +130,7 @@ mjs_val_t level_get_object(struct mjs *mjs, void *level_instance_ptr)
 
     mjs_val_t level_obj = mjs_mk_object(mjs);
     mjs_set(mjs, level_obj, "_level", ~0, mjs_mk_foreign(mjs, (void *)level_instance));
+    mjs_set_owned(mjs, level_obj, true);
     mjs_set(mjs, level_obj, "destroy", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)level_destroy));
     mjs_set(mjs, level_obj, "get", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)level_get));
     mjs_set(mjs, level_obj, "set", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)level_set));
@@ -161,7 +166,7 @@ void level_has_collided(struct mjs *mjs)
         return;
     }
 
-    Entity *entity = (Entity *)entity_get_pointer(mjs, 0);
+    Entity *entity = static_cast<Entity *>(entity_get_pointer(mjs, 0));
     if (!entity)
     {
         mjs_prepend_errorf(mjs, MJS_INTERNAL_ERROR, "No entity instance");
@@ -185,10 +190,14 @@ void level_entity_add(struct mjs *mjs)
     Level *level_instance = level_get_this(mjs);
     if (!level_instance)
         return;
-
-    Entity *entity = (Entity *)entity_get_pointer(mjs, 0);
+    Entity *entity = static_cast<Entity *>(entity_get_pointer(mjs, 0));
     if (entity)
+    {
+        if (!entity->is_player)
+            mjs_set_owned(mjs, mjs_arg(mjs, 0), false);
+
         level_instance->entity_add(entity);
+    }
 }
 
 void level_entity_remove(struct mjs *mjs)
@@ -197,7 +206,7 @@ void level_entity_remove(struct mjs *mjs)
     if (!level_instance)
         return;
 
-    Entity *entity = (Entity *)entity_get_pointer(mjs, 0);
+    Entity *entity = static_cast<Entity *>(entity_get_pointer(mjs, 0));
     if (entity)
         level_instance->entity_remove(entity);
 }
@@ -319,13 +328,6 @@ void level_create(struct mjs *mjs, mjs_val_t *level_obj)
         m_free(name);
         *level_obj = mjs_mk_undefined();
         return;
-    }
-
-    if (g)
-    {
-        g->level_add(level_instance);
-        g->current_level = level_instance;
-        g->is_active = true;
     }
 
     mjs_slot_set(level_instance);

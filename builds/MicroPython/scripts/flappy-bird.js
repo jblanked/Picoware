@@ -208,6 +208,7 @@ let sprite_left = import('image', { 'width': BIRD_W, 'height': BIRD_H }, true, b
 let sprite_right = import('image', { 'width': BIRD_W, 'height': BIRD_H }, true, bird_pixels);
 let player = import('entity', 'Player', 0, { 'x': -100, 'y': -100, 'z': 0 }, { 'x': BIRD_W, 'y': BIRD_H, 'z': 0 }, sprite, sprite_left, sprite_right);
 level.entityAdd(player);
+game.levelAdd(level);
 let engine = import('engine', game, 240, false);
 
 state_init();

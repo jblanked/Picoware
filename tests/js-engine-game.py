@@ -68,12 +68,11 @@ for value in ["true", "false"]:
     check("isActive=%s" % value, get("isActive"), value == "true")
 
 print("\n--- Levels ---")
-js.run("let level = import('level', 'dungeon', {'x': 320, 'y': 240, 'z': 0}, game);")
+js.run("let level = import('level', 'dungeon', {'x': 320, 'y': 240, 'z': 0}, game); game.levelAdd(level);")
+# game isnt active until we call start or the engine runs
+js.run("game.start();");
 check("currentLevel after level import", get("currentLevel") is not None, True)
 check("isActive after level import", get("isActive"), True)
-
-js.run("game.levelAdd(level);")
-check("currentLevel after levelAdd", get("currentLevel") is not None, True)
 
 js.run("game.levelSwitch(0);")
 check("currentLevel after levelSwitch(0)", get("currentLevel") is not None, True)

@@ -32,8 +32,12 @@ void engine_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_engine", ~0, mjs_mk_undefined());
+    if (mjs_is_owned(mjs))
+    {
+        delete engine;
+    }
     mjs_slot_release(engine);
-    delete engine;
+    engine = nullptr;
     engine_fps = 30.0f;
     engine_clamp = false;
 }
@@ -129,18 +133,9 @@ void engine_set(struct mjs *mjs)
 void engine_run(struct mjs *mjs)
 {
     GameEngine *engine_instance = engine_get_this(mjs);
-    Game *game = engine_instance ? engine_instance->getGame() : nullptr;
-    if (!game)
+    if (!engine_instance)
         return;
-    if (!game->is_active)
-        game->start();
-    while (game->is_active)
-    {
-        game->update();
-        game->render(engine_clamp);
-        ENGINE_DELAY_MS(1000 / engine_fps);
-    }
-    engine_stop(mjs);
+    engine_instance->run();
 }
 
 void engine_run_async(struct mjs *mjs)
@@ -157,19 +152,9 @@ void engine_run_async(struct mjs *mjs)
 void engine_stop(struct mjs *mjs)
 {
     GameEngine *engine_instance = engine_get_this(mjs);
-    Game *game = engine_instance ? engine_instance->getGame() : nullptr;
-    if (!game)
+    if (!engine_instance)
         return;
-    if (game->is_active)
-    {
-        if (game->_stop)
-            game->_stop();
-        if (game->current_level)
-            game->current_level->stop();
-        game->is_active = false;
-    }
-    if (game->draw)
-        game->draw->fillScreen(game->bg_color);
+    engine_instance->stop();
 }
 
 void engine_update_game_input(struct mjs *mjs)
@@ -202,6 +187,7 @@ void engine_create(struct mjs *mjs, mjs_val_t *engine_obj)
         *engine_obj = mjs_mk_undefined();
         return;
     }
+    mjs_set_owned(mjs, mjs_arg(mjs, 1), false);
 
     float fps = 30.0f;
     mjs_val_t fps_val = mjs_arg(mjs, 2);
@@ -227,6 +213,7 @@ void engine_create(struct mjs *mjs, mjs_val_t *engine_obj)
     engine_clamp = clamp;
 
     mjs_set(mjs, *engine_obj, "_engine", ~0, mjs_mk_foreign(mjs, engine_instance));
+    mjs_set_owned(mjs, *engine_obj, true);
     mjs_set(mjs, *engine_obj, "destroy", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)engine_destroy));
     mjs_set(mjs, *engine_obj, "get", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)engine_get));
     mjs_set(mjs, *engine_obj, "set", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)engine_set));

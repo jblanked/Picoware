@@ -287,7 +287,8 @@ void mjs_slot_release(void *p)
     {
         if (MP_STATE_VM(mjs_ptrs)[i] == p)
         {
-            MP_STATE_VM(mjs_ptrs)[i] = nullptr;
+            MP_STATE_VM(mjs_ptrs)
+            [i] = nullptr;
             return;
         }
     }
@@ -299,7 +300,8 @@ void mjs_slot_set(void *p)
     {
         if (MP_STATE_VM(mjs_ptrs)[i] == nullptr)
         {
-            MP_STATE_VM(mjs_ptrs)[i] = p;
+            MP_STATE_VM(mjs_ptrs)
+            [i] = p;
             return;
         }
     }
@@ -311,7 +313,20 @@ void mjs_slot_sweep(void)
     {
         if (MP_STATE_VM(mjs_ptrs)[i] != nullptr)
         {
-            MP_STATE_VM(mjs_ptrs)[i] = nullptr;
+            MP_STATE_VM(mjs_ptrs)
+            [i] = nullptr;
         }
     }
+}
+
+bool mjs_is_owned(struct mjs *mjs)
+{
+    const mjs_val_t this_obj = mjs_get_this(mjs);
+    mjs_val_t owned_val = mjs_get(mjs, this_obj, "_owned", ~0);
+    return mjs_is_boolean(owned_val) && mjs_get_bool(mjs, owned_val);
+}
+
+void mjs_set_owned(struct mjs *mjs, mjs_val_t obj, bool owned)
+{
+    mjs_set(mjs, obj, "_owned", ~0, mjs_mk_boolean(mjs, owned));
 }

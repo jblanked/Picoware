@@ -39,6 +39,8 @@ extern "C"
     void mjs_slot_release(void *p);
     void mjs_slot_set(void *p);
     void mjs_slot_sweep(void);
+    bool mjs_is_owned(struct mjs *mjs);
+    void mjs_set_owned(struct mjs *mjs, mjs_val_t obj, bool owned);
 
 #ifdef __cplusplus
 }

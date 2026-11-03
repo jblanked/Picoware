@@ -8,4 +8,5 @@ class JS(mjs.MJS):
     Methods:
         - exec(path): Executes the JavaScript code from the specified file path and returns the result.
         - run(js_code): Executes the provided JavaScript code and returns the result.
+        - reset(): Unloads all loaded modules.
     """

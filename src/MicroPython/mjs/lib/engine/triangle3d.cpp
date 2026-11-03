@@ -27,8 +27,11 @@ void triangle3d_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_triangle3d", ~0, mjs_mk_undefined());
+    if (mjs_is_owned(mjs))
+    {
+        delete triangle3d;
+    }
     mjs_slot_release(triangle3d);
-    delete triangle3d;
     triangle3d = nullptr;
 }
 
@@ -124,6 +127,7 @@ mjs_val_t triangle3d_get_object(struct mjs *mjs, void *triangle3d_instance_ptr)
 
     mjs_set(mjs, triangle3d_obj, "_triangle3d", ~0,
             mjs_mk_foreign(mjs, static_cast<void *>(triangle3d)));
+    mjs_set_owned(mjs, triangle3d_obj, true);
     mjs_set(mjs, triangle3d_obj, "destroy", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)triangle3d_destroy));
     mjs_set(mjs, triangle3d_obj, "get", ~0,

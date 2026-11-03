@@ -30,8 +30,11 @@ void entity_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_entity", ~0, mjs_mk_undefined());
+    if (mjs_is_owned(mjs))
+    {
+        delete entity;
+    }
     mjs_slot_release(entity);
-    delete entity;
     entity = nullptr;
 }
 
@@ -261,6 +264,7 @@ mjs_val_t entity_get_object(struct mjs *mjs, void *entity_instance_ptr)
     mjs_val_t entity_obj = mjs_mk_object(mjs);
 
     mjs_set(mjs, entity_obj, "_entity", ~0, mjs_mk_foreign(mjs, entity_instance));
+    mjs_set_owned(mjs, entity_obj, true);
 
     mjs_set(mjs, entity_obj, "destroy", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)entity_destroy));
@@ -488,6 +492,7 @@ void entity_set(struct mjs *mjs)
     }
     else if (strcmp(name, "sprite3D") == 0)
     {
+        mjs_set_owned(mjs, mjs_arg(mjs, 1), false);
         entity_instance->sprite_3d = static_cast<Sprite3D *>(sprite3d_get_pointer(mjs, 1));
     }
     else
@@ -549,6 +554,13 @@ void entity_create(struct mjs *mjs, mjs_val_t *entity_obj)
     Image *sprite_data = (Image *)image_get_pointer(mjs, 5);
     Image *sprite_left_data = (Image *)image_get_pointer(mjs, 6);
     Image *sprite_right_data = (Image *)image_get_pointer(mjs, 7);
+
+    if (sprite_data)
+        mjs_set_owned(mjs, mjs_arg(mjs, 5), false);
+    if (sprite_left_data)
+        mjs_set_owned(mjs, mjs_arg(mjs, 6), false);
+    if (sprite_right_data)
+        mjs_set_owned(mjs, mjs_arg(mjs, 7), false);
 
     int sprite_3d_type = mjs_is_number(mjs_arg(mjs, 8))
                              ? (int)mjs_get_int(mjs, mjs_arg(mjs, 8))

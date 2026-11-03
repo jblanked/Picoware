@@ -42,8 +42,8 @@ def get(prop, extra:str=None):
 
 
 js.run("let game = import('game', 'arena', {'x': 320, 'y': 240, 'z': 0}, '0x0000', '0xFFFF');")
-js.run("let level = import('level', 'dungeon', {'x': 320, 'y': 240, 'z': 0}, game);")
-print("\nEngine: %s" % js.run("let engine = import('engine', game, 60, true);"))
+js.run("let level = import('level', 'dungeon', {'x': 320, 'y': 240, 'z': 0}, game); game.levelAdd(level);")
+print("\nEngine: %s" % js.run("let engine = import('engine', game, 60, true); engine.runAsync();"))
 
 print("\n--- Initial getters ---")
 check("clamp", get("clamp"), True)

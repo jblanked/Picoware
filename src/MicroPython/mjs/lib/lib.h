@@ -64,8 +64,9 @@ typedef enum
 } lib_module_t;
 
 #define LIB_MODULE_COUNT 27
+#define LIB_MAX_MULTI_MODULES 128
 
 void lib_load_module(struct mjs *mjs);
 lib_module_t lib_module_from_str(const char *str);
 void lib_register_globals(struct mjs *mjs);
-void lib_unload_modules();
+void lib_unload_modules(struct mjs *mjs);

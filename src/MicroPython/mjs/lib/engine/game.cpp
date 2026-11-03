@@ -6,6 +6,8 @@
 #include "../../engine/pico-game-engine/engine/level.hpp"
 #include "../engine/memory.h"
 
+static Draw *game_draw_instance = nullptr;
+
 static Game *game_get_this(struct mjs *mjs)
 {
     mjs_val_t this_obj = mjs_get_this(mjs);
@@ -31,9 +33,18 @@ void game_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_game", ~0, mjs_mk_undefined());
+    if (mjs_is_owned(mjs))
+    {
+        delete game;
+    }
     mjs_slot_release(game);
-    delete game;
     game = nullptr;
+    if (game_draw_instance)
+    {
+        delete game_draw_instance;
+        mjs_slot_release(game_draw_instance);
+        game_draw_instance = nullptr;
+    }
 }
 
 void game_get(struct mjs *mjs)
@@ -121,6 +132,7 @@ mjs_val_t game_get_object(struct mjs *mjs, void *game_instance_ptr)
 
     mjs_val_t game_obj = mjs_mk_object(mjs);
     mjs_set(mjs, game_obj, "_game", ~0, mjs_mk_foreign(mjs, game_instance));
+    mjs_set_owned(mjs, game_obj, true);
     mjs_set(mjs, game_obj, "destroy", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)game_destroy));
     mjs_set(mjs, game_obj, "get", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)game_get));
     mjs_set(mjs, game_obj, "set", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)game_set));
@@ -128,6 +140,11 @@ mjs_val_t game_get_object(struct mjs *mjs, void *game_instance_ptr)
     mjs_set(mjs, game_obj, "levelAdd", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)game_level_add));
     mjs_set(mjs, game_obj, "levelRemove", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)game_level_remove));
     mjs_set(mjs, game_obj, "levelSwitch", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)game_level_switch));
+
+    mjs_set(mjs, game_obj, "start", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)game_start));
+    mjs_set(mjs, game_obj, "stop", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)game_stop));
+    mjs_set(mjs, game_obj, "render", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)game_render));
+    mjs_set(mjs, game_obj, "update", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)game_update));
     return game_obj;
 }
 
@@ -135,7 +152,10 @@ void game_level_add(struct mjs *mjs)
 {
     Game *game_instance = game_get_this(mjs);
     if (!game_instance)
+    {
+        mjs_prepend_errorf(mjs, MJS_INTERNAL_ERROR, "No game instance");
         return;
+    }
 
     Level *level = static_cast<Level *>(level_get_pointer(mjs, 0));
     if (!level)
@@ -143,7 +163,7 @@ void game_level_add(struct mjs *mjs)
         mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "Invalid argument, expected Level");
         return;
     }
-
+    mjs_set_owned(mjs, mjs_arg(mjs, 0), false);
     game_instance->level_add(level);
     mjs_return(mjs, mjs_mk_boolean(mjs, true));
 }
@@ -183,6 +203,46 @@ void game_level_switch(struct mjs *mjs)
         if (name)
             game_instance->level_switch(name);
     }
+}
+
+void game_start(struct mjs *mjs)
+{
+    Game *game_instance = game_get_this(mjs);
+    if (!game_instance)
+        return;
+
+    game_instance->start();
+    mjs_return(mjs, mjs_mk_boolean(mjs, true));
+}
+
+void game_stop(struct mjs *mjs)
+{
+    Game *game_instance = game_get_this(mjs);
+    if (!game_instance)
+        return;
+
+    game_instance->stop();
+    mjs_return(mjs, mjs_mk_boolean(mjs, true));
+}
+
+void game_render(struct mjs *mjs)
+{
+    Game *game_instance = game_get_this(mjs);
+    if (!game_instance)
+        return;
+
+    game_instance->render();
+    mjs_return(mjs, mjs_mk_boolean(mjs, true));
+}
+
+void game_update(struct mjs *mjs)
+{
+    Game *game_instance = game_get_this(mjs);
+    if (!game_instance)
+        return;
+
+    game_instance->update();
+    mjs_return(mjs, mjs_mk_boolean(mjs, true));
 }
 
 void game_set(struct mjs *mjs)
@@ -249,6 +309,20 @@ void game_set(struct mjs *mjs)
     {
         game_instance->bg_color = mjs_get_color(mjs, mjs_arg(mjs, 1));
     }
+    else if (strcmp(key, "camera") == 0)
+    {
+        Camera *camera_instance = static_cast<Camera *>(camera_get_pointer(mjs, 1));
+        if (!camera_instance)
+        {
+            mjs_prepend_errorf(mjs, MJS_INTERNAL_ERROR, "Create a Camera before assigning it to the Game");
+            return;
+        }
+        game_instance->setCamera(*camera_instance);
+    }
+    else if (strcmp(key, "input") == 0)
+    {
+        game_instance->input = mjs_get_int(mjs, mjs_arg(mjs, 1));
+    }
 }
 
 void game_create(struct mjs *mjs, mjs_val_t *game_obj)
@@ -281,7 +355,7 @@ void game_create(struct mjs *mjs, mjs_val_t *game_obj)
     uint16_t fg = mjs_get_color(mjs, mjs_arg(mjs, 3));
     uint16_t bg = mjs_get_color(mjs, mjs_arg(mjs, 4));
 
-    Draw *game_draw_instance = new Draw();
+    game_draw_instance = new Draw();
     if (!game_draw_instance)
     {
         mjs_prepend_errorf(mjs, MJS_INTERNAL_ERROR, "Failed to create draw");
@@ -295,9 +369,12 @@ void game_create(struct mjs *mjs, mjs_val_t *game_obj)
     {
         mjs_prepend_errorf(mjs, MJS_INTERNAL_ERROR, "Game creation failed");
         m_free(name_buf);
+        delete game_draw_instance;
+        game_draw_instance = nullptr;
         return;
     }
     mjs_slot_set(game_instance);
+    mjs_slot_set(game_draw_instance);
 
     *game_obj = game_get_object(mjs, game_instance);
 }

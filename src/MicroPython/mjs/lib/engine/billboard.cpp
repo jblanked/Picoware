@@ -41,8 +41,11 @@ void billboard_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_billboard", ~0, mjs_mk_undefined());
+    if (mjs_is_owned(mjs))
+    {
+        delete billboard;
+    }
     mjs_slot_release(billboard);
-    delete billboard;
     billboard = nullptr;
 }
 
@@ -105,6 +108,7 @@ void billboard_create(struct mjs *mjs, mjs_val_t *billboard_obj)
     Billboard *billboard_instance = new Billboard();
     mjs_slot_set(billboard_instance);
     mjs_set(mjs, *billboard_obj, "_billboard", ~0, mjs_mk_foreign(mjs, billboard_instance));
+    mjs_set_owned(mjs, *billboard_obj, true);
     mjs_set(mjs, *billboard_obj, "destroy", ~0, mjs_mk_foreign(mjs, (void *)billboard_destroy));
     mjs_set(mjs, *billboard_obj, "set", ~0, mjs_mk_foreign(mjs, (void *)billboard_set));
 }

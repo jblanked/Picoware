@@ -16,6 +16,10 @@ extern "C"
     void game_level_add(struct mjs *mjs);
     void game_level_remove(struct mjs *mjs);
     void game_level_switch(struct mjs *mjs);
+    void game_start(struct mjs *mjs);
+    void game_stop(struct mjs *mjs);
+    void game_render(struct mjs *mjs);
+    void game_update(struct mjs *mjs);
     //
     void game_create(struct mjs *mjs, mjs_val_t *game_obj);
 

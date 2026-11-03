@@ -28,8 +28,11 @@ void sprite3d_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_sprite3d", ~0, mjs_mk_undefined());
+    if (mjs_is_owned(mjs))
+    {
+        delete sprite3d;
+    }
     mjs_slot_release(sprite3d);
-    delete sprite3d;
     sprite3d = nullptr;
 }
 
@@ -42,6 +45,7 @@ mjs_val_t sprite3d_get_object(struct mjs *mjs, void *sprite3d_instance_ptr)
     mjs_val_t sprite3d_obj = mjs_mk_object(mjs);
 
     mjs_set(mjs, sprite3d_obj, "_sprite3d", ~0, mjs_mk_foreign(mjs, static_cast<void *>(sprite3d_instance)));
+    mjs_set_owned(mjs, sprite3d_obj, true);
     mjs_set(mjs, sprite3d_obj, "destroy", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_destroy));
     mjs_set(mjs, sprite3d_obj, "get", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_get));
     mjs_set(mjs, sprite3d_obj, "set", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)sprite3d_set));

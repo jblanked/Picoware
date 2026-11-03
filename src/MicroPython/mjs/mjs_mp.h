@@ -34,6 +34,7 @@ extern "C"
 
     mp_obj_t mjs_mp_exec(mp_obj_t self_in, mp_obj_t path);   // execute JavaScript code from a file
     mp_obj_t mjs_mp_run(mp_obj_t self_in, mp_obj_t js_code); // execute JavaScript code
+    mp_obj_t mjs_mp_reset(mp_obj_t self_in);                 // unloads all loaded modules
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,7 @@
 #include "lib.h"
 
 static lib_module_t lib_loaded_modules[LIB_MODULE_COUNT] = {0};
+static lib_module_t lib_multi_modules[LIB_MAX_MULTI_MODULES] = {0};
 static uint8_t lib_loaded_modules_count = 0;
 
 static bool lib_is_multi_instance(lib_module_t module)
@@ -10,7 +11,12 @@ static bool lib_is_multi_instance(lib_module_t module)
            module == LIB_MODULE_ENGINE_ENTITY ||
            module == LIB_MODULE_ENGINE_SPRITE3D ||
            module == LIB_MODULE_ENGINE_TRIANGLE3D ||
-           module == LIB_MODULE_ENGINE_BILLBOARD;
+           module == LIB_MODULE_ENGINE_BILLBOARD ||
+           module == LIB_MODULE_ENGINE_GAME ||
+           module == LIB_MODULE_ENGINE_LEVEL ||
+           module == LIB_MODULE_ENGINE_SPRITE3D ||
+           module == LIB_MODULE_ENGINE_TRIANGLE3D ||
+           module == LIB_MODULE_ENGINE_ENGINE;
 }
 
 static bool lib_is_module_loaded(lib_module_t module)
@@ -34,7 +40,18 @@ void lib_load_module(struct mjs *mjs)
     const lib_module_t module = lib_module_from_str(name);
     bool is_module_loaded = false;
     const bool multi = lib_is_multi_instance(module);
-    if (!multi && lib_is_module_loaded(module))
+    if (multi)
+    {
+        for (size_t i = 0; i < LIB_MAX_MULTI_MODULES; i++)
+        {
+            if (lib_multi_modules[i] == LIB_MODULE_NONE)
+            {
+                lib_multi_modules[i] = module;
+                break;
+            }
+        }
+    }
+    if (lib_is_module_loaded(module))
     {
         mjs_return(mjs, object);
         return;
@@ -280,14 +297,14 @@ lib_module_t lib_module_from_str(const char *str)
 
 void lib_register_globals(struct mjs *mjs)
 {
-    lib_unload_modules();
+    lib_unload_modules(mjs);
     mjs_set(mjs, mjs_get_global(mjs), "import", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lib_load_module));
     color_register(mjs);
     log_register(mjs);
 }
 
-void lib_unload_modules()
+void lib_unload_modules(struct mjs *mjs)
 {
     for (size_t i = 0; i < LIB_MODULE_COUNT; i++)
     {
@@ -330,5 +347,44 @@ void lib_unload_modules()
         lib_loaded_modules[i] = LIB_MODULE_NONE;
     }
     lib_loaded_modules_count = 0;
+    for (size_t i = 0; i < LIB_MAX_MULTI_MODULES; i++)
+    {
+        if (lib_multi_modules[i] == LIB_MODULE_ENGINE_BILLBOARD)
+        {
+            billboard_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_CAMERA)
+        {
+            camera_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_ENGINE)
+        {
+            engine_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_ENTITY)
+        {
+            entity_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_GAME)
+        {
+            game_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_IMAGE)
+        {
+            image_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_LEVEL)
+        {
+            level_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_SPRITE3D)
+        {
+            sprite3d_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_TRIANGLE3D)
+        {
+            triangle3d_destroy(mjs);
+        }
+    }
     mjs_slot_sweep();
 }

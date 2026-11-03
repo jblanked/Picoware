@@ -27,8 +27,11 @@ void camera_destroy(struct mjs *mjs)
         return;
     }
     mjs_set(mjs, mjs_get_this(mjs), "_camera", ~0, mjs_mk_undefined());
+    if (mjs_is_owned(mjs))
+    {
+        delete camera;
+    }
     mjs_slot_release(camera);
-    delete camera;
     camera = nullptr;
 }
 
@@ -40,6 +43,7 @@ mjs_val_t camera_get_object(struct mjs *mjs, void *camera_instance_ptr)
 
     mjs_val_t camera_obj = mjs_mk_object(mjs);
     mjs_set(mjs, camera_obj, "_camera", ~0, mjs_mk_foreign(mjs, (void *)camera_instance));
+    mjs_set_owned(mjs, camera_obj, true);
     mjs_set(mjs, camera_obj, "destroy", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)camera_destroy));
     mjs_set(mjs, camera_obj, "get", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)camera_get));
     mjs_set(mjs, camera_obj, "set", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)camera_set));

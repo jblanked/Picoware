@@ -662,6 +662,7 @@ def _run_sim_check(opts):
         _run_desktop_native_check(opts)
         _run_mjs_check(opts)
     _run_mjs_display_size_check()
+    _run_mjs_lifecycle_check()
     _run_ble_http_parity_check()
     _run_library_route_check()
     _run_stale_app_link_check(opts)
@@ -1689,6 +1690,35 @@ def _run_mjs_display_size_check():
     print("[sim-check:ok] JS display size Desktop Cardputer PicoDuo")
 
 
+def _run_mjs_lifecycle_check():
+    """Exercise native game ownership and reuse after script cleanup."""
+    import mjs
+
+    js = mjs.MJS()
+    for cycle in range(3):
+        js.run('let draw = import("draw");')
+        assert js.run('draw.size.width;') > 0
+        js.run('let game = import("game", "parity", {x: 32, y: 32, z: 0}, "0xFFFF", "0x0000");')
+        js.run('let level = import("level", "room", {x: 32, y: 32, z: 0}, game);')
+        assert js.run('game.get("currentLevel");') is None
+        assert js.run('game.get("isActive");') is False
+        assert js.run('game.levelAdd(level);') is True
+        # Releasing the transferred wrapper must leave the game's level alive.
+        js.run('level.destroy();')
+        assert js.run('game.start();') is True
+        assert js.run('game.get("isActive");') is True
+        assert js.run('game.get("currentLevel").get("name");') == "room"
+        assert js.run('game.update();') is True
+        assert js.run('game.render();') is True
+        assert js.run('game.stop();') is True
+        assert js.run('game.get("isActive");') is False
+        assert js.run('game.get("currentLevel");') is None
+        js.run('game.destroy();')
+        assert js.reset() is None
+        assert js.run('40 + 2;') == 42
+    print("[sim-check:ok] JS level registration, ownership transfer, game lifecycle, repeated reset")
+
+
 def _run_ble_http_parity_check():
     """Exercise shared BLE clients with an offline command peer in both roles."""
     import sim_runtime
@@ -1806,7 +1836,9 @@ def _run_scripts_fixture_check(opts):
         path = opts["sd"].rstrip("/") + "/picoware/scripts/" + name
         with open(path, "r") as handle:
             contents = handle.read()
-        if "draw.size.width" not in contents or "engine.runAsync(true)" not in contents:
+        if ("draw.size.width" not in contents
+                or "engine.runAsync(true)" not in contents
+                or "game.levelAdd(level)" not in contents):
             raise RuntimeError("bundled JS game fixture is missing: " + name)
     print("[sim-check:ok] bundled JavaScript scripts fixture")
 

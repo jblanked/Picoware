@@ -33,6 +33,7 @@ class ViewManager:
         "_draw",
         "_gmt_offset",
         "_input_manager",
+        "_back_button",
         "_button",
         "_keyboard",
         "_time",
@@ -109,12 +110,12 @@ class ViewManager:
         __debug = settings.debug
 
         # exit button
-        _back_button = settings.exit_button
+        self._back_button = settings.exit_button
         if syst.board_id in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM):
-            _back_button = BUTTON_ESCAPE
+            self._back_button = BUTTON_ESCAPE
 
         # Initialize input manager
-        self._input_manager = Input(_back_button)
+        self._input_manager = Input(self._back_button)
         self._button = -1
 
         # Initialize battery
@@ -415,6 +416,9 @@ class ViewManager:
     @property
     def input_manager(self):
         """Return the Input manager instance."""
+        if self._input_manager is None:
+            from picoware.system.input import Input
+            self._input_manager = Input(self._back_button)
         return self._input_manager
 
     @property

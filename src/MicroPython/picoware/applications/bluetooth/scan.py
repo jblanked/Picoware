@@ -184,11 +184,12 @@ def run(view_manager) -> None:
             if len(addr_str) > 17:
                 text_vec.y = 70
                 draw.text(text_vec, f"      {addr_str[17:]}")
-            text_vec.y = 90
+            _font_size = draw.font_size.y
+            text_vec.y = draw.size.y - (_font_size * 3) - 1
             draw.text(text_vec, f"Type: {'Public' if addr_type == 0 else 'Random'}")
-            text_vec.y = 110
+            text_vec.y = draw.size.y - (_font_size * 2) - 1
             draw.text(text_vec, f"RSSI: {rssi} dB")
-            text_vec.y = draw.size.y - 20
+            text_vec.y = draw.size.y - _font_size - 1
             draw.text(text_vec, "Press BACK to return")
             draw.swap()
 

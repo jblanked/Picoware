@@ -13,6 +13,13 @@ micropython_root="${MICROPYTHON_ROOT:-/Users/user/pico/micropython}"
 flipper_src_dir="$picoware_dir/src/MicroPython/Flipper"
 output_dir="$picoware_dir/builds/MicroPython"
 build_dir="$micropython_dir/build-FLIPPER_ZERO"
+# Keep in sync with the FLASH region in Flipper/board/flipper_zero.ld.
+flash_max_bytes=$((860 * 1024))
+
+freeze_excludes=(
+    "/system/agent/"
+    "/assets/"
+)
 
 require_dir() {
     if [ ! -d "$1" ]; then
@@ -25,6 +32,31 @@ require_file() {
     if [ ! -f "$1" ]; then
         echo "ERROR: Missing file: $1"
         exit 1
+    fi
+}
+
+report_flash_usage() {
+    local elf_path="$build_dir/firmware.elf"
+    local firmware_flash_bytes
+
+    require_file "$elf_path"
+    if ! command -v arm-none-eabi-size >/dev/null 2>&1; then
+        echo "ERROR: arm-none-eabi-size is required to check firmware flash usage."
+        return 1
+    fi
+
+    firmware_flash_bytes="$(arm-none-eabi-size "$elf_path" | awk 'NR == 2 { print $1 + $2 }')"
+    if [[ ! "$firmware_flash_bytes" =~ ^[0-9]+$ ]]; then
+        echo "ERROR: Could not determine firmware flash usage from $elf_path"
+        return 1
+    fi
+
+    printf 'Firmware flash usage: %d / %d bytes; %d bytes free.\n' \
+        "$firmware_flash_bytes" "$flash_max_bytes" "$((flash_max_bytes - firmware_flash_bytes))"
+    if [ "$firmware_flash_bytes" -gt "$flash_max_bytes" ]; then
+        printf 'ERROR: Firmware exceeds the Flipper Zero application flash limit by %d bytes.\n' \
+            "$((firmware_flash_bytes - flash_max_bytes))"
+        return 1
     fi
 }
 
@@ -149,12 +181,17 @@ rm -rf "$output_dir/sd"
 freeze_dir="$micropython_dir/modules/flash"
 rm -rf "$freeze_dir"
 mkdir -p "$freeze_dir"
-rsync -a --exclude='/system/agent/' --exclude='/assets/' \
+rsync_exclude_args=()
+for exclude_path in "${freeze_excludes[@]}"; do
+    rsync_exclude_args+=(--exclude="$exclude_path")
+done
+rsync -a "${rsync_exclude_args[@]}" \
     "$picoware_dir/src/MicroPython/picoware/" "$freeze_dir/picoware/"
 cp "$picoware_dir/src/MicroPython/main.py" "$freeze_dir/main.py"
 find "$freeze_dir" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 find "$freeze_dir" -name ".DS_Store" -delete 2>/dev/null || true
 
+printf 'Flipper Zero application flash limit: %d bytes (860 KiB).\n' "$flash_max_bytes"
 echo "Starting Flipper Zero firmware build..."
 cd "$micropython_dir"
 
@@ -163,10 +200,17 @@ make BOARD=FLIPPER_ZERO \
     CFLAGS_EXTRA="-DFLIPPER_ZERO" \
     clean
 
-make -j BOARD=FLIPPER_ZERO \
+if ! make -j BOARD=FLIPPER_ZERO \
     USER_C_MODULES="$micropython_dir/modules" \
     CFLAGS_EXTRA="-DFLIPPER_ZERO" \
-    LTO=1
+    LTO=1; then
+    if [ -f "$build_dir/firmware.elf" ]; then
+        report_flash_usage || exit 1
+    fi
+    exit 1
+fi
+
+report_flash_usage
 
 echo "Copying build artifacts..."
 cp "$build_dir/firmware.dfu" "$output_dir/Picoware-FlipperZero.dfu" 2>/dev/null || true

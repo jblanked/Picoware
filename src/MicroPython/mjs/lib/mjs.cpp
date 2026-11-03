@@ -277,7 +277,7 @@ bool mjs_read_buffer(struct mjs *mjs, mjs_val_t value, size_t expected_length,
             return false;
         }
     }
-
+    mjs_slot_set(buffer->owned_data);
     return true;
 }
 

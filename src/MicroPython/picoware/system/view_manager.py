@@ -797,7 +797,7 @@ class ViewManager:
                 else:
                     self.back(should_clear=False, should_start=False)
         elif button == 87:  # BUTTON_F1
-            self._draw.screenshot("screenshot.bmp")
+            self._draw.screenshot(f"screenshot{self._time.date}.bmp")
 
         if self._thread_manager.run():
             self.log(self._thread_manager._outgoing)
@@ -806,7 +806,7 @@ class ViewManager:
             self._current_view.run(self)
 
         if button != -1:
-            self._input_manager.reset()
+            self.input_manager.reset()
             self._button = -1
 
         return self._active

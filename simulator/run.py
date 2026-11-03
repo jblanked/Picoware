@@ -661,6 +661,8 @@ def _run_sim_check(opts):
     if board_name in ("desktop", "unix"):
         _run_desktop_native_check(opts)
         _run_mjs_check(opts)
+    _run_mjs_display_size_check()
+    _run_ble_http_parity_check()
     _run_library_route_check()
     _run_stale_app_link_check(opts)
     _run_c_parity_check(opts)
@@ -1341,6 +1343,44 @@ def _run_flipper_keyboard_preview_check():
             assert draw._get_pixel(5, 7) == 0xFFFF
             assert draw._get_pixel(2, 2) == 0
 
+        class TouchProbe:
+            has_touch_support = True
+            touch_down = False
+            point = (0, 0)
+            button = -1
+            was_capitalized = False
+
+            def reset(self):
+                pass
+
+        touch = TouchProbe()
+        keyboard = Keyboard(draw, touch)
+        # Exercise the shared keyboard event loop, including release unlatching.
+        def tap_key(character):
+            for row, keys in enumerate(keyboard.ROWS):
+                for col, key in enumerate(keys):
+                    if key.normal == character:
+                        x, y, width, height = keyboard._key_rects[row][col]
+                        touch.point = (x + width // 2, y + height // 2)
+                        touch.touch_down = True
+                        keyboard.run(swap=False)
+                        return
+            raise AssertionError("keyboard fixture key missing: " + character)
+
+        tap_key("a")
+        assert keyboard.response == "a"
+        keyboard.run(swap=False)
+        assert keyboard.response == "a", "held touch repeated a character"
+        touch.touch_down = False
+        touch.point = (0, 0)
+        keyboard.run(swap=False)
+        tap_key("a")
+        assert keyboard.response == "aa", "release did not rearm the keyboard"
+        tap_key("\b")
+        assert keyboard.response == "a"
+        keyboard.run(swap=False)
+        assert keyboard.response == "", "held backspace must keep deleting"
+
         picoware_boards.BOARD_ID = boards.BOARD_ID = picoware_boards.BOARD_FLIPPER_ZERO
         draw = Draw()
         keyboard = Keyboard(draw, InputProbe())
@@ -1384,7 +1424,7 @@ def _run_flipper_keyboard_preview_check():
         sim_runtime.headless = original_headless
         sim_runtime.set_lcd(original_lcd)
         gc.collect()
-    print("[sim-check:ok] layout scaling and Flipper keyboard pixels text clipping monochrome")
+    print("[sim-check:ok] touch keyboard hold/release/backspace, layout scaling, and Flipper pixels")
 
 
 def _run_uart_parity_check():
@@ -1438,11 +1478,24 @@ def _run_engine_parity_check():
     draw = None
     try:
         sprite = Sprite3D()
-        sprite.add_triangle(*vertices, 0x07E0, False)
+        assert sprite.add_triangle(*vertices, 0x07E0, False) is True
+        assert sprite.update_triangle(0, *vertices, 0x07E0, False) is True
+        assert sprite.bake_transform() is True
         if not sprite.reserve_triangles(8) or sprite.triangle_count != 1:
             raise RuntimeError("native Sprite3D reservation changed triangle count")
         if sprite.triangle_count != 1 or not sprite.to_path(path):
             raise RuntimeError("simulator Sprite3D.add_triangle/to_path failed")
+        capacity = Sprite3D()
+        assert capacity.reserve_triangles(65535) is True
+        for _ in range(65535):
+            assert capacity.add_triangle(*vertices) is True
+        assert capacity.triangle_count == 65535
+        assert capacity.add_triangle(*vertices) is False
+        assert capacity.triangle_count == 65535
+        capacity.clear_triangles()
+        assert capacity.create_cube(0, 0, 0, 1, 1, 1) is True
+        assert capacity.triangle_count == 8  # Firmware omits top and bottom faces.
+        capacity.clear_triangles()
         loaded = Sprite3D()
         if not loaded.from_path(path, False) or loaded.triangle_count != 1:
             raise RuntimeError("simulator Sprite3D.from_path failed")
@@ -1610,6 +1663,135 @@ def _run_font_parity_check():
     print("[sim-check:ok] board default fonts and Font16 spacing")
 
 
+def _run_mjs_display_size_check():
+    """Check native JS dimensions against actual LCD board profiles."""
+    import lcd
+    import mjs
+    import picoware_boards as boards
+    import sim_runtime
+
+    old_id = boards.BOARD_ID
+    old_lcd = sim_runtime.get_lcd()
+    old_headless = sim_runtime.headless
+    try:
+        sim_runtime.headless = True
+        js = mjs.MJS()
+        js.run('let draw = import("draw");')
+        for board_id in (boards.BOARD_DESKTOP, boards.BOARD_CARDPUTER, boards.BOARD_PICO_DUO):
+            boards.BOARD_ID = board_id
+            screen = lcd.LCD()
+            assert js.run("draw.size.width;") == screen.width
+            assert js.run("draw.size.height;") == screen.height
+    finally:
+        boards.BOARD_ID = old_id
+        sim_runtime.set_lcd(old_lcd)
+        sim_runtime.headless = old_headless
+    print("[sim-check:ok] JS display size Desktop Cardputer PicoDuo")
+
+
+def _run_ble_http_parity_check():
+    """Exercise shared BLE clients with an offline command peer in both roles."""
+    import sim_runtime
+    from sim_ble_http import BLEHTTPPeer
+    from picoware.system.bluetooth import Bluetooth
+    from picoware.system.wifi import WiFiBLE
+    from picoware.system.http import HTTPBLE
+    from utime import ticks_ms, ticks_diff, sleep_ms
+
+    old_network = sim_runtime.network_mode
+    old_bluetooth = sim_runtime.bluetooth_mode
+    sim_runtime.network_mode = "offline"
+    sim_runtime.bluetooth_mode = "virtual"
+    try:
+        for width in (1, 7, 20):
+            peer = BLEHTTPPeer({
+                "https://fixture.invalid/status": b'{"ok":true}',
+                "https://fixture.invalid/search?q=[PING]": b'query fixture',
+            }, timeout_ms=20)
+            commands = (
+                (b'[WIFI/SAVE]{"ssid":"Picoware-Sim","password":"literal [PING] and }"}', b"[WIFI/CONNECTED]"),
+                (b'[GET]https://fixture.invalid/status\n', b'{"ok":true}'),
+                (b'[GET/HTTP]{"url":"https://fixture.invalid/status"}\n', b'{"ok":true}'),
+                (b'[GET]https://fixture.invalid/search?q=[PING]\n', b'query fixture'),
+                (b'[WIFI/SAVE]{bad}', b"[ERROR]"),
+                (b'[PING]\n', b"[PONG]"),
+            )
+            for command, expected in commands:
+                replies = []
+                for offset in range(0, len(command), width):
+                    reply = peer.reply(command[offset:offset + width])
+                    if reply:
+                        replies.append(reply)
+                assert len(replies) == 1 and expected in replies[0], (command, replies)
+            for partial in (b'[GET]https://fixture.invalid/', b'[WIFI/SAVE]{',
+                            b'[WIFI/SAVE]{"ssid":"unfinished'):
+                assert peer.reply(partial) is None
+                sleep_ms(21)
+                assert peer.reply(b'[PI') is None
+                assert b'[PONG]' in peer.reply(b'NG]')
+                assert peer.reply(partial) is None
+                peer.reset()
+                assert b'[PONG]' in peer.reply(b'[PING]')
+            assert peer.reply(b'\r\n') is None
+            assert b'[ERROR]' in peer.reply(b'[GET]' + b'x' * 8192)
+            peer.reset()
+            assert b'[PONG]' in peer.reply(b'[PING]')
+        for role in (WiFiBLE.RECEIVER, WiFiBLE.SENDER):
+            bt = Bluetooth()
+            peer = BLEHTTPPeer({
+                "https://fixture.invalid/status": b'{"ok":true}',
+                "https://fixture.invalid/search?q=[PING]": b'query fixture',
+            }, timeout_ms=20)
+            bt._ble.sim_set_command_peer(peer.reply)
+            if role == WiFiBLE.RECEIVER:
+                assert bt.register()
+                assert bt.advertise(100000)
+            else:
+                assert bt.connect(0, b"\x02\x50\x43\x57\x10\x01")
+            wifi = WiFiBLE(bt, timeout_ms=20, _type=role)
+            http = HTTPBLE(bt, timeout_ms=20, _type=role)
+            assert wifi.ble is bt and http.ble is bt
+            assert wifi.ping() and http.ping() and wifi.ping()
+            # Exercise malformed request recovery through actual BLE callbacks.
+            send = bt.send if role == WiFiBLE.RECEIVER else bt.write
+            assert send(b'[WIFI/SAVE]{bad}')
+            assert wifi.ping()
+            assert send(b'[GET]https://fixture.invalid/unfinished')
+            sleep_ms(21)
+            assert http.ping()
+            # A malformed quoted SSID reaches the real client's timeout path.
+            assert not wifi.connect('unfinished"')
+            assert "timed out" in wifi.error
+            assert wifi.ping()
+            assert isinstance(wifi.scan(), list) and wifi.scan()
+            assert wifi.connect("Picoware-Sim")
+            assert wifi.is_connected() and wifi.device_ip != "0.0.0.0"
+            result = http.request("GET", "https://fixture.invalid/status")
+            assert result.json()["ok"] is True
+            result = http.request("GET", "https://fixture.invalid/search?q=[PING]")
+            assert result.text == "query fixture"
+            assert http.request("GET", "https://fixture.invalid/missing") is None
+            assert wifi.ping()
+            wifi.disconnect()
+            assert not wifi.is_connected()
+            bt._ble.sim_set_command_peer(lambda data: None)
+            for client in (wifi, http):
+                started = ticks_ms()
+                assert not client.ping()
+                assert "timed out" in client.error
+                assert 20 <= ticks_diff(ticks_ms(), started) < 1000
+            sim_runtime.bluetooth_mode = "off"
+            bt.disconnect(2 if role == WiFiBLE.RECEIVER else None)
+            for client in (wifi, http):
+                assert not client.ping()
+                assert "send failed" in client.error
+            sim_runtime.bluetooth_mode = "virtual"
+    finally:
+        sim_runtime.network_mode = old_network
+        sim_runtime.bluetooth_mode = old_bluetooth
+    print("[sim-check:ok] BLE fragmentation, malformed/partial recovery, roles, GET, send failure, timeout")
+
+
 def _run_scripts_fixture_check(opts):
     """Verify bundled JavaScript files are linked into the simulated SD."""
     path = opts["sd"].rstrip("/") + "/picoware/scripts/hello.js"
@@ -1620,6 +1802,12 @@ def _run_scripts_fixture_check(opts):
         contents = ""
     if 'draw.text(0, 10, "Hello From JavaScript")' not in contents:
         raise RuntimeError("simulator bundled scripts fixture is missing")
+    for name in ("engine-example.js", "flappy-bird.js"):
+        path = opts["sd"].rstrip("/") + "/picoware/scripts/" + name
+        with open(path, "r") as handle:
+            contents = handle.read()
+        if "draw.size.width" not in contents or "engine.runAsync(true)" not in contents:
+            raise RuntimeError("bundled JS game fixture is missing: " + name)
     print("[sim-check:ok] bundled JavaScript scripts fixture")
 
 
@@ -1700,10 +1888,19 @@ def _run_gpio_buttons_check():
     import picoware.system.input as input_module
     import picoware_boards
     from picoware.system import buttons
+    from picoware.gui.draw import Draw
+    from picoware.gui.keyboard import Keyboard
+    from picoware.system import boards
+    from utime import sleep_ms
 
     original_keys = sim_runtime._keys
     original_board = sim_runtime.board
     original_id = input_module.BOARD_ID
+    original_has_touch = input_module.BOARD_HAS_TOUCH
+    original_profile = picoware_boards.BOARD_ID
+    original_shared = boards.BOARD_ID
+    original_lcd = sim_runtime.get_lcd()
+    original_headless = sim_runtime.headless
     original_touch = sim_runtime.touch_point()
     original_gesture = sim_runtime.touch_gesture()
     inp = None
@@ -1712,7 +1909,53 @@ def _run_gpio_buttons_check():
         sim_runtime.clear_touch()
         sim_runtime.board = "waveshare-2.06"
         input_module.BOARD_ID = picoware_boards.BOARD_WAVESHARE_2_06
+        input_module.BOARD_HAS_TOUCH = 1
+        picoware_boards.BOARD_ID = boards.BOARD_ID = input_module.BOARD_ID
+        sim_runtime.headless = True
         inp = input_module.Input()
+        assert inp.touch_down is False
+        for _ in range(2):
+            sim_runtime.set_touch_point(205, 251, notify=False)
+            inp._poll_touch()
+            assert inp.touch_down is True
+            inp._poll_touch()
+            assert inp.touch_down is True
+            sim_runtime.clear_touch()
+            inp._poll_touch()
+            assert inp.touch_down is False and inp.point == (0, 0)
+        keyboard = Keyboard(Draw(), inp)
+
+        def touch_key(character):
+            for row, keys in enumerate(keyboard.ROWS):
+                for col, key in enumerate(keys):
+                    if key.normal == character:
+                        x, y, width, height = keyboard._key_rects[row][col]
+                        sim_runtime.set_touch_point(x + width // 2, y + height // 2, notify=False)
+                        return
+            raise AssertionError("missing touch key")
+
+        def tick_keyboard():
+            sleep_ms(inp._delay_ms + 1)
+            assert keyboard.run(swap=False)
+
+        touch_key("a")
+        tick_keyboard()
+        assert inp.touch_down and keyboard.response == "a"
+        tick_keyboard()
+        assert keyboard.response == "a"
+        sim_runtime.clear_touch()
+        tick_keyboard()
+        assert not inp.touch_down
+        touch_key("a")
+        tick_keyboard()
+        assert keyboard.response == "aa"
+        touch_key("\b")
+        tick_keyboard()
+        assert keyboard.response == "a"
+        tick_keyboard()
+        assert keyboard.response == ""
+        sim_runtime.clear_touch()
+        tick_keyboard()
         for code, expected in ((8, buttons.BUTTON_BACK), (13, buttons.BUTTON_CENTER)):
             for poll_first in (False, True):
                 inp.reset()
@@ -1743,10 +1986,15 @@ def _run_gpio_buttons_check():
             inp.__del__()
         gpio_buttons.deinit()
         input_module.BOARD_ID = original_id
+        input_module.BOARD_HAS_TOUCH = original_has_touch
+        picoware_boards.BOARD_ID = original_profile
+        boards.BOARD_ID = original_shared
+        sim_runtime.set_lcd(original_lcd)
+        sim_runtime.headless = original_headless
         sim_runtime.board = original_board
         sim_runtime._keys = original_keys
         sim_runtime.set_touch_point(*original_touch, original_gesture, False)
-    print("[sim-check:ok] Waveshare Input GPIO polling and mixed touch keys")
+    print("[sim-check:ok] Waveshare Input GPIO polling, touch press/hold/release, and mixed keys")
 
 
 def _run_touch_check():

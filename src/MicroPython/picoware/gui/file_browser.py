@@ -362,7 +362,11 @@ class FileBrowser:
             self._needs_redraw = True
 
     def __file_watch(self, path) -> None:
-        """Watch a video."""
+        """Watch a video.
+
+        Args:
+            path (str): The path to the video file to play.
+        """
         from picoware.system.video import Video
 
         v = Video(path)
@@ -385,7 +389,11 @@ class FileBrowser:
         del v
 
     def __zip_list(self, path) -> None:
-        """Show the names and sizes of files in a ZIP archive."""
+        """Show the names and sizes of files in a ZIP archive.
+
+        Args:
+            path (str): The path to the ZIP archive to list.
+        """
         try:
             entries = []
             for entry in self._vm.storage.listzip(path):
@@ -399,7 +407,11 @@ class FileBrowser:
             self._needs_redraw = True
 
     def __zip_unzip(self, path) -> None:
-        """Extract a ZIP archive into its current directory."""
+        """Extract a ZIP archive into its current directory.
+
+        Args:
+            path (str): The path to the ZIP archive to extract.
+        """
         target_directory = path.rsplit("/", 1)[0] or "/"
         try:
             self.__loading_run("Unzipping...", 0.5)

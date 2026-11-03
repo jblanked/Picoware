@@ -184,7 +184,14 @@ class Ducky:
         self._held_keycodes = []
 
     def _parse_line(self, line):
-        """Parse one source line into a command and argument."""
+        """Parse one source line into a command and argument.
+        
+        Args:
+            line (str): A single line of DuckyScript source code.
+
+        Returns:
+            tuple or None: A tuple (command, argument) if the line contains a command, None if it's empty or a comment.
+        """
         line = line.strip()
         if not line:
             return None
@@ -197,7 +204,13 @@ class Ducky:
         return command, argument
 
     def _execute_command(self, command, argument, line_number):
-        """Execute one parsed command."""
+        """Execute one parsed command.
+
+        Args:
+            command (str): The DuckyScript command to execute.
+            argument (str): The argument for the command.
+            line_number (int): The line number in the source script for error reporting.
+        """
         self._delay_before_command()
 
         if command == "DELAY":
@@ -254,7 +267,12 @@ class Ducky:
                 ) from error
 
     def _repeat(self, argument, line_number):
-        """Repeat the previously executed command."""
+        """Repeat the previously executed command.
+
+        Args:
+            argument (str): The number of times to repeat the command.
+            line_number (int): The line number in the source script for error reporting.
+        """
         if self._last_command is None:
             raise ValueError("REPEAT has no previous command on line {}".format(line_number))
 
@@ -269,7 +287,11 @@ class Ducky:
             self._sleep(self.default_delay)
 
     def _string(self, text):
-        """Type a string using the configured string delay."""
+        """Type a string using the configured string delay.
+
+        Args:
+            text (str): The string to type.
+        """
         delay = self._string_delay
         if delay is None:
             delay = self.default_string_delay
@@ -287,7 +309,11 @@ class Ducky:
                 self._sleep(delay)
 
     def _press_key(self, argument):
-        """Press and release a key or key combination."""
+        """Press and release a key or key combination.
+
+        Args:
+            argument (str): The key or key combination to press and release.
+        """
         modifier, keycode = self._key_spec(argument)
         press = getattr(self.usb_device, "press", None)
         if press is not None:
@@ -298,7 +324,11 @@ class Ducky:
         self._restore_holds()
 
     def _hold(self, argument):
-        """Press a key without releasing it."""
+        """Press a key without releasing it.
+
+        Args:
+            argument (str): The key or key combination to hold.
+        """
         modifier, keycode = self._key_spec(argument)
         self._held_modifiers |= modifier
         if keycode:
@@ -306,7 +336,11 @@ class Ducky:
         self._send_held_keys()
 
     def _release(self, argument):
-        """Release all keys or the requested held key."""
+        """Release all keys or the requested held key.
+
+        Args:
+            argument (str): The key or key combination to release. If empty, release all keys.
+        """
         if not argument.strip():
             self._held_modifiers = 0
             self._held_keycodes = []
@@ -332,7 +366,12 @@ class Ducky:
             self._send_held_keys()
 
     def _send_key(self, modifier, keycode):
-        """Send a key-down report through the USB device."""
+        """Send a key-down report through the USB device.
+
+        Args:
+            modifier (int): The modifier byte for the key report.
+            keycode (int): The keycode for the key report.
+        """
         send_key = getattr(self.usb_device, "send_key", None)
         if send_key is None:
             raise NotImplementedError("USB device does not support held keys")
@@ -346,7 +385,15 @@ class Ducky:
         release()
 
     def _key_spec(self, argument, include_held=True):
-        """Resolve a DuckyScript key expression."""
+        """Resolve a DuckyScript key expression.
+
+        Args:
+            argument (str): The key expression to resolve.
+            include_held (bool): Whether to include currently held modifiers.
+
+        Returns:
+            tuple: A tuple containing the modifier byte and the keycode.
+        """
         tokens = self._key_tokens(argument)
         if not tokens:
             raise ValueError("Missing key")
@@ -393,8 +440,15 @@ class Ducky:
 
         return modifier, keycode
 
-    def _key_tokens(self, argument):
-        """Split modifier-key syntax using spaces or hyphens."""
+    def _key_tokens(self, argument) -> list:
+        """Split modifier-key syntax using spaces or hyphens.
+
+        Args:
+            argument (str): The key expression to split.
+
+        Returns:
+            list: A list of key tokens.
+        """
         argument = argument.strip()
         if argument == "-":
             return [argument]
@@ -407,16 +461,24 @@ class Ducky:
                 tokens.extend(part.split("-"))
         return [token for token in tokens if token]
 
-    def _alt_char(self, argument):
-        """Type one character using the ALT+numpad method."""
+    def _alt_char(self, argument: str) -> None:
+        """Type one character using the ALT+numpad method.
+
+        Args:
+            argument (str): The character to type using the ALT+numpad method.
+        """
         value = argument.strip()
         number = self._number(value, "ALTCHAR")
         if not value.isdigit():
             value = str(number)
         self._send_alt_code(value)
 
-    def _alt_string(self, text):
-        """Type a string using ALT+numpad character codes."""
+    def _alt_string(self, text: str) -> None:
+        """Type a string using ALT+numpad character codes.
+
+        Args:
+            text (str): The string to type using ALT+numpad character codes.
+        """
         delay = self._string_delay
         if delay is None:
             delay = self.default_string_delay
@@ -427,8 +489,12 @@ class Ducky:
             if delay:
                 self._sleep(delay)
 
-    def _send_alt_code(self, code):
-        """Send a decimal code while holding the ALT modifier."""
+    def _send_alt_code(self, code: str) -> None:
+        """Send a decimal code while holding the ALT modifier.
+
+        Args:
+            code (str): The decimal code to send using the ALT modifier.
+        """
         self._send_key(USBKeyboard.MOD_LALT, 0)
         for digit in code:
             self._send_key(
@@ -438,8 +504,12 @@ class Ducky:
         self._release_all()
         self._restore_holds()
 
-    def _sysrq(self, argument):
-        """Send an ALT+PRINTSCREEN SysRq sequence."""
+    def _sysrq(self, argument: str) -> None:
+        """Send an ALT+PRINTSCREEN SysRq sequence.
+
+        Args:
+            argument (str): The key expression for the SysRq sequence.
+        """
         _, keycode = self._key_spec(argument)
         self._send_key(
             USBKeyboard.MOD_LALT,
@@ -449,8 +519,12 @@ class Ducky:
         self._release_all()
         self._restore_holds()
 
-    def _media(self, argument):
-        """Send a consumer-control media key."""
+    def _media(self, argument: str) -> None:
+        """Send a consumer-control media key.
+
+        Args:
+            argument (str): The media key to send.
+        """
         key_name = argument.strip().upper()
         usage = self._MEDIA_KEYS.get(key_name)
         if usage is None:
@@ -472,8 +546,12 @@ class Ducky:
 
         raise NotImplementedError("No USB media-key device is available")
 
-    def _globe(self, argument):
-        """Send a Globe/Fn key through an optional device hook."""
+    def _globe(self, argument: str) -> None:
+        """Send a Globe/Fn key through an optional device hook.
+
+        Args:
+            argument (str): The key expression for the Globe/Fn key.
+        """
         modifier, keycode = self._key_spec(argument)
         device = self.usb_device
         press_globe = getattr(device, "press_globe", None)
@@ -494,7 +572,11 @@ class Ducky:
             self._sleep(10)
 
     def _set_device_id(self, argument):
-        """Validate and apply a custom USB device ID when supported."""
+        """Validate and apply a custom USB device ID when supported.
+
+        Args:
+            argument (str): The USB device ID in the format VID:PID.
+        """
         parts = argument.strip().split(None, 1)
         if not parts or ":" not in parts[0]:
             raise ValueError("ID requires VID:PID")
@@ -509,7 +591,11 @@ class Ducky:
             set_id(argument.strip())
 
     def _mouse_click(self, button):
-        """Send a mouse click through an optional mouse device."""
+        """Send a mouse click through an optional mouse device.
+        
+        Args:
+            button (str): The mouse button to click.
+        """
         device = self.mouse_device or self.usb_device
         method = getattr(device, "{}_click".format(button), None)
         if method is None:
@@ -522,7 +608,12 @@ class Ducky:
         method()
 
     def _mouse_move(self, argument, command):
-        """Move the mouse by an x and y offset."""
+        """Move the mouse by an x and y offset.
+        
+        Args:
+            argument (str): The x and y offset values separated by a space.
+            command (str): The command name for error messages.
+        """
         values = argument.split()
         if len(values) != 2:
             raise ValueError("{} requires x and y values".format(command))
@@ -537,7 +628,12 @@ class Ducky:
         method(x, y)
 
     def _mouse_scroll(self, argument, command):
-        """Scroll the mouse by a signed distance."""
+        """Scroll the mouse by a signed distance.
+
+        Args:
+            argument (str): The scroll distance.
+            command (str): The command name for error messages.
+        """
         device = self.mouse_device or self.usb_device
         method = getattr(device, "mouse_scroll", None)
         if method is None:
@@ -546,8 +642,17 @@ class Ducky:
             raise NotImplementedError("USB device does not support mouse scrolling")
         method(self._number(argument, command, allow_negative=True))
 
-    def _number(self, value, command, allow_negative=False):
-        """Parse an integer command argument."""
+    def _number(self, value: str, command: str, allow_negative: bool = False) -> int:
+        """Parse an integer command argument.
+
+        Args:
+            value (str): The string representation of the number.
+            command (str): The command name for error messages.
+            allow_negative (bool): Whether to allow negative numbers.
+
+        Returns:
+            int: The parsed integer.
+        """
         try:
             number = int(value.strip(), 0)
         except ValueError as error:
@@ -559,8 +664,12 @@ class Ducky:
             raise ValueError("{} cannot be negative".format(command))
         return number
 
-    def _sleep(self, milliseconds):
-        """Sleep for a number of milliseconds."""
+    def _sleep(self, milliseconds: int) -> None:
+        """Sleep for a number of milliseconds.
+
+        Args:
+            milliseconds (int): The number of milliseconds to sleep.
+        """
         sleep_ms = getattr(time, "sleep_ms", None)
         if sleep_ms is not None:
             sleep_ms(milliseconds)

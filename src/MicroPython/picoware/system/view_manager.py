@@ -637,7 +637,11 @@ class ViewManager:
                         break
 
     def battery_callback(self, timer_obj):
-        """Callback function for battery monitoring timer."""
+        """Callback function for battery monitoring timer.
+
+        Args:
+            timer_obj: The timer object triggering the callback.
+        """
         self._battery.sample()
 
     def clear(self):

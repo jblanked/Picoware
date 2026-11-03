@@ -123,14 +123,22 @@ ssh_username = ""
 ssh_password = ""
 
 def _ssh_string(data):
-    """Pack data as SSH string (uint32 length prefix + data)"""
+    """Pack data as SSH string (uint32 length prefix + data).
+
+    Args:
+        data: The bytes or string to pack.
+    """
     if isinstance(data, str):
         data = data.encode()
     return struct.pack(">I", len(data)) + data
 
 
 def _ssh_mpint(n):
-    """Pack integer as SSH mpint (big-endian, sign-extended)"""
+    """Pack integer as SSH mpint (big-endian, sign-extended).
+
+    Args:
+        n: The integer to encode.
+    """
     if n == 0:
         return struct.pack(">I", 0)
     hex_s = "%x" % n
@@ -143,7 +151,12 @@ def _ssh_mpint(n):
 
 
 def _parse_uint32(data, offset):
-    """Parse big-endian uint32 from data at offset"""
+    """Parse big-endian uint32 from data at offset.
+
+    Args:
+        data: The byte buffer to read from.
+        offset: The byte offset to start reading.
+    """
     return (
         (data[offset] << 24)
         | (data[offset + 1] << 16)
@@ -154,13 +167,23 @@ def _parse_uint32(data, offset):
 
 
 def _parse_string(data, offset):
-    """Parse SSH string from data at offset, returns (bytes, new_offset)"""
+    """Parse SSH string from data at offset, returns (bytes, new_offset).
+
+    Args:
+        data: The byte buffer to read from.
+        offset: The byte offset to start reading.
+    """
     length, offset = _parse_uint32(data, offset)
     return bytes(data[offset : offset + length]), offset + length
 
 
 def _parse_mpint(data, offset):
-    """Parse SSH mpint from data at offset, returns (int, new_offset)"""
+    """Parse SSH mpint from data at offset, returns (int, new_offset).
+
+    Args:
+        data: The byte buffer to read from.
+        offset: The byte offset to start reading.
+    """
     length, offset = _parse_uint32(data, offset)
     val = 0
     for i in range(length):
@@ -171,7 +194,12 @@ def _parse_mpint(data, offset):
 
 
 def _parse_name_list(data, offset):
-    """Parse SSH name-list, returns (list_of_strings, new_offset)"""
+    """Parse SSH name-list, returns (list_of_strings, new_offset).
+
+    Args:
+        data: The byte buffer to read from.
+        offset: The byte offset to start reading.
+    """
     raw, offset = _parse_string(data, offset)
     if raw:
         return raw.decode().split(","), offset
@@ -179,7 +207,14 @@ def _parse_name_list(data, offset):
 
 
 def _hmac_compute(key, msg, hash_cls, block_size):
-    """Compute HMAC with the given hash class and block size"""
+    """Compute HMAC with the given hash class and block size.
+
+    Args:
+        key: The HMAC key bytes.
+        msg: The message bytes to authenticate.
+        hash_cls: The hash class used to derive the digest.
+        block_size: The block size of the hash function.
+    """
     if len(key) > block_size:
         h = hash_cls()
         h.update(key)
@@ -199,17 +234,32 @@ def _hmac_compute(key, msg, hash_cls, block_size):
 
 
 def _hmac_sha256(key, msg):
-    """HMAC-SHA-256"""
+    """HMAC-SHA-256.
+
+    Args:
+        key: The HMAC key bytes.
+        msg: The message bytes to authenticate.
+    """
     return _hmac_compute(key, msg, hashlib.sha256, 64)
 
 
 def _hmac_sha1(key, msg):
-    """HMAC-SHA-1"""
+    """HMAC-SHA-1.
+
+    Args:
+        key: The HMAC key bytes.
+        msg: The message bytes to authenticate.
+    """
     return _hmac_compute(key, msg, hashlib.sha1, 64)
 
 
 def _x25519(k_bytes, u_bytes):
-    """X25519 scalar multiplication with aggressive GC"""
+    """X25519 scalar multiplication with aggressive GC.
+
+    Args:
+        k_bytes: The 32-byte scalar.
+        u_bytes: The 32-byte public point.
+    """
     p = _X25519_P
     a24 = _X25519_A24
 
@@ -275,6 +325,12 @@ class _AES_CTR:
     falls back to manual CTR built on ECB."""
 
     def __init__(self, key, iv):
+        """Build an AES-CTR cipher, preferring the native mode.
+
+        Args:
+            key: The AES key bytes.
+            iv: The initialization vector bytes.
+        """
         try:
             from cryptolib import aes
         except ImportError:
@@ -297,7 +353,11 @@ class _AES_CTR:
                 break
 
     def process(self, data):
-        """Encrypt or decrypt data (XOR with AES-CTR keystream)"""
+        """Encrypt or decrypt data (XOR with AES-CTR keystream).
+
+        Args:
+            data: The bytes to encrypt or decrypt.
+        """
         if self._native:
             return self._aes.encrypt(data)
 
@@ -334,6 +394,7 @@ class SSHClient:
     _COMPRESSION = "none"
 
     def __init__(self):
+        """Initialize a disconnected SSH client with no session state."""
         self._sock = None
         self._connected = False
         self._authenticated = False
@@ -371,21 +432,28 @@ class SSHClient:
 
     @property
     def is_connected(self) -> bool:
+        """Whether the client is connected and authenticated."""
         with self._lock:
             return self._connected and self._authenticated
 
     @property
     def error(self) -> str:
+        """The last error message, or None if none occurred."""
         with self._lock:
             return self._error
 
     @property
     def output(self) -> list:
+        """A copy of the accumulated command output lines."""
         with self._lock:
             return self._output.copy()
 
     def _recv_exact(self, n):
-        """Receive exactly n bytes"""
+        """Receive exactly n bytes.
+
+        Args:
+            n: The number of bytes to receive.
+        """
         buf = bytearray()
         while len(buf) < n:
             chunk = self._sock.recv(min(n - len(buf), 4096))
@@ -395,7 +463,11 @@ class SSHClient:
         return bytes(buf)
 
     def _send_all(self, data):
-        """Send all bytes"""
+        """Send all bytes.
+
+        Args:
+            data: The bytes to send.
+        """
         mv = memoryview(data)
         total = 0
         while total < len(data):
@@ -437,7 +509,11 @@ class SSHClient:
             return bytes(raw_rest[1 : pkt_len - pad_len])
 
     def _send_packet(self, payload):
-        """Build, optionally encrypt, and send an SSH binary packet"""
+        """Build, optionally encrypt, and send an SSH binary packet.
+
+        Args:
+            payload: The packet payload bytes to send.
+        """
         bs = 16 if self._encrypted else 8
         inner = 1 + len(payload)
         pad_len = bs - ((4 + inner) % bs)
@@ -504,7 +580,11 @@ class SSHClient:
         return bytes(p)
 
     def _negotiate_kexinit(self, server_payload):
-        """Parse server KEXINIT and pick algorithms"""
+        """Parse server KEXINIT and pick algorithms.
+
+        Args:
+            server_payload: The server KEXINIT packet payload.
+        """
         off = 17
         s_kex, off = _parse_name_list(server_payload, off)
         s_host, off = _parse_name_list(server_payload, off)
@@ -514,6 +594,12 @@ class SSHClient:
         s_mac_s2c, off = _parse_name_list(server_payload, off)
 
         def pick(client_csv, server_list):
+            """Pick the first client algorithm present in the server list.
+
+            Args:
+                client_csv: The comma-separated client preference list.
+                server_list: The server's offered algorithm list.
+            """
             for a in client_csv.split(","):
                 if a in server_list:
                     return a
@@ -705,10 +791,22 @@ class SSHClient:
         return K, H, hash_cls
 
     def _derive_keys(self, K, H, hash_cls):
-        """Derive encryption, IV, and MAC keys from shared secret"""
+        """Derive encryption, IV, and MAC keys from shared secret.
+
+        Args:
+            K: The shared secret value.
+            H: The exchange hash bytes.
+            hash_cls: The hash class used to derive the keys.
+        """
         K_enc = _ssh_mpint(K)
 
         def derive(letter, needed):
+            """Derive a key of the requested length using a constant letter.
+
+            Args:
+                letter: The derivation constant letter (A-F).
+                needed: The number of key bytes to produce.
+            """
             h = hash_cls()
             h.update(K_enc)
             h.update(H)
@@ -749,14 +847,23 @@ class SSHClient:
         collect()
 
     def _request_service(self, name):
-        """Send SSH_MSG_SERVICE_REQUEST"""
+        """Send SSH_MSG_SERVICE_REQUEST.
+
+        Args:
+            name: The requested service name (e.g. "ssh-connection").
+        """
         self._send_packet(bytes([SSH_MSG_SERVICE_REQUEST]) + _ssh_string(name))
         resp = self._read_ssh_packet()
         if resp[0] != SSH_MSG_SERVICE_ACCEPT:
             raise Exception("Service '%s' rejected" % name)
 
     def _auth_password(self, username, password):
-        """Password authentication"""
+        """Password authentication.
+
+        Args:
+            username: The username to authenticate as.
+            password: The password for the account.
+        """
         p = bytearray()
         p.append(SSH_MSG_USERAUTH_REQUEST)
         p.extend(_ssh_string(username))
@@ -849,7 +956,11 @@ class SSHClient:
                 continue
 
     def _send_exec(self, command):
-        """Send exec request on the channel"""
+        """Send exec request on the channel.
+
+        Args:
+            command: The command string to execute remotely.
+        """
         p = bytearray()
         p.append(SSH_MSG_CHANNEL_REQUEST)
         p.extend(struct.pack(">I", self._remote_channel))
@@ -859,7 +970,11 @@ class SSHClient:
         self._send_packet(bytes(p))
 
     def _window_adjust(self, amount):
-        """Send window adjust to allow server to send more data"""
+        """Send window adjust to allow server to send more data.
+
+        Args:
+            amount: The number of additional bytes to allow.
+        """
         p = bytearray()
         p.append(SSH_MSG_CHANNEL_WINDOW_ADJUST)
         p.extend(struct.pack(">II", self._remote_channel, amount))
@@ -953,7 +1068,12 @@ class SSHClient:
         return lines
 
     def _resolve_host(self, host, port):
-        """Resolve host with a practical LAN fallback for mDNS names."""
+        """Resolve host with a practical LAN fallback for mDNS names.
+
+        Args:
+            host: The host name or IP address to resolve.
+            port: The port number to look up.
+        """
         host = (host or "").strip()
         if not host:
             raise Exception("Hostname is empty")
@@ -984,7 +1104,17 @@ class SSHClient:
         ) from last_err
 
     def connect(self, host, port, username, password):
-        """Full SSH-2 connect: version exchange, KEX, auth"""
+        """Full SSH-2 connect: version exchange, KEX, auth.
+
+        Args:
+            host: The host name or IP address to connect to.
+            port: The SSH port to connect to.
+            username: The username to authenticate as.
+            password: The password for the account.
+
+        Returns:
+            bool: True if the connection and authentication succeeded.
+        """
         with self._lock:
             if self._connected:
                 self._error = "Already connected"
@@ -1067,7 +1197,14 @@ class SSHClient:
             return False
 
     def execute_command(self, command):
-        """Execute a command over the encrypted SSH channel"""
+        """Execute a command over the encrypted SSH channel.
+
+        Args:
+            command: The command string to run remotely.
+
+        Returns:
+            bool: True if the command executed successfully.
+        """
         with self._lock:
             if not self._connected or not self._authenticated:
                 self._error = "Not connected"
@@ -1133,6 +1270,7 @@ class SSHClient:
         self._close_socket()
 
     def _close_socket(self):
+        """Close the underlying socket if one is open."""
         if self._sock:
             try:
                 self._sock.close()
@@ -1141,11 +1279,16 @@ class SSHClient:
             self._sock = None
 
     def __del__(self):
+        """Disconnect the client on garbage collection."""
         self.disconnect()
 
 
 def _load_history(storage) -> list:
-    """Load command history from SD card"""
+    """Load command history from SD card.
+
+    Args:
+        storage: The storage instance used to read the history file.
+    """
     text = storage.read(_HISTORY_FILE)
     if not text:
         return []
@@ -1153,14 +1296,22 @@ def _load_history(storage) -> list:
 
 
 def _save_history(storage) -> None:
-    """Persist in-memory command history to SD card"""
+    """Persist in-memory command history to SD card.
+
+    Args:
+        storage: The storage instance used to write the history file.
+    """
     global _history
     entries = _history[-_HISTORY_MAX:]
     storage.write(_HISTORY_FILE, "\n".join(entries))
 
 
 def _render_terminal(view_manager) -> None:
-    """Render the interactive terminal: colored output lines + inline prompt"""
+    """Render the interactive terminal: colored output lines + inline prompt.
+
+    Args:
+        view_manager: The view manager carrying the draw context.
+    """
     from picoware.system.colors import (
         TFT_GREEN,
         TFT_CYAN,
@@ -1242,7 +1393,11 @@ def _render_terminal(view_manager) -> None:
 
 
 def _handle_terminal_input(view_manager) -> None:
-    """Process key presses while in the interactive terminal view"""
+    """Process key presses while in the interactive terminal view.
+
+    Args:
+        view_manager: The view manager carrying the input and draw context.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -1332,7 +1487,11 @@ def _handle_terminal_input(view_manager) -> None:
 
 
 def __load_ssh_credentials(view_manager) -> bool:
-    """Load SSH credentials from storage"""
+    """Load SSH credentials from storage.
+
+    Args:
+        view_manager: The view manager carrying the storage context.
+    """
     global ssh_host, ssh_port, ssh_username, ssh_password
     storage = view_manager.storage
 
@@ -1357,7 +1516,11 @@ def __load_ssh_credentials(view_manager) -> bool:
 
 
 def _keyboard_save(view_manager) -> bool:
-    """Keyboard callback function"""
+    """Keyboard callback function.
+
+    Args:
+        view_manager: The view manager carrying the input context.
+    """
     global ssh_host, ssh_port, ssh_username, ssh_password
     storage = view_manager.storage
     kb = view_manager.keyboard
@@ -1382,7 +1545,11 @@ def _keyboard_save(view_manager) -> bool:
 
 
 def _keyboard_run(view_manager) -> bool:
-    """Start the keyboard view"""
+    """Start the keyboard view.
+
+    Args:
+        view_manager: The view manager carrying the input context.
+    """
     global current_view, keyboard_index, connection_state
 
     kb = view_manager.keyboard
@@ -1432,7 +1599,12 @@ def _keyboard_run(view_manager) -> bool:
 
 
 def _loading_run(view_manager, message: str = "Connecting...") -> None:
-    """Display loading screen"""
+    """Display loading screen.
+
+    Args:
+        view_manager: The view manager carrying the draw context.
+        message (str): The message shown by the loading screen. Defaults to "Connecting...".
+    """
     from picoware.gui.loading import Loading
 
     global _loading
@@ -1447,7 +1619,11 @@ def _loading_run(view_manager, message: str = "Connecting...") -> None:
 
 
 def _menu_start(view_manager) -> None:
-    """Start the menu view"""
+    """Start the menu view.
+
+    Args:
+        view_manager: The view manager carrying the draw context.
+    """
     from picoware.gui.menu import Menu
 
     global _menu, connection_state
@@ -1489,7 +1665,11 @@ def _menu_start(view_manager) -> None:
 @storage_required
 @wifi_required
 def start(view_manager) -> bool:
-    """Start the SSH app"""
+    """Start the SSH app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     view_manager.storage.mkdir("picoware/ssh")
 
     __load_ssh_credentials(view_manager)
@@ -1507,7 +1687,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the SSH app"""
+    """Run the SSH app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -1618,7 +1802,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the SSH app"""
+    """Stop the SSH app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     global _ssh_client, _menu, _loading
     global ssh_host, ssh_port, ssh_username, ssh_password
     global _history, _history_index, _history_saved, _input_line, _terminal_dirty

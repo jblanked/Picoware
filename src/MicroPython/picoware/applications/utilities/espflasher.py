@@ -2,7 +2,16 @@
 from picoware.gui.file_browser import FileBrowser, FILE_BROWSER_SELECTOR
 
 def _flash(view_manager, firmware_path: str, chip: str = "esp32s2") -> bool:
-    """Flash the ESP32 with the given firmware file."""
+    """Flash the ESP32 with the given firmware file.
+
+    Args:
+        view_manager: The view manager carrying board and storage context.
+        firmware_path (str): The path to the firmware image to flash.
+        chip (str): The target chip name. Defaults to "esp32s2".
+
+    Returns:
+        bool: True if the flash operation succeeded.
+    """
     from picoware.system.drivers.espflasher import ESPFlasher
     from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_HAS_PICOCALC
     from machine import Pin
@@ -75,7 +84,11 @@ _file_browser = None
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     if view_manager.has_picocalc and view_manager.draw.mode != 1:
         view_manager.alert("PicoCalc requires Heap mode. Change in: Settings -> LCD Mode -> Heap\nNote: This is really only possible on the Pico2/Pico2w/Pimoroni2w but may work on the Pico.")
         return False
@@ -90,7 +103,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     global _file_browser
 
     if not _file_browser.run():
@@ -108,7 +125,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     from gc import collect
 
     global _file_browser

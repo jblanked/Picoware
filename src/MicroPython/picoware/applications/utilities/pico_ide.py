@@ -76,7 +76,15 @@ def __callback_filename_save(result: str) -> None:
     _editor_state = STATE_FILE_TYPE_MENU
 
 
-def _language_for_filename(filename):
+def _language_for_filename(filename) -> int:
+    """Determine the programming language based on the filename extension.
+
+    Args:
+        filename (str): The filename to check.
+
+    Returns:
+        int: The language constant (1 for C, 2 for JavaScript, 3 for BASIC, 0 for unknown).
+    """
     filename = filename.lower() if filename else ""
     if filename.endswith(".c"):
         return 1
@@ -88,6 +96,15 @@ def _language_for_filename(filename):
 
 
 def _ensure_extension(filename, extension):
+    """Ensure the filename has the specified extension.
+
+    Args:
+        filename (str): The original filename.
+        extension (str): The desired file extension (including the dot).
+
+    Returns:
+        str: The filename with the ensured extension.
+    """
     if not filename:
         return filename
 

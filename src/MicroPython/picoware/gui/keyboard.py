@@ -613,7 +613,15 @@ class Keyboard:
         ]
 
     def _fit_text(self, text: str, width: int) -> str:
-        """Keep a single line within the available pixel width."""
+        """Keep a single line within the available pixel width.
+        
+        Args:
+            text (str): The text to fit within the width.
+            width (int): The available pixel width.
+
+        Returns:
+            str: The fitted text, possibly truncated with ellipsis.
+        """
         text = text.replace("\n", " ").replace("\r", " ")
         count = max(0, width // self.draw.len(" "))
         if self.draw.len(text) <= width:
@@ -621,6 +629,15 @@ class Keyboard:
         return text[:max(0, count - 3)] + "." * min(3, count)
 
     def _key_widths(self, row: int, unit: int) -> list:
+        """Calculate the widths of keys in a given row.
+
+        Args:
+            row (int): The row index.
+            unit (int): The unit width for the keys.
+
+        Returns:
+            list: A list of key widths for the row.
+        """
         font = self.draw.get_font(self._key_font)
         widths = []
         for col, key in enumerate(self.ROWS[row]):
@@ -775,7 +792,15 @@ class Keyboard:
         self.draw._text(key_x, key_y, key_label, color, self._key_font)
 
     def _key_label(self, row: int, col: int) -> str:
-        """Return the current key label, using compact modifier icons."""
+        """Return the current key label, using compact modifier icons.
+
+        Args:
+            row (int): The row index of the key.
+            col (int): The column index of the key.
+
+        Returns:
+            str: The label to display for the key.
+        """
         key = self.ROWS[row][col]
         if key.normal in ("\x01", "\x02"):
             return "^"  # Use one printable glyph width for the modifier icon.

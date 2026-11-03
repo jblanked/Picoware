@@ -275,7 +275,12 @@ class Bluetooth:
         return None
 
     def __irq_impl(self, event, data):
-        """Process a Bluetooth IRQ event (called by __irq)."""
+        """Process a Bluetooth IRQ event (called by __irq).
+        
+        Args:
+            event (int): The IRQ event constant.
+            data (tuple): Event-specific data.
+        """
         if event == _IRQ_GET_SECRET:
             return self._get_secret(data)
         if event == _IRQ_SET_SECRET:
@@ -490,7 +495,11 @@ class Bluetooth:
             self.discover_services()
 
     def _clear_pairing_state(self, conn_handle):
-        """Clear pairing metadata when its connection is no longer pairing."""
+        """Clear pairing metadata when its connection is no longer pairing.
+
+        Args:
+            conn_handle (int): The connection handle for which to clear pairing state.
+        """
         if (
             self._passkey_conn_handle is None
             or self._passkey_conn_handle == conn_handle
@@ -518,6 +527,14 @@ class Bluetooth:
             print(f"[Bluetooth] Load BLE secrets error: {e}")
 
     def _get_secret(self, data):
+        """Retrieve a BLE secret based on the provided data.
+
+        Args:
+            data (tuple): A tuple containing (sec_type, index, key).
+
+        Returns:
+            bytes or None: The secret value if found, None otherwise.
+        """
         sec_type, index, key = data
         if key is not None:
             return self._secrets.get((sec_type, bytes(key)))
@@ -531,6 +548,14 @@ class Bluetooth:
         return None
 
     def _set_secret(self, data) -> bool:
+        """Set a BLE secret based on the provided data.
+
+        Args:
+            data (tuple): A tuple containing (sec_type, key, value).
+
+        Returns:
+            bool: True if the secret was set successfully, False otherwise.
+        """
         sec_type, key, value = data
         secret_key = (sec_type, bytes(key))
         if value:

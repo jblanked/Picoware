@@ -3,7 +3,12 @@
 from picoware.system.agent.tools.tool import Tool, Parameters, Property
 
 def compile_file(view_manager, file_path: str) -> str:
-    """Compile the given file and return the compilation result as a string."""
+    """Compile the given file and return the compilation result as a string.
+
+    Args:
+        view_manager: The view manager used to access storage.
+        file_path: The path to the file to compile.
+    """
     _ext = file_path.split('.')[-1]
     s = view_manager.storage
 

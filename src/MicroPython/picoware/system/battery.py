@@ -25,7 +25,11 @@ MIN_DROP_MV = const(5) # average drop per interval below this = "unknown"
 class Battery:
     """Class for battery information and management."""
     def __init__(self, interval_ms: int = 5 * 60 * 1000):
-        """Initialize the battery interface for the current board."""
+        """Initialize the battery interface for the current board.
+
+        Args:
+            interval_ms (int): The interval in milliseconds for battery monitoring.
+        """
         self._last_voltage = 0
         self._drop_avg = 0       # EMA of mV drop per interval, scaled x16
         self._minutes = 0

@@ -300,7 +300,11 @@ class Agent:
         return tools
 
     def _select_mcp_server(self, args: dict) -> dict:
-        """Select an MCP server and expose its discovered tools."""
+        """Select an MCP server and expose its discovered tools.
+
+        Args:
+            args (dict): Tool arguments containing the server_id to select.
+        """
         if self._mcp is None:
             return {
                 "server": None,
@@ -358,7 +362,16 @@ class Agent:
 
     @staticmethod
     def _mcp_tool_name(server_id: str, tool_name: str, used_names: list[str]) -> str:
-        """Create a unique model-safe name for an MCP tool."""
+        """Create a unique model-safe name for an MCP tool.
+
+        Args:
+            server_id (str): The id of the selected MCP server.
+            tool_name (str): The original MCP tool name.
+            used_names (list[str]): Names already taken by other tools.
+
+        Returns:
+            str: A unique sanitized tool name.
+        """
         base = "mcp_" + Agent._sanitize_tool_name(server_id) + "_" + Agent._sanitize_tool_name(tool_name)
         candidate = base[:64]
         suffix = 1
@@ -370,7 +383,14 @@ class Agent:
 
     @staticmethod
     def _sanitize_tool_name(name: str) -> str:
-        """Replace characters unsupported by common tool-name schemas with underscores."""
+        """Replace characters unsupported by common tool-name schemas with underscores.
+
+        Args:
+            name (str): The raw tool name to sanitize.
+
+        Returns:
+            str: The sanitized tool name.
+        """
         result = ""
         for character in name:
             if Agent.is_alnum(character) or character in "_-":
@@ -380,7 +400,12 @@ class Agent:
         return result or "tool"
 
     def _execute_tool(self, name: str, args: dict):
-        """Execute a built-in or selected MCP tool."""
+        """Execute a built-in or selected MCP tool.
+
+        Args:
+            name (str): The tool name to route.
+            args (dict): The tool arguments from the model.
+        """
         if self._mcp is not None:
             if name == MCP_LIST_SERVERS_TOOL_NAME:
                 return self._mcp.list_servers()
@@ -439,6 +464,9 @@ class Agent:
 
     def _run_loop(self, timeout: int = 300) -> str:
         """Run the model/tool loop until a final reply is produced.
+
+        Args:
+            timeout (int): The per-request timeout in seconds. Defaults to 300.
 
         Returns:
             str: The final assistant text, or an error message.

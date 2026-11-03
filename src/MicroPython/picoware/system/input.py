@@ -947,7 +947,12 @@ class Input:
             self._was_pressed = True
             reset_state()
 
-    def __uart_callback(self, uart_instance):
+    def __uart_callback(self, uart_instance) -> None:
+        """UART callback to handle incoming data.
+
+        Args:
+            uart_instance: The UART instance triggering the callback.
+        """
         _data = uart_instance.read()
         if _data is None:
             return

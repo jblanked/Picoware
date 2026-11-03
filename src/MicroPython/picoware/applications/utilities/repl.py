@@ -111,7 +111,11 @@ def _get_current_input() -> str:
 
 
 def _replace_current_input(value: str) -> None:
-    """Replace the input on the current prompt line."""
+    """Replace the input on the current prompt line.
+
+    Args:
+        value (str): The new input value to replace the current line with.
+    """
     global _text_editor
 
     text = _text_editor.current_text
@@ -170,7 +174,11 @@ def _commit_input(output: str) -> None:
 
 
 def _record_input(value: str) -> None:
-    """Add a non-empty input to command history."""
+    """Add a non-empty input to command history.
+    
+    Args:
+        value (str): The input value to record in history.
+    """
     global _history, _history_index, _history_draft
 
     if value.strip():

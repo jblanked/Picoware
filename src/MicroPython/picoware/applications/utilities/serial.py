@@ -15,7 +15,11 @@ _received = False
 _prev_callback = None
 
 def __uart_callback(uart_instance):
-    """Callback for UART events"""
+    """Callback for UART events.
+
+    Args:
+        uart_instance: The UART instance that received data.
+    """
     global _received, message
     _data = uart_instance.read()
     message = ""
@@ -26,7 +30,11 @@ def __uart_callback(uart_instance):
 
 
 def __box_start(view_manager) -> None:
-    """Start the textbox for server output"""
+    """Start the textbox for server output.
+
+    Args:
+        view_manager: The view manager carrying the draw context.
+    """
     from picoware.gui.textbox import TextBox
 
     global _textbox
@@ -64,7 +72,11 @@ def __box_start(view_manager) -> None:
 
 
 def __callback(result: str) -> None:
-    """Callback for keyboard input"""
+    """Callback for keyboard input.
+
+    Args:
+        result (str): The text entered by the user to send.
+    """
     global state, _textbox
     _uart.println(result)
     _text = _textbox.current_text + f"You: {result}\n"
@@ -73,7 +85,12 @@ def __callback(result: str) -> None:
 
 
 def __loading_run(view_manager, text: str = "Sending...") -> None:
-    """Start loading animation"""
+    """Start loading animation.
+
+    Args:
+        view_manager: The view manager carrying the draw context.
+        text (str): The message shown by the loading animation. Defaults to "Sending...".
+    """
     from picoware.gui.loading import Loading
 
     global _loading
@@ -86,7 +103,12 @@ def __loading_run(view_manager, text: str = "Sending...") -> None:
 
 
 def __set_kb(view_manager, title: str) -> None:
-    """Set up the keyboard"""
+    """Set up the keyboard.
+
+    Args:
+        view_manager: The view manager carrying the keyboard.
+        title (str): The title shown above the keyboard.
+    """
     kb = view_manager.keyboard
     kb.reset()
     kb.response = ""
@@ -96,7 +118,11 @@ def __set_kb(view_manager, title: str) -> None:
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     from picoware.system.buttons import BUTTON_BACK
     from picoware.system.boards import BOARD_HAS_PICOCALC
 
@@ -154,7 +180,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
 
     inp = view_manager.input_manager
@@ -197,7 +227,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     from picoware.system.boards import BOARD_FLIPPER_ZERO
     from gc import collect
 

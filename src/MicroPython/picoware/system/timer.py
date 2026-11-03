@@ -13,6 +13,13 @@ class Timer:
     __slots__ = ("_mode", "_callback", "_interval", "_timer")
     
     def __init__(self, mode: int = PERIODIC, callback: callable = None, interval_ms: int = 1000):
+        """Initialize the timer with the specified mode, callback, and interval.
+
+        Args:
+            mode (int): The mode of the timer, either ONE_SHOT or PERIODIC.
+            callback (callable): The function to call when the timer expires.
+            interval_ms (int): The interval in milliseconds for the timer.
+        """
         self._mode = mode
         self._callback = callback
         self._interval = interval_ms
@@ -33,7 +40,11 @@ class Timer:
 
     @callback.setter
     def callback(self, value: callable):
-        """Set the callback function of the timer."""
+        """Set the callback function of the timer.
+        
+        Args:
+            value (callable): The new callback function for the timer.
+        """
         self._callback = value
 
     @property
@@ -43,7 +54,11 @@ class Timer:
 
     @interval.setter
     def interval(self, value: int):
-        """Set the interval of the timer in milliseconds."""
+        """Set the interval of the timer in milliseconds.
+        
+        Args:
+            value (int): The new interval in milliseconds for the timer.
+        """
         self._interval = value
 
     @property
@@ -53,7 +68,11 @@ class Timer:
 
     @mode.setter
     def mode(self, value: int):
-        """Set the mode of the timer."""
+        """Set the mode of the timer.
+
+        Args:
+            value (int): The new mode for the timer, either ONE_SHOT or PERIODIC.
+        """
         self._mode = value
 
     @property

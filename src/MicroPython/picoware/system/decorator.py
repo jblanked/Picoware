@@ -142,6 +142,7 @@ def bluetooth_required(func: callable) -> callable:
     
     Returns:
         callable: The wrapped function, or a stub that raises when Bluetooth is missing.
+        
     Raises:
         RuntimeError: If the decorated function is called without Bluetooth support.
     """

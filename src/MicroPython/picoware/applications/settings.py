@@ -757,13 +757,21 @@ def __open_mcp_server_endpoint_keyboard() -> None:
 
 
 def __mcp_server_endpoint_save_callback(result: str) -> None:
-    """Callback triggered when an MCP endpoint is saved."""
+    """Callback triggered when an MCP endpoint is saved.
+
+    Args:
+        result (str): The saved keyboard value.
+    """
     global _mcp_server_endpoint_save_requested
     _mcp_server_endpoint_save_requested = True
 
 
 def __add_mcp_server(endpoint: str) -> None:
-    """Add an MCP server with an empty optional API key."""
+    """Add an MCP server with an empty optional API key. 
+
+    Args:
+        endpoint (str): The endpoint URL of the MCP server.
+    """
     servers = list(_settings.mcp_servers)
     servers.append({"endpoint": endpoint, "api_key": ""})
     _settings.mcp_servers = servers
@@ -829,7 +837,11 @@ def __mcp_api_key_save_callback(result: str) -> None:
 
 
 def __save_mcp_api_key(value: str) -> None:
-    """Save a per-server MCP API key by its server index."""
+    """Save a per-server MCP API key by its server index.
+
+    Args:
+        value (str): The API key value to save.
+    """
     servers = list(_settings.mcp_servers)
     server = dict(servers[_mcp_server_index])
     server["api_key"] = value

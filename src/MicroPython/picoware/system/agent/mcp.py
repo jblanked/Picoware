@@ -184,6 +184,14 @@ class MCPClient:
         return json.dumps(result)
 
     def _list_tools(self, server: dict) -> list[dict]:
+        """Fetch all tools from the server through paginated tools/list requests.
+
+        Args:
+            server (dict): The configured server entry.
+
+        Returns:
+            list[dict]: The raw MCP tool schemas.
+        """
         tools = []
         params = {}
         for _ in range(MAX_TOOL_LIST_PAGES):
@@ -213,6 +221,18 @@ class MCPClient:
         params: dict | None = None,
         include_id: bool = True,
     ) -> tuple[dict | None, object]:
+        """Send one JSON-RPC request and return the parsed result.
+
+        Args:
+            server (dict): The configured server entry.
+            method (str): The JSON-RPC method name.
+            params (dict or None): The method parameters. Defaults to None.
+            include_id (bool): Include a request id for response matching.
+
+        Returns:
+            tuple[dict | None, object]: The decoded response data and the
+                raw HTTP response.
+        """
         request_id = None
         payload = {
             "jsonrpc": "2.0",
@@ -267,6 +287,15 @@ class MCPClient:
         return data, response
 
     def _headers(self, server: dict, include_protocol: bool = True) -> dict:
+        """Build the HTTP headers for a request to the server.
+
+        Args:
+            server (dict): The configured server entry.
+            include_protocol (bool): Include the protocol version header.
+
+        Returns:
+            dict: The request headers.
+        """
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
@@ -286,6 +315,15 @@ class MCPClient:
 
     @staticmethod
     def _decode_response(response, expected_id: int | None) -> dict | None:
+        """Decode a JSON or SSE response body into a dict.
+
+        Args:
+            response: The raw HTTP response object.
+            expected_id (int or None): The request id to match.
+
+        Returns:
+            dict | None: The decoded data, or None for an empty body.
+        """
         text = getattr(response, "text", "")
         if isinstance(text, bytes):
             text = text.decode("utf-8")
@@ -323,6 +361,12 @@ class MCPClient:
 
     @staticmethod
     def _append_sse_event(events: list[dict], data_lines: list[str]) -> None:
+        """Append one parsed SSE event to the event list.
+
+        Args:
+            events (list[dict]): The list receiving the parsed event.
+            data_lines (list[str]): The raw data lines of the SSE event.
+        """
         event_data = "\n".join(data_lines).strip()
         if not event_data or event_data == "[DONE]":
             return
@@ -335,6 +379,14 @@ class MCPClient:
 
     @staticmethod
     def _normalize_servers(servers: list[dict] | None) -> list[dict]:
+        """Normalize raw server config entries into canonical entries.
+
+        Args:
+            servers (list[dict] or None): The configured server entries.
+
+        Returns:
+            list[dict]: The normalized server entries.
+        """
         normalized = []
         used_ids = []
 
@@ -381,6 +433,14 @@ class MCPClient:
         return normalized
 
     def _find_server(self, server_id: str) -> dict | None:
+        """Find a configured server entry by its id.
+
+        Args:
+            server_id (str): The id of the server to find.
+
+        Returns:
+            dict | None: The server entry, or None when not found.
+        """
         for server in self._servers:
             if server.get("id") == server_id:
                 return server
@@ -388,6 +448,14 @@ class MCPClient:
 
     @staticmethod
     def _public_server(server: dict) -> dict:
+        """Return the server details without its API key.
+
+        Args:
+            server (dict): The configured server entry.
+
+        Returns:
+            dict: The public server details.
+        """
         public_server = {
             "id": server.get("id", ""),
             "name": server.get("name", ""),
@@ -400,6 +468,15 @@ class MCPClient:
 
     @staticmethod
     def _header(headers, name: str):
+        """Return the first header value matching the given name.
+
+        Args:
+            headers: The raw HTTP response headers.
+            name (str): The header name to match case-insensitively.
+
+        Returns:
+            The matching header value, or None when absent.
+        """
         if not isinstance(headers, dict):
             return None
         name = name.lower()

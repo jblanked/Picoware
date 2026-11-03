@@ -493,11 +493,11 @@ class Draw(lcd.LCD):
             storage: Storage instance for file access. Defaults to None.
             seek (int): Byte offset to start reading from. Defaults to 0.
             chunk_size (int): Bytes to read per chunk. Defaults to 0 (read all).
-                Reads are aligned to full rows so each blit is a valid rectangle.
+            Reads are aligned to full rows so each blit is a valid rectangle.
             invert (bool): Whether to invert the pixel values. Defaults to False.
             loop (bool): If True, keep drawing chunks (wrapping to the top)
-                until the entire buffer is read. If False, draw only the first
-                chunk and stop. Defaults to False.
+            until the entire buffer is read. If False, draw only the first
+            chunk and stop. Defaults to False.
             buffer (bytearray): Optional pre-allocated buffer for reading chunks. Defaults to None.
         """
         width, height = size.x, size.y

@@ -39,7 +39,11 @@ _connect_stage = "Connecting..."
 
 
 def _show_mode_select(view_manager) -> None:
-    """Reset the screen and menu to BLE mode selection."""
+    """Reset the screen and menu to BLE mode selection.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.gui.menu import Menu
 
     global _menu, _loading, _state, _mode, _connection_error, _typing_needs_draw

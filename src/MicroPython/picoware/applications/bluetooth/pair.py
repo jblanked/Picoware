@@ -49,7 +49,14 @@ def __addr_to_str(addr) -> str:
 
 
 def __is_device_paired(addr: str) -> bool:
-    """Check if a device address is already in the paired devices list."""
+    """Check if a device address is already in the paired devices list.
+
+    Args:
+        addr (str): The device address string.
+
+    Returns:
+        bool: True if the device is paired, False otherwise.
+    """
     if _bluetooth is None:
         return False
     return _bluetooth.is_device_paired(addr)

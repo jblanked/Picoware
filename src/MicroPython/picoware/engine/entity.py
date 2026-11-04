@@ -83,6 +83,7 @@ class Entity(engine.Entity):
         sprite (Image or None): Main 2D sprite. Writable.
         sprite_left (Image or None): Left-facing 2D sprite. Writable.
         sprite_right (Image or None): Right-facing 2D sprite. Writable.
+        billboard_pose (int): Animation pose selected from the attached Billboard. Writable.
         ENTITY_PLAYER (int): Player entity type.
         ENTITY_ENEMY (int): Enemy entity type.
         ENTITY_ICON (int): Icon entity type.
@@ -145,6 +146,8 @@ class Entity(engine.Entity):
         - set_sprite(sprite): Set the main 2D sprite.
         - set_sprite_left(sprite_left): Set the left-facing 2D sprite.
         - set_sprite_right(sprite_right): Set the right-facing 2D sprite.
+        - set_billboard(billboard, height): Set the attached Billboard and its height.
+        - set_billboard_pose(billboard_pose): Set the animation pose from the attached Billboard.
         - __del__(): Release the native entity resources.
     """
 
@@ -223,5 +226,7 @@ class Entity(engine.Entity):
             self.set_sprite_left(value)
         elif name == "sprite_right":
             self.set_sprite_right(value)
+        elif name == "billboard_pose":
+            self.set_billboard_pose(value)
         else:
             super().__setattr__(name, value)

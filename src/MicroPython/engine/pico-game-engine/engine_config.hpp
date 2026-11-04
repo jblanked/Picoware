@@ -1,7 +1,7 @@
 #pragma once
 
 // general
-#define ENGINE_MAX_TRIANGLES_PER_SPRITE 4096
+#define ENGINE_MAX_TRIANGLES_PER_SPRITE 65535 // uint16_t max value
 
 // logging
 #define ENGINE_LOG_INCLUDE "../log/log_mp.h"
@@ -10,7 +10,7 @@
 // memory
 #if defined(PICOCALC)
 #define ENGINE_MEM_INCLUDE "../../engine/memory.h"
-#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(PICO_DUO) || defined(POOM) || defined(WAVESHARE_C6_2_06)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(PICO_DUO) || defined(POOM) || defined(WAVESHARE_C6_2_06)
 #define ENGINE_MEM_INCLUDE "../engine/memory.h"
 #else
 #define ENGINE_MEM_INCLUDE "../../../engine/memory.h"
@@ -25,7 +25,7 @@
 #if defined(DESKTOP)
 #define ENGINE_DELAY_INCLUDE "py/mphal.h"
 #define ENGINE_DELAY_MS(ms) mp_hal_delay_ms(ms)
-#elif defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06)
+#elif defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06)
 #define ENGINE_DELAY_INCLUDE "freertos/FreeRTOS.h"
 #define ENGINE_DELAY_MS(ms) vTaskDelay(pdMS_TO_TICKS(ms))
 #else
@@ -36,7 +36,7 @@
 // font
 #if defined(PICOCALC)
 #define ENGINE_FONT_INCLUDE "../../font/font.h"
-#elif defined(CARDPUTER) || defined(PANCAKE) || defined(V8) || defined(PICO_DUO) || defined(POOM)
+#elif defined(CARDPUTER) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(PICO_DUO) || defined(POOM)
 #define ENGINE_FONT_INCLUDE "../font/font.h"
 #else
 #define ENGINE_FONT_INCLUDE "../../../font/font.h"
@@ -64,6 +64,7 @@
 #define ENGINE_LCD_FILL_TRIANGLE_ALPHA LCD_MP_FILL_TRIANGLE_ALPHA
 #define ENGINE_LCD_BLIT LCD_MP_BLIT
 #define ENGINE_LCD_BLIT_16BIT LCD_MP_BLIT_16BIT
+#define ENGINE_LCD_BLIT_MASK LCD_MP_BLIT_MASK
 #define ENGINE_LCD_LINE LCD_MP_LINE
 #define ENGINE_LCD_PIXEL LCD_MP_PIXEL
 #define ENGINE_LCD_PSRAM LCD_MP_PSRAM
@@ -80,9 +81,9 @@
 // storage
 #if defined(PICOCALC)
 #define ENGINE_STORAGE_INCLUDE "../../sd/storage.h"
-#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM) || defined(PICO_DUO)
 #define ENGINE_STORAGE_INCLUDE "../sd/storage.h"
-#elif !defined(WAVESHARE_1_28) && !defined(WAVESHARE_1_69) && !defined(PICO_DUO) && !defined(WAVESHARE_C6_2_06)
+#elif !defined(WAVESHARE_1_28) && !defined(WAVESHARE_1_69) && !defined(WAVESHARE_C6_2_06)
 #define ENGINE_STORAGE_INCLUDE "../../../sd/storage.h"
 #endif
 #ifdef ENGINE_STORAGE_INCLUDE
@@ -90,4 +91,27 @@
 #define ENGINE_STORAGE_WRITE storage_file_write    // (const char *file_path, const void *data, size_t data_size) -> bool
 #define ENGINE_STORAGE_FILE_LIST storage_file_list // (const char *pattern, char filenames[][256], uint16_t skip, uint16_t max_count) -> uint16_t
 #define ENGINE_STORAGE_SIZE storage_file_size      // (const char *file_path) -> size_t
+#endif
+
+// psram
+#ifdef PICOCALC
+#include "../lcd/lcd_config.h"
+#include LCD_INCLUDE
+#define ENGINE_USE_PSRAM 1
+#define ENGINE_PSRAM_SIZE PSRAM_SIZE
+#define ENGINE_PSRAM_BASE psram_next_free_addr
+#define ENGINE_PSRAM_LIMIT PSRAM_SIZE
+#define ENGINE_PSRAM_ADVANCE(address) (psram_next_free_addr = (address))
+#define ENGINE_PSRAM_WRITE picoware_psram_write_data
+#define ENGINE_PSRAM_READ picoware_psram_read_data
+#endif
+#if defined(DESKTOP) && defined(PICOWARE_SIM_PSRAM)
+#include "../../Desktop/sim_psram.h"
+#define ENGINE_USE_PSRAM 1
+#define ENGINE_PSRAM_BASE psram_next_free_addr
+#define ENGINE_PSRAM_ADVANCE(address) (psram_next_free_addr = (address))
+#define ENGINE_PSRAM_SIZE PSRAM_SIZE
+#define ENGINE_PSRAM_LIMIT PSRAM_SIZE
+#define ENGINE_PSRAM_WRITE picoware_psram_write_data
+#define ENGINE_PSRAM_READ picoware_psram_read_data
 #endif

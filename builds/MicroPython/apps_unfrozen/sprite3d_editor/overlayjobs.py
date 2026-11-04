@@ -1,4 +1,6 @@
 """Cancellable annotation work with bounded geometry and SD transfer slices."""
+from .records import view as record_view
+
 from time import ticks_us,ticks_diff
 
 
@@ -88,7 +90,7 @@ def store_steps(history,data):
         handle = storage.file_open(path)
         if handle is None:
             raise OSError('Cannot create overlay cache')
-        view = memoryview(data)
+        view = record_view(data)
         for offset in range(0,len(data),800):
             if not storage.file_write(handle,view[offset:offset+800],'wb'):
                 raise OSError('Cannot write overlay cache')

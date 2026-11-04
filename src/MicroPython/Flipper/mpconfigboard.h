@@ -20,8 +20,6 @@ void flipper_board_early_init(void);
 #define MICROPY_HW_ENABLE_INTERNAL_FLASH_STORAGE (0)
 #define MICROPY_HW_HAS_FLASH (0)
 
-// main.py + picoware are frozen into flash, no SD bootstrap needed
-
 // NimBLE UART transport config
 #define MICROPY_HW_BLE_UART_ID (0)
 #define MICROPY_HW_BLE_UART_BAUDRATE (115200)

@@ -15,6 +15,89 @@
 #include "mjs_util.h"
 #include "mjs_tok.h"
 
+/* Like mjson's mystrtod, avoid libc's allocating decimal converter. Keep a
+ * bounded significand and scale in logarithmic time, even for huge exponents.
+ * This parses decimal numbers, not libc's hex/inf/nan extensions. */
+MJS_PRIVATE double mystrtod(const char *str, char **end)
+{
+  static const double powers[] = {1e1, 1e2, 1e4, 1e8, 1e16,
+                                  1e32, 1e64, 1e128, 1e256};
+  const char *p = str;
+  uint64_t significand = 0;
+  int negative = 0, digits = 0, fraction = 0, seen = 0;
+  int scale = 0, exponent = 0, exponent_negative = 0;
+  double value;
+
+  while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r' ||
+         *p == '\f' || *p == '\v') p++;
+  if (*p == '-' || *p == '+') negative = *p++ == '-';
+  for (;;) {
+    if (*p >= '0' && *p <= '9') {
+      int digit = *p++ - '0';
+      seen = 1;
+      if (digits < 19) {
+        significand = significand * 10 + digit;
+        if (significand != 0) digits++;
+        if (fraction && scale > -1000000) scale--;
+      } else if (!fraction && scale < 1000000) {
+        scale++;
+      }
+    } else if (*p == '.' && !fraction) {
+      fraction = 1;
+      p++;
+    } else {
+      break;
+    }
+  }
+  if (!seen) {
+    if (end != NULL) *end = (char *) str;
+    return 0.0;
+  }
+  if (*p == 'e' || *p == 'E') {
+    const char *e = p + 1;
+    if (*e == '-' || *e == '+') exponent_negative = *e++ == '-';
+    if (*e >= '0' && *e <= '9') {
+      do {
+        if (exponent < 1000000) {
+          exponent = exponent * 10 + (*e - '0');
+          if (exponent > 1000000) exponent = 1000000;
+        }
+        e++;
+      } while (*e >= '0' && *e <= '9');
+      p = e;
+      scale += exponent_negative ? -exponent : exponent;
+    }
+  }
+  if (end != NULL) *end = (char *) p;
+  value = (double) significand;
+  /* Normalize near DBL_MAX so intermediate scaling cannot overflow first. */
+  if (scale > 0 && scale + digits - 1 >= 308 && digits > 1) {
+    double divisor = 1.0;
+    int n;
+    for (n = 1; n < digits; n++) divisor *= 10.0;
+    value /= divisor;
+    scale += digits - 1;
+  }
+  if (significand != 0) {
+    if (scale > 308) {
+      value = INFINITY;
+    } else if (scale < -400) {
+      value = 0.0;
+    } else {
+      unsigned int magnitude = scale < 0 ? (unsigned int) -scale : (unsigned int) scale;
+      unsigned int i = 0;
+      while (magnitude != 0) {
+        if (magnitude & 1) {
+          value = scale < 0 ? value / powers[i] : value * powers[i];
+        }
+        magnitude >>= 1;
+        i++;
+      }
+    }
+  }
+  return negative ? -value : value;
+}
+
 const char *mjs_typeof(mjs_val_t v)
 {
   return mjs_stringify_type(mjs_get_type(v));

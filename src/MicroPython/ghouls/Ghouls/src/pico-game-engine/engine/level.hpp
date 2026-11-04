@@ -50,6 +50,8 @@ public:
     Vector size;
 
 private:
+    bool projectBillboard(const Camera &cam, const Vector &epos, float world_height,
+                          int16_t &out_x, int16_t &out_y, uint16_t &out_w, uint16_t &out_h);
     void drawProjectedTriangle(Draw *draw, const Vector vertices[3], const Vector &screen, uint16_t color, bool wireframe, bool clamp, uint8_t alpha = 255);
     float projectionBound(float value, float maximum);
     int projectionClip(const Vector *input, int count, Vector *output, const Vector &normal, float offset);

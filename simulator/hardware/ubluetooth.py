@@ -187,6 +187,12 @@ class BLE:
         self._advertising = False
         self._adv_data = b""
         self._notify_queue = []
+        self._command_peer = None
+        self._config = {"gap_name": "", "bond": False, "mitm": False}
+
+    def sim_set_command_peer(self, handler):
+        """Attach an optional bytes-to-bytes peer; None preserves chat echo."""
+        self._command_peer = handler
 
     def active(self, value=None):
         if value is None:
@@ -201,8 +207,11 @@ class BLE:
     def config(self, *args, **kwargs):
         if args and args[0] == "mac":
             return self._mac
+        if args:
+            return self._config.get(args[0])
         if "mac" in kwargs:
             self._mac = kwargs["mac"]
+        self._config.update(kwargs)
         return None
 
     def _emit(self, event, data):
@@ -242,7 +251,6 @@ class BLE:
             return None
         self._conn_handle = 1
         self._emit(_IRQ_PERIPHERAL_CONNECT, (self._conn_handle, addr_type, addr))
-        self.gattc_discover_services(self._conn_handle)
         return None
 
     def gap_disconnect(self, conn_handle):
@@ -263,6 +271,7 @@ class BLE:
                 "adv_data": bytes(self._adv_data),
                 "resp_data": bytes(resp_data or b""),
                 "connectable": bool(connectable),
+                "name": self._config.get("gap_name", ""),
             }
         )
         if self._advertising and connectable and sim_runtime.bluetooth_mode != "off":
@@ -294,6 +303,13 @@ class BLE:
         if data is None:
             data = self._values.get(value_handle, b"")
         self._notify_queue.append((conn_handle, value_handle, bytes(data)))
+        if self._command_peer is not None:
+            reply = self._command_peer(bytes(data))
+            if reply and self._registered:
+                rx_handle = self._registered[0][1]
+                self._values[rx_handle] = bytes(reply)
+                self._emit(_IRQ_GATTS_WRITE, (conn_handle, rx_handle))
+            return None
         self._emit(_IRQ_GATTC_NOTIFY, (conn_handle, value_handle, bytes(data)))
         return None
 
@@ -319,9 +335,10 @@ class BLE:
         self._values[value_handle] = data
         self._emit(_IRQ_GATTC_WRITE_DONE, (conn_handle, value_handle, 0))
         if value_handle in (5, 6):
-            reply = b"echo:" + data
-            self._notify_queue.append((conn_handle, 3, reply))
-            self._emit(_IRQ_GATTC_NOTIFY, (conn_handle, 3, reply))
+            reply = self._command_peer(data) if self._command_peer is not None else b"echo:" + data
+            if reply:
+                self._notify_queue.append((conn_handle, 3, reply))
+                self._emit(_IRQ_GATTC_NOTIFY, (conn_handle, 3, reply))
         return None
 
     def gap_pair(self, conn_handle):
@@ -330,6 +347,9 @@ class BLE:
         return None
 
     def gap_passkey(self, conn_handle, action, passkey):
+        if action == 4 and not passkey:
+            self._emit(_IRQ_ENCRYPTION_UPDATE, (conn_handle, False, False, False, 0))
+            return None
         self._persist_pair(conn_handle)
         self._emit(_IRQ_ENCRYPTION_UPDATE, (conn_handle, True, True, True, 16))
         return None

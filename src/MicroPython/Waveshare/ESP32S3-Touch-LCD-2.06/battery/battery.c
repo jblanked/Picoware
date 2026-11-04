@@ -15,20 +15,20 @@ static const char *TAG = "battery";
 static i2c_master_bus_handle_t i2c_bus_handle = NULL;
 static i2c_master_dev_handle_t pmu_dev_handle = NULL;
 
-uint8_t statusRegister[XPOWERS_AXP2101_INTSTS_CNT];
-
 bool clrRegisterBit(uint8_t registers, uint8_t bit);
 bool setRegisterBit(uint8_t registers, uint8_t bit);
-bool getRegisterBit(uint8_t registers, uint8_t bit);
 
 void clearIrqStatus();
-uint64_t getIrqStatus(void);
 
 int readRegister(uint8_t regAddr);
 int writeRegister(uint8_t regAddr, uint8_t val);
 
 esp_err_t i2c_init(void)
 {
+    if (pmu_dev_handle != NULL)
+    {
+        return ESP_OK;
+    }
     if (i2c_master_get_bus_handle(WATCH_I2C_PORT, &i2c_bus_handle) != ESP_OK)
     {
         i2c_master_bus_config_t bus_config = {
@@ -41,7 +41,8 @@ esp_err_t i2c_init(void)
             .trans_queue_depth = 0,
             .flags = {.enable_internal_pullup = 1, .allow_pd = 0}};
 
-        i2c_new_master_bus(&bus_config, &i2c_bus_handle);
+        ESP_RETURN_ON_ERROR(i2c_new_master_bus(&bus_config, &i2c_bus_handle),
+                            TAG, "failed to create PMU bus");
     }
 
     i2c_device_config_t dev_config = {.dev_addr_length = I2C_ADDR_BIT_LEN_7,
@@ -50,9 +51,7 @@ esp_err_t i2c_init(void)
                                       .scl_wait_us = 0,
                                       .flags = {.disable_ack_check = 0}};
 
-    i2c_master_bus_add_device(i2c_bus_handle, &dev_config, &pmu_dev_handle);
-
-    return ESP_OK;
+    return i2c_master_bus_add_device(i2c_bus_handle, &dev_config, &pmu_dev_handle);
 }
 
 esp_err_t battery_init(void)
@@ -69,63 +68,73 @@ esp_err_t battery_init(void)
     return ESP_OK;
 }
 
-esp_err_t battery_read_voltage(float *voltage_v)
+esp_err_t battery_shutdown(void)
+{
+    ESP_RETURN_ON_ERROR(i2c_init(), TAG, "failed to initialize PMU for shutdown");
+
+    // AXP2101 REG10H[0] requests power-off. Preserve all other configuration bits.
+    uint8_t reg = XPOWERS_AXP2101_COMMON_CONFIG;
+    uint8_t value;
+    ESP_RETURN_ON_ERROR(i2c_master_transmit_receive(pmu_dev_handle, &reg, 1,
+                        &value, 1, I2C_MASTER_TIMEOUT_MS), TAG, "failed to read PMU power control");
+
+    uint8_t command[] = {reg, value | 0x01};
+    return i2c_master_transmit(pmu_dev_handle, command, sizeof(command), I2C_MASTER_TIMEOUT_MS);
+}
+
+// Periodic telemetry must not use the long power-control timeout or touch
+// interrupt status. Stop at the first failure so an unavailable PMU cannot
+// stall the Python scheduler for seconds on each sample.
+#define BATTERY_SAMPLE_TIMEOUT_MS 20
+
+static esp_err_t battery_read_sample_register(uint8_t reg, uint8_t *value)
 {
     if (pmu_dev_handle == NULL)
-    {
-        ESP_LOGE(TAG, "PMU handle is not initialized");
         return ESP_FAIL;
-    }
+    return i2c_master_transmit_receive(pmu_dev_handle, &reg, 1, value, 1,
+                                       BATTERY_SAMPLE_TIMEOUT_MS);
+}
 
-    getIrqStatus();
-
-    // If battery is not connected set voltage to 0
-    if (getRegisterBit(XPOWERS_AXP2101_STATUS1, 3))
-    {
-
-        int h5 = readRegister(XPOWERS_AXP2101_ADC_DATA_RELUST0);
-        int l8 = readRegister(XPOWERS_AXP2101_ADC_DATA_RELUST1);
-
-        uint16_t voltage_mv;
-
-        if (h5 == -1 || l8 == -1)
-            voltage_mv = 0;
-        voltage_mv = ((h5 & 0x1F) << 8) | l8;
-
-        *voltage_v = (float)voltage_mv / 1000.0f;
-    }
-    else
+esp_err_t battery_read_voltage(float *voltage_v)
+{
+    if (voltage_v == NULL)
+        return ESP_ERR_INVALID_ARG;
+    uint8_t status, high, low;
+    esp_err_t err = battery_read_sample_register(XPOWERS_AXP2101_STATUS1, &status);
+    if (err != ESP_OK)
+        return err;
+    if (!(status & (1 << 3)))
     {
         *voltage_v = 0;
+        return ESP_OK;
     }
-
-    clearIrqStatus();
-
+    err = battery_read_sample_register(XPOWERS_AXP2101_ADC_DATA_RELUST0, &high);
+    if (err != ESP_OK)
+        return err;
+    err = battery_read_sample_register(XPOWERS_AXP2101_ADC_DATA_RELUST1, &low);
+    if (err != ESP_OK)
+        return err;
+    *voltage_v = (float)(((high & 0x1F) << 8) | low) / 1000.0f;
     return ESP_OK;
 }
 
 esp_err_t battery_read_percentage(int *percentage)
 {
-    if (pmu_dev_handle == NULL)
-    {
-        ESP_LOGE(TAG, "PMU handle is not initialized");
-        return ESP_FAIL;
-    }
-
-    getIrqStatus();
-
-    // If battery is not connected set percentage to 0
-    if (getRegisterBit(XPOWERS_AXP2101_STATUS1, 3))
-    {
-        *percentage = readRegister(XPOWERS_AXP2101_BAT_PERCENT_DATA);
-    }
-    else
+    if (percentage == NULL)
+        return ESP_ERR_INVALID_ARG;
+    uint8_t status, value;
+    esp_err_t err = battery_read_sample_register(XPOWERS_AXP2101_STATUS1, &status);
+    if (err != ESP_OK)
+        return err;
+    if (!(status & (1 << 3)))
     {
         *percentage = 0;
+        return ESP_OK;
     }
-
-    clearIrqStatus();
-
+    err = battery_read_sample_register(XPOWERS_AXP2101_BAT_PERCENT_DATA, &value);
+    if (err != ESP_OK)
+        return err;
+    *percentage = value;
     return ESP_OK;
 }
 
@@ -147,16 +156,6 @@ bool setRegisterBit(uint8_t registers, uint8_t bit)
         return false;
     }
     return writeRegister(registers, (val | (_BV(bit)))) == 0;
-}
-
-bool getRegisterBit(uint8_t registers, uint8_t bit)
-{
-    int val = readRegister(registers);
-    if (val == -1)
-    {
-        return false;
-    }
-    return val & _BV(bit);
 }
 
 int readRegister(uint8_t regAddr)
@@ -195,14 +194,5 @@ void clearIrqStatus()
     for (int i = 0; i < XPOWERS_AXP2101_INTSTS_CNT; i++)
     {
         writeRegister(XPOWERS_AXP2101_INTSTS1 + i, 0xFF);
-        statusRegister[i] = 0;
     }
-}
-
-uint64_t getIrqStatus(void)
-{
-    statusRegister[0] = readRegister(XPOWERS_AXP2101_INTSTS1);
-    statusRegister[1] = readRegister(XPOWERS_AXP2101_INTSTS2);
-    statusRegister[2] = readRegister(XPOWERS_AXP2101_INTSTS3);
-    return (uint32_t)(statusRegister[0] << 16) | (uint32_t)(statusRegister[1] << 8) | (uint32_t)(statusRegister[2]);
 }

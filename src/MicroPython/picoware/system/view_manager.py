@@ -33,6 +33,7 @@ class ViewManager:
         "_draw",
         "_gmt_offset",
         "_input_manager",
+        "_back_button",
         "_button",
         "_keyboard",
         "_time",
@@ -43,6 +44,8 @@ class ViewManager:
         "_app_loader",
         "_usb_video_stream",
         "_uart",
+        "_bluetooth",
+        "_timer",
     )
 
     def __init__(self):
@@ -60,6 +63,7 @@ class ViewManager:
         from picoware.system.buttons import BUTTON_ESCAPE
         from picoware.system.boards import BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM
         from picoware.system.app_loader import AppLoader
+        from picoware.system.timer import Timer
 
         self._active = True
         self._current_view = None
@@ -94,10 +98,7 @@ class ViewManager:
             self._foreground_color = TFT_BLACK
 
         # Initialize drawing system
-        self._draw = Draw(self._foreground_color, self._background_color)
-
-        # on screen keyboard
-        _keyboard_state = settings.onscreen_keyboard
+        self._draw = Draw(self._foreground_color, self._background_color, lcd_mode=settings.lcd_mode)
 
         # LVGL mode
         self._draw.use_lvgl = settings.lvgl_mode
@@ -109,16 +110,18 @@ class ViewManager:
         __debug = settings.debug
 
         # exit button
-        _back_button = settings.exit_button
+        self._back_button = settings.exit_button
         if syst.board_id in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM):
-            _back_button = BUTTON_ESCAPE
+            self._back_button = BUTTON_ESCAPE
 
         # Initialize input manager
-        self._input_manager = Input(_back_button)
+        self._input_manager = Input(self._back_button)
         self._button = -1
 
         # Initialize battery
-        self._battery = Battery()
+        _interval = 5 * 60 * 1000  # 5 minutes in milliseconds
+        self._battery = Battery(_interval)
+        self._battery.sample()
 
         # Initialize keyboard
         self._keyboard = None
@@ -129,6 +132,11 @@ class ViewManager:
         # Initialize arrays
         self.views = [None] * self.MAX_VIEWS
         self.view_stack = [None] * self.MAX_STACK_SIZE
+
+        if self._storage.exists("picoware/log.txt"):
+            if self._storage.exists("picoware/log_old.txt"):
+                self._storage.remove("picoware/log_old.txt")
+            self._storage.copy("picoware/log.txt", "picoware/log_old.txt")
 
         self._log = Log(
             LOG_MODE_ALL if __debug else LOG_MODE_REPL, "picoware/log.txt", True
@@ -165,6 +173,11 @@ class ViewManager:
         if syst is not None and syst.has_wifi:
             from picoware.system.wifi import WiFi
             self._wifi = WiFi(self)
+
+        self._bluetooth = None
+
+        self._timer = Timer(callback=self.battery_callback, interval_ms=_interval)
+        self._timer.start()
 
         # Clear screen
         self.clear()
@@ -214,6 +227,10 @@ class ViewManager:
         if self._thread_manager:
             del self._thread_manager
             self._thread_manager = None
+        if self._timer is not None:
+            self._timer.stop()
+            del self._timer
+            self._timer = None
         if self._battery is not None:
             del self._battery
             self._battery = None
@@ -225,6 +242,9 @@ class ViewManager:
                 self._usb_video_stream.stop()
             del self._usb_video_stream
             self._usb_video_stream = None
+        if self._bluetooth is not None:
+            del self._bluetooth
+            self._bluetooth = None
 
         collect()
 
@@ -270,12 +290,22 @@ class ViewManager:
         """
         self._background_color = color
         self._draw.background = color
-        self._keyboard.background_color = color
+        if self._keyboard is not None:
+            self._keyboard.background_color = color
 
     @property
     def battery(self):
         """Return the Battery instance."""
         return self._battery
+
+    @property
+    def bluetooth(self):
+        """Return the Bluetooth instance."""
+        if self._bluetooth is None and self.has_bluetooth:
+            from picoware.system.bluetooth import Bluetooth
+
+            self._bluetooth = Bluetooth(self._storage)
+        return self._bluetooth
 
     @property
     def board_id(self):
@@ -318,7 +348,8 @@ class ViewManager:
         """
         self._foreground_color = color
         self._draw.foreground = color
-        self._keyboard.text_color = color
+        if self._keyboard is not None:
+            self._keyboard.text_color = color
 
     @property
     def gmt_offset(self):
@@ -340,11 +371,25 @@ class ViewManager:
         return BOARD_HAS_BLUETOOTH == 1
 
     @property
+    def has_esp32(self):
+        """Return whether the current board is an ESP32."""
+        from picoware.system.boards import BOARD_HAS_ESP32
+
+        return BOARD_HAS_ESP32 == 1
+
+    @property
     def has_keyboard(self):
         """Return whether the current board has a keyboard."""
         from picoware.system.boards import BOARD_HAS_KEYBOARD
 
         return BOARD_HAS_KEYBOARD == 1
+
+    @property
+    def has_picocalc(self):
+        """Return whether the current board is a PicoCalc."""
+        from picoware.system.boards import BOARD_HAS_PICOCALC
+
+        return BOARD_HAS_PICOCALC == 1
     
     @property
     def has_psram(self):
@@ -356,17 +401,24 @@ class ViewManager:
     @property
     def has_sd_card(self):
         """Return whether the current board has an SD card."""
-        return self._storage is not None
+        from picoware.system.boards import BOARD_HAS_SD
+
+        return BOARD_HAS_SD == 1
 
     @property
     def has_wifi(self):
         """Return whether the current board has WiFi capability."""
-        return self._wifi is not None
+        from picoware.system.boards import BOARD_HAS_WIFI
+
+        return BOARD_HAS_WIFI == 1
 
 
     @property
     def input_manager(self):
         """Return the Input manager instance."""
+        if self._input_manager is None:
+            from picoware.system.input import Input
+            self._input_manager = Input(self._back_button)
         return self._input_manager
 
     @property
@@ -405,8 +457,7 @@ class ViewManager:
         """
         self._selected_color = color
         if self._keyboard is not None:
-            _ = self._keyboard
-        self._keyboard.selected_color = color
+            self._keyboard.selected_color = color
 
     @property
     def screen_size(self):
@@ -585,54 +636,13 @@ class ViewManager:
                         self._view_count -= 1
                         break
 
-                # Free unused view modules
-                self._unload_unused_modules()
+    def battery_callback(self, timer_obj):
+        """Callback function for battery monitoring timer.
 
-    def _unload_unused_modules(self):
-        """Unload view and gui modules no longer used (Flipper only)."""
-        from picoware.system.boards import BOARD_FLIPPER_ZERO
-
-        if self._current_board_id != BOARD_FLIPPER_ZERO:
-            return
-        import sys
-
-        # Module names still used by registered views
-        _used = set()
-        for _view in self.views:
-            if _view is None:
-                continue
-            for _fn in (_view._run, _view._start, _view._stop):
-                if _fn is None:
-                    continue
-                _mod = getattr(_fn, "__module__", None)
-                if _mod:
-                    _used.add(_mod)
-
-        for _name in list(sys.modules):
-            if _name in self._CORE_MODULES or _name in _used:
-                continue
-            _mod = sys.modules.get(_name)
-            if _mod is None:
-                continue
-            # Frozen modules report "picoware/gui/x.py", SD ones "/sd/firmware/picoware/gui/x.mpy"
-            _file = getattr(_mod, "__file__", "")
-            if "picoware/gui/" not in _file and "picoware/applications/" not in _file:
-                continue
-            # Keep packages
-            if _file.endswith("__init__.mpy") or _file.endswith("__init__.py"):
-                continue
-            # Remove module and any submodules from sys.modules
-            for _sub in list(sys.modules):
-                if _sub == _name or _sub.startswith(_name + "."):
-                    del sys.modules[_sub]
-            # Drop parent package reference so it is freed
-            _dot = _name.rfind(".")
-            if _dot > 0:
-                _parent = sys.modules.get(_name[:_dot])
-                if _parent is not None:
-                    _attr = _name[_dot + 1:]
-                    if hasattr(_parent, _attr):
-                        delattr(_parent, _attr)
+        Args:
+            timer_obj: The timer object triggering the callback.
+        """
+        self._battery.sample()
 
     def clear(self):
         """Clear the screen with the background color."""
@@ -719,6 +729,32 @@ class ViewManager:
         """
         return self._log.log(message, log_type)
 
+    def low_power_mode(self, enable: bool = True):
+        """Enter or exit the low power mode.
+
+        Args:
+            enable (bool): True to enter low power mode, False to exit. Defaults to True.
+        """
+        from gc import collect
+        if enable:
+            del self._wifi
+            self._wifi = None
+            del self._bluetooth
+            self._bluetooth = None
+            self._draw.set_brightness(10)
+            self.freq(True)
+        else:
+            if self.has_wifi and self._wifi is None:
+                from picoware.system.wifi import WiFi
+                self._wifi = WiFi(self)
+            # bluetooth can start itself when needed
+            from picoware.system.settings import Settings
+            _settings = Settings(self._storage)
+            self._draw.set_brightness(_settings.screen_brightness)
+            self.freq(False)
+        collect()
+
+
     def remove(self, view_name: str):
         """Remove a view by name.
 
@@ -752,9 +788,6 @@ class ViewManager:
                 for j in range(i, self._view_count - 1):
                     self.views[j] = self.views[j + 1]
                 self._view_count -= 1
-
-                # Free unused view modules
-                self._unload_unused_modules()
                 break
 
     def run(self) -> bool:
@@ -768,7 +801,7 @@ class ViewManager:
                 else:
                     self.back(should_clear=False, should_start=False)
         elif button == 87:  # BUTTON_F1
-            self._draw.screenshot("screenshot.bmp")
+            self._draw.screenshot(f"screenshot{self._time.date}.bmp")
 
         if self._thread_manager.run():
             self.log(self._thread_manager._outgoing)
@@ -777,7 +810,7 @@ class ViewManager:
             self._current_view.run(self)
 
         if button != -1:
-            self._input_manager.reset()
+            self.input_manager.reset()
             self._button = -1
 
         return self._active

@@ -16,7 +16,7 @@ extern "C"
 #endif
 
     uint8_t battery_get_percentage();
-    float battery_get_voltage();
+    int battery_get_voltage();
     void battery_init(void);
     uint16_t battery_read(void);
 

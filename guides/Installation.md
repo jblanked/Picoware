@@ -39,8 +39,8 @@ Every supported device except the Flipper Zero can use the online flasher to ins
 
 There are a few options for installing Picoware on the M5Stack Cardputer ADV.
 
-The recommended way is to use M5Burner to install an app called `M5Launcher` that allows you to flash custom firmware to your Cardputer on-the-fly:
-1. Download, install, and open the M5Burner tool from the official M5Stack website: https://docs.m5stack.com/en/download
+The recommended way is to use [M5Burner/WebBurner](https://burner.m5stack.com/) to install an app called `M5Launcher` that allows you to flash custom firmware to your Cardputer on-the-fly:
+1. Visit the official M5Stack website: https://burner.m5stack.com/
 2. Under `Device Type`, select `Cardputer`.
 3. Type in `M5Launcher` in the search bar, then click `Download` next to the M5Launcher firmware.
 4. Turn off your Cardputer, then hold the `Go` button on your Cardputer while connecting it to your computer using a USB-C cable until your computer recognizes a new storage device.
@@ -55,7 +55,7 @@ The recommended way is to use M5Burner to install an app called `M5Launcher` tha
 > If the recommended installation method doesn't work for you, follow the instructions below, otherwise proceed with copying the `apps`, `scripts`, `mmbasic`, and `c` folders from the `builds/MicroPython` directory into the `picoware` folder on the root of SD card. Create a `picoware` folder if it doesn't exist.
 
 The second option is to use the M5Burner tool provided by M5Stack to install Picoware directly to your Cardputer:
-1. Download, install, and open the M5Burner tool from the official M5Stack website: https://docs.m5stack.com/en/download
+1. Visit the official M5Stack website: https://burner.m5stack.com/
 2. Under `Device Type`, select `Cardputer`.
 3. Type in `Picoware` in the search bar, then click `Download` next to the Picoware firmware.
 4. Turn off your Cardputer, then hold the `Go` button on your Cardputer while connecting it to your computer using a USB-C cable until your computer recognizes a new storage device.
@@ -70,7 +70,7 @@ The fourth option is to download (and extract) this repository as a ZIP file, th
 ## POOM
 1. Download this repository as a ZIP file and extract it.
 2. Update the environment variables within the `tools/micropython-poom-flash.sh` script to match your setup.
-3. Hold the `Boot` button (upper-right button) on your POOM while connecting it to your computer using a USB-C cable until your computer recognizes a new storage device (at least 3 seconds).
+3. Hold the `Boot` button (upper-right button) on your POOM while turning on the device (for at least 3 seconds). Then, connect it to your computer using a USB-C cable.
 4. Run the `tools/micropython-poom-flash.sh` script, passing the port your board is on (`--port /dev/ttyUSB0` for example).
 
 Optionally, you can also download the `Picoware-POOM.bin` file from the `builds/MicroPython` directory and flash it with your favorite flashing tool.
@@ -100,6 +100,16 @@ Optionally, you can also download the `Picoware-Waveshare-C6-2.06.bin` file from
 Optionally, you can also download the `Picoware-Pancake.bin` file from the `builds/MicroPython` directory and flash it with your favorite flashing tool. The ESP32-C5 expects the bootloader at `0x2000`, the partition table at `0x8000`, and the firmware at `0x20000`.
 
 See the [Pancake guide](https://github.com/jblanked/Picoware/tree/main/guides/Pancake.md) for build instructions.
+
+## Waveshare ESP32-C5 3.5
+1. Download this repository as a ZIP file and extract it.
+2. Update the environment variables within the `tools/micropython-waveshare-c5-3.5-flash.sh` script to match your setup.
+3. Connect the board to your computer with the USB-C port.
+4. Run the `tools/micropython-waveshare-c5-3.5-flash.sh` script, passing the port your board is on (`--port /dev/cu.usbmodem1101` for example).
+
+Optionally, you can also download the `Picoware-Waveshare-C5-3.5.bin` file from the `builds/MicroPython` directory and flash it with your favorite flashing tool. The ESP32-C5 expects the bootloader at `0x2000`, the partition table at `0x8000`, and the firmware at `0x20000`. Flash over the ROM loader (`--no-stub`) with `--flash_mode dio --flash_freq 80m`.
+
+See the [Waveshare C5 guide](https://github.com/jblanked/Picoware/tree/main/guides/WaveshareC5.md) for build instructions.
 
 ## Marauder V8
 1. Download this repository as a ZIP file and extract it.

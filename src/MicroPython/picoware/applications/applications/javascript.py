@@ -82,7 +82,7 @@ def run(view_manager) -> None:
         BUTTON_RIGHT,
     )
 
-    global _scripts_index
+    global _scripts_index, _js
 
     if not _scripts:
         return
@@ -116,8 +116,9 @@ def run(view_manager) -> None:
                 f"[Script]: {selected_app} finished after {ticks_ms() - start_time} ms"
             )
             _scripts.draw()
-
-
+            _js.reset()
+            view_manager._input_manager = None # force reinit of input manager
+            collect()
 
 def stop(view_manager) -> None:
     """Stop the app.

@@ -9,6 +9,12 @@ except ImportError:
     _native_fill_triangle = None
 
 
+try:
+    from sim_raster import fill_polygon as _native_fill_polygon
+except ImportError:
+    _native_fill_polygon = None
+
+
 def default_font_for_board(board_id, boards=None):
     """Return the firmware's compile-time default font for a board."""
     if boards is None:
@@ -45,7 +51,7 @@ class LCD:
     MODE_HEAP = 0
     MODE_PSRAM = 1
 
-    def __init__(self, scale_x=1.0, scale_y=1.0, scale_position=False):
+    def __init__(self, scale_x=1.0, scale_y=1.0, scale_position=False, lcd_mode=0):
         self._is_flipper = False
         try:
             import picoware_boards
@@ -60,10 +66,14 @@ class LCD:
         self._scale_x_factor = scale_x
         self._scale_y_factor = scale_y
         self.scale_position = scale_position
-        self._mode = self.MODE_HEAP
+        self._mode = lcd_mode
         self._brightness = 100
         self._rgb_led = (0, 0, 0)
-        self._buffer = bytearray(self.width * self.height * 2)
+        try:
+            import sim_psram
+            self._buffer = sim_psram.framebuffer(self.width * self.height * 2)
+        except ImportError:
+            self._buffer = bytearray(self.width * self.height * 2)
         self._clear_buffer = self._buffer
         self._framebuffer = framebuf.FrameBuffer(self._buffer, self.width, self.height, framebuf.RGB565)
         self._sdl = None
@@ -288,6 +298,9 @@ class LCD:
         if len(points) < 3 or alpha == 0:
             return
         points = self._polygon_points(points)
+        if _native_fill_polygon is not None and _native_fill_polygon(
+                self._buffer, self.width, self.height, points, color, alpha, self._is_flipper):
+            return
         edges = []
         for index, (x0, y0) in enumerate(points):
             x1, y1 = points[(index + 1) % len(points)]

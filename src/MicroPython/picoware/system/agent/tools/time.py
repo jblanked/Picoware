@@ -4,6 +4,9 @@ from picoware.system.agent.tools.tool import Tool, Parameters
 def time_get_current_time(view_manager) -> str:
     """Get the current time as a string.
 
+    Args:
+        view_manager: The view manager holding the current time.
+
     Returns:
         str: The current time in the format "YYYY-MM-DD HH:MM:SS".
     """

@@ -38,6 +38,8 @@ extern "C"
     bool lcd_available(void);
     void lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t *buffer);
     void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint16_t *buffer);
+    void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
+                       uint16_t src_w, uint16_t src_h, const uint8_t *buffer, const uint8_t *mask);
     void lcd_deinit(void);
     void lcd_display_off(void);
     void lcd_display_on(void);

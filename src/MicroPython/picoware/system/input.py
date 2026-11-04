@@ -15,6 +15,7 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_2_06,
     BOARD_WAVESHARE_C6_2_06,
     BOARD_PANCAKE,
+    BOARD_WAVESHARE_C5_3_5,
     BOARD_V8,
     BOARD_HAS_TOUCH,
     BOARD_FLIPPER_ZERO,
@@ -46,6 +47,7 @@ class Input:
         "_character_map",
         "_touch_read_data_fast",
         "_touch_down_1_69",
+        "touch_down",
         "_uart",
         "_gpio_buttons",
         "_gpio_button_state",
@@ -139,6 +141,7 @@ class Input:
         elif self._current_board_id in (
             BOARD_CROWPANEL_10_1,
             BOARD_PANCAKE,
+            BOARD_WAVESHARE_C5_3_5,
             BOARD_V8,
         ):
             from touch import Touch
@@ -200,6 +203,7 @@ class Input:
         self._last_button = -1
         self._was_pressed = False
         self._was_capitalized = False
+        self.touch_down = False
 
         ansi_button_map = {
             # printable/symbol keys
@@ -303,6 +307,16 @@ class Input:
             124: buttons.BUTTON_PIPE,
             125: buttons.BUTTON_RIGHT_BRACE,
             126: buttons.BUTTON_TILDE,
+            buttons.KEY_CTRL_0: buttons.BUTTON_CTRL_0,
+            buttons.KEY_CTRL_1: buttons.BUTTON_CTRL_1,
+            buttons.KEY_CTRL_2: buttons.BUTTON_CTRL_2,
+            buttons.KEY_CTRL_3: buttons.BUTTON_CTRL_3,
+            buttons.KEY_CTRL_4: buttons.BUTTON_CTRL_4,
+            buttons.KEY_CTRL_5: buttons.BUTTON_CTRL_5,
+            buttons.KEY_CTRL_6: buttons.BUTTON_CTRL_6,
+            buttons.KEY_CTRL_7: buttons.BUTTON_CTRL_7,
+            buttons.KEY_CTRL_8: buttons.BUTTON_CTRL_8,
+            buttons.KEY_CTRL_9: buttons.BUTTON_CTRL_9,
         }
 
         if self._current_board_id == BOARD_CARDPUTER:
@@ -483,6 +497,7 @@ class Input:
             BOARD_WAVESHARE_2_06,
             BOARD_WAVESHARE_C6_2_06,
             BOARD_PANCAKE,
+            BOARD_WAVESHARE_C5_3_5,
             BOARD_V8,
         ):
             from picoware_southbridge import deinit
@@ -501,6 +516,7 @@ class Input:
         elif self._current_board_id in (
             BOARD_CROWPANEL_10_1,
             BOARD_PANCAKE,
+            BOARD_WAVESHARE_C5_3_5,
             BOARD_V8,
         ):
             self._poll_touch()
@@ -597,6 +613,7 @@ class Input:
         if self._current_board_id in (
             BOARD_CROWPANEL_10_1,
             BOARD_PANCAKE,
+            BOARD_WAVESHARE_C5_3_5,
             BOARD_V8,
         ):
             self._poll_touch()
@@ -634,6 +651,8 @@ class Input:
             from poom_input import key_available
 
             return key_available()
+        if self._current_board_id == BOARD_PICO_DUO:
+            return self._last_button
 
         from picoware_keyboard import key_available
 
@@ -700,6 +719,9 @@ class Input:
 
             return get_key()
 
+        if self._current_board_id == BOARD_PICO_DUO:
+            return self._last_button
+
         from picoware_keyboard import get_key
 
         return get_key()
@@ -729,6 +751,8 @@ class Input:
             from poom_input import get_key_nonblocking
 
             return get_key_nonblocking()
+        if self._current_board_id == BOARD_PICO_DUO:
+            return self._last_button
         from picoware_keyboard import get_key_nonblocking
 
         key = get_key_nonblocking()
@@ -832,8 +856,10 @@ class Input:
             self._last_button = buttons.BUTTON_NONE
             self._was_pressed = False
             self._elapsed_time = 0
+            self.touch_down = False
             return
 
+        self.touch_down = True
         x = self._touch.x
         y = self._touch.y
 
@@ -921,7 +947,12 @@ class Input:
             self._was_pressed = True
             reset_state()
 
-    def __uart_callback(self, uart_instance):
+    def __uart_callback(self, uart_instance) -> None:
+        """UART callback to handle incoming data.
+
+        Args:
+            uart_instance: The UART instance triggering the callback.
+        """
         _data = uart_instance.read()
         if _data is None:
             return

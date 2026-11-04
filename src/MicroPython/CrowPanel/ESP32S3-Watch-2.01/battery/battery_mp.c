@@ -45,7 +45,8 @@ static mp_obj_t watch_battery_get_voltage(void)
         mp_raise_msg_varg(&mp_type_RuntimeError,
                           MP_ERROR_TEXT("Battery voltage read failed: %d"), err);
     }
-    return mp_obj_new_float(voltage);
+    const int voltage_mv = (int)(voltage * 1000);
+    return mp_obj_new_int(voltage_mv);
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(watch_battery_get_voltage_obj, watch_battery_get_voltage);
 
@@ -74,7 +75,8 @@ static mp_obj_t watch_battery_get_percentage(void)
         return mp_obj_new_int(100);
     }
     return mp_obj_new_int((int)(((voltage - min_voltage) * 100.0f /
-                                 (max_voltage - min_voltage)) + 0.5f));
+                                 (max_voltage - min_voltage)) +
+                                0.5f));
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(watch_battery_get_percentage_obj, watch_battery_get_percentage);
 

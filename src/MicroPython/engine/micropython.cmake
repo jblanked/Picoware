@@ -3,6 +3,7 @@
 add_library(usermod_engine INTERFACE)
 
 target_sources(usermod_engine INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/billboard_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/camera_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/engine_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/entity_mp.cpp
@@ -11,6 +12,7 @@ target_sources(usermod_engine INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/level_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/sprite3d_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/triangle3d_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/pico-game-engine/engine/billboard.cpp
     ${CMAKE_CURRENT_LIST_DIR}/pico-game-engine/engine/draw.cpp
     ${CMAKE_CURRENT_LIST_DIR}/pico-game-engine/engine/entity.cpp
     ${CMAKE_CURRENT_LIST_DIR}/pico-game-engine/engine/game.cpp

@@ -36,7 +36,7 @@ class UART:
         if BOARD_ID == BOARD_FLIPPER_ZERO:
             _map[BOARD_FLIPPER_ZERO] = (1, Pin.cpu.B6, Pin.cpu.B7)
             
-        _config = _map.get(BOARD_ID, (0, 0, 1))  # Default to PicoCalc if board not recognized
+        _config = _map.get(BOARD_ID, (1, 4, 5))  # Default to PicoCalc if board not recognized
         if uart_id is None:
             uart_id = _config[0]
         if tx_pin is None:
@@ -135,7 +135,8 @@ class UART:
         Args:
             message (str): The message to write.
         """
-        self._uart.write(message + "\n")
+        _message = message + "\n"
+        self._uart.write(_message.encode("utf-8"))
 
     def read_into(self, buffer: bytearray) -> int:
         """Read data from the UART interface into a buffer.

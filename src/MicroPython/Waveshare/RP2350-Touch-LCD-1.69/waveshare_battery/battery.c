@@ -11,25 +11,25 @@ uint8_t battery_get_percentage()
         printf("Battery not initialized. Call battery_init() first.\n");
         return 0;
     }
-    float voltage = battery_get_voltage();
-    if (voltage < 3.3f)
+    int voltage = battery_get_voltage();
+    if (voltage < 3300)
         return 0;
-    else if (voltage > 4.2f)
+    else if (voltage > 4200)
         return 100;
     else
-        return (uint8_t)((voltage - 3.3f) / (4.2f - 3.3f) * 100);
+        return (uint8_t)((voltage - 3300) / (4200 - 3300) * 100);
 }
 
-// get battery voltage in volts
-float battery_get_voltage()
+// get battery voltage in millivolts
+int battery_get_voltage()
 {
     if (!initialized)
     {
         printf("Battery not initialized. Call battery_init() first.\n");
-        return 0.0f;
+        return 0;
     }
     uint16_t result = adc_read();
-    return result * conversion_factor;
+    return (int)(result * conversion_factor * 1000);
 }
 
 // initialize battery ADC
@@ -50,7 +50,7 @@ uint16_t battery_read(void)
     if (!initialized)
     {
         printf("Battery not initialized. Call battery_init() first.\n");
-        return -1;
+        return 0;
     }
     return adc_read();
 }

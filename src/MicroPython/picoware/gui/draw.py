@@ -22,6 +22,7 @@ class Draw(lcd.LCD):
         fill_triangle(point1, point2, point3, color=None): Draw a filled triangle
         fill_triangle_alpha(point1, point2, point3, color=None, alpha=255): Draw a filled triangle with alpha blending
         get_font(font_size=0): Get the FontSize object for a given font size
+        get_mode(): Get the current LCD mode (PSRAM or HEAP)
         image(position, img): Draw an image object to the back buffer
         image_bmp(position, path, storage=None): Draw a 24-bit BMP image from a file path
         image_jpeg(position, path, storage=None): Draw a JPEG image from a file path
@@ -43,6 +44,15 @@ class Draw(lcd.LCD):
         swap(): Update the display with the current framebuffer contents
         text(position, text, color=None, font_size=-1): Draw text on the display
         triangle(point1, point2, point3, color=None): Draw a triangle outline
+    
+    Attributes:
+        foreground (int): The current foreground color.
+        background (int): The current background color.
+        font (int): The default font size.
+        font_size (Vector): The size of the font as a Vector.
+        mode (int): The current LCD mode (PSRAM or HEAP).
+        size (Vector): The size of the display as a Vector.
+        use_lvgl (bool): Whether the LVGL library is being used for drawing.
     """
 
     def __init__(
@@ -52,6 +62,7 @@ class Draw(lcd.LCD):
         scale_x: float = 1.0,
         scale_y: float = 1.0,
         scale_position: bool = False,
+        lcd_mode: int = 0,
     ) -> None:
         """Initialize the drawing context with colors and scaling.
 
@@ -61,8 +72,9 @@ class Draw(lcd.LCD):
             scale_x (float): Horizontal scaling factor for drawing operations. Defaults to 1.0.
             scale_y (float): Vertical scaling factor for drawing operations. Defaults to 1.0.
             scale_position (bool): Whether to scale drawn element positions. Defaults to False.
+            lcd_mode (int): The LCD mode (PSRAM or HEAP). Defaults to PSRAM.
         """
-        super().__init__(scale_x, scale_y, scale_position)
+        super().__init__(scale_x, scale_y, scale_position, lcd_mode)
 
         self._background = background
         self._foreground = foreground
@@ -481,11 +493,11 @@ class Draw(lcd.LCD):
             storage: Storage instance for file access. Defaults to None.
             seek (int): Byte offset to start reading from. Defaults to 0.
             chunk_size (int): Bytes to read per chunk. Defaults to 0 (read all).
-                Reads are aligned to full rows so each blit is a valid rectangle.
+            Reads are aligned to full rows so each blit is a valid rectangle.
             invert (bool): Whether to invert the pixel values. Defaults to False.
             loop (bool): If True, keep drawing chunks (wrapping to the top)
-                until the entire buffer is read. If False, draw only the first
-                chunk and stop. Defaults to False.
+            until the entire buffer is read. If False, draw only the first
+            chunk and stop. Defaults to False.
             buffer (bytearray): Optional pre-allocated buffer for reading chunks. Defaults to None.
         """
         width, height = size.x, size.y

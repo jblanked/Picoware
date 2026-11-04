@@ -431,10 +431,8 @@ class ESPFlasher:
 
         Args:
             path (str): Path to the firmware image.
-            blksize (int): Number of bytes in each transfer block. Must be 4-byte aligned
-                and no larger than the ESP32 ROM limit of 0x400. Defaults to 0x400.
-            progress_interval (int): Number of blocks between progress messages. Defaults
-                to 64.
+            blksize (int): Number of bytes in each transfer block. Must be 4-byte aligned and no larger than the ESP32 ROM limit of 0x400. Defaults to 0x400.
+            progress_interval (int): Number of blocks between progress messages. Defaults to 64.
         """
         if blksize <= 0 or blksize > _FLASH_WRITE_SIZE or blksize % 4:
             raise ValueError("blksize must be 4-byte aligned and no larger than 0x400.")

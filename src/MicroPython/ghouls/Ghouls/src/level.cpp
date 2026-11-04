@@ -281,6 +281,7 @@ void GhoulsLevel::registerSpritePositionsOnMap(DynamicMap *map)
 
 void GhoulsLevel::render(Game *game, bool clamp)
 {
+    (void)clamp;
     Camera *gameCamera = game->getCamera();
     Player *player = ghoulsGame->getPlayer();
     Vector ss = game->draw->getDisplaySize();

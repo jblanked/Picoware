@@ -9,13 +9,22 @@ target_sources(usermod_mjs INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/lib/bluetooth.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/buttons.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/color.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/engine/billboard.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/lib/engine/camera.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/lib/engine/engine.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/lib/engine/entity.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/lib/engine/game.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/lib/engine/image.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/lib/engine/level.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/lib/engine/sprite3d.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/lib/engine/triangle3d.cpp
     ${CMAKE_CURRENT_LIST_DIR}/lib/http.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/input.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/lib.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/lcd.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/log.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/math.c
-    ${CMAKE_CURRENT_LIST_DIR}/lib/mjs.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/mjs.cpp
     ${CMAKE_CURRENT_LIST_DIR}/lib/pin.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/psram.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/settings.c
@@ -43,3 +52,4 @@ target_compile_definitions(usermod_mjs INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_mjs)
+target_link_libraries(usermod_mjs INTERFACE usermod_engine)

@@ -63,7 +63,11 @@ def __close_imap() -> None:
 
 
 def __set_error(message: str) -> None:
-    """Store the first request warning."""
+    """Store the first request warning.
+
+    Args:
+        message (str): The warning message to store.
+    """
     global _request_error
 
     if not _request_error:
@@ -83,7 +87,11 @@ def __advance_state() -> None:
 
 
 def __save_cache(view_manager) -> None:
-    """Persist completed notification data."""
+    """Persist completed notification data.
+
+    Args:
+        view_manager: The view manager used for storage access.
+    """
     global _cache_saved
     view_manager.storage.mkdir("picoware/notifications")
     if not view_manager.storage.serialize(
@@ -106,7 +114,11 @@ def __request_status() -> str:
 
 
 def __request_start(view_manager) -> bool:
-    """Start an asynchronous request based on the current state."""
+    """Start an asynchronous request based on the current state.
+
+    Args:
+        view_manager: The view manager used to build the request.
+    """
     global _state, _http, _imap
 
     if _state == STATE_FETCHING_START:
@@ -184,7 +196,11 @@ def __request_start(view_manager) -> bool:
 
 
 def __request_process(view_manager) -> None:
-    """Process the result of an asynchronous request."""
+    """Process the result of an asynchronous request.
+
+    Args:
+        view_manager: The view manager used to read response data.
+    """
     global _state
 
     if _state in (
@@ -197,6 +213,7 @@ def __request_process(view_manager) -> None:
         if _http.state == 2: # HTTP_ISSUE
             __set_error(f"Request failed: {_http.error}")
             __close_http()
+            __advance_state()
             return
 
         try:
@@ -247,7 +264,15 @@ def __request_process(view_manager) -> None:
 
 
 def __wrap_text(text: str, width: int) -> list:
-    """Wrap text to the display width."""
+    """Wrap text to the display width.
+
+    Args:
+        text (str): The text to wrap.
+        width (int): The maximum characters per line.
+
+    Returns:
+        list: The wrapped lines.
+    """
     lines = []
     for paragraph in str(text or "").split("\n"):
         words = paragraph.split()
@@ -276,7 +301,15 @@ def __wrap_text(text: str, width: int) -> list:
 
 
 def __fit_text(text: str, max_chars: int) -> str:
-    """Fit text within a character limit."""
+    """Fit text within a character limit.
+
+    Args:
+        text (str): The text to fit.
+        max_chars (int): The maximum number of characters allowed.
+
+    Returns:
+        str: The text truncated to fit the limit.
+    """
     text = str(text or "")
     if len(text) <= max_chars:
         return text
@@ -286,7 +319,14 @@ def __fit_text(text: str, max_chars: int) -> str:
 
 
 def __content_cards(view_manager) -> list:
-    """Build dashboard cards from notification data."""
+    """Build dashboard cards from notification data.
+
+    Args:
+        view_manager: The view manager used to read layout metrics.
+
+    Returns:
+        list: The list of card dictionaries to draw.
+    """
     draw = view_manager.draw
     margin = max(4, draw.size.x // 24)
     font = draw.get_font()
@@ -359,7 +399,15 @@ def __content_cards(view_manager) -> list:
 
 
 def __draw_icon(draw, icon: str, x: int, y: int, color: int) -> None:
-    """Draw a compact notification icon."""
+    """Draw a compact notification icon.
+
+    Args:
+        draw: The draw object used to render the icon.
+        icon (str): The icon type (social, weather, or email).
+        x (int): The horizontal position of the icon.
+        y (int): The vertical position of the icon.
+        color (int): The color to draw the icon in.
+    """
     if icon == "social":
         draw._fill_circle(x + draw.scale_x(8), y + draw.scale_y(8), draw.scale_x(7), color)
         draw._fill_circle(x + draw.scale_x(5), y + draw.scale_y(7), 1, TFT_BLACK)
@@ -381,7 +429,16 @@ def __draw_icon(draw, icon: str, x: int, y: int, color: int) -> None:
 
 
 def __card_height(draw, card: dict, detail_line_height: int) -> int:
-    """Calculate a card height from its content."""
+    """Calculate a card height from its content.
+
+    Args:
+        draw: The draw object used to read layout metrics.
+        card (dict): The card data used to compute the height.
+        detail_line_height (int): The height of a single detail line.
+
+    Returns:
+        int: The computed card height.
+    """
     _font = draw.get_font()
     metric_height = _font.height * 2 + draw.scale_y(3)
     return (
@@ -405,7 +462,19 @@ def __draw_card(
     body_bottom: int,
     detail_line_height: int,
 ) -> None:
-    """Draw one dashboard card."""
+    """Draw one dashboard card.
+
+    Args:
+        draw: The draw object used to render the card.
+        card (dict): The card data to draw.
+        x (int): The horizontal position of the card.
+        y (int): The vertical position of the card.
+        width (int): The card width.
+        height (int): The card height.
+        body_top (int): The top of the visible body region.
+        body_bottom (int): The bottom of the visible body region.
+        detail_line_height (int): The height of a single detail line.
+    """
     visible_top = max(y, body_top)
     visible_bottom = min(y + height, body_bottom)
     if visible_top >= visible_bottom:
@@ -450,7 +519,11 @@ def __draw_card(
 
 
 def __draw(view_manager) -> None:
-    """Draw the notification dashboard."""
+    """Draw the notification dashboard.
+
+    Args:
+        view_manager: The view manager carrying the draw context.
+    """
     global _scroll_offset
 
     draw = view_manager.draw
@@ -507,7 +580,11 @@ def __draw(view_manager) -> None:
 @storage_required
 @wifi_required
 def start(view_manager):
-    """Start the app."""
+    """Start the app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     global _state, _cache, _request_error, _scroll_offset, _cache_saved
 
     __close_http()
@@ -524,7 +601,11 @@ def start(view_manager):
 
 
 def run(view_manager):
-    """Run the app."""
+    """Run the app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_CENTER,
@@ -578,7 +659,11 @@ def run(view_manager):
 
 
 def stop(view_manager):
-    """Stop the app."""
+    """Stop the app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     from gc import collect
 
     global _state

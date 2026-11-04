@@ -349,3 +349,16 @@ void Entity::updateAABB()
     }
     aabb_dirty = false;
 }
+
+void Entity::setBillboard(Billboard *asset, float height)
+{
+    billboard = asset;
+    billboard_world_height = height;
+    billboard_pose = 0;
+}
+
+void Entity::setBillboardPose(int pose)
+{
+    if (billboard && pose >= 0 && pose < billboard->num_poses)
+        billboard_pose = pose;
+}

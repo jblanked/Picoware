@@ -51,7 +51,14 @@ class Session:
         self.conversation = None
 
     def _load_session(self, session_id: str) -> bool:
-        """Loads a session from the storage backend using the provided session ID."""
+        """Loads a session from the storage backend.
+
+        Args:
+            session_id (str): The unique session ID to load.
+
+        Returns:
+            bool: True when the session was loaded, False otherwise.
+        """
         _data: dict = self._storage.deserialize("picoware/agent/sessions/%s.json" % session_id)
         if not _data:
             return False
@@ -67,39 +74,85 @@ class Session:
         }, self.path) and self._storage.exists(self.path)
 
     def append(self, message: dict) -> bool:
-        """Appends a message to the session's conversation history and saves it to the storage backend."""
+        """Appends a message to the session's conversation history and saves it.
+
+        Args:
+            message (dict): The message to append.
+
+        Returns:
+            bool: True when the session was saved, False otherwise.
+        """
         self.conversation.append(message)
         return self._save()
 
     def append_messages(self, messages: list[dict]) -> bool:
-        """Append multiple messages and save the session once."""
+        """Append multiple messages and save the session once.
+
+        Args:
+            messages (list[dict]): The messages to append.
+
+        Returns:
+            bool: True when the session was saved, False otherwise.
+        """
         self.conversation.extend(messages)
         return self._save()
 
-    @classmethod
-    def delete(cls, storage, session_id: str) -> bool:
-        """Deletes the session with the specified ID from the storage backend."""
+    @staticmethod
+    def delete(storage, session_id: str) -> bool:
+        """Deletes a session from the storage backend.
+
+        Args:
+            storage: The storage backend.
+            session_id (str): The unique session ID to delete.
+
+        Returns:
+            bool: True when the session was removed, False otherwise.
+        """
         _path = "picoware/agent/sessions/%s.json" % session_id
         if storage.exists(_path):
             return storage.remove(_path)
         return False
 
-    @classmethod
-    def delete_index(cls, storage, index: int) -> bool:
-        """Deletes the session at the specified index from the storage backend."""
-        session_ids = cls.ls(storage)
+    @staticmethod
+    def delete_index(storage, index: int) -> bool:
+        """Deletes the session at the specified index from the storage backend.
+
+        Args:
+            storage: The storage backend.
+            index (int): The session index to delete.
+
+        Returns:
+            bool: True when the session was removed, False otherwise.
+        """
+        session_ids = Session.ls(storage)
         if 0 <= index < len(session_ids):
-            return cls.delete(storage, session_ids[index])
+            return Session.delete(storage, session_ids[index])
         return False
 
-    @classmethod
-    def exists(cls, storage, session_id: str) -> bool:
-        """Checks if a session with the given ID exists in the storage backend."""
+    @staticmethod
+    def exists(storage, session_id: str) -> bool:
+        """Checks if a session with the given ID exists in the storage backend.
+
+        Args:
+            storage: The storage backend.
+            session_id (str): The unique session ID to check.
+
+        Returns:
+            bool: True when the session exists, False otherwise.
+        """
         return storage.exists("picoware/agent/sessions/%s.json" % session_id)
 
-    @classmethod
-    def get_conversation(cls, storage, session_id: str) -> list:
-        """Retrieves the conversation history for the specified session ID from the storage backend."""
+    @staticmethod
+    def get_conversation(storage, session_id: str) -> list:
+        """Retrieves the conversation history for a session ID.
+
+        Args:
+            storage: The storage backend.
+            session_id (str): The unique session ID to fetch.
+
+        Returns:
+            list: The conversation history, or an empty list when missing.
+        """
         _path = "picoware/agent/sessions/%s.json" % session_id
         if not storage.exists(_path):
             return []
@@ -110,17 +163,18 @@ class Session:
 
     def list(self) -> list:
         """Returns a list of all session IDs stored in the storage backend."""
-        session_path = "picoware/agent/sessions"
-        sessions = []
-        for entry in self._storage.listdir(session_path):
-            name = entry.rsplit("/", 1)[-1]
-            if name.endswith(".json") and name.startswith("session_"):
-                sessions.append(name[:-5])
-        return sessions
+        return Session.ls(self._storage)
 
-    @classmethod
-    def ls(cls, storage) -> list:
-        """Returns a list of all session IDs stored in the storage backend."""
+    @staticmethod
+    def ls(storage) -> list:
+        """Returns a list of all session IDs stored in the storage backend.
+
+        Args:
+            storage: The storage backend.
+
+        Returns:
+            list: The stored session IDs.
+        """
         session_path = "picoware/agent/sessions"
         sessions = []
         for entry in storage.listdir(session_path):
@@ -130,7 +184,14 @@ class Session:
         return sessions
 
     def update(self, conversation: list) -> bool:
-        """Updates the session's conversation history and saves it to the storage backend."""
+        """Updates the session's conversation history and saves it to storage.
+
+        Args:
+            conversation (list): The new conversation history.
+
+        Returns:
+            bool: True when the session was saved, False otherwise.
+        """
         self.conversation = conversation
         return self._save()
         

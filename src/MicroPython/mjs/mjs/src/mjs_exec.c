@@ -943,7 +943,7 @@ MJS_PRIVATE mjs_err_t mjs_execute(struct mjs *mjs, size_t off, mjs_val_t *res)
   {
     int llen, n = cs_varint_decode_unsafe(&code[i + 1], &llen);
     mjs_push(mjs, mjs_mk_number(
-                      mjs, strtod((char *)code + i + 1 + llen, NULL)));
+                      mjs, mystrtod((char *)code + i + 1 + llen, NULL)));
     i += llen + n + 1;
     CG_DISPATCH_ERR();
   }
@@ -1501,7 +1501,7 @@ cg_clean:;
     {
       int llen, n = cs_varint_decode_unsafe(&code[i + 1], &llen);
       mjs_push(mjs, mjs_mk_number(
-                        mjs, strtod((char *)code + i + 1 + llen, NULL)));
+                        mjs, mystrtod((char *)code + i + 1 + llen, NULL)));
       i += llen + n;
       break;
     }

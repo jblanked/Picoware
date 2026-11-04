@@ -1,19 +1,62 @@
 """Sprite3D validation, whole-model geometry, and transactional saving."""
+from .records import new as new_records, paged
+
 
 from math import cos, sin, isfinite, pi
-from struct import unpack_from, pack_into
+from struct import pack
+from .records import unpack_from, pack_into
+
+
+def record_stride(storage,path,size):
+    """Recognize the former native Triangle3D layout without changing the file."""
+    if size>0 and size%52==0:
+        from .streams import chunks
+        reader=chunks(storage,path,size,1040)
+        try:
+            legacy=True
+            for data in reader:
+                for offset in range(0,len(data),52):
+                    # Old records contain visible, cached depth, initialized,
+                    # color, wireframe at 36,40,44,46,48 (with C++ padding).
+                    if (data[offset+36] not in (0,1) or data[offset+44]!=1
+                            or data[offset+48] not in (0,1)
+                            or not isfinite(unpack_from('<f',data,offset+40)[0])
+                            or any(not isfinite(v) or abs(v)>1e12
+                                   for v in unpack_from('<9f',data,offset))):
+                        legacy=False;break
+                if not legacy:break
+            if legacy:return 52
+        finally:reader.close()
+    if size<=0 or size%40:
+        raise ValueError('Invalid Sprite3D records (expected 40-byte or legacy 52-byte triangles)')
+    return 40
+
+
+def legacy_chunks(storage,path,size):
+    from .streams import chunks
+    reader=chunks(storage,path,size,1040)
+    try:
+        for data in reader:
+            result=bytearray(len(data)//52*40)
+            for index,offset in enumerate(range(0,len(data),52)):
+                pack_into('<9fHBB',result,index*40,*unpack_from('<9f',data,offset),
+                          unpack_from('<H',data,offset+46)[0],data[offset+48],0)
+            yield result
+    finally:reader.close()
 
 
 def load_sprite(storage, path, records=None):
     """Read validated 40-byte triangles and return a native mesh and bounds."""
     from picoware.engine.sprite3d import Sprite3D
 
+    if storage.exists(path+'.mesh-export-journal') or storage.exists(path+'.mesh-export-ready'):
+        from .export_transaction import recover
+        recover(storage,path,'mesh-export')
     size = storage.size(path)
-    if not path.lower().endswith(".sprite3d"):
-        raise ValueError("Choose a .sprite3d file")
-    if size <= 0 or size % 40:
-        raise ValueError("Invalid file size (40 bytes/triangle)")
-    count = size // 40
+    if not path.lower().endswith((".sprite3d", ".bin")):
+        raise ValueError("Choose a .bin or .sprite3d file")
+    stride=record_stride(storage,path,size)
+    count = size // stride
     if count > Sprite3D.MAX_TRIANGLES_PER_SPRITE:
         raise ValueError("Too many triangles: %d (max %d)" % (
             count, Sprite3D.MAX_TRIANGLES_PER_SPRITE))
@@ -25,10 +68,10 @@ def load_sprite(storage, path, records=None):
     low = [float("inf")] * 3
     high = [-float("inf")] * 3
     from .streams import chunks
-    reader = chunks(storage, path, size)
+    reader = chunks(storage,path,size) if stride==40 else legacy_chunks(storage,path,size)
     try:
         load = getattr(mesh, 'load_buffer', None)
-        if load is not None and records is not None and not records:
+        if load is not None and records is not None and not records and not paged(records):
             for data in reader:
                 records.extend(data)
             low,high = load(records)
@@ -67,7 +110,7 @@ def load_sprite(storage, path, records=None):
 def transformed_records(source, kind, amounts, pivot, mask=None, base_vertex=0, result=None):
     """Transform original float32 vertices once; retain triangle metadata."""
     if result is None:
-        result = bytearray(source)
+        result = new_records(source)
     else:
         result[:] = source
     # Most edits rotate one axis. Skip the other axes even in the Python fallback.
@@ -80,10 +123,12 @@ def transformed_records(source, kind, amounts, pivot, mask=None, base_vertex=0, 
         values = unpack_from("<9f", source, offset)
         output = []
         for vertex in range(0, 9, 3):
-            if mask is not None and not mask[base_vertex+(offset//40)*3+vertex//3]:
+            if mask is not None and not mask[first+vertex//3]:
                 output.extend(values[vertex:vertex+3])
                 continue
-            x, y, z = [values[vertex + i] - pivot[i] for i in range(3)]
+            x = values[vertex] - pivot[0]
+            y = values[vertex+1] - pivot[1]
+            z = values[vertex+2] - pivot[2]
             if kind == "Move":
                 x, y, z = x + amounts[0], y + amounts[1], z + amounts[2]
             elif kind == "Scale":
@@ -98,10 +143,12 @@ def transformed_records(source, kind, amounts, pivot, mask=None, base_vertex=0, 
                 if rz is not None:
                     cc, sc = rz
                     x, y = x*cc-y*sc, x*sc+y*cc
-            point = (x+pivot[0], y+pivot[1], z+pivot[2])
-            if any(not isfinite(v) or abs(v) > 1e12 for v in point):
+            x, y, z = x+pivot[0], y+pivot[1], z+pivot[2]
+            if (not isfinite(x) or abs(x) > 1e12
+                    or not isfinite(y) or abs(y) > 1e12
+                    or not isfinite(z) or abs(z) > 1e12):
                 raise ValueError("Transform exceeds coordinate range")
-            output.extend(point)
+            output.extend((x, y, z))
         pack_into("<9f", result, offset, *output)
     return result
 
@@ -109,50 +156,78 @@ def transformed_records(source, kind, amounts, pivot, mask=None, base_vertex=0, 
 def record_bounds(records):
     if not records:
         return [-.5,0,-.5],[.5,1,.5]
-    low, high = [float("inf")]*3, [-float("inf")]*3
+    lx = ly = lz = float("inf")
+    hx = hy = hz = -float("inf")
     for offset in range(0, len(records), 40):
         values = unpack_from("<9f", records, offset)
         for v in range(0, 9, 3):
-            for i in range(3):
-                low[i] = min(low[i], values[v+i])
-                high[i] = max(high[i], values[v+i])
-    return low, high
+            x, y, z = values[v], values[v+1], values[v+2]
+            if x < lx: lx = x
+            if y < ly: ly = y
+            if z < lz: lz = z
+            if x > hx: hx = x
+            if y > hy: hy = y
+            if z > hz: hz = z
+    return [lx, ly, lz], [hx, hy, hz]
 
 
-def save_sprite(storage, mesh, path):
+def mesh_export_signature(storage,mesh,path,records=None):
+    """Verify every serialized field against the source, in eight-triangle chunks."""
+    from binascii import crc32
+    from .streams import chunks
+    size=mesh.triangle_count*40
+    if storage.size(path)!=size:raise OSError('Incomplete staged mesh')
+    if records is not None and len(records)!=size:raise ValueError('Mesh and source records disagree')
+    reader=chunks(storage,path,size,320);position=0;crc=0
+    try:
+        for block in reader:
+            for offset in range(0,len(block),40):
+                if records is not None:expected=records[position:position+39]
+                else:
+                    triangle=mesh.get_triangle(position//40)
+                    expected=pack('<9fHB',triangle.x1,triangle.y1,triangle.z1,
+                        triangle.x2,triangle.y2,triangle.z2,triangle.x3,triangle.y3,triangle.z3,
+                        triangle.color,int(triangle.wireframe))
+                    del triangle
+                # The final byte is native struct padding, not a serialized field.
+                if block[offset:offset+39]!=expected:raise OSError('Staged mesh differs from source geometry')
+                position+=40
+            crc=crc32(block,crc)
+            if records is None:
+                from gc import collect
+                collect()
+    finally:reader.close()
+    return size,crc
+
+
+def write_geometry(storage, mesh, path, records=None):
+    """Stream canonical paged records; preserve the native exporter for RAM data."""
+    if paged(records):
+        if len(records)!=mesh.triangle_count*40:
+            raise ValueError('Geometry count differs from document')
+        from .records import write_file
+        return write_file(storage,path,records)
+    return mesh.to_path(path)
+
+
+def save_sprite(storage, mesh, path, records=None):
     """Validate a temporary mesh file before replacing the destination."""
-    if not path.lower().endswith(".sprite3d"):
-        raise ValueError("Use a .sprite3d filename")
+    if not path.lower().endswith((".sprite3d", ".bin")):
+        raise ValueError("Use a .bin or .sprite3d filename")
     if storage.is_directory(path):
         raise ValueError("Choose a filename, not a directory")
     parent = path.rsplit("/", 1)[0] or "/"
     if not storage.is_directory(parent):
         raise ValueError("Destination folder does not exist")
-    stem = parent.rstrip("/") + "/.sprite3d-save-"
-    index = 0
-    while storage.exists(stem + str(index) + ".sprite3d") or storage.exists(stem + str(index) + ".bak"):
-        index += 1
-    temporary = stem + str(index) + ".sprite3d"
-    backup = stem + str(index) + ".bak"
-    moved = False
+    from .export_transaction import begin,commit,recover
+    temporary,state=begin(storage,path,'mesh-export')
     try:
-        if not mesh.to_path(temporary):
+        if not write_geometry(storage,mesh,temporary,records):
             raise OSError("Could not write temporary file")
         if storage.size(temporary) != mesh.triangle_count * 40:
             raise OSError("Incomplete save: %d/%d bytes" % (storage.size(temporary), mesh.triangle_count * 40))
+        signature=mesh_export_signature(storage,mesh,temporary,records)
         check, _low, _high = load_sprite(storage, temporary)
         check.clear_triangles()
-        if storage.exists(path):
-            if not storage.rename(path, backup):
-                raise OSError("Could not preserve original file")
-            moved = True
-        if not storage.rename(temporary, path):
-            if moved and not storage.rename(backup, path):
-                raise OSError("Original retained at " + backup)
-            moved = False
-            raise OSError("Could not replace destination")
-        if moved:
-            storage.remove(backup)
-    finally:
-        if storage.exists(temporary):
-            storage.remove(temporary)
+        commit(storage,path,'mesh-export',state,signature)
+    finally:recover(storage,path,'mesh-export')

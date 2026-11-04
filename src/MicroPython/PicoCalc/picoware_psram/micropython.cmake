@@ -8,7 +8,6 @@ add_library(usermod_picoware_psram INTERFACE)
 target_sources(usermod_picoware_psram INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/picoware_psram.c
     ${CMAKE_CURRENT_LIST_DIR}/psram_qspi.c
-    ${CMAKE_CURRENT_LIST_DIR}/psram_template.cpp
 )
 
 target_include_directories(usermod_picoware_psram INTERFACE

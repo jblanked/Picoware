@@ -1,7 +1,8 @@
 #include "bluetooth.h"
 #include "array_buf.h"
 
-static mp_obj_t bluetooth_mp_instance;
+MP_REGISTER_ROOT_POINTER(mp_obj_t mjs_bluetooth_mp_instance);
+#define bluetooth_mp_instance MP_STATE_VM(mjs_bluetooth_mp_instance)
 
 static mjs_val_t bluetooth_on_write_cb = MJS_UNDEFINED;
 static mjs_val_t bluetooth_on_notify_cb = MJS_UNDEFINED;

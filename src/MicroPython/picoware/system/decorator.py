@@ -1,6 +1,5 @@
 """Decorators for feature availability checks."""
 
-import micropython
 import picoware_boards
 
 def audio_required(func: callable) -> callable:
@@ -24,27 +23,6 @@ def audio_required(func: callable) -> callable:
             """
             raise RuntimeError(f"{func.__name__} requires Audio, which is not available")
         return unavailable
-    def wrapper(*args, **kwargs):
-        """Call the wrapped function with the given arguments.
-
-        Returns:
-            object: The result of the wrapped function.
-        """
-        return func(*args, **kwargs)
-    return wrapper
-
-def native(func: callable) -> callable:
-    """Decorator to wrap a function with micropython.native.
-
-    Args:
-        func (callable): The function to decorate.
-
-    Returns:
-        callable: The function, wrapped with micropython.native on supported boards.
-    """
-    if picoware_boards.BOARD_HAS_RP2040 == 1:
-        return func
-    @micropython.native
     def wrapper(*args, **kwargs):
         """Call the wrapped function with the given arguments.
 
@@ -156,30 +134,6 @@ def storage_required(func: callable) -> callable:
         return func(*args, **kwargs)
     return wrapper
 
-def viper(func: callable) -> callable:
-    """Decorator to wrap a function with micropython.viper.
-
-    Args:
-        func (callable): The function to decorate.
-
-    Returns:
-        callable: The function, wrapped with micropython.viper on supported boards.
-    """
-    if picoware_boards.BOARD_HAS_RP2040 == 1:
-        return func
-    try:
-        @micropython.viper
-        def wrapper():
-            """Call the wrapped function.
-
-            Returns:
-                object: The result of the wrapped function.
-            """
-            return func()
-        return wrapper
-    except Exception:
-        return func
-
 def bluetooth_required(func: callable) -> callable:
     """Decorator to check if Bluetooth is available.
 
@@ -188,6 +142,7 @@ def bluetooth_required(func: callable) -> callable:
     
     Returns:
         callable: The wrapped function, or a stub that raises when Bluetooth is missing.
+        
     Raises:
         RuntimeError: If the decorated function is called without Bluetooth support.
     """

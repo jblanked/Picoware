@@ -1,0 +1,12 @@
+schema_version = "1.0.0"
+id = "picoware_mesh_export"
+version = "1.5.0"
+name = "Picoware Mesh and Billboard Export"
+tagline = "Edit meshes, bake billboards, and generate scenes locally"
+maintainer = "Picoware contributors"
+type = "add-on"
+blender_version_min = "5.0.0"
+license = ["SPDX:GPL-3.0-or-later"]
+[permissions]
+files = "Import and export meshes, billboards, and generated scenes"
+network = "Connect to the optional local AI scene helper"

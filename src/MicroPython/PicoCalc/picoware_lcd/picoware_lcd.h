@@ -1,13 +1,14 @@
 #pragma once
 
+#include "lcd.h"
+#include "../picoware_psram/psram_qspi.h"
+#include "../picoware_psram/picoware_psram_shared.h"
+#include "../../font/font_mp.h"
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-
-#include "lcd.h"
-#include "../picoware_psram/psram_qspi.h"
-#include "../../font/font_mp.h"
 
 // Display constants
 #define DISPLAY_WIDTH 320
@@ -24,6 +25,8 @@ extern "C"
     void lcd_fill(uint16_t color);
     void picocalc_lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t *buffer);
     void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint16_t *buffer);
+    void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
+                       uint16_t src_w, uint16_t src_h, const uint8_t *buffer, const uint8_t *mask);
 
     // Shape drawing functions
     void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color);
@@ -47,6 +50,7 @@ extern "C"
     void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, FontSize size);
 
     void lcd_set_mode(uint8_t mode);
+    uint8_t lcd_get_mode(void);
 
     // reads from a PSRAM address and writes to the LCD
     void lcd_psram(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint32_t addr);

@@ -5,6 +5,7 @@ from random import randint
 from time import ticks_diff, ticks_ms, sleep_ms
 from gc import collect
 
+import micropython
 from micropython import const
 from picoware.engine.engine import GameEngine
 from picoware.engine.entity import ENTITY_TYPE_ICON, ENTITY_TYPE_NPC, ENTITY_TYPE_PLAYER, Entity
@@ -13,7 +14,6 @@ from picoware.engine.level import Level
 from picoware.system.buttons import (
     BUTTON_BACK, BUTTON_CENTER, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP,
 )
-from picoware.system.decorator import native
 from picoware.system.vector import Vector
 
 from .assets import (
@@ -1116,7 +1116,7 @@ def __launch_position():
     return gorilla.position.x + gorilla.size.x / 2, gorilla.position.y - 5 * _state.pixel_scale
 
 
-@native
+@micropython.native
 def __mix_color(first, second, amount):
     """Blend RGB565 palette entries once when the match starts."""
     red = (((first >> 11) & 31) * (256 - amount) + ((second >> 11) & 31) * amount) // 256

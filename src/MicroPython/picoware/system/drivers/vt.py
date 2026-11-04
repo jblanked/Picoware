@@ -200,6 +200,14 @@ _MMBASIC_SYNTAX_MAP = (
 
 
 def _syntax_map_for_language(language):
+    """Return the syntax map for the specified programming language.
+
+    Args:
+        language (int): The language constant (VT_PYTHON, VT_C, VT_JS, VT_MMBASIC).
+
+    Returns:
+        tuple: A tuple of keyword-color pairs for syntax highlighting.
+    """
     if language == VT_C:
         return _C_SYNTAX_MAP
     if language == VT_JS:

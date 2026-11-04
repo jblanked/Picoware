@@ -42,6 +42,7 @@ extern "C"
         mp_obj_t sprite_right_obj;
         //
         mp_obj_t sprite_3d_obj;
+        mp_obj_t billboard_obj;
     } entity_mp_obj_t;
 
     extern const mp_obj_type_t entity_mp_type;
@@ -95,6 +96,9 @@ extern "C"
     mp_obj_t entity_mp_set_sprite(mp_obj_t self_in, mp_obj_t sprite_obj);
     mp_obj_t entity_mp_set_sprite_left(mp_obj_t self_in, mp_obj_t sprite_left_obj);
     mp_obj_t entity_mp_set_sprite_right(mp_obj_t self_in, mp_obj_t sprite_right_obj);
+
+    mp_obj_t entity_mp_set_billboard(size_t n_args, const mp_obj_t *args);
+    mp_obj_t entity_mp_set_billboard_pose(mp_obj_t self_in, mp_obj_t value);
 
 #ifdef __cplusplus
 }

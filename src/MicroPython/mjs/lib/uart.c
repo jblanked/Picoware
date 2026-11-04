@@ -1,7 +1,8 @@
 #include "uart.h"
 #include "array_buf.h"
 
-static mp_obj_t uart_mp_instance;
+MP_REGISTER_ROOT_POINTER(mp_obj_t mjs_uart_mp_instance);
+#define uart_mp_instance MP_STATE_VM(mjs_uart_mp_instance)
 
 static mjs_val_t uart_baud_rate(struct mjs *mjs)
 {

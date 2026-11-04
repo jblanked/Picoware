@@ -19,6 +19,10 @@
 #define STORAGE_INCLUDE "../pancake/sd/storage.h"
 #define STORAGE_READ storage_file_read
 #define STORAGE_MAX_READ_SIZE 4096
+#elif defined(WAVESHARE_C5_3_5)
+#define STORAGE_INCLUDE "../waveshare_c5_35/sd/storage.h"
+#define STORAGE_READ storage_file_read
+#define STORAGE_MAX_READ_SIZE 4096
 #elif defined(V8)
 #define STORAGE_INCLUDE "../v8/sd/storage.h"
 #define STORAGE_READ storage_file_read
@@ -39,7 +43,7 @@
 #define STORAGE_INCLUDE "desktop_bridge.h"
 #define STORAGE_READ desktop_storage_file_read
 #define STORAGE_MAX_READ_SIZE 4096
-#elif !defined(WAVESHARE_1_28) && !defined(WAVESHARE_1_69) && !defined(CROWPANEL_10_1) && !defined(PICO_DUO) && !defined(WAVESHARE_C6_2_06)
+#elif !defined(WAVESHARE_1_28) && !defined(WAVESHARE_1_69) && !defined(CROWPANEL_10_1) && !defined(WAVESHARE_C6_2_06)
 #define STORAGE_INCLUDE "storage.h"
 #define STORAGE_READ storage_read
 #define STORAGE_MAX_READ_SIZE 4096

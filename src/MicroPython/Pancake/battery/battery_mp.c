@@ -46,8 +46,8 @@ mp_obj_t pancake_battery_get_voltage(void)
         mp_raise_msg_varg(&mp_type_RuntimeError,
                           MP_ERROR_TEXT("battery_read_voltage failed: %d"), err);
     }
-
-    return mp_obj_new_float(voltage_v);
+    const int voltage_mv = (int)(voltage_v * 1000);
+    return mp_obj_new_int(voltage_mv);
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(pancake_battery_get_voltage_obj, pancake_battery_get_voltage);
 

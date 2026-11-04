@@ -1,4 +1,5 @@
-from picoware.system.decorator import wifi_required, native, viper, storage_required, audio_required, psram_required
+import micropython
+from picoware.system.decorator import wifi_required, storage_required, audio_required, psram_required
 from picoware.system.view_manager import ViewManager
 from gc import collect
 
@@ -10,14 +11,14 @@ def catch(func, *args, **kwargs):
     except Exception as e:
         print(e)
         
-@viper
-def test():
+@micropython.viper
+def test() -> int:
     n = 1
     i = 1
     while n < 1000:
         x = 2
         while x < 1000:
-            i *= 3.14159
+            i *= 3
             x += 1
         i *= x
         n += 1
@@ -47,7 +48,7 @@ def check3():
 def check4(t):
     print("You have been promoted to psram control :D")
 
-@native
+@micropython.native
 @audio_required
 @storage_required
 @psram_required

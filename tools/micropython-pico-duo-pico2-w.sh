@@ -177,6 +177,6 @@ echo "Starting PicoDuo build process..."
 cd "$micropython_dir"
 
 # PicoDuo - Pico 2W 
-make -j BOARD=RPI_PICO2_W USER_C_MODULES="$micropython_dir"/modules/PicoDuo/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=2048000 CFLAGS_EXTRA="-DPICO_DUO -DPBUF_POOL_SIZE=10"
+make -j BOARD=RPI_PICO2_W USER_C_MODULES="$micropython_dir"/modules/PicoDuo/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=2048000 CFLAGS_EXTRA="-DPICO_DUO -DPBUF_POOL_SIZE=10 -DMICROPY_PY_BLUETOOTH_USE_SYNC_EVENTS=1 -DMICROPY_PY_BLUETOOTH_ENABLE_PAIRING_BONDING=1"
 cp "$micropython_dir"/build-RPI_PICO2_W/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoDuoPico2W.uf2
 echo "PicoDuo - Pico 2W build complete."

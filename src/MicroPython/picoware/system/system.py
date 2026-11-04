@@ -172,6 +172,13 @@ class System:
         return mem_alloc()
 
     @property
+    def used_stack(self):
+        """Return the total stack memory used."""
+        from micropython import stack_use
+
+        return stack_use()
+
+    @property
     def used_psram(self):
         """Return the total PSRAM memory used."""
         from picoware_boards import BOARD_HAS_PSRAM
@@ -187,7 +194,7 @@ class System:
     @property
     def version(self) -> str:
         """Return the Picoware version."""
-        return "2.5.0"
+        return "2.6.0"
 
     def bootloader_mode(self):
         """Enter the bootloader mode."""
@@ -207,7 +214,15 @@ class System:
         Args:
             view_manager (ViewManager): Optional manager to show a shutdown alert. Defaults to None.
         """
-        from picoware_boards import BOARD_HAS_PSRAM, BOARD_ID, BOARD_FLIPPER_ZERO
+        from picoware_boards import (
+            BOARD_HAS_PSRAM, BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_WAVESHARE_C6_2_06, BOARD_WAVESHARE_2_06, BOARD_CROWPANEL_WATCH_2_01
+        )
+
+        if BOARD_ID in (BOARD_WAVESHARE_C6_2_06, BOARD_WAVESHARE_2_06, BOARD_CROWPANEL_WATCH_2_01):
+            from cardputer_battery import shutdown
+
+            shutdown()
+            return
 
         if BOARD_ID == BOARD_FLIPPER_ZERO:
             from flipper_battery import shutdown

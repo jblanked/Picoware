@@ -28,7 +28,7 @@ public:
     Entity **collision_list(Entity *entity, int &count) const;
     void entity_add(Entity *entity);
     void entity_remove(Entity *entity);
-    Entity *getEntity(int index) const { return entities[index]; }
+    Entity *getEntity(int index) const;
     int getEntityCount() const { return entity_count; }
     const Vector &getLightDirection() const { return lightDirection; }
     uint16_t getShadowColor() const { return shadowColor; }
@@ -41,6 +41,7 @@ public:
     void render3DSprite(const char *path, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp = false, bool wireframe = true, bool drawShadow = false);
     void setClearAllowed(bool status) { clearAllowed = status; }
     void setLightDirection(float x, float y, float z);
+    void setGame(Game *game) { gameRef = game; }
     void setShadowColor(uint16_t color) { shadowColor = color; }
     virtual void start();
     virtual void stop();
@@ -50,6 +51,8 @@ public:
     Vector size;
 
 private:
+    bool projectBillboard(const Camera &cam, const Vector &epos, float world_height,
+                          int16_t &out_x, int16_t &out_y, uint16_t &out_w, uint16_t &out_h);
     void drawProjectedTriangle(Draw *draw, const Vector vertices[3], const Vector &screen, uint16_t color, bool wireframe, bool clamp, uint8_t alpha = 255);
     float projectionBound(float value, float maximum);
     int projectionClip(const Vector *input, int count, Vector *output, const Vector &normal, float offset);

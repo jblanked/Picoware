@@ -3,7 +3,7 @@
 #include "mjs/mjs.h"
 #include "lib/lib.h"
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(V8) || defined(POOM)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM) || defined(PICO_DUO)
 #include "../sd/storage.h"
 #elif defined(FLIPPER_ZERO)
 #include "../Flippper/sd/storage.h"
@@ -43,12 +43,12 @@ mp_obj_t mjs_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
 
 mp_obj_t mjs_mp_del(mp_obj_t self_in)
 {
-    lib_unload_modules();
     mjs_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (!self)
+    if (!self || !self->is_initialized)
         return mp_const_none;
     if (self->mjs)
     {
+        lib_unload_modules(self->mjs);
         mjs_destroy(self->mjs);
         self->mjs = NULL;
     }
@@ -68,7 +68,7 @@ mp_obj_t mjs_mp_exec(mp_obj_t self_in, mp_obj_t path)
     }
 
     mjs_val_t result = mjs_mk_undefined();
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(DESKTOP) || defined(POOM)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(FLIPPER_ZERO) || defined(DESKTOP) || defined(POOM) || defined(PICO_DUO)
     size_t fsize = storage_file_size(bufinfo.buf);
     if (fsize == 0)
     {
@@ -123,6 +123,17 @@ mp_obj_t mjs_mp_run(mp_obj_t self_in, mp_obj_t js_code)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(mjs_mp_run_obj, mjs_mp_run);
 
+mp_obj_t mjs_mp_reset(mp_obj_t self_in)
+{
+    mjs_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (self && self->mjs)
+    {
+        lib_unload_modules(self->mjs);
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(mjs_mp_reset_obj, mjs_mp_reset);
+
 void mjs_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     mjs_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -147,6 +158,7 @@ void mjs_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 static const mp_rom_map_elem_t mjs_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_run), MP_ROM_PTR(&mjs_mp_run_obj)},
     {MP_ROM_QSTR(MP_QSTR_exec), MP_ROM_PTR(&mjs_mp_exec_obj)},
+    {MP_ROM_QSTR(MP_QSTR_reset), MP_ROM_PTR(&mjs_mp_reset_obj)},
 };
 static MP_DEFINE_CONST_DICT(mjs_mp_locals_dict, mjs_mp_locals_dict_table);
 

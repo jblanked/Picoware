@@ -15,14 +15,26 @@ _received = False
 _prev_callback = None
 
 def __uart_callback(uart_instance):
-    """Callback for UART events"""
+    """Callback for UART events.
+
+    Args:
+        uart_instance: The UART instance that received data.
+    """
     global _received, message
-    message = f"Friend: {uart_instance.read()}\n"
+    _data = uart_instance.read()
+    message = ""
+    if not _data:
+        return
+    message = f"Friend: {_data.decode()}\n"
     _received = True
 
 
 def __box_start(view_manager) -> None:
-    """Start the textbox for server output"""
+    """Start the textbox for server output.
+
+    Args:
+        view_manager: The view manager carrying the draw context.
+    """
     from picoware.gui.textbox import TextBox
 
     global _textbox
@@ -55,24 +67,30 @@ def __box_start(view_manager) -> None:
             fg,
             bg,
         )
-
-        _textbox.set_text(message)
     else:
-        _textbox.current_text += message
         _textbox.refresh()
 
 
 def __callback(result: str) -> None:
-    """Callback for keyboard input"""
-    global state, message
-    message = "\nYou: " + result + "\n"
-    state = STATE_SENDING
+    """Callback for keyboard input.
+
+    Args:
+        result (str): The text entered by the user to send.
+    """
+    global state, _textbox
     _uart.println(result)
-    message = ""
+    _text = _textbox.current_text + f"You: {result}\n"
+    _textbox.set_text(_text)
+    state = STATE_SENDING
 
 
 def __loading_run(view_manager, text: str = "Sending...") -> None:
-    """Start loading animation"""
+    """Start loading animation.
+
+    Args:
+        view_manager: The view manager carrying the draw context.
+        text (str): The message shown by the loading animation. Defaults to "Sending...".
+    """
     from picoware.gui.loading import Loading
 
     global _loading
@@ -85,7 +103,12 @@ def __loading_run(view_manager, text: str = "Sending...") -> None:
 
 
 def __set_kb(view_manager, title: str) -> None:
-    """Set up the keyboard"""
+    """Set up the keyboard.
+
+    Args:
+        view_manager: The view manager carrying the keyboard.
+        title (str): The title shown above the keyboard.
+    """
     kb = view_manager.keyboard
     kb.reset()
     kb.response = ""
@@ -95,7 +118,11 @@ def __set_kb(view_manager, title: str) -> None:
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     from picoware.system.buttons import BUTTON_BACK
     from picoware.system.boards import BOARD_HAS_PICOCALC
 
@@ -113,12 +140,15 @@ def start(view_manager) -> bool:
 
     view_manager.freq(True)  # set to lower frequency
     is_pico_calc = BOARD_HAS_PICOCALC == 1
+    d = view_manager.draw
+    if is_pico_calc and d.mode != 1:
+        view_manager.alert("PicoCalc requires Heap mode. Change in: Settings -> LCD Mode -> Heap\nNote: This is really only possible on the Pico2/Pico2w/Pimoroni2w but may work on the Pico.")
+        return False
     _uart = view_manager.uart
     _prev_callback = _uart.callback
     _uart.set_callback(__uart_callback)
 
     # first show info screen about connection
-    d = view_manager.draw
     fg = view_manager.foreground_color
     sixteen = d.font_size.y + 1
     d.erase()
@@ -128,8 +158,8 @@ def start(view_manager) -> bool:
         d._text(0, sixteen * 2, f"TX Pin: GP{_uart.tx_pin if _uart else 'N/A'}", fg)
         d._text(0, sixteen * 3, f"RX Pin: GP{_uart.rx_pin if _uart else 'N/A'}", fg)
     else:
-        d._text(0, sixteen * 2, "TX Pin: UART0_TX (GP0)", fg)
-        d._text(0, sixteen * 3, "RX Pin: UART0_RX (GP1)", fg)
+        d._text(0, sixteen * 2, "TX Pin: GP4", fg)
+        d._text(0, sixteen * 3, "RX Pin: GP5", fg)
     d._text(0, sixteen * 4, "Press the any button to continue...", fg)
     d.swap()
     inp = view_manager.input_manager
@@ -143,13 +173,18 @@ def start(view_manager) -> bool:
             inp.reset()
             break
 
+    __box_start(view_manager)
     __set_kb(view_manager, "Start the conversation")
 
     return True
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
 
     inp = view_manager.input_manager
@@ -184,14 +219,19 @@ def run(view_manager) -> None:
     elif state == STATE_VIEWING:
         global _received, message
         if _received:
-            _textbox.current_text += f"Friend: {message}\n"
+            _text = _textbox.current_text + f"{message}\n"
+            _textbox.set_text(_text)
             _textbox.refresh()
             _received = False
             message = ""
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app.
+
+    Args:
+        view_manager: The view manager for the app.
+    """
     from picoware.system.boards import BOARD_FLIPPER_ZERO
     from gc import collect
 

@@ -1,7 +1,23 @@
 #include "lib.h"
 
 static lib_module_t lib_loaded_modules[LIB_MODULE_COUNT] = {0};
+static lib_module_t lib_multi_modules[LIB_MAX_MULTI_MODULES] = {0};
 static uint8_t lib_loaded_modules_count = 0;
+
+static bool lib_is_multi_instance(lib_module_t module)
+{
+    return module == LIB_MODULE_ENGINE_CAMERA ||
+           module == LIB_MODULE_ENGINE_IMAGE ||
+           module == LIB_MODULE_ENGINE_ENTITY ||
+           module == LIB_MODULE_ENGINE_SPRITE3D ||
+           module == LIB_MODULE_ENGINE_TRIANGLE3D ||
+           module == LIB_MODULE_ENGINE_BILLBOARD ||
+           module == LIB_MODULE_ENGINE_GAME ||
+           module == LIB_MODULE_ENGINE_LEVEL ||
+           module == LIB_MODULE_ENGINE_SPRITE3D ||
+           module == LIB_MODULE_ENGINE_TRIANGLE3D ||
+           module == LIB_MODULE_ENGINE_ENGINE;
+}
 
 static bool lib_is_module_loaded(lib_module_t module)
 {
@@ -23,6 +39,18 @@ void lib_load_module(struct mjs *mjs)
     const char *name = mjs_get_string(mjs, &arg, &len);
     const lib_module_t module = lib_module_from_str(name);
     bool is_module_loaded = false;
+    const bool multi = lib_is_multi_instance(module);
+    if (multi)
+    {
+        for (size_t i = 0; i < LIB_MAX_MULTI_MODULES; i++)
+        {
+            if (lib_multi_modules[i] == LIB_MODULE_NONE)
+            {
+                lib_multi_modules[i] = module;
+                break;
+            }
+        }
+    }
     if (lib_is_module_loaded(module))
     {
         mjs_return(mjs, object);
@@ -48,6 +76,42 @@ void lib_load_module(struct mjs *mjs)
         break;
     case LIB_MODULE_DRAW:
         lcd_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_BILLBOARD:
+        billboard_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_CAMERA:
+        camera_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_ENGINE:
+        engine_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_ENTITY:
+        entity_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_GAME:
+        game_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_IMAGE:
+        image_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_LEVEL:
+        level_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_SPRITE3D:
+        sprite3d_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_ENGINE_TRIANGLE3D:
+        triangle3d_create(mjs, &object);
         is_module_loaded = true;
         break;
     case LIB_MODULE_HTTP:
@@ -105,7 +169,7 @@ void lib_load_module(struct mjs *mjs)
         is_module_loaded = false;
         break;
     }
-    if (is_module_loaded)
+    if (is_module_loaded && !multi && !mjs_is_undefined(object))
     {
         if (lib_loaded_modules_count < LIB_MODULE_COUNT)
         {
@@ -136,6 +200,42 @@ lib_module_t lib_module_from_str(const char *str)
     else if (strcmp(str, "draw") == 0)
     {
         return LIB_MODULE_DRAW;
+    }
+    else if (strcmp(str, "billboard") == 0)
+    {
+        return LIB_MODULE_ENGINE_BILLBOARD;
+    }
+    else if (strcmp(str, "camera") == 0)
+    {
+        return LIB_MODULE_ENGINE_CAMERA;
+    }
+    else if (strcmp(str, "engine") == 0)
+    {
+        return LIB_MODULE_ENGINE_ENGINE;
+    }
+    else if (strcmp(str, "entity") == 0)
+    {
+        return LIB_MODULE_ENGINE_ENTITY;
+    }
+    else if (strcmp(str, "game") == 0)
+    {
+        return LIB_MODULE_ENGINE_GAME;
+    }
+    else if (strcmp(str, "image") == 0)
+    {
+        return LIB_MODULE_ENGINE_IMAGE;
+    }
+    else if (strcmp(str, "level") == 0)
+    {
+        return LIB_MODULE_ENGINE_LEVEL;
+    }
+    else if (strcmp(str, "sprite3d") == 0)
+    {
+        return LIB_MODULE_ENGINE_SPRITE3D;
+    }
+    else if (strcmp(str, "triangle3d") == 0)
+    {
+        return LIB_MODULE_ENGINE_TRIANGLE3D;
     }
     else if (strcmp(str, "http") == 0)
     {
@@ -197,14 +297,14 @@ lib_module_t lib_module_from_str(const char *str)
 
 void lib_register_globals(struct mjs *mjs)
 {
-    lib_unload_modules();
+    lib_unload_modules(mjs);
     mjs_set(mjs, mjs_get_global(mjs), "import", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lib_load_module));
     color_register(mjs);
     log_register(mjs);
 }
 
-void lib_unload_modules()
+void lib_unload_modules(struct mjs *mjs)
 {
     for (size_t i = 0; i < LIB_MODULE_COUNT; i++)
     {
@@ -247,4 +347,44 @@ void lib_unload_modules()
         lib_loaded_modules[i] = LIB_MODULE_NONE;
     }
     lib_loaded_modules_count = 0;
+    for (size_t i = 0; i < LIB_MAX_MULTI_MODULES; i++)
+    {
+        if (lib_multi_modules[i] == LIB_MODULE_ENGINE_BILLBOARD)
+        {
+            billboard_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_CAMERA)
+        {
+            camera_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_ENGINE)
+        {
+            engine_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_ENTITY)
+        {
+            entity_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_GAME)
+        {
+            game_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_IMAGE)
+        {
+            image_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_LEVEL)
+        {
+            level_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_SPRITE3D)
+        {
+            sprite3d_destroy(mjs);
+        }
+        else if (lib_multi_modules[i] == LIB_MODULE_ENGINE_TRIANGLE3D)
+        {
+            triangle3d_destroy(mjs);
+        }
+    }
+    mjs_slot_sweep();
 }

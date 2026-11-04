@@ -1,4 +1,6 @@
 """Editable primitive meshes and triangle construction."""
+from .records import new as new_records, paged
+
 
 from struct import pack
 from math import isfinite, sin, cos, pi, sqrt
@@ -69,7 +71,7 @@ def sphere_faces(size):
         yield (upper[i],(0,size,0),upper[j])
 
 
-def primitive(kind, size, origin, color):
+def primitive(kind, size, origin, color, quads=None):
     if not isfinite(size) or size <= 0:
         raise ValueError("Primitive size must be positive and finite")
     h = size/2
@@ -108,8 +110,10 @@ def primitive(kind, size, origin, color):
         faces = revolved_faces(((0,0),(h,h),(0,size)),4)
     else:
         raise ValueError("Unknown primitive")
-    records = bytearray()
+    records = new_records()
     for face in faces:
+        start=len(records)//40
+        if quads is not None and len(face)==4:quads.extend((start,start+1))
         points = [tuple(p[i]+origin[i] for i in range(3)) for p in face]
         for i in range(1,len(points)-1):
             records.extend(triangle((points[0],points[i],points[i+1]),color))

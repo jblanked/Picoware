@@ -8,7 +8,7 @@ Source: https://github.com/jblanked/Picoware
 
 #if defined(PICOCALC)
 #include "../../vector/vector_mp.h"
-#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM)
 #include "../vector/vector_mp.h"
 #else
 #include "../../../vector/vector_mp.h"

@@ -1,5 +1,5 @@
 """Edge-connected triangle islands; coordinates are shared by value in Sprite3D."""
-from struct import unpack_from
+from .records import unpack_from
 
 
 def detect_islands(records):

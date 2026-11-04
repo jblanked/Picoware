@@ -2,7 +2,8 @@
 #include <string.h>
 #include "py/runtime.h"
 
-static mp_obj_t input_mp_instance;
+MP_REGISTER_ROOT_POINTER(mp_obj_t mjs_input_mp_instance);
+#define input_mp_instance MP_STATE_VM(mjs_input_mp_instance)
 
 static void input_button_to_char(struct mjs *mjs)
 {
@@ -30,6 +31,11 @@ static void input_read(struct mjs *mjs)
     if (func != MP_OBJ_NULL && mp_obj_is_callable(func))
     {
         mp_obj_t result_int = mp_call_function_0(func);
+        if (result_int == MP_OBJ_NULL)
+        {
+            mjs_return(mjs, mjs_mk_number(mjs, -1));
+            return;
+        }
         mjs_return(mjs, mjs_mk_number(mjs, mp_obj_is_float(result_int) ? (double)mp_obj_get_float(result_int) : (double)mp_obj_get_int(result_int)));
         return;
     }
@@ -42,6 +48,11 @@ static void input_read_non_blocking(struct mjs *mjs)
     if (func != MP_OBJ_NULL && mp_obj_is_callable(func))
     {
         mp_obj_t result_int = mp_call_function_0(func);
+        if (result_int == MP_OBJ_NULL)
+        {
+            mjs_return(mjs, mjs_mk_number(mjs, -1));
+            return;
+        }
         mjs_return(mjs, mjs_mk_number(mjs, mp_obj_is_float(result_int) ? (double)mp_obj_get_float(result_int) : (double)mp_obj_get_int(result_int)));
         return;
     }

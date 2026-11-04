@@ -1,9 +1,12 @@
 """Cooperative, bounded quadric-error edge collapse for small Sprite3D meshes."""
+from .records import new as new_records, paged
+
 from math import sqrt, isfinite, ceil
 from array import array
 from time import ticks_ms, ticks_diff
 from gc import collect
-from struct import unpack_from, pack
+from struct import pack
+from .records import unpack_from
 from .normals import cross, sub, dot
 
 # Symmetric 4x4 plane quadric, stored as its ten upper-triangle entries.
@@ -217,7 +220,7 @@ def simplify(records,selected,percent):
                 break
         if not changed:
             break
-    output,mask = bytearray(),bytearray()
+    output,mask = new_records(),bytearray()
     for i,face in enumerate(faces):
         if face is not None:
             if i not in selected:
@@ -235,6 +238,10 @@ def simplify(records,selected,percent):
 
 class DecimateTools:
     def begin_decimation(self,percent):
+        from .animation import active
+        if active(self.animation):
+            self.dialog=('Animation parts', 'Clear animation and parts before changing topology')
+            return
         backup = None
         try:
             if not isfinite(percent) or not 1<=percent<=100:
@@ -242,12 +249,13 @@ class DecimateTools:
             selected = self.selected_triangles()
             if not selected:
                 raise ValueError('Select geometry first')
-            backup = self.history.store(self.records)
+            backup = self.history.store_document(self.records)
             self.decimation_job = {
                 'worker':simplify(self.records,selected,percent),
                 'state':('Decimate',backup,self.selection_mode,self.selection,self.selection_cursor),
                 'before':len(selected),
             }
+            self.selection_camera = False
             self.status = 'Decimating... Esc cancels'
         except (ValueError,OSError,MemoryError) as exc:
             if backup is not None:
@@ -279,7 +287,9 @@ class DecimateTools:
                     else:
                         self.replace_records(records)
                         self.boolean_preview = job['state']
-                        self.selection_mode,self.selection = 'Triangles',mask
+                        self.selection_camera = False
+                        self.selection_mode,self.selection = ('Quads' if job['state'][2]=='Quads' else 'Triangles'),mask
+                        if self.selection_mode=='Quads':self.quads.expand(mask)
                         self.selection_cursor = next((i for i,v in enumerate(mask) if v),0)
                         self.status = '%d -> %d tris; target %d' % (job['before'],after,target)
                     self.decimation_job = None

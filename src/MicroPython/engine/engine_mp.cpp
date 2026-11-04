@@ -1,3 +1,4 @@
+#include "billboard_mp.h"
 #include "camera_mp.h"
 #include "engine_mp.h"
 #include "entity_mp.h"
@@ -202,6 +203,7 @@ extern "C"
 
 static const mp_rom_map_elem_t engine_mp_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_engine)},
+    {MP_ROM_QSTR(MP_QSTR_Billboard), MP_ROM_PTR(&billboard_mp_type)},
     {MP_ROM_QSTR(MP_QSTR_Camera), MP_ROM_PTR(&camera_mp_type)},
     {MP_ROM_QSTR(MP_QSTR_Engine), MP_ROM_PTR(&engine_mp_type)},
     {MP_ROM_QSTR(MP_QSTR_Entity), MP_ROM_PTR(&entity_mp_type)},

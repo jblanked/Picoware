@@ -3,7 +3,7 @@ def init():
 
 
 def get_voltage():
-    return 3.3 + get_percentage() * 0.9 / 100
+    return 3300 + get_percentage() * 900 // 100
 
 
 def get_percentage():

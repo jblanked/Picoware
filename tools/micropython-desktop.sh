@@ -63,8 +63,8 @@ case ${1:-build} in
             BUILD="$build_dir" \
             VARIANT_DIR="$variant_dir" \
             USER_C_MODULES="$module_dir" \
-            FROZEN_MANIFEST= \
-            CFLAGS_EXTRA="-DDESKTOP -Wno-error" \
+            FROZEN_MANIFEST="${PICOWARE_DESKTOP_MANIFEST:-}" \
+            CFLAGS_EXTRA="-DDESKTOP -Wno-error ${PICOWARE_DESKTOP_EXTRA_FLAGS:-}" \
             clean
         exit 0
         ;;
@@ -94,8 +94,8 @@ make -C "$micropython_dir/ports/unix" \
     BUILD="$staging_build" \
     VARIANT_DIR="$variant_dir" \
     USER_C_MODULES="$module_dir" \
-    FROZEN_MANIFEST= \
-    CFLAGS_EXTRA="-DDESKTOP -Wno-error"
+    FROZEN_MANIFEST="${PICOWARE_DESKTOP_MANIFEST:-}" \
+    CFLAGS_EXTRA="-DDESKTOP -Wno-error ${PICOWARE_DESKTOP_EXTRA_FLAGS:-}"
 
 install -m 755 "$staging_build/micropython" "$build_dir/micropython.new"
 mv -f "$build_dir/micropython.new" "$build_dir/micropython"

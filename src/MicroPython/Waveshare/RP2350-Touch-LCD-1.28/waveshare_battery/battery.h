@@ -8,7 +8,7 @@
 #include "hardware/adc.h"
 
 #define BAT_ADC_PIN (29)
-#define BAR_CHANNEL (3)
+#define BAT_CHANNEL (3)
 
 #ifdef __cplusplus
 extern "C"
@@ -16,9 +16,9 @@ extern "C"
 #endif
 
     uint8_t battery_get_percentage();
-    float battery_get_voltage();
+    int battery_get_voltage();
     void battery_init(void);
-    uint16_t battery_read(void);
+    int battery_read(void);
 
 #ifdef __cplusplus
 }

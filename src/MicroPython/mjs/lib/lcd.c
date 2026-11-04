@@ -3,12 +3,13 @@
 #include "../../font/font_mp.h"
 #include <string.h>
 #include "color.h"
+#include "array_buf.h"
 
 #ifndef DESKTOP
 #include LCD_INCLUDE
 #endif
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(V8) || defined(POOM)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM)
 #include "../../sd/storage.h"
 #elif defined(FLIPPER_ZERO)
 #include "../../Flipper/sd/storage.h"
@@ -92,6 +93,42 @@ void lcd_js_fill_circle(struct mjs *mjs)
     mjs_return(mjs, MJS_UNDEFINED);
 }
 
+void lcd_js_fill_polygon(struct mjs *mjs)
+{
+    mjs_val_t x_array = mjs_arg(mjs, 0);
+    if (!mjs_is_array(x_array))
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "x_array must be an array");
+        mjs_return(mjs, MJS_UNDEFINED);
+        return;
+    }
+    mjs_val_t y_array = mjs_arg(mjs, 1);
+    if (!mjs_is_array(y_array))
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "y_array must be an array");
+        mjs_return(mjs, MJS_UNDEFINED);
+        return;
+    }
+    unsigned long x_len = mjs_array_length(mjs, x_array);
+    unsigned long y_len = mjs_array_length(mjs, y_array);
+    if (x_len != y_len)
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "x_array and y_array must have the same length");
+        mjs_return(mjs, MJS_UNDEFINED);
+        return;
+    }
+    uint16_t x_buf[x_len];
+    uint16_t y_buf[y_len];
+    for (unsigned long i = 0; i < x_len; i++)
+    {
+        x_buf[i] = (uint16_t)mjs_get_int(mjs, mjs_array_get(mjs, x_array, i));
+        y_buf[i] = (uint16_t)mjs_get_int(mjs, mjs_array_get(mjs, y_array, i));
+    }
+    uint16_t color = lcd_js_get_color(mjs, 2, 0xFFFF);
+    LCD_MP_FILL_POLYGON(x_buf, y_buf, x_len, color);
+    mjs_return(mjs, MJS_UNDEFINED);
+}
+
 void lcd_js_fill_rectangle(struct mjs *mjs)
 {
     uint16_t x = arg_u16(mjs, 0);
@@ -159,6 +196,42 @@ void lcd_js_pixel(struct mjs *mjs)
     mjs_return(mjs, MJS_UNDEFINED);
 }
 
+void lcd_js_polygon(struct mjs *mjs)
+{
+    mjs_val_t x_array = mjs_arg(mjs, 0);
+    if (!mjs_is_array(x_array))
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "x_array must be an array");
+        mjs_return(mjs, MJS_UNDEFINED);
+        return;
+    }
+    mjs_val_t y_array = mjs_arg(mjs, 1);
+    if (!mjs_is_array(y_array))
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "y_array must be an array");
+        mjs_return(mjs, MJS_UNDEFINED);
+        return;
+    }
+    unsigned long x_len = mjs_array_length(mjs, x_array);
+    unsigned long y_len = mjs_array_length(mjs, y_array);
+    if (x_len != y_len)
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "x_array and y_array must have the same length");
+        mjs_return(mjs, MJS_UNDEFINED);
+        return;
+    }
+    uint16_t x_buf[x_len];
+    uint16_t y_buf[y_len];
+    for (unsigned long i = 0; i < x_len; i++)
+    {
+        x_buf[i] = (uint16_t)mjs_get_int(mjs, mjs_array_get(mjs, x_array, i));
+        y_buf[i] = (uint16_t)mjs_get_int(mjs, mjs_array_get(mjs, y_array, i));
+    }
+    uint16_t color = lcd_js_get_color(mjs, 2, 0xFFFF);
+    LCD_MP_POLYGON(x_buf, y_buf, x_len, color);
+    mjs_return(mjs, MJS_UNDEFINED);
+}
+
 void lcd_js_rectangle(struct mjs *mjs)
 {
     uint16_t x = arg_u16(mjs, 0);
@@ -198,10 +271,23 @@ void lcd_js_triangle(struct mjs *mjs)
     mjs_return(mjs, MJS_UNDEFINED);
 }
 
+mjs_val_t lcd_js_size(struct mjs *mjs)
+{
+    mjs_val_t size_obj = mjs_mk_object(mjs);
+#ifdef DESKTOP
+    mjs_set(mjs, size_obj, "width", ~0, mjs_mk_number(mjs, desktop_lcd_width()));
+    mjs_set(mjs, size_obj, "height", ~0, mjs_mk_number(mjs, desktop_lcd_height()));
+#else
+    mjs_set(mjs, size_obj, "width", ~0, mjs_mk_number(mjs, (double)LCD_MP_WIDTH));
+    mjs_set(mjs, size_obj, "height", ~0, mjs_mk_number(mjs, (double)LCD_MP_HEIGHT));
+#endif
+    return size_obj;
+}
+
 void lcd_js_screenshot(struct mjs *mjs)
 {
 #ifdef LCD_MP_READ_ROW
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(DESKTOP) || defined(POOM)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(FLIPPER_ZERO) || defined(DESKTOP) || defined(POOM)
     char *path = mjs_copy_string_arg(mjs, 0);
     if (!path)
     {
@@ -321,6 +407,10 @@ void lcd_create(struct mjs *mjs, mjs_val_t *lcd_obj)
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_clear));
     mjs_set(mjs, *lcd_obj, "pixel", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_pixel));
+    mjs_set(mjs, *lcd_obj, "fillPolygon", ~0,
+            mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_fill_polygon));
+    mjs_set(mjs, *lcd_obj, "polygon", ~0,
+            mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_polygon));
     mjs_set(mjs, *lcd_obj, "len", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_len));
     mjs_set(mjs, *lcd_obj, "line", ~0,
@@ -347,4 +437,6 @@ void lcd_create(struct mjs *mjs, mjs_val_t *lcd_obj)
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_text));
     mjs_set(mjs, *lcd_obj, "swap", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_swap));
+
+    mjs_set_getter(mjs, *lcd_obj, "size", ~0, lcd_js_size);
 }

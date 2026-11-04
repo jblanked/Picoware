@@ -15,3 +15,6 @@
 
 // Disable I2C target/slave - ESP-IDF 5.5.2 API incompatible with MicroPython
 #define MICROPY_PY_MACHINE_I2C_TARGET (0)
+
+#define MICROPY_PY_BLUETOOTH_USE_SYNC_EVENTS (1)
+#define MICROPY_PY_BLUETOOTH_ENABLE_PAIRING_BONDING (1)

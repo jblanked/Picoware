@@ -9,7 +9,6 @@ from picoware_boards import (
     BOARD_CROWPANEL_WATCH_2_01,
     BOARD_HAS_ESP32,
     BOARD_FLIPPER_ZERO,
-    BOARD_PICO_DUO,
 )
 
 try:
@@ -61,7 +60,6 @@ class Storage:
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_69_RP2350,
             BOARD_CROWPANEL_10_1,
-            BOARD_PICO_DUO,
             BOARD_WAVESHARE_C6_2_06,
             BOARD_CROWPANEL_WATCH_2_01,
         ):

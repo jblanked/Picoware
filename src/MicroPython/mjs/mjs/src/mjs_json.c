@@ -3,6 +3,8 @@
  * All rights reserved
  */
 
+#include "mjs_util.h"
+
 #include "common/str_util.h"
 #include "frozen.h"
 #include "mjs_array.h"
@@ -357,7 +359,7 @@ static void frozen_cb(void *data, const char *name, size_t name_len,
       break;
     }
     case JSON_TYPE_NUMBER:
-      v = mjs_mk_number(ctx->mjs, strtod(token->ptr, NULL));
+      v = mjs_mk_number(ctx->mjs, mystrtod(token->ptr, NULL));
       break;
     case JSON_TYPE_TRUE:
       v = mjs_mk_boolean(ctx->mjs, 1);
@@ -396,7 +398,7 @@ static void frozen_cb(void *data, const char *name, size_t name_len,
          * TODO(dfrank): consult name_len. Currently it's not a problem due to
          * the implementation details of frozen, but it might change
          */
-        int idx = (int) strtod(name, NULL);
+        int idx = (int) mystrtod(name, NULL);
         mjs_array_set(ctx->mjs, ctx->frame->val, idx, v);
       } else {
         LOG(LL_ERROR, ("Current value is neither object nor array\n"));

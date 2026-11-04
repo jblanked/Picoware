@@ -178,6 +178,45 @@ void lcd_swap(void)
     }
 }
 
+void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
+                   uint16_t src_w, uint16_t src_h, const uint8_t *buffer, const uint8_t *mask)
+{
+    if (!buffer || !mask || !dst_w || !dst_h || !src_w || !src_h)
+        return;
+
+    int32_t src_x = dst_x < 0 ? -(int32_t)dst_x : 0;
+    int32_t src_y = dst_y < 0 ? -(int32_t)dst_y : 0;
+    int32_t screen_x = dst_x < 0 ? 0 : dst_x;
+    int32_t screen_y = dst_y < 0 ? 0 : dst_y;
+    int32_t copy_width = (int32_t)dst_w - src_x;
+    int32_t copy_height = (int32_t)dst_h - src_y;
+    if (screen_x + copy_width > LCD_WIDTH)
+        copy_width = LCD_WIDTH - screen_x;
+    if (screen_y + copy_height > LCD_HEIGHT)
+        copy_height = LCD_HEIGHT - screen_y;
+    if (copy_width <= 0 || copy_height <= 0)
+        return;
+
+    for (int32_t row = 0; row < copy_height; ++row)
+    {
+        uint32_t source_y = (uint32_t)(src_y + row) * src_h / dst_h;
+        for (int32_t col = 0; col < copy_width; ++col)
+        {
+            uint32_t source_x = (uint32_t)(src_x + col) * src_w / dst_w;
+            uint32_t pixel = source_y * src_w + source_x;
+            if (mask[pixel >> 3] & (0x80u >> (pixel & 7)))
+            {
+                uint8_t rgb332 = buffer[pixel];
+                uint16_t red = (uint16_t)((((rgb332 >> 5) & 7u) << 2) | (((rgb332 >> 5) & 7u) >> 1));
+                uint16_t green = (uint16_t)((((rgb332 >> 2) & 7u) << 3) | ((rgb332 >> 2) & 7u));
+                uint16_t blue = (uint16_t)(((rgb332 & 3u) << 3) | ((rgb332 & 3u) << 1) | ((rgb332 & 3u) >> 1));
+                lcd_draw_pixel((uint16_t)(screen_x + col), (uint16_t)(screen_y + row),
+                               (uint16_t)((red << 11) | (green << 5) | blue));
+            }
+        }
+    }
+}
+
 void lcd_draw_pixel(uint16_t x, uint16_t y, uint16_t color)
 {
     if (x >= LCD_WIDTH || y >= LCD_HEIGHT)

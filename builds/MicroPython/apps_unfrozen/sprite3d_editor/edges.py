@@ -1,7 +1,7 @@
 """Compact model-space edge measurements, clipped to each editor viewport."""
 from math import sqrt
 from time import ticks_us,ticks_diff
-from struct import unpack_from
+from .records import unpack_from
 
 DIGITS = ((7,5,5,5,7),(2,6,2,2,7),(7,1,7,4,7),(7,1,7,1,7),
           (5,5,7,1,1),(7,4,7,1,7),(7,4,7,5,7),(7,1,2,2,2),
@@ -35,7 +35,7 @@ class EdgeTools:
         box = (0,48,w,h-78) if viewport is None else viewport
         left,top,pw,ph = box
         screen = (w/2,h/2,h) if viewport is None else (left+pw/2,top+ph/2,ph)
-        key = (tuple(self.center),basis,distance,box,screen,self.xray_vertices)
+        key = (tuple(self.projection_center(basis)),basis,distance,box,screen,self.xray_vertices,self.selection_mode=="Quads")
         cached = self.edge_label_cache.get(box)
         if cached is not None and cached[0] == key:
             return cached[1]
@@ -59,7 +59,7 @@ class EdgeTools:
         box = (0,48,w,h-78) if viewport is None else viewport
         left,top,pw,ph = box
         screen = (w/2,h/2,h) if viewport is None else (left+pw/2,top+ph/2,ph)
-        key = (tuple(self.center),basis,distance,box,screen,self.xray_vertices)
+        key = (tuple(self.projection_center(basis)),basis,distance,box,screen,self.xray_vertices,self.selection_mode=="Quads")
         ortho,near = self.is_ortho(basis),self.near_distance()
         cx,cy,focal = screen
         def project(point):
@@ -69,6 +69,7 @@ class EdgeTools:
             depth = distance if ortho else z
             return cx+x*focal/depth,cy-y*focal/depth,z
         candidates,seen = [],set()
+        hidden=self.quads.diagonals if self.selection_mode=="Quads" else None
         # Bound temporary annotation storage, even for a 2,048-face document.
         for offset in range(0,len(self.records),40):
             if ticks_diff(ticks_us(),started)>=1500:
@@ -76,6 +77,7 @@ class EdgeTools:
                 started = ticks_us()
             points = [unpack_from('<3f',self.records,offset+i*12) for i in range(3)]
             for i,a in enumerate(points):
+                if hidden is not None and hidden[offset//40]==i+1:continue
                 b = points[(i+1)%3]
                 edge = (a,b) if a<b else (b,a)
                 if edge in seen:
@@ -101,7 +103,7 @@ class EdgeTools:
             visible = None
         else:
             from .visibility import visibility_steps
-            for result in visibility_steps(self.records,self.center,basis,distance,box,screen,ortho,
+            for result in visibility_steps(self.records,self.projection_center(basis),basis,distance,box,screen,ortho,
                                            near=near,samples=[c[4] for c in candidates]):
                 if result is None:
                     yield None

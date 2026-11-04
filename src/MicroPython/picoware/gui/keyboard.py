@@ -249,6 +249,7 @@ class Keyboard:
         self.KEY_MARGIN = 0 if self._is_flipper else max(1, draw.scale_x(2))
         self.KEY_SPACING = 1
         self._touch_enabled = input_manager.has_touch_support
+        self._touch_latched = False
 
         font_height = draw.font_size.y
         padding_x = 1 if self._is_flipper else max(1, draw.scale_x(3))
@@ -519,6 +520,8 @@ class Keyboard:
                 BUTTON_UP: BUTTON_RIGHT, BUTTON_RIGHT: BUTTON_DOWN,
                 BUTTON_DOWN: BUTTON_LEFT, BUTTON_LEFT: BUTTON_UP,
             }.get(self.dpad_input, self.dpad_input)
+        if self._touch_latched and not self.input_manager.touch_down:
+            self._touch_latched = False
         has_touch_point = (
             self._touch_enabled
             and self.input_manager.point
@@ -610,7 +613,15 @@ class Keyboard:
         ]
 
     def _fit_text(self, text: str, width: int) -> str:
-        """Keep a single line within the available pixel width."""
+        """Keep a single line within the available pixel width.
+        
+        Args:
+            text (str): The text to fit within the width.
+            width (int): The available pixel width.
+
+        Returns:
+            str: The fitted text, possibly truncated with ellipsis.
+        """
         text = text.replace("\n", " ").replace("\r", " ")
         count = max(0, width // self.draw.len(" "))
         if self.draw.len(text) <= width:
@@ -618,6 +629,15 @@ class Keyboard:
         return text[:max(0, count - 3)] + "." * min(3, count)
 
     def _key_widths(self, row: int, unit: int) -> list:
+        """Calculate the widths of keys in a given row.
+
+        Args:
+            row (int): The row index.
+            unit (int): The unit width for the keys.
+
+        Returns:
+            list: A list of key widths for the row.
+        """
         font = self.draw.get_font(self._key_font)
         widths = []
         for col, key in enumerate(self.ROWS[row]):
@@ -680,6 +700,10 @@ class Keyboard:
         hit = self._key_at_point(point[0], point[1])
         if hit is None:
             return False
+
+        if self._touch_latched and self.ROWS[hit[0]][hit[1]].normal != "\b":
+            return True
+        self._touch_latched = True
 
         self.cursor_row, self.cursor_col = hit
         self.is_in_textbox = False
@@ -768,7 +792,15 @@ class Keyboard:
         self.draw._text(key_x, key_y, key_label, color, self._key_font)
 
     def _key_label(self, row: int, col: int) -> str:
-        """Return the current key label, using compact modifier icons."""
+        """Return the current key label, using compact modifier icons.
+
+        Args:
+            row (int): The row index of the key.
+            col (int): The column index of the key.
+
+        Returns:
+            str: The label to display for the key.
+        """
         key = self.ROWS[row][col]
         if key.normal in ("\x01", "\x02"):
             return "^"  # Use one printable glyph width for the modifier icon.

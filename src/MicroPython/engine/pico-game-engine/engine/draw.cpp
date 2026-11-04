@@ -45,6 +45,7 @@ void Draw::fillPolygonAlpha(uint16_t x[], uint16_t y[], int count, uint16_t colo
 #ifdef ENGINE_LCD_FILL_POLYGON_ALPHA
     ENGINE_LCD_FILL_POLYGON_ALPHA(x, y, count, color, alpha);
 #else
+    (void)alpha;
     ENGINE_LCD_FILL_POLYGON(x, y, count, color);
 #endif
 }
@@ -84,6 +85,7 @@ void Draw::fillTriangleAlpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
 #ifdef ENGINE_LCD_FILL_TRIANGLE_ALPHA
     ENGINE_LCD_FILL_TRIANGLE_ALPHA(x1, y1, x2, y2, x3, y3, color, alpha);
 #else
+    (void)alpha;
     ENGINE_LCD_FILL_TRIANGLE(x1, y1, x2, y2, x3, y3, color);
 #endif
 }
@@ -106,6 +108,23 @@ void Draw::image(uint16_t x, uint16_t y, const uint8_t *bitmap, uint16_t width, 
 void Draw::image(uint16_t x, uint16_t y, const uint16_t *bitmap, uint16_t width, uint16_t height)
 {
     ENGINE_LCD_BLIT_16BIT(x, y, width, height, bitmap);
+}
+
+void Draw::imageMasked(int16_t x, int16_t y, uint16_t dst_w, uint16_t dst_h,
+                       uint16_t src_w, uint16_t src_h, const uint8_t *bitmap, const uint8_t *mask)
+{
+#ifdef ENGINE_LCD_BLIT_MASK
+    ENGINE_LCD_BLIT_MASK(x, y, dst_w, dst_h, src_w, src_h, bitmap, mask);
+#else
+    (void)x;
+    (void)y;
+    (void)dst_w;
+    (void)dst_h;
+    (void)src_w;
+    (void)src_h;
+    (void)bitmap;
+    (void)mask;
+#endif
 }
 
 void Draw::line(Vector position, Vector size, uint16_t color)

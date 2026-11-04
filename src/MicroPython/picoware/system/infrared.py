@@ -11,14 +11,37 @@ class RemoteFormatError(ValueError):
     """Raised when an infrared remote file is invalid."""
 
 
-def _required(fields, key):
+def _required(fields: dict, key: str) -> str:
+    """Retrieve a required field from a dictionary.
+
+    Args:
+        fields (dict): The dictionary of fields.
+        key (str): The key of the required field.
+
+    Returns:
+        str: The value of the required field.
+
+    Raises:
+        RemoteFormatError: If the field is missing or empty.
+    """
     value = fields.get(key)
     if value is None or not value.strip():
         raise RemoteFormatError("missing infrared field: {}".format(key))
     return value.strip()
 
 
-def _parse_hex_value(value):
+def _parse_hex_value(value) -> int:
+    """Parse a hexadecimal value from a string.
+
+    Args:
+        value (str): The string containing the hexadecimal value.
+
+    Returns:
+        int: The parsed integer value.
+
+    Raises:
+        RemoteFormatError: If the value is empty or invalid.
+    """
     parts = value.replace(",", " ").split()
     if not parts:
         raise RemoteFormatError("empty hexadecimal value")

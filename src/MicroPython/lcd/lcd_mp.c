@@ -14,7 +14,7 @@ bool mp_engine_gc_ready = false;
 #include LCD_INCLUDE
 #endif
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(V8) || defined(POOM)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM)
 #include "../sd/storage.h"
 #elif defined(FLIPPER_ZERO)
 #include "../Flipper/sd/storage.h"
@@ -55,7 +55,7 @@ static inline int lcd_obj_to_int(mp_obj_t arg)
     return 0;
 }
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(POOM)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(FLIPPER_ZERO) || defined(POOM)
 static inline uint16_t lcd_u16_le(const uint8_t *p)
 {
     return (uint16_t)(p[0] | ((uint16_t)p[1] << 8));
@@ -129,10 +129,10 @@ void lcd_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kin
 
 mp_obj_t lcd_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
-    // Arguments: (scale_x, scale_y, scale_position) - all optional, default to 1.0 and false
-    if (n_args > 3)
+    // Arguments: (scale_x, scale_y, scale_position, lcd_mode)
+    if (n_args > 4)
     {
-        mp_raise_TypeError(MP_ERROR_TEXT("LCD constructor takes at most 3 arguments: scale_x, scale_y, and scale_position"));
+        mp_raise_TypeError(MP_ERROR_TEXT("LCD constructor takes at most 4 arguments: scale_x, scale_y, scale_position, and lcd_mode"));
     }
     mp_engine_gc_ready = true;
     lcd_mp_obj_t *self = mp_obj_malloc_with_finaliser(lcd_mp_obj_t, &lcd_mp_type);
@@ -142,8 +142,14 @@ mp_obj_t lcd_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     self->scale_x = n_args >= 1 ? mp_obj_get_float(args[0]) : 1.0f;
     self->scale_y = n_args >= 2 ? mp_obj_get_float(args[1]) : 1.0f;
     self->scale_set = self->scale_x != 1.0f || self->scale_y != 1.0f;
-    self->scale_position = n_args == 3 ? mp_obj_is_true(args[2]) : false;
+    self->scale_position = n_args >= 3 ? mp_obj_is_true(args[2]) : false;
     LCD_MP_INIT();
+#ifdef LCD_MP_SET_MODE
+    if (n_args == 4)
+    {
+        LCD_MP_SET_MODE((uint8_t)mp_obj_get_int(args[3]));
+    }
+#endif
     self->initialized = true;
     return MP_OBJ_FROM_PTR(self);
 }
@@ -184,6 +190,14 @@ void lcd_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         {
             destination[0] = mp_obj_new_bool(self->scale_position);
         }
+        else if (attribute == MP_QSTR_mode)
+        {
+#ifdef LCD_GET_MODE
+            destination[0] = mp_obj_new_int(LCD_GET_MODE());
+#else
+            destination[0] = mp_obj_new_int(0); // PSRAM
+#endif
+        }
         else if (attribute == MP_QSTR___del__)
         {
             destination[0] = MP_OBJ_FROM_PTR(&lcd_mp_del_obj);
@@ -222,7 +236,7 @@ mp_obj_t lcd_mp_bmp(size_t n_args, const mp_obj_t *args)
         y = lcd_scale_y(self, y);
     }
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(POOM)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(FLIPPER_ZERO) || defined(POOM)
     void *file = storage_file_open(file_path);
     if (!file)
     {
@@ -823,6 +837,22 @@ mp_obj_t lcd_mp_fill_triangle_alpha(size_t n_args, const mp_obj_t *args)
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_triangle_alpha_obj, 9, 9, lcd_mp_fill_triangle_alpha);
 
+mp_obj_t lcd_mp_get_mode(mp_obj_t self_in)
+{
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+
+#ifdef LCD_GET_MODE
+    return mp_obj_new_int(LCD_GET_MODE());
+#else
+    return mp_obj_new_int(0); // PSRAM
+#endif
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(lcd_mp_get_mode_obj, lcd_mp_get_mode);
+
 mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: self, x, y, width, height, buffer, invert (optional)
@@ -1302,7 +1332,7 @@ mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path)
     (void)file_path;
     return mp_const_none;
 #endif
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(DESKTOP) || defined(POOM)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(FLIPPER_ZERO) || defined(DESKTOP) || defined(POOM)
     const char *path = mp_obj_str_get_str(file_path);
     void *file = storage_file_write_open(path);
     if (!file)
@@ -1575,6 +1605,7 @@ static const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__fill_round_rectangle), MP_ROM_PTR(&lcd_mp_fill_round_rectangle_obj)}, // self._fill_round_rectangle()
     {MP_ROM_QSTR(MP_QSTR__fill_triangle), MP_ROM_PTR(&lcd_mp_fill_triangle_obj)},               // self._fill_triangle()
     {MP_ROM_QSTR(MP_QSTR__fill_triangle_alpha), MP_ROM_PTR(&lcd_mp_fill_triangle_alpha_obj)},   // self._fill_triangle_alpha()
+    {MP_ROM_QSTR(MP_QSTR_get_mode), MP_ROM_PTR(&lcd_mp_get_mode_obj)},                          // self.get_mode()
     {MP_ROM_QSTR(MP_QSTR__bytearray), MP_ROM_PTR(&lcd_mp_image_bytearray_obj)},                 // self._bytearray()
     {MP_ROM_QSTR(MP_QSTR__line), MP_ROM_PTR(&lcd_mp_line_obj)},                                 // self._line()
     {MP_ROM_QSTR(MP_QSTR__pixel), MP_ROM_PTR(&lcd_mp_pixel_obj)},                               // self._pixel()

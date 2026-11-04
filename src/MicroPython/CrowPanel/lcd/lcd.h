@@ -35,6 +35,8 @@ extern "C"
     void lcd_draw_pixel(uint16_t x, uint16_t y, uint16_t color);                                    // Draw a single pixel at (x, y) with specified color
     void lcd_fill(uint16_t color);                                                                  // Fill the entire frame buffer with a solid color
     void lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint16_t *buffer); // Copy an external image buffer into the frame buffer at specified position
+    void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
+                       uint16_t src_w, uint16_t src_h, const uint8_t *buffer, const uint8_t *mask);
 
     // Shape drawing functions
     void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color);                                                    // Draw a line from (x1, y1) to (x2, y2) with specified color

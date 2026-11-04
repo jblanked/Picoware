@@ -5,6 +5,7 @@
 #include "../engine_config.hpp"
 #include ENGINE_LCD_INCLUDE
 #include <math.h>
+
 #ifdef ENGINE_LOG_INCLUDE
 #include ENGINE_LOG_INCLUDE
 #endif
@@ -174,6 +175,12 @@ void Level::entity_add(Entity *entity)
 // Remove an entity from the level
 void Level::entity_remove(Entity *entity)
 {
+    if (!entity)
+    {
+        ENGINE_LOG_INFO("Level::entity_remove called with null entity pointer\n");
+        return;
+    }
+
     if (entity_count == 0)
     {
         ENGINE_LOG_INFO("Level::entity_remove called but no entities are present\n");
@@ -222,6 +229,16 @@ void Level::entity_remove(Entity *entity)
     // Shrink the depth-sort scratch buffer to match
     ENGINE_MEM_FREE(renderOrder);
     renderOrder = entity_count > 0 ? (int *)ENGINE_MEM_MALLOC(entity_count * sizeof(int)) : nullptr;
+}
+
+Entity *Level::getEntity(int index) const
+{
+    if (index < 0 || index >= entity_count)
+    {
+        ENGINE_LOG_INFO("Level::getEntity called with out-of-bounds index\n");
+        return nullptr;
+    }
+    return entities[index];
 }
 
 // Check if any entity has collided with the given entity
@@ -427,9 +444,23 @@ void Level::render(Game *game, bool clamp)
         return; // Nothing to render
     }
 
-    // Painter's algorithm (back-to-front) for third-person
-    const bool use_depth_order = (gameCamera->perspective == CAMERA_THIRD_PERSON && entity_count > 0);
-    if (use_depth_order && renderOrder != nullptr && sortOrderChanged(*gameCamera))
+    bool hasBillboards = false;
+    for (int i = 0; i < entity_count; ++i)
+        if (entities[i] && entities[i]->billboard)
+        {
+            hasBillboards = true;
+            break;
+        }
+    if (hasBillboards)
+        cam_last_valid = false;
+    Camera sortCamera = *gameCamera;
+    if (gameCamera->perspective == CAMERA_FIRST_PERSON && player)
+    {
+        sortCamera.position = player->position;
+        sortCamera.direction = player->direction;
+    }
+    const bool use_depth_order = hasBillboards || gameCamera->perspective == CAMERA_THIRD_PERSON;
+    if (use_depth_order && renderOrder != nullptr && (hasBillboards || sortOrderChanged(*gameCamera)))
     {
         for (int i = 0; i < entity_count; i++)
             renderOrder[i] = i;
@@ -442,7 +473,10 @@ void Level::render(Game *game, bool clamp)
             {
                 float dx = entities[key_idx]->position.x - gameCamera->position.x;
                 float dy = entities[key_idx]->position.y - gameCamera->position.y;
-                key_dist = dx * dx + dy * dy;
+                key_dist = hasBillboards
+                               ? (entities[key_idx]->position.x - sortCamera.position.x) * sortCamera.direction.x +
+                                     (entities[key_idx]->position.y - sortCamera.position.y) * sortCamera.direction.y
+                               : dx * dx + dy * dy;
             }
             int j = i - 1;
             while (j >= 0)
@@ -453,7 +487,10 @@ void Level::render(Game *game, bool clamp)
                 {
                     float dx = entities[cmp_idx]->position.x - gameCamera->position.x;
                     float dy = entities[cmp_idx]->position.y - gameCamera->position.y;
-                    cmp_dist = dx * dx + dy * dy;
+                    cmp_dist = hasBillboards
+                                   ? (entities[cmp_idx]->position.x - sortCamera.position.x) * sortCamera.direction.x +
+                                         (entities[cmp_idx]->position.y - sortCamera.position.y) * sortCamera.direction.y
+                                   : dx * dx + dy * dy;
                 }
                 if (cmp_dist < key_dist)
                 {
@@ -488,10 +525,25 @@ void Level::render(Game *game, bool clamp)
             entityCamera.position = ent->is_player ? ent->position : player->position;
             entityCamera.direction = ent->is_player ? ent->direction : player->direction;
         }
-        if (ent->type != ENTITY_3D_SPRITE && !isOnScreen(ent, entityCamera, screenSize, game->pos))
+        if (!ent->billboard && ent->type != ENTITY_3D_SPRITE && !isOnScreen(ent, entityCamera, screenSize, game->pos))
             continue;
 
         ent->render(game->draw, game);
+        if (ent->billboard)
+        {
+            const float facing = atan2f(entityCamera.position.y - ent->position.y, entityCamera.position.x - ent->position.x) - atan2f(ent->direction.y, ent->direction.x);
+            Image *img = ent->billboard->viewForFacing(facing, ent->billboard_pose);
+            if (img && img->hasData() && img->hasMask())
+            {
+                int16_t bx, by;
+                uint16_t bw, bh;
+                if (projectBillboard(entityCamera, ent->position, ent->billboard_world_height, bx, by, bw, bh))
+                {
+                    img->renderMasked(game->draw, bx, by, bw, bh);
+                }
+            }
+            continue;
+        }
         if (ent->sprite != nullptr)
             ent->sprite->render(game->draw, ent->position.x - game->pos.x,
                                 ent->position.y - game->pos.y);
@@ -741,4 +793,37 @@ void Level::update(Game *game)
             other->collision(ent, game);
         }
     }
+}
+
+bool Level::projectBillboard(const Camera &cam, const Vector &epos, float world_height,
+                             int16_t &out_x, int16_t &out_y, uint16_t &out_w, uint16_t &out_h)
+{
+    const float camA = -cam.direction.y, camB = cam.direction.x;
+    const float wx = epos.x - cam.position.x, wz = epos.y - cam.position.y;
+    const float camera_x = wx * camA + wz * camB;
+    const float camera_z = wx * cam.direction.x + wz * cam.direction.y;
+    if (!(camera_z > 0.1f && camera_z <= 60.0f))
+        return false;
+
+    const Vector screenSize = gameRef->draw->getDisplaySize();
+    const float scale = screenSize.y / camera_z;
+    const float sx = camera_x * scale + screenSize.x * 0.5f;
+    const float feet = cam.height * scale + screenSize.y * 0.5f;
+    const float top = -(world_height - cam.height) * scale + screenSize.y * 0.5f;
+    const float h = feet - top;
+    float w = world_height * scale;
+    if (!(w >= 1.0f && h >= 1.0f && h <= 65535.0f))
+        return false;
+    if (w > screenSize.x)
+        w = screenSize.x;
+
+    const float left = sx - w * 0.5f;
+    if (!(left > -w && left < screenSize.x && top > -h && top < screenSize.y &&
+          left >= -32768.0f && left <= 32767.0f && top >= -32768.0f && top <= 32767.0f))
+        return false;
+    out_x = static_cast<int16_t>(left + (left < 0 ? -0.5f : 0.5f));
+    out_y = static_cast<int16_t>(top + (top < 0 ? -0.5f : 0.5f));
+    out_w = static_cast<uint16_t>(w + 0.5f);
+    out_h = static_cast<uint16_t>(h + 0.5f);
+    return true;
 }

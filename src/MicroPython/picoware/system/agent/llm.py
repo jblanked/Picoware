@@ -203,7 +203,7 @@ class LLM:
             self._name = "Custom"
             _path = "picoware/agent/custom.json"
             if not storage.exists(_path):
-                raise Exception(f"Custom configuration file not found at {_path}")
+                raise Exception(f"Custom configuration file not found at {_path}. Create it and include valid JSON with 'url', 'models', and 'api_key' fields.")
             _config = storage.deserialize(_path)
             self._url = _config.get("url", "")
             self._models = _config.get("models", ["none"])

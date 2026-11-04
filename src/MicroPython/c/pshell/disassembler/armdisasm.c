@@ -2555,883 +2555,883 @@ static bool thumb_is_32bit(uint16_t w)
     return false;    /* 16-bit Thumb */
 }
 
-static const char *arm_opcode_name(unsigned opc, int variant, unsigned opc2)
-{
-    static const char *mnemonics[] = {"and", "eor", "sub", "rsb", "add", "adc", "sbc", "rsc",
-                                      "tst", "teq", "cmp", "cmn", "orr", "mov", "bic", "mvn"};
-    assert(opc < sizearray(mnemonics));
-    if (opc >= 8 && opc < 12 && variant != 0)
-    {
-        static char field[10];
-        field[0] = '\0';
-        switch (variant)
-        {
-        case 1:
-            switch (opc2)
-            {
-            case 0:
-                strcpy(field, BIT_CLR(opc, 0) ? "mrs" : "msr");
-                break;
-            case 1:
-                strcpy(field, "bxj");
-                break;
-            default:
-                switch (opc & 3)
-                {
-                case 0:
-                    strcpy(field, "smla");
-                    break;
-                case 1:
-                    strcpy(field, BIT_CLR(opc2, 0) ? "smlaw" : "smluw");
-                    break;
-                case 2:
-                    strcpy(field, "smlal");
-                    break;
-                case 3:
-                    strcpy(field, "smul");
-                    break;
-                }
-                if ((opc & 3) != 1)
-                    strcat(field, BIT_CLR(opc, 0) ? "b" : "t");
-                strcat(field, BIT_CLR(opc, 1) ? "b" : "t");
-            }
-            break;
-        case 2:
-            switch (opc2)
-            {
-            case 0:
-                if ((opc & 0x03) == 1)
-                    strcpy(field, "bx");
-                else if ((opc & 0x03) == 3)
-                    strcpy(field, "clz");
-                break;
-            case 1:
-                if ((opc & 0x03) == 1)
-                    strcpy(field, "blx");
-                break;
-            case 2:
-                switch (opc & 0x03)
-                {
-                case 0:
-                    strcpy(field, "qadd");
-                    break;
-                case 1:
-                    strcpy(field, "qadd");
-                    break;
-                case 2:
-                    strcpy(field, "qdadd");
-                    break;
-                case 3:
-                    strcpy(field, "qdsub");
-                    break;
-                }
-                break;
-            case 3:
-                strcpy(field, "bkpt");
-                break;
-            }
-            break;
-        case 4:
-            strcpy(field, "msr");
-            break;
-        default:
-            assert(0); /* this case should not occur (invalid instruction) */
-        }
-        assert(strlen(field) > 0);
-        return field;
-    }
-    return mnemonics[opc];
-}
+// static const char *arm_opcode_name(unsigned opc, int variant, unsigned opc2)
+// {
+//     static const char *mnemonics[] = {"and", "eor", "sub", "rsb", "add", "adc", "sbc", "rsc",
+//                                       "tst", "teq", "cmp", "cmn", "orr", "mov", "bic", "mvn"};
+//     assert(opc < sizearray(mnemonics));
+//     if (opc >= 8 && opc < 12 && variant != 0)
+//     {
+//         static char field[10];
+//         field[0] = '\0';
+//         switch (variant)
+//         {
+//         case 1:
+//             switch (opc2)
+//             {
+//             case 0:
+//                 strcpy(field, BIT_CLR(opc, 0) ? "mrs" : "msr");
+//                 break;
+//             case 1:
+//                 strcpy(field, "bxj");
+//                 break;
+//             default:
+//                 switch (opc & 3)
+//                 {
+//                 case 0:
+//                     strcpy(field, "smla");
+//                     break;
+//                 case 1:
+//                     strcpy(field, BIT_CLR(opc2, 0) ? "smlaw" : "smluw");
+//                     break;
+//                 case 2:
+//                     strcpy(field, "smlal");
+//                     break;
+//                 case 3:
+//                     strcpy(field, "smul");
+//                     break;
+//                 }
+//                 if ((opc & 3) != 1)
+//                     strcat(field, BIT_CLR(opc, 0) ? "b" : "t");
+//                 strcat(field, BIT_CLR(opc, 1) ? "b" : "t");
+//             }
+//             break;
+//         case 2:
+//             switch (opc2)
+//             {
+//             case 0:
+//                 if ((opc & 0x03) == 1)
+//                     strcpy(field, "bx");
+//                 else if ((opc & 0x03) == 3)
+//                     strcpy(field, "clz");
+//                 break;
+//             case 1:
+//                 if ((opc & 0x03) == 1)
+//                     strcpy(field, "blx");
+//                 break;
+//             case 2:
+//                 switch (opc & 0x03)
+//                 {
+//                 case 0:
+//                     strcpy(field, "qadd");
+//                     break;
+//                 case 1:
+//                     strcpy(field, "qadd");
+//                     break;
+//                 case 2:
+//                     strcpy(field, "qdadd");
+//                     break;
+//                 case 3:
+//                     strcpy(field, "qdsub");
+//                     break;
+//                 }
+//                 break;
+//             case 3:
+//                 strcpy(field, "bkpt");
+//                 break;
+//             }
+//             break;
+//         case 4:
+//             strcpy(field, "msr");
+//             break;
+//         default:
+//             assert(0); /* this case should not occur (invalid instruction) */
+//         }
+//         assert(strlen(field) > 0);
+//         return field;
+//     }
+//     return mnemonics[opc];
+// }
 
-static int arm_opcode_form(int opc)
-{
-    if (opc >= 8 && opc < 12)
-        return 1; /* Rn, shifter_operand */
-    if (opc == 13 || opc == 15)
-        return 2; /* Rd, shifter_operand */
-    return 3;     /* Rd, Rn, shifter_operand */
-}
+// static int arm_opcode_form(int opc)
+// {
+//     if (opc >= 8 && opc < 12)
+//         return 1; /* Rn, shifter_operand */
+//     if (opc == 13 || opc == 15)
+//         return 2; /* Rd, shifter_operand */
+//     return 3;     /* Rd, Rn, shifter_operand */
+// }
 
-static bool arm_dataproc_imsh(ARMSTATE *state, uint32_t instr)
-{
-    /* xxxx 000x xxxx xxxx : xxxx xxxx xxx0 xxxx - data processing immediate shift */
-    int cond = FIELD(instr, 28, 4);
-    if (cond == 15)
-        return false;
+// static bool arm_dataproc_imsh(ARMSTATE *state, uint32_t instr)
+// {
+//     /* xxxx 000x xxxx xxxx : xxxx xxxx xxx0 xxxx - data processing immediate shift */
+//     int cond = FIELD(instr, 28, 4);
+//     if (cond == 15)
+//         return false;
 
-    int shifttype = FIELD(instr, 5, 2);
-    int shiftcount = FIELD(instr, 7, 5);
-    int opc = FIELD(instr, 21, 4);
-    if (opc == 13 && (shifttype != 0 || shiftcount != 0))
-        strcpy(state->text, shift_type(shifttype)); /* preferred syntax */
-    else
-        strcpy(state->text, arm_opcode_name(opc, BIT_CLR(instr, 20), FIELD(instr, 5, 3)));
-    if (strlen(state->text) == 0)
-        return false;
-    add_condition(state, cond);
-    if (BIT_SET(instr, 20) && !(opc >= 8 && opc < 12))
-        strcat(state->text, "s");
-    padinstr(state->text);
+//     int shifttype = FIELD(instr, 5, 2);
+//     int shiftcount = FIELD(instr, 7, 5);
+//     int opc = FIELD(instr, 21, 4);
+//     if (opc == 13 && (shifttype != 0 || shiftcount != 0))
+//         strcpy(state->text, shift_type(shifttype)); /* preferred syntax */
+//     else
+//         strcpy(state->text, arm_opcode_name(opc, BIT_CLR(instr, 20), FIELD(instr, 5, 3)));
+//     if (strlen(state->text) == 0)
+//         return false;
+//     add_condition(state, cond);
+//     if (BIT_SET(instr, 20) && !(opc >= 8 && opc < 12))
+//         strcat(state->text, "s");
+//     padinstr(state->text);
 
-    if (opc >= 8 && opc < 12 && BIT_CLR(instr, 20))
-    {
-        /* handle MRS, MSR, Jazelle & signed multiplies */
-        int opc2 = FIELD(instr, 5, 3);
-        switch (opc2)
-        {
-        case 0:
-        {
-            const char *status = BIT_CLR(instr, 22) ? "CPSR" : "SPSR";
-            if (BIT_CLR(instr, 21))
-                sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 12, 4)), status);
-            else
-                sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 0, 4)), status);
-            break;
-        }
-        case 1:
-            sprintf(tail(state->text), "%s", register_name(FIELD(instr, 0, 4)));
-            break;
-        default:
-            switch (opc & 3)
-            {
-            case 0:
-            case 1:
-                sprintf(tail(state->text), "%s, %s, %s, %s", register_name(FIELD(instr, 16, 4)),
-                        register_name(FIELD(instr, 0, 4)), register_name(FIELD(instr, 8, 4)),
-                        register_name(FIELD(instr, 12, 4)));
-                break;
-            case 2:
-                sprintf(tail(state->text), "%s, %s, %s, %s", register_name(FIELD(instr, 12, 4)),
-                        register_name(FIELD(instr, 16, 4)), register_name(FIELD(instr, 0, 4)),
-                        register_name(FIELD(instr, 8, 4)));
-                break;
-            case 3:
-                sprintf(tail(state->text), "%s, %s, %s", register_name(FIELD(instr, 16, 4)),
-                        register_name(FIELD(instr, 0, 4)), register_name(FIELD(instr, 8, 4)));
-                break;
-            }
-        }
-    }
-    else
-    {
-        switch (arm_opcode_form(opc))
-        {
-        case 1:
-            sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 16, 4)),
-                    register_name(FIELD(instr, 0, 4)));
-            break;
-        case 2:
-            sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 12, 4)),
-                    register_name(FIELD(instr, 0, 4)));
-            break;
-        case 3:
-            sprintf(tail(state->text), "%s, %s, %s", register_name(FIELD(instr, 12, 4)),
-                    register_name(FIELD(instr, 16, 4)), register_name(FIELD(instr, 0, 4)));
-            break;
-        }
-        if (shifttype != 0 || shiftcount != 0)
-        {
-            if (opc == 13)
-                sprintf(tail(state->text), ", #%d", shiftcount);
-            else
-                sprintf(tail(state->text), ", %s", decode_imm_shift(shifttype, shiftcount));
-        }
-    }
+//     if (opc >= 8 && opc < 12 && BIT_CLR(instr, 20))
+//     {
+//         /* handle MRS, MSR, Jazelle & signed multiplies */
+//         int opc2 = FIELD(instr, 5, 3);
+//         switch (opc2)
+//         {
+//         case 0:
+//         {
+//             const char *status = BIT_CLR(instr, 22) ? "CPSR" : "SPSR";
+//             if (BIT_CLR(instr, 21))
+//                 sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 12, 4)), status);
+//             else
+//                 sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 0, 4)), status);
+//             break;
+//         }
+//         case 1:
+//             sprintf(tail(state->text), "%s", register_name(FIELD(instr, 0, 4)));
+//             break;
+//         default:
+//             switch (opc & 3)
+//             {
+//             case 0:
+//             case 1:
+//                 sprintf(tail(state->text), "%s, %s, %s, %s", register_name(FIELD(instr, 16, 4)),
+//                         register_name(FIELD(instr, 0, 4)), register_name(FIELD(instr, 8, 4)),
+//                         register_name(FIELD(instr, 12, 4)));
+//                 break;
+//             case 2:
+//                 sprintf(tail(state->text), "%s, %s, %s, %s", register_name(FIELD(instr, 12, 4)),
+//                         register_name(FIELD(instr, 16, 4)), register_name(FIELD(instr, 0, 4)),
+//                         register_name(FIELD(instr, 8, 4)));
+//                 break;
+//             case 3:
+//                 sprintf(tail(state->text), "%s, %s, %s", register_name(FIELD(instr, 16, 4)),
+//                         register_name(FIELD(instr, 0, 4)), register_name(FIELD(instr, 8, 4)));
+//                 break;
+//             }
+//         }
+//     }
+//     else
+//     {
+//         switch (arm_opcode_form(opc))
+//         {
+//         case 1:
+//             sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 16, 4)),
+//                     register_name(FIELD(instr, 0, 4)));
+//             break;
+//         case 2:
+//             sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 12, 4)),
+//                     register_name(FIELD(instr, 0, 4)));
+//             break;
+//         case 3:
+//             sprintf(tail(state->text), "%s, %s, %s", register_name(FIELD(instr, 12, 4)),
+//                     register_name(FIELD(instr, 16, 4)), register_name(FIELD(instr, 0, 4)));
+//             break;
+//         }
+//         if (shifttype != 0 || shiftcount != 0)
+//         {
+//             if (opc == 13)
+//                 sprintf(tail(state->text), ", #%d", shiftcount);
+//             else
+//                 sprintf(tail(state->text), ", %s", decode_imm_shift(shifttype, shiftcount));
+//         }
+//     }
 
-    return true;
-}
+//     return true;
+// }
 
-static bool arm_dataproc_rxsh(ARMSTATE *state, uint32_t instr)
-{
-    /* xxxx 000x xxx xxxx : xxxx xxxx 0xx1 xxxx - data processing register shift */
-    int cond = FIELD(instr, 28, 4);
-    if (cond == 15)
-        return false;
+// static bool arm_dataproc_rxsh(ARMSTATE *state, uint32_t instr)
+// {
+//     /* xxxx 000x xxx xxxx : xxxx xxxx 0xx1 xxxx - data processing register shift */
+//     int cond = FIELD(instr, 28, 4);
+//     if (cond == 15)
+//         return false;
 
-    int opc = FIELD(instr, 21, 4);
-    strcpy(state->text, arm_opcode_name(opc, 2 * BIT_CLR(instr, 20), FIELD(instr, 5, 3)));
-    if (strlen(state->text) == 0)
-        return false;
-    add_condition(state, cond);
-    if (BIT_SET(instr, 20) && !(opc >= 8 && opc < 12))
-        strcat(state->text, "s");
-    padinstr(state->text);
+//     int opc = FIELD(instr, 21, 4);
+//     strcpy(state->text, arm_opcode_name(opc, 2 * BIT_CLR(instr, 20), FIELD(instr, 5, 3)));
+//     if (strlen(state->text) == 0)
+//         return false;
+//     add_condition(state, cond);
+//     if (BIT_SET(instr, 20) && !(opc >= 8 && opc < 12))
+//         strcat(state->text, "s");
+//     padinstr(state->text);
 
-    if (opc >= 8 && opc < 12 && BIT_CLR(instr, 20))
-    {
-        int opc2 = FIELD(instr, 5, 3);
-        if ((opc & 0x03) == 1 && opc2 < 2)
-        {
-            sprintf(tail(state->text), "%s", register_name(FIELD(instr, 0, 4))); /* bx & blx */
-        }
-        else if ((opc & 0x03) == 3 && opc2 == 0)
-        {
-            sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 12, 4)),
-                    register_name(FIELD(instr, 0, 4))); /* clz */
-        }
-        else if (opc2 == 2)
-        {
-            sprintf(tail(state->text), "%s, %s, %s", register_name(FIELD(instr, 12, 4)),
-                    register_name(FIELD(instr, 16, 4)), register_name(FIELD(instr, 0, 4)));
-        }
-        else if (opc2 == 3)
-        {
-            uint32_t imm = FIELD(instr, 0, 4) + (FIELD(instr, 8, 12) << 4);
-            sprintf(tail(state->text), "#%u", imm);
-            append_comment_hex(state, imm);
-        }
-    }
-    else
-    {
-        switch (arm_opcode_form(opc))
-        {
-        case 1:
-            sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 16, 4)),
-                    register_name(FIELD(instr, 0, 4)));
-            break;
-        case 2:
-            sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 12, 4)),
-                    register_name(FIELD(instr, 0, 4)));
-            break;
-        case 3:
-            sprintf(tail(state->text), "%s, %s, %s", register_name(FIELD(instr, 12, 4)),
-                    register_name(FIELD(instr, 16, 4)), register_name(FIELD(instr, 0, 4)));
-            break;
-        }
-        sprintf(tail(state->text), ", %s %s", shift_type(FIELD(instr, 5, 2)),
-                register_name(FIELD(instr, 8, 4)));
-    }
+//     if (opc >= 8 && opc < 12 && BIT_CLR(instr, 20))
+//     {
+//         int opc2 = FIELD(instr, 5, 3);
+//         if ((opc & 0x03) == 1 && opc2 < 2)
+//         {
+//             sprintf(tail(state->text), "%s", register_name(FIELD(instr, 0, 4))); /* bx & blx */
+//         }
+//         else if ((opc & 0x03) == 3 && opc2 == 0)
+//         {
+//             sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 12, 4)),
+//                     register_name(FIELD(instr, 0, 4))); /* clz */
+//         }
+//         else if (opc2 == 2)
+//         {
+//             sprintf(tail(state->text), "%s, %s, %s", register_name(FIELD(instr, 12, 4)),
+//                     register_name(FIELD(instr, 16, 4)), register_name(FIELD(instr, 0, 4)));
+//         }
+//         else if (opc2 == 3)
+//         {
+//             uint32_t imm = FIELD(instr, 0, 4) + (FIELD(instr, 8, 12) << 4);
+//             sprintf(tail(state->text), "#%u", imm);
+//             append_comment_hex(state, imm);
+//         }
+//     }
+//     else
+//     {
+//         switch (arm_opcode_form(opc))
+//         {
+//         case 1:
+//             sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 16, 4)),
+//                     register_name(FIELD(instr, 0, 4)));
+//             break;
+//         case 2:
+//             sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 12, 4)),
+//                     register_name(FIELD(instr, 0, 4)));
+//             break;
+//         case 3:
+//             sprintf(tail(state->text), "%s, %s, %s", register_name(FIELD(instr, 12, 4)),
+//                     register_name(FIELD(instr, 16, 4)), register_name(FIELD(instr, 0, 4)));
+//             break;
+//         }
+//         sprintf(tail(state->text), ", %s %s", shift_type(FIELD(instr, 5, 2)),
+//                 register_name(FIELD(instr, 8, 4)));
+//     }
 
-    return true;
-}
+//     return true;
+// }
 
-static bool arm_mult_loadstor(ARMSTATE *state, uint32_t instr)
-{
-    /* xxxx 000x xxxx xxxx : xxxx xxxx 1xx1 xxxx - multiplies, extra load/stores */
-    int cond = FIELD(instr, 28, 4);
-    if (cond == 15)
-        return false;
+// static bool arm_mult_loadstor(ARMSTATE *state, uint32_t instr)
+// {
+//     /* xxxx 000x xxxx xxxx : xxxx xxxx 1xx1 xxxx - multiplies, extra load/stores */
+//     int cond = FIELD(instr, 28, 4);
+//     if (cond == 15)
+//         return false;
 
-    int opc2 = FIELD(instr, 4, 4);
-    if (BIT_CLR(instr, 24) && opc2 == 9)
-    {
-        /* multiplies */
-        int opc = FIELD(instr, 21, 3);
-        switch (opc)
-        {
-        case 0:
-            strcpy(state->text, "mul");
-            break;
-        case 1:
-            strcpy(state->text, "mla");
-            break;
-        case 4:
-            strcpy(state->text, "umull");
-            break;
-        case 5:
-            strcpy(state->text, "umlal");
-            break;
-        case 6:
-            strcpy(state->text, "smull");
-            break;
-        case 7:
-            strcpy(state->text, "smlal");
-            break;
-        }
-        add_condition(state, cond);
-        if (BIT_SET(instr, 20) && !(opc >= 8 && opc < 12))
-            strcat(state->text, "s");
-        padinstr(state->text);
-        if (opc >= 4)
-            sprintf(tail(state->text), "%s, %s, %s, %s", register_name(FIELD(instr, 12, 4)),
-                    register_name(FIELD(instr, 16, 4)), register_name(FIELD(instr, 0, 4)),
-                    register_name(FIELD(instr, 8, 4)));
-        else if (BIT_SET(instr, 21))
-            sprintf(tail(state->text), "%s, %s, %s, %s", register_name(FIELD(instr, 16, 4)),
-                    register_name(FIELD(instr, 0, 4)), register_name(FIELD(instr, 8, 4)),
-                    register_name(FIELD(instr, 12, 4)));
-        else
-            sprintf(tail(state->text), "%s, %s, %s", register_name(FIELD(instr, 16, 4)),
-                    register_name(FIELD(instr, 0, 4)), register_name(FIELD(instr, 8, 4)));
-    }
-    else
-    {
-        int format = 1;
-        switch (opc2)
-        {
-        case 9:
-            if (BIT_CLR(instr, 23))
-            {
-                strcpy(state->text, BIT_SET(instr, 22) ? "swpb" : "swp");
-                format = 3;
-            }
-            else
-            {
-                strcpy(state->text, BIT_SET(instr, 20) ? "ldrex" : "strex");
-                format = 2;
-            }
-            break;
-        case 11:
-            strcpy(state->text, BIT_SET(instr, 20) ? "ldrh" : "strh");
-            break;
-        case 13:
-        case 15:
-            if (BIT_CLR(instr, 20))
-                strcpy(state->text, BIT_SET(instr, 5) ? "ldrsh" : "ldrsb");
-            else
-                strcpy(state->text, BIT_CLR(instr, 5) ? "ldrd" : "strd");
-            break;
-        default:
-            return false;
-        }
-        add_condition(state, cond);
-        padinstr(state->text);
+//     int opc2 = FIELD(instr, 4, 4);
+//     if (BIT_CLR(instr, 24) && opc2 == 9)
+//     {
+//         /* multiplies */
+//         int opc = FIELD(instr, 21, 3);
+//         switch (opc)
+//         {
+//         case 0:
+//             strcpy(state->text, "mul");
+//             break;
+//         case 1:
+//             strcpy(state->text, "mla");
+//             break;
+//         case 4:
+//             strcpy(state->text, "umull");
+//             break;
+//         case 5:
+//             strcpy(state->text, "umlal");
+//             break;
+//         case 6:
+//             strcpy(state->text, "smull");
+//             break;
+//         case 7:
+//             strcpy(state->text, "smlal");
+//             break;
+//         }
+//         add_condition(state, cond);
+//         if (BIT_SET(instr, 20) && !(opc >= 8 && opc < 12))
+//             strcat(state->text, "s");
+//         padinstr(state->text);
+//         if (opc >= 4)
+//             sprintf(tail(state->text), "%s, %s, %s, %s", register_name(FIELD(instr, 12, 4)),
+//                     register_name(FIELD(instr, 16, 4)), register_name(FIELD(instr, 0, 4)),
+//                     register_name(FIELD(instr, 8, 4)));
+//         else if (BIT_SET(instr, 21))
+//             sprintf(tail(state->text), "%s, %s, %s, %s", register_name(FIELD(instr, 16, 4)),
+//                     register_name(FIELD(instr, 0, 4)), register_name(FIELD(instr, 8, 4)),
+//                     register_name(FIELD(instr, 12, 4)));
+//         else
+//             sprintf(tail(state->text), "%s, %s, %s", register_name(FIELD(instr, 16, 4)),
+//                     register_name(FIELD(instr, 0, 4)), register_name(FIELD(instr, 8, 4)));
+//     }
+//     else
+//     {
+//         int format = 1;
+//         switch (opc2)
+//         {
+//         case 9:
+//             if (BIT_CLR(instr, 23))
+//             {
+//                 strcpy(state->text, BIT_SET(instr, 22) ? "swpb" : "swp");
+//                 format = 3;
+//             }
+//             else
+//             {
+//                 strcpy(state->text, BIT_SET(instr, 20) ? "ldrex" : "strex");
+//                 format = 2;
+//             }
+//             break;
+//         case 11:
+//             strcpy(state->text, BIT_SET(instr, 20) ? "ldrh" : "strh");
+//             break;
+//         case 13:
+//         case 15:
+//             if (BIT_CLR(instr, 20))
+//                 strcpy(state->text, BIT_SET(instr, 5) ? "ldrsh" : "ldrsb");
+//             else
+//                 strcpy(state->text, BIT_CLR(instr, 5) ? "ldrd" : "strd");
+//             break;
+//         default:
+//             return false;
+//         }
+//         add_condition(state, cond);
+//         padinstr(state->text);
 
-        assert(format != 0);
-        switch (format)
-        {
-        case 1:
-            if (BIT_SET(instr, 22))
-            {
-                uint32_t imm = FIELD(instr, 0, 4) + (FIELD(instr, 8, 4) << 4);
-                if (BIT_SET(instr, 24))
-                    sprintf(tail(state->text), "%s, [%s, #%u]", register_name(FIELD(instr, 12, 4)),
-                            register_name(FIELD(instr, 16, 4)), imm);
-                else
-                    sprintf(tail(state->text), "%s, [%s], #%u", register_name(FIELD(instr, 12, 4)),
-                            register_name(FIELD(instr, 16, 4)), imm);
-            }
-            else
-            {
-                if (BIT_SET(instr, 24))
-                    sprintf(tail(state->text), "%s, [%s, %s]", register_name(FIELD(instr, 12, 4)),
-                            register_name(FIELD(instr, 16, 4)), register_name(FIELD(instr, 0, 4)));
-                else
-                    sprintf(tail(state->text), "%s, [%s], %s", register_name(FIELD(instr, 12, 4)),
-                            register_name(FIELD(instr, 16, 4)), register_name(FIELD(instr, 0, 4)));
-            }
-            if (BIT_SET(instr, 21))
-                strcat(state->text, "!");
-            break;
-        case 2:
-            sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 12, 4)),
-                    register_name(FIELD(instr, 16, 4)));
-            break;
-        case 3:
-            sprintf(tail(state->text), "%s, %s, [%s]", register_name(FIELD(instr, 12, 4)),
-                    register_name(FIELD(instr, 0, 4)), register_name(FIELD(instr, 16, 4)));
-            break;
-        }
-    }
+//         assert(format != 0);
+//         switch (format)
+//         {
+//         case 1:
+//             if (BIT_SET(instr, 22))
+//             {
+//                 uint32_t imm = FIELD(instr, 0, 4) + (FIELD(instr, 8, 4) << 4);
+//                 if (BIT_SET(instr, 24))
+//                     sprintf(tail(state->text), "%s, [%s, #%u]", register_name(FIELD(instr, 12, 4)),
+//                             register_name(FIELD(instr, 16, 4)), imm);
+//                 else
+//                     sprintf(tail(state->text), "%s, [%s], #%u", register_name(FIELD(instr, 12, 4)),
+//                             register_name(FIELD(instr, 16, 4)), imm);
+//             }
+//             else
+//             {
+//                 if (BIT_SET(instr, 24))
+//                     sprintf(tail(state->text), "%s, [%s, %s]", register_name(FIELD(instr, 12, 4)),
+//                             register_name(FIELD(instr, 16, 4)), register_name(FIELD(instr, 0, 4)));
+//                 else
+//                     sprintf(tail(state->text), "%s, [%s], %s", register_name(FIELD(instr, 12, 4)),
+//                             register_name(FIELD(instr, 16, 4)), register_name(FIELD(instr, 0, 4)));
+//             }
+//             if (BIT_SET(instr, 21))
+//                 strcat(state->text, "!");
+//             break;
+//         case 2:
+//             sprintf(tail(state->text), "%s, %s", register_name(FIELD(instr, 12, 4)),
+//                     register_name(FIELD(instr, 16, 4)));
+//             break;
+//         case 3:
+//             sprintf(tail(state->text), "%s, %s, [%s]", register_name(FIELD(instr, 12, 4)),
+//                     register_name(FIELD(instr, 0, 4)), register_name(FIELD(instr, 16, 4)));
+//             break;
+//         }
+//     }
 
-    return true;
-}
+//     return true;
+// }
 
-static bool arm_dataproc_imm(ARMSTATE *state, uint32_t instr)
-{
-    /* xxxx 001x xxxx xxxx : xxxx xxxx xxxx xxxx - data processing immediate */
-    int cond = FIELD(instr, 28, 4);
-    if (cond == 15)
-        return false;
+// static bool arm_dataproc_imm(ARMSTATE *state, uint32_t instr)
+// {
+//     /* xxxx 001x xxxx xxxx : xxxx xxxx xxxx xxxx - data processing immediate */
+//     int cond = FIELD(instr, 28, 4);
+//     if (cond == 15)
+//         return false;
 
-    int opc = FIELD(instr, 21, 4);
-    strcpy(state->text, arm_opcode_name(opc, 4 * BIT_CLR(instr, 20), FIELD(instr, 5, 3)));
-    if (strlen(state->text) == 0)
-        return false;
-    add_condition(state, cond);
-    if (BIT_SET(instr, 20))
-        strcat(state->text, "s");
-    padinstr(state->text);
+//     int opc = FIELD(instr, 21, 4);
+//     strcpy(state->text, arm_opcode_name(opc, 4 * BIT_CLR(instr, 20), FIELD(instr, 5, 3)));
+//     if (strlen(state->text) == 0)
+//         return false;
+//     add_condition(state, cond);
+//     if (BIT_SET(instr, 20))
+//         strcat(state->text, "s");
+//     padinstr(state->text);
 
-    uint32_t imm = FIELD(instr, 0, 8);
-    int rot = FIELD(instr, 8, 4);
-    if (rot != 0)
-        imm = ROR32(imm, 2 * rot);
-    if (opc >= 8 && opc < 12 && BIT_CLR(instr, 20))
-    {
-        strcat(state->text, "CPSR_");
-        if (BIT_SET(instr, 16))
-            strcat(state->text, "c");
-        if (BIT_SET(instr, 17))
-            strcat(state->text, "x");
-        if (BIT_SET(instr, 18))
-            strcat(state->text, "s");
-        if (BIT_SET(instr, 19))
-            strcat(state->text, "f");
-        sprintf(tail(state->text), ", #%u", imm);
-    }
-    else
-    {
-        sprintf(tail(state->text), "%s, %s, #%u", register_name(FIELD(instr, 12, 4)),
-                register_name(FIELD(instr, 16, 4)), imm);
-    }
+//     uint32_t imm = FIELD(instr, 0, 8);
+//     int rot = FIELD(instr, 8, 4);
+//     if (rot != 0)
+//         imm = ROR32(imm, 2 * rot);
+//     if (opc >= 8 && opc < 12 && BIT_CLR(instr, 20))
+//     {
+//         strcat(state->text, "CPSR_");
+//         if (BIT_SET(instr, 16))
+//             strcat(state->text, "c");
+//         if (BIT_SET(instr, 17))
+//             strcat(state->text, "x");
+//         if (BIT_SET(instr, 18))
+//             strcat(state->text, "s");
+//         if (BIT_SET(instr, 19))
+//             strcat(state->text, "f");
+//         sprintf(tail(state->text), ", #%u", imm);
+//     }
+//     else
+//     {
+//         sprintf(tail(state->text), "%s, %s, #%u", register_name(FIELD(instr, 12, 4)),
+//                 register_name(FIELD(instr, 16, 4)), imm);
+//     }
 
-    return true;
-}
+//     return true;
+// }
 
-static bool arm_loadstor_imm(ARMSTATE *state, uint32_t instr)
-{
-    /* xxxx 010x xxxx xxxx : xxxx xxxx xxxx xxxx - load/store immediate offset */
-    int cond = FIELD(instr, 28, 4);
-    if (cond == 15)
-    {
-        strcpy(state->text, "pld");
-    }
-    else
-    {
-        strcpy(state->text, BIT_SET(instr, 20) ? "ldr" : "str");
-        add_condition(state, cond);
-        if (BIT_SET(instr, 22))
-            strcat(state->text, "b");
-        if (BIT_CLR(instr, 24) && BIT_SET(instr, 21))
-            strcat(state->text, "t");
-    }
-    padinstr(state->text);
+// static bool arm_loadstor_imm(ARMSTATE *state, uint32_t instr)
+// {
+//     /* xxxx 010x xxxx xxxx : xxxx xxxx xxxx xxxx - load/store immediate offset */
+//     int cond = FIELD(instr, 28, 4);
+//     if (cond == 15)
+//     {
+//         strcpy(state->text, "pld");
+//     }
+//     else
+//     {
+//         strcpy(state->text, BIT_SET(instr, 20) ? "ldr" : "str");
+//         add_condition(state, cond);
+//         if (BIT_SET(instr, 22))
+//             strcat(state->text, "b");
+//         if (BIT_CLR(instr, 24) && BIT_SET(instr, 21))
+//             strcat(state->text, "t");
+//     }
+//     padinstr(state->text);
 
-    int imm = FIELD(instr, 0, 12);
-    if (BIT_CLR(instr, 23))
-        imm = -imm;
-    if (cond != 15)
-        sprintf(tail(state->text), "%s, ", register_name(FIELD(instr, 12, 4)));
-    int Rn = FIELD(instr, 16, 4);
-    if (BIT_SET(instr, 24))
-        sprintf(tail(state->text), "[%s, #%d]", register_name(Rn), imm);
-    else
-        sprintf(tail(state->text), "[%s], #%d", register_name(Rn), imm);
-    if (BIT_SET(instr, 21))
-        strcat(state->text, "!");
-    if (Rn == 15 && BIT_SET(instr, 24) && BIT_CLR(instr, 21))
-    {
-        imm += ALIGN4(state->address + 4);
-        state->ldr_addr = imm;
-        mark_address_type(state, state->ldr_addr, POOL_LITERAL);
-    }
-    append_comment_hex(state, (uint32_t)imm);
-    return true;
-}
+//     int imm = FIELD(instr, 0, 12);
+//     if (BIT_CLR(instr, 23))
+//         imm = -imm;
+//     if (cond != 15)
+//         sprintf(tail(state->text), "%s, ", register_name(FIELD(instr, 12, 4)));
+//     int Rn = FIELD(instr, 16, 4);
+//     if (BIT_SET(instr, 24))
+//         sprintf(tail(state->text), "[%s, #%d]", register_name(Rn), imm);
+//     else
+//         sprintf(tail(state->text), "[%s], #%d", register_name(Rn), imm);
+//     if (BIT_SET(instr, 21))
+//         strcat(state->text, "!");
+//     if (Rn == 15 && BIT_SET(instr, 24) && BIT_CLR(instr, 21))
+//     {
+//         imm += ALIGN4(state->address + 4);
+//         state->ldr_addr = imm;
+//         mark_address_type(state, state->ldr_addr, POOL_LITERAL);
+//     }
+//     append_comment_hex(state, (uint32_t)imm);
+//     return true;
+// }
 
-static bool arm_loadstor_reg(ARMSTATE *state, uint32_t instr)
-{
-    /* xxxx 011x xxxx xxxx : xxxx xxxx xxx0 xxxx - load/store register offset */
-    int cond = FIELD(instr, 28, 4);
-    if (cond == 15)
-        return false;
-    strcpy(state->text, BIT_SET(instr, 20) ? "ldr" : "str");
-    add_condition(state, cond);
-    if (BIT_SET(instr, 22))
-        strcat(state->text, "b");
-    if (BIT_CLR(instr, 24) && BIT_SET(instr, 21))
-        strcat(state->text, "t");
-    padinstr(state->text);
+// static bool arm_loadstor_reg(ARMSTATE *state, uint32_t instr)
+// {
+//     /* xxxx 011x xxxx xxxx : xxxx xxxx xxx0 xxxx - load/store register offset */
+//     int cond = FIELD(instr, 28, 4);
+//     if (cond == 15)
+//         return false;
+//     strcpy(state->text, BIT_SET(instr, 20) ? "ldr" : "str");
+//     add_condition(state, cond);
+//     if (BIT_SET(instr, 22))
+//         strcat(state->text, "b");
+//     if (BIT_CLR(instr, 24) && BIT_SET(instr, 21))
+//         strcat(state->text, "t");
+//     padinstr(state->text);
 
-    const char *sign = BIT_CLR(instr, 23) ? "-" : "";
-    sprintf(tail(state->text), "%s, [%s, %s%s", register_name(FIELD(instr, 12, 4)),
-            register_name(FIELD(instr, 16, 4)), sign, register_name(FIELD(instr, 0, 4)));
-    int shifttype = FIELD(instr, 5, 2);
-    int shiftcount = FIELD(instr, 7, 5);
-    if (shifttype != 0 || shiftcount != 0)
-        sprintf(tail(state->text), ", %s", decode_imm_shift(shifttype, shiftcount));
+//     const char *sign = BIT_CLR(instr, 23) ? "-" : "";
+//     sprintf(tail(state->text), "%s, [%s, %s%s", register_name(FIELD(instr, 12, 4)),
+//             register_name(FIELD(instr, 16, 4)), sign, register_name(FIELD(instr, 0, 4)));
+//     int shifttype = FIELD(instr, 5, 2);
+//     int shiftcount = FIELD(instr, 7, 5);
+//     if (shifttype != 0 || shiftcount != 0)
+//         sprintf(tail(state->text), ", %s", decode_imm_shift(shifttype, shiftcount));
 
-    strcat(state->text, "]");
-    return true;
-}
+//     strcat(state->text, "]");
+//     return true;
+// }
 
-static bool arm_media(ARMSTATE *state, uint32_t instr)
-{
-    /* xxxx 011x xxxx xxxx : xxxx xxxx xxx1 xxxx - media instructions */
-    int cond = FIELD(instr, 28, 4);
-    if (cond == 15)
-        return false;
+// static bool arm_media(ARMSTATE *state, uint32_t instr)
+// {
+//     /* xxxx 011x xxxx xxxx : xxxx xxxx xxx1 xxxx - media instructions */
+//     int cond = FIELD(instr, 28, 4);
+//     if (cond == 15)
+//         return false;
 
-    int Rm = FIELD(instr, 0, 4);
-    int Rd = FIELD(instr, 12, 4);
+//     int Rm = FIELD(instr, 0, 4);
+//     int Rd = FIELD(instr, 12, 4);
 
-    int cat = FIELD(instr, 23, 2);
-    if (cat == 0)
-    {
-        /* parallel add/subtract */
-        int opc1 = FIELD(instr, 20, 3);
-        int opc2 = FIELD(instr, 5, 3);
-        int Rn = FIELD(instr, 16, 4);
-        switch (opc1)
-        {
-        case 1:
-            strcpy(state->text, "s");
-            break;
-        case 2:
-            strcpy(state->text, "q");
-            break;
-        case 3:
-            strcpy(state->text, "sh");
-            break;
-        case 5:
-            strcpy(state->text, "u");
-            break;
-        case 6:
-            strcpy(state->text, "uq");
-            break;
-        case 7:
-            strcpy(state->text, "uh");
-            break;
-        }
-        switch (opc2)
-        {
-        case 0:
-            strcat(state->text, "add16");
-            break;
-        case 1:
-            strcat(state->text, "addsubx");
-            break;
-        case 2:
-            strcat(state->text, "subaddx");
-            break;
-        case 3:
-            strcat(state->text, "sub16");
-            break;
-        case 4:
-            strcat(state->text, "add8");
-            break;
-        case 7:
-            strcat(state->text, "sub8");
-            break;
-        default:
-            return false;
-        }
-        add_condition(state, cond);
-        padinstr(state->text);
-        sprintf(tail(state->text), "%s, %s, %s", register_name(Rd), register_name(Rn),
-                register_name(Rm));
-    }
-    else if (cat == 1)
-    {
-        /* halfword pack/saturate and others */
-        int Rn = FIELD(instr, 16, 4);
-        if (FIELD(instr, 20, 3) == 0 && BIT_CLR(instr, 5))
-        {
-            /* halfword pack */
-            strcpy(state->text, BIT_CLR(instr, 6) ? "pkhbt" : "pkhtb");
-            add_condition(state, cond);
-            padinstr(state->text);
-            sprintf(tail(state->text), "%s, %s, %s", register_name(Rd), register_name(Rn),
-                    register_name(Rm));
-            int shift = FIELD(instr, 7, 5);
-            if (BIT_CLR(instr, 6))
-            {
-                if (shift != 0)
-                    sprintf(tail(state->text), ", lsl #%d", shift);
-            }
-            else
-            {
-                if (shift == 0)
-                    shift = 32;
-                sprintf(tail(state->text), ", asr #%d", shift);
-            }
-        }
-        else if (BIT_CLR(instr, 5))
-        {
-            /* word saturate */
-            strcpy(state->text, BIT_CLR(instr, 22) ? "ssat" : "usat");
-            add_condition(state, cond);
-            padinstr(state->text);
-            sprintf(tail(state->text), "%s, #%u, %s", register_name(Rd), FIELD(instr, 16, 5),
-                    register_name(Rm));
-            int shift = FIELD(instr, 7, 5);
-            if (shift == 0 && BIT_SET(instr, 6))
-                shift = 32;
-            if (shift != 0)
-            {
-                if (BIT_SET(instr, 6))
-                    sprintf(tail(state->text), ", asr #%d", shift);
-                else
-                    sprintf(tail(state->text), ", lsl #%d", shift);
-            }
-        }
-        else if (FIELD(instr, 20, 2) == 2 && FIELD(instr, 4, 4) == 0x03)
-        {
-            /* parallel halfword saturate */
-            strcpy(state->text, BIT_CLR(instr, 22) ? "ssat16" : "usat16");
-            add_condition(state, cond);
-            padinstr(state->text);
-            sprintf(tail(state->text), "%s, #%u, %s", register_name(Rd), FIELD(instr, 16, 4),
-                    register_name(Rm));
-        }
-        else if (FIELD(instr, 20, 2) == 0x03 && FIELD(instr, 4, 3) == 0x03)
-        {
-            /* byte reverse word, packed halfword & signed halfword */
-            strcpy(state->text, "rev");
-            if (BIT_SET(instr, 7))
-                strcat(state->text, BIT_CLR(instr, 22) ? "16" : "sh");
-            add_condition(state, cond);
-            padinstr(state->text);
-            sprintf(tail(state->text), "%s, %s", register_name(Rd), register_name(Rm));
-        }
-        else if (FIELD(instr, 20, 3) == 0 && FIELD(instr, 4, 4) == 0x0b)
-        {
-            /* select bytes */
-            strcpy(state->text, "sel");
-            add_condition(state, cond);
-            padinstr(state->text);
-            sprintf(tail(state->text), "%s, %s, %s", register_name(Rd),
-                    register_name(FIELD(instr, 16, 4)), register_name(Rm));
-        }
-        else if (FIELD(instr, 4, 4) == 0x07)
-        {
-            /* sign/zero extent */
-            strcpy(state->text, BIT_CLR(instr, 22) ? "s" : "u");
-            switch (FIELD(instr, 20, 2))
-            {
-            case 0:
-                strcpy(state->text, (Rn == 15) ? "xtb16" : "xtab16");
-                break;
-            case 2:
-                strcpy(state->text, (Rn == 15) ? "xtb" : "xtab");
-                break;
-            case 3:
-                strcpy(state->text, (Rn == 15) ? "xth" : "xtah");
-                break;
-            default:
-                return false;
-            }
-            add_condition(state, cond);
-            padinstr(state->text);
-            if (Rn == 15)
-            {
-                sprintf(tail(state->text), "%s, %s", register_name(Rd), register_name(Rm));
-            }
-            else
-            {
-                sprintf(tail(state->text), "%s, %s, %s", register_name(Rd), register_name(Rn),
-                        register_name(Rm));
-            }
-            int rot = FIELD(instr, 10, 2);
-            if (rot != 0)
-                sprintf(tail(state->text), ", ror #%d", 8 * rot);
-        }
-        else
-        {
-            return false; /* not a valid instruction pattern */
-        }
-    }
-    else if (cat == 2)
-    {
-        /* multiplies type 3 */
-        int Rn = FIELD(instr, 16, 4);
-        int Rs = FIELD(instr, 8, 4);
-        int opc1 = FIELD(instr, 20, 3);
-        int opc2 = FIELD(instr, 6, 2);
-        if (opc1 == 0)
-        {
-            if (Rn == 15)
-                strcpy(state->text, (opc2 == 0) ? "smuad" : "smusd");
-            else
-                strcpy(state->text, (opc2 == 0) ? "smlad" : "smlsd");
-        }
-        else if (opc1 == 4)
-        {
-            strcpy(state->text, (opc2 == 0) ? "smlald" : "smlsld");
-        }
-        else
-        {
-            return false; /* not a valid instruction pattern */
-        }
-        if (BIT_SET(instr, 5))
-            strcat(state->text, "x");
-        add_condition(state, cond);
-        padinstr(state->text);
-        if (Rn == 15)
-        {
-            sprintf(tail(state->text), "%s, %s, %s", register_name(Rd), register_name(Rm),
-                    register_name(Rs));
-        }
-        else if (opc1 == 4)
-        {
-            sprintf(tail(state->text), "%s, %s, %s, %s", register_name(Rd), register_name(Rn),
-                    register_name(Rm), register_name(Rs));
-        }
-        else
-        {
-            sprintf(tail(state->text), "%s, %s, %s, %s", register_name(Rd), register_name(Rm),
-                    register_name(Rs), register_name(Rn));
-        }
-    }
-    else
-    {
-        /* unsigned sum of absolute differences / accumulate */
-        Rd = FIELD(instr, 16, 4);
-        int Rn = FIELD(instr, 12, 4);
-        int Rs = FIELD(instr, 8, 4);
-        strcpy(state->text, (Rn == 15) ? "usad8" : "usada8");
-        add_condition(state, cond);
-        padinstr(state->text);
-        if (Rn == 15)
-            sprintf(tail(state->text), "%s, %s, %s", register_name(Rd), register_name(Rm),
-                    register_name(Rs));
-        else
-            sprintf(tail(state->text), "%s, %s, %s, %s", register_name(Rd), register_name(Rm),
-                    register_name(Rs), register_name(Rn));
-    }
+//     int cat = FIELD(instr, 23, 2);
+//     if (cat == 0)
+//     {
+//         /* parallel add/subtract */
+//         int opc1 = FIELD(instr, 20, 3);
+//         int opc2 = FIELD(instr, 5, 3);
+//         int Rn = FIELD(instr, 16, 4);
+//         switch (opc1)
+//         {
+//         case 1:
+//             strcpy(state->text, "s");
+//             break;
+//         case 2:
+//             strcpy(state->text, "q");
+//             break;
+//         case 3:
+//             strcpy(state->text, "sh");
+//             break;
+//         case 5:
+//             strcpy(state->text, "u");
+//             break;
+//         case 6:
+//             strcpy(state->text, "uq");
+//             break;
+//         case 7:
+//             strcpy(state->text, "uh");
+//             break;
+//         }
+//         switch (opc2)
+//         {
+//         case 0:
+//             strcat(state->text, "add16");
+//             break;
+//         case 1:
+//             strcat(state->text, "addsubx");
+//             break;
+//         case 2:
+//             strcat(state->text, "subaddx");
+//             break;
+//         case 3:
+//             strcat(state->text, "sub16");
+//             break;
+//         case 4:
+//             strcat(state->text, "add8");
+//             break;
+//         case 7:
+//             strcat(state->text, "sub8");
+//             break;
+//         default:
+//             return false;
+//         }
+//         add_condition(state, cond);
+//         padinstr(state->text);
+//         sprintf(tail(state->text), "%s, %s, %s", register_name(Rd), register_name(Rn),
+//                 register_name(Rm));
+//     }
+//     else if (cat == 1)
+//     {
+//         /* halfword pack/saturate and others */
+//         int Rn = FIELD(instr, 16, 4);
+//         if (FIELD(instr, 20, 3) == 0 && BIT_CLR(instr, 5))
+//         {
+//             /* halfword pack */
+//             strcpy(state->text, BIT_CLR(instr, 6) ? "pkhbt" : "pkhtb");
+//             add_condition(state, cond);
+//             padinstr(state->text);
+//             sprintf(tail(state->text), "%s, %s, %s", register_name(Rd), register_name(Rn),
+//                     register_name(Rm));
+//             int shift = FIELD(instr, 7, 5);
+//             if (BIT_CLR(instr, 6))
+//             {
+//                 if (shift != 0)
+//                     sprintf(tail(state->text), ", lsl #%d", shift);
+//             }
+//             else
+//             {
+//                 if (shift == 0)
+//                     shift = 32;
+//                 sprintf(tail(state->text), ", asr #%d", shift);
+//             }
+//         }
+//         else if (BIT_CLR(instr, 5))
+//         {
+//             /* word saturate */
+//             strcpy(state->text, BIT_CLR(instr, 22) ? "ssat" : "usat");
+//             add_condition(state, cond);
+//             padinstr(state->text);
+//             sprintf(tail(state->text), "%s, #%u, %s", register_name(Rd), FIELD(instr, 16, 5),
+//                     register_name(Rm));
+//             int shift = FIELD(instr, 7, 5);
+//             if (shift == 0 && BIT_SET(instr, 6))
+//                 shift = 32;
+//             if (shift != 0)
+//             {
+//                 if (BIT_SET(instr, 6))
+//                     sprintf(tail(state->text), ", asr #%d", shift);
+//                 else
+//                     sprintf(tail(state->text), ", lsl #%d", shift);
+//             }
+//         }
+//         else if (FIELD(instr, 20, 2) == 2 && FIELD(instr, 4, 4) == 0x03)
+//         {
+//             /* parallel halfword saturate */
+//             strcpy(state->text, BIT_CLR(instr, 22) ? "ssat16" : "usat16");
+//             add_condition(state, cond);
+//             padinstr(state->text);
+//             sprintf(tail(state->text), "%s, #%u, %s", register_name(Rd), FIELD(instr, 16, 4),
+//                     register_name(Rm));
+//         }
+//         else if (FIELD(instr, 20, 2) == 0x03 && FIELD(instr, 4, 3) == 0x03)
+//         {
+//             /* byte reverse word, packed halfword & signed halfword */
+//             strcpy(state->text, "rev");
+//             if (BIT_SET(instr, 7))
+//                 strcat(state->text, BIT_CLR(instr, 22) ? "16" : "sh");
+//             add_condition(state, cond);
+//             padinstr(state->text);
+//             sprintf(tail(state->text), "%s, %s", register_name(Rd), register_name(Rm));
+//         }
+//         else if (FIELD(instr, 20, 3) == 0 && FIELD(instr, 4, 4) == 0x0b)
+//         {
+//             /* select bytes */
+//             strcpy(state->text, "sel");
+//             add_condition(state, cond);
+//             padinstr(state->text);
+//             sprintf(tail(state->text), "%s, %s, %s", register_name(Rd),
+//                     register_name(FIELD(instr, 16, 4)), register_name(Rm));
+//         }
+//         else if (FIELD(instr, 4, 4) == 0x07)
+//         {
+//             /* sign/zero extent */
+//             strcpy(state->text, BIT_CLR(instr, 22) ? "s" : "u");
+//             switch (FIELD(instr, 20, 2))
+//             {
+//             case 0:
+//                 strcpy(state->text, (Rn == 15) ? "xtb16" : "xtab16");
+//                 break;
+//             case 2:
+//                 strcpy(state->text, (Rn == 15) ? "xtb" : "xtab");
+//                 break;
+//             case 3:
+//                 strcpy(state->text, (Rn == 15) ? "xth" : "xtah");
+//                 break;
+//             default:
+//                 return false;
+//             }
+//             add_condition(state, cond);
+//             padinstr(state->text);
+//             if (Rn == 15)
+//             {
+//                 sprintf(tail(state->text), "%s, %s", register_name(Rd), register_name(Rm));
+//             }
+//             else
+//             {
+//                 sprintf(tail(state->text), "%s, %s, %s", register_name(Rd), register_name(Rn),
+//                         register_name(Rm));
+//             }
+//             int rot = FIELD(instr, 10, 2);
+//             if (rot != 0)
+//                 sprintf(tail(state->text), ", ror #%d", 8 * rot);
+//         }
+//         else
+//         {
+//             return false; /* not a valid instruction pattern */
+//         }
+//     }
+//     else if (cat == 2)
+//     {
+//         /* multiplies type 3 */
+//         int Rn = FIELD(instr, 16, 4);
+//         int Rs = FIELD(instr, 8, 4);
+//         int opc1 = FIELD(instr, 20, 3);
+//         int opc2 = FIELD(instr, 6, 2);
+//         if (opc1 == 0)
+//         {
+//             if (Rn == 15)
+//                 strcpy(state->text, (opc2 == 0) ? "smuad" : "smusd");
+//             else
+//                 strcpy(state->text, (opc2 == 0) ? "smlad" : "smlsd");
+//         }
+//         else if (opc1 == 4)
+//         {
+//             strcpy(state->text, (opc2 == 0) ? "smlald" : "smlsld");
+//         }
+//         else
+//         {
+//             return false; /* not a valid instruction pattern */
+//         }
+//         if (BIT_SET(instr, 5))
+//             strcat(state->text, "x");
+//         add_condition(state, cond);
+//         padinstr(state->text);
+//         if (Rn == 15)
+//         {
+//             sprintf(tail(state->text), "%s, %s, %s", register_name(Rd), register_name(Rm),
+//                     register_name(Rs));
+//         }
+//         else if (opc1 == 4)
+//         {
+//             sprintf(tail(state->text), "%s, %s, %s, %s", register_name(Rd), register_name(Rn),
+//                     register_name(Rm), register_name(Rs));
+//         }
+//         else
+//         {
+//             sprintf(tail(state->text), "%s, %s, %s, %s", register_name(Rd), register_name(Rm),
+//                     register_name(Rs), register_name(Rn));
+//         }
+//     }
+//     else
+//     {
+//         /* unsigned sum of absolute differences / accumulate */
+//         Rd = FIELD(instr, 16, 4);
+//         int Rn = FIELD(instr, 12, 4);
+//         int Rs = FIELD(instr, 8, 4);
+//         strcpy(state->text, (Rn == 15) ? "usad8" : "usada8");
+//         add_condition(state, cond);
+//         padinstr(state->text);
+//         if (Rn == 15)
+//             sprintf(tail(state->text), "%s, %s, %s", register_name(Rd), register_name(Rm),
+//                     register_name(Rs));
+//         else
+//             sprintf(tail(state->text), "%s, %s, %s, %s", register_name(Rd), register_name(Rm),
+//                     register_name(Rs), register_name(Rn));
+//     }
 
-    return true;
-}
+//     return true;
+// }
 
-static bool arm_loadstor_mult(ARMSTATE *state, uint32_t instr)
-{
-    /* xxxx 100x xxxx xxxx : xxxx xxxx xxxx xxxx - load/store multiple */
-    int cond = FIELD(instr, 28, 4);
-    if (cond == 15)
-        return false;
+// static bool arm_loadstor_mult(ARMSTATE *state, uint32_t instr)
+// {
+//     /* xxxx 100x xxxx xxxx : xxxx xxxx xxxx xxxx - load/store multiple */
+//     int cond = FIELD(instr, 28, 4);
+//     if (cond == 15)
+//         return false;
 
-    int Rn = FIELD(instr, 16, 4);
-    int alt_syntax = (Rn == 13 && BIT_SET(instr, 21));
-    int mode = FIELD(instr, 23, 2);
-    if (BIT_SET(instr, 20))
-    {
-        if (mode != 1)
-            alt_syntax = 0;
-        strcpy(state->text, alt_syntax ? "pop" : "ldm");
-    }
-    else
-    {
-        if (mode != 2)
-            alt_syntax = 0;
-        strcpy(state->text, alt_syntax ? "push" : "stm");
-    }
-    add_condition(state, cond);
-    if (!alt_syntax)
-    {
-        static const char *modes[] = {"da", "ia", "db", "ib"};
-        strcat(state->text, modes[mode]);
-    }
-    padinstr(state->text);
+//     int Rn = FIELD(instr, 16, 4);
+//     int alt_syntax = (Rn == 13 && BIT_SET(instr, 21));
+//     int mode = FIELD(instr, 23, 2);
+//     if (BIT_SET(instr, 20))
+//     {
+//         if (mode != 1)
+//             alt_syntax = 0;
+//         strcpy(state->text, alt_syntax ? "pop" : "ldm");
+//     }
+//     else
+//     {
+//         if (mode != 2)
+//             alt_syntax = 0;
+//         strcpy(state->text, alt_syntax ? "push" : "stm");
+//     }
+//     add_condition(state, cond);
+//     if (!alt_syntax)
+//     {
+//         static const char *modes[] = {"da", "ia", "db", "ib"};
+//         strcat(state->text, modes[mode]);
+//     }
+//     padinstr(state->text);
 
-    if (!alt_syntax)
-    {
-        strcat(state->text, register_name(Rn));
-        if (BIT_SET(instr, 21))
-            strcat(state->text, "!");
-        strcat(state->text, ", ");
-    }
-    add_reglist(state->text, FIELD(instr, 0, 16));
-    if (BIT_SET(instr, 22))
-        strcat(state->text, "^");
+//     if (!alt_syntax)
+//     {
+//         strcat(state->text, register_name(Rn));
+//         if (BIT_SET(instr, 21))
+//             strcat(state->text, "!");
+//         strcat(state->text, ", ");
+//     }
+//     add_reglist(state->text, FIELD(instr, 0, 16));
+//     if (BIT_SET(instr, 22))
+//         strcat(state->text, "^");
 
-    return true;
-}
+//     return true;
+// }
 
-static bool arm_branch(ARMSTATE *state, uint32_t instr)
-{
-    /* xxxx 101x xxxx xxxx : xxxx xxxx xxxx xxxx - branch and branch with link */
-    int cond = FIELD(instr, 28, 4);
-    if (cond == 15)
-        return false;
-    strcpy(state->text, "b");
-    if (BIT_SET(instr, 24))
-        strcat(state->text, "l");
-    add_condition(state, cond);
-    padinstr(state->text);
-    int32_t address = FIELD(instr, 0, 24);
-    SIGN_EXT(address, 24);
-    address = state->address + 8 + 4 * address;
-    sprintf(tail(state->text), "%07x", address);
-    append_comment_symbol(state, address);
-    mark_address_type(state, address, POOL_CODE);
-    return true;
-}
+// static bool arm_branch(ARMSTATE *state, uint32_t instr)
+// {
+//     /* xxxx 101x xxxx xxxx : xxxx xxxx xxxx xxxx - branch and branch with link */
+//     int cond = FIELD(instr, 28, 4);
+//     if (cond == 15)
+//         return false;
+//     strcpy(state->text, "b");
+//     if (BIT_SET(instr, 24))
+//         strcat(state->text, "l");
+//     add_condition(state, cond);
+//     padinstr(state->text);
+//     int32_t address = FIELD(instr, 0, 24);
+//     SIGN_EXT(address, 24);
+//     address = state->address + 8 + 4 * address;
+//     sprintf(tail(state->text), "%07x", address);
+//     append_comment_symbol(state, address);
+//     mark_address_type(state, address, POOL_CODE);
+//     return true;
+// }
 
-static bool arm_co_loadstor(ARMSTATE *state, uint32_t instr)
-{
-    /* xxxx 110x xxxx xxxx : xxxx xxxx xxxx xxxx - coprocessor load/store and
-       double register transfers */
-    int cond = FIELD(instr, 28, 4);
-    int prefix = FIELD(instr, 20, 8);
-    if (prefix == 0xc4)
-        strcpy(state->text, "mcrr");
-    else if (prefix == 0xc5)
-        strcpy(state->text, "mrrc");
-    else
-        strcpy(state->text, BIT_SET(instr, 20) ? "ldc" : "stc");
-    if (cond == 15)
-        strcat(state->text, "2");
-    else
-        add_condition(state, cond);
-    padinstr(state->text);
-    if (prefix == 0xc4 || prefix == 0xc5)
-    {
-        sprintf(tail(state->text), "%u, %u, %s, %s, cr%u", FIELD(instr, 8, 4), FIELD(instr, 4, 4),
-                register_name(FIELD(instr, 12, 4)), register_name(FIELD(instr, 16, 4)),
-                FIELD(instr, 0, 4));
-    }
-    else
-    {
-        int imm = 4 * (int)FIELD(instr, 0, 8);
-        if (BIT_CLR(instr, 23))
-            imm = -imm;
-        if (BIT_SET(instr, 24))
-        {
-            sprintf(tail(state->text), "%u, cr%u, [%s, #%d]", FIELD(instr, 8, 4),
-                    FIELD(instr, 12, 4), register_name(FIELD(instr, 16, 4)), imm);
-            if (BIT_SET(instr, 21))
-                strcat(state->text, "!");
-        }
-        else if (BIT_CLR(instr, 21))
-        {
-            sprintf(tail(state->text), "%u, cr%u, [%s], #%d", FIELD(instr, 8, 4),
-                    FIELD(instr, 12, 4), register_name(FIELD(instr, 16, 4)), imm);
-        }
-        else
-        {
-            sprintf(tail(state->text), "%u, cr%u, [%s], {%u}", FIELD(instr, 8, 4),
-                    FIELD(instr, 12, 4), register_name(FIELD(instr, 16, 4)), FIELD(instr, 0, 8));
-        }
-    }
+// static bool arm_co_loadstor(ARMSTATE *state, uint32_t instr)
+// {
+//     /* xxxx 110x xxxx xxxx : xxxx xxxx xxxx xxxx - coprocessor load/store and
+//        double register transfers */
+//     int cond = FIELD(instr, 28, 4);
+//     int prefix = FIELD(instr, 20, 8);
+//     if (prefix == 0xc4)
+//         strcpy(state->text, "mcrr");
+//     else if (prefix == 0xc5)
+//         strcpy(state->text, "mrrc");
+//     else
+//         strcpy(state->text, BIT_SET(instr, 20) ? "ldc" : "stc");
+//     if (cond == 15)
+//         strcat(state->text, "2");
+//     else
+//         add_condition(state, cond);
+//     padinstr(state->text);
+//     if (prefix == 0xc4 || prefix == 0xc5)
+//     {
+//         sprintf(tail(state->text), "%u, %u, %s, %s, cr%u", FIELD(instr, 8, 4), FIELD(instr, 4, 4),
+//                 register_name(FIELD(instr, 12, 4)), register_name(FIELD(instr, 16, 4)),
+//                 FIELD(instr, 0, 4));
+//     }
+//     else
+//     {
+//         int imm = 4 * (int)FIELD(instr, 0, 8);
+//         if (BIT_CLR(instr, 23))
+//             imm = -imm;
+//         if (BIT_SET(instr, 24))
+//         {
+//             sprintf(tail(state->text), "%u, cr%u, [%s, #%d]", FIELD(instr, 8, 4),
+//                     FIELD(instr, 12, 4), register_name(FIELD(instr, 16, 4)), imm);
+//             if (BIT_SET(instr, 21))
+//                 strcat(state->text, "!");
+//         }
+//         else if (BIT_CLR(instr, 21))
+//         {
+//             sprintf(tail(state->text), "%u, cr%u, [%s], #%d", FIELD(instr, 8, 4),
+//                     FIELD(instr, 12, 4), register_name(FIELD(instr, 16, 4)), imm);
+//         }
+//         else
+//         {
+//             sprintf(tail(state->text), "%u, cr%u, [%s], {%u}", FIELD(instr, 8, 4),
+//                     FIELD(instr, 12, 4), register_name(FIELD(instr, 16, 4)), FIELD(instr, 0, 8));
+//         }
+//     }
 
-    return true;
-}
+//     return true;
+// }
 
-static bool arm_co_dataproc(ARMSTATE *state, uint32_t instr)
-{
-    /* xxxx 1110 xxxx xxxx : xxxx xxxx xxx0 xxxx - coprocessor data processing */
-    int cond = FIELD(instr, 28, 4);
-    strcpy(state->text, "cdp");
-    if (cond == 15)
-        strcat(state->text, "2");
-    else
-        add_condition(state, cond);
-    padinstr(state->text);
-    sprintf(tail(state->text), "%u, %u, cr%u, cr%u, cr%u, {%u}", FIELD(instr, 8, 4),
-            FIELD(instr, 20, 4), FIELD(instr, 12, 4), FIELD(instr, 16, 4), FIELD(instr, 0, 4),
-            FIELD(instr, 5, 3));
-    return true;
-}
+// static bool arm_co_dataproc(ARMSTATE *state, uint32_t instr)
+// {
+//     /* xxxx 1110 xxxx xxxx : xxxx xxxx xxx0 xxxx - coprocessor data processing */
+//     int cond = FIELD(instr, 28, 4);
+//     strcpy(state->text, "cdp");
+//     if (cond == 15)
+//         strcat(state->text, "2");
+//     else
+//         add_condition(state, cond);
+//     padinstr(state->text);
+//     sprintf(tail(state->text), "%u, %u, cr%u, cr%u, cr%u, {%u}", FIELD(instr, 8, 4),
+//             FIELD(instr, 20, 4), FIELD(instr, 12, 4), FIELD(instr, 16, 4), FIELD(instr, 0, 4),
+//             FIELD(instr, 5, 3));
+//     return true;
+// }
 
-static bool arm_co_trans(ARMSTATE *state, uint32_t instr)
-{
-    /* xxxx 1110 xxxx xxxx : xxxx xxxx xxx1 xxxx - coprocessor register transfers */
-    int cond = FIELD(instr, 28, 4);
-    strcpy(state->text, BIT_CLR(instr, 20) ? "mcr" : "mrc");
-    if (cond == 15)
-        strcat(state->text, "2");
-    else
-        add_condition(state, cond);
-    padinstr(state->text);
-    sprintf(tail(state->text), "%u, %u, %s, cr%u, cr%u, {%u}", FIELD(instr, 8, 4),
-            FIELD(instr, 21, 3), register_name(FIELD(instr, 12, 4)), FIELD(instr, 16, 4),
-            FIELD(instr, 0, 4), FIELD(instr, 5, 3));
-    return true;
-}
+// static bool arm_co_trans(ARMSTATE *state, uint32_t instr)
+// {
+//     /* xxxx 1110 xxxx xxxx : xxxx xxxx xxx1 xxxx - coprocessor register transfers */
+//     int cond = FIELD(instr, 28, 4);
+//     strcpy(state->text, BIT_CLR(instr, 20) ? "mcr" : "mrc");
+//     if (cond == 15)
+//         strcat(state->text, "2");
+//     else
+//         add_condition(state, cond);
+//     padinstr(state->text);
+//     sprintf(tail(state->text), "%u, %u, %s, cr%u, cr%u, {%u}", FIELD(instr, 8, 4),
+//             FIELD(instr, 21, 3), register_name(FIELD(instr, 12, 4)), FIELD(instr, 16, 4),
+//             FIELD(instr, 0, 4), FIELD(instr, 5, 3));
+//     return true;
+// }
 
-static bool arm_softintr(ARMSTATE *state, uint32_t instr)
-{
-    /* xxxx 1111 xxxx xxxx : xxxx xxxx xxxx xxxx - software interrupt */
-    int cond = FIELD(instr, 28, 4);
-    if (cond == 15)
-        return false;
-    strcpy(state->text, "svc");
-    add_condition(state, cond);
-    padinstr(state->text);
-    sprintf(tail(state->text), "0x%08x", FIELD(instr, 0, 24));
-    return true;
-}
+// static bool arm_softintr(ARMSTATE *state, uint32_t instr)
+// {
+//     /* xxxx 1111 xxxx xxxx : xxxx xxxx xxxx xxxx - software interrupt */
+//     int cond = FIELD(instr, 28, 4);
+//     if (cond == 15)
+//         return false;
+//     strcpy(state->text, "svc");
+//     add_condition(state, cond);
+//     padinstr(state->text);
+//     sprintf(tail(state->text), "0x%08x", FIELD(instr, 0, 24));
+//     return true;
+// }
 
 /** get_symbol() looks up a symbol; returns -1 if not found. The routine depends
  *  on the list being sorted (on address).

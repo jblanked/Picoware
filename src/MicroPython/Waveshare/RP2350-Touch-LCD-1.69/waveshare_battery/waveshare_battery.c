@@ -27,8 +27,8 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_battery_get_percentage_obj, waveshare
 // Function to get the battery voltage
 STATIC mp_obj_t waveshare_battery_get_voltage(void)
 {
-    float voltage = battery_get_voltage();
-    return mp_obj_new_float(voltage);
+    int voltage = battery_get_voltage();
+    return mp_obj_new_int(voltage);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_battery_get_voltage_obj, waveshare_battery_get_voltage);
 

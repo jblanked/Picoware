@@ -9,6 +9,7 @@
 
 #define XPOWERS_AXP2101_STATUS1                          (0x00)
 #define XPOWERS_AXP2101_STATUS2                          (0x01)
+#define XPOWERS_AXP2101_COMMON_CONFIG                    (0x10)
 
 #define XPOWERS_AXP2101_ADC_CHANNEL_CTRL                 (0x30)
 #define XPOWERS_AXP2101_ADC_DATA_RELUST0                 (0x34)

@@ -367,10 +367,12 @@ class Draw(lcd.LCD):
             position (Vector): The top-left position to draw the image.
             img (Image): The image object to draw.
         """
+        _get_pixel = img.get_pixel
+        _pixel = self._pixel
         for y in range(img.size.y):
             for x in range(img.size.x):
-                color = img.get_pixel(x, y)
-                self._pixel(position.x + x, position.y + y, color)
+                color = _get_pixel(x, y)
+                _pixel(position.x + x, position.y + y, color)
 
     def image_bmp(self, position: Vector, path: str):
         """Draw a 24-bit BMP image.
@@ -509,6 +511,7 @@ class Draw(lcd.LCD):
                 row_bytes = width
                 row = 0
                 byte_offset = 0
+                _bytearray = self._bytearray
                 while True: 
                     rows_left = height - row
                     if chunk_size <= 0:
@@ -527,7 +530,7 @@ class Draw(lcd.LCD):
                         rows_in_block = len(byte_array) // row_bytes
                         if rows_in_block == 0:
                             break
-                        self._bytearray(
+                        _bytearray(
                             position.x,
                             position.y + row,
                             width,
@@ -544,7 +547,7 @@ class Draw(lcd.LCD):
                         rows_in_block = _count // row_bytes
                         if rows_in_block == 0:
                             break
-                        self._bytearray(
+                        _bytearray(
                             position.x,
                             position.y + row,
                             width,

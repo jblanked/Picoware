@@ -230,8 +230,10 @@ class List:
 
         # Draw decorative pattern below underline
         self._dec_v.y = self.position.y + self._five.y + (self.display.size.y // 16)
+        _pixel = self.display._pixel
+        _text = self.display._text
         for i in range(0, self.size_x, 10):
-            self.display._pixel(i, self._dec_v.y, self.border_color)
+            _pixel(i, self._dec_v.y, self.border_color)
 
         # Get current selected item
         if 0 <= self._selected_index < _len:
@@ -264,7 +266,7 @@ class List:
             )
 
             # Draw text centered
-            self.display._text(
+            _text(
                 item_x,
                 text_y,
                 current_item[:item_width // (font.width + font.spacing)],
@@ -275,11 +277,11 @@ class List:
             # Draw navigation arrows
             self.text_vec_pos.y = decorator_center_y - self.display.font_size.y // 2
             if self._selected_index > 0:
-                self.display._text(
+                _text(
                     self._five.x, self.text_vec_pos.y, "<", self.border_color
                 )
             if self._selected_index < _len - 1:
-                self.display._text(
+                _text(
                     self.size_x - self._five.x * 3,
                     self.text_vec_pos.y,
                     ">",
@@ -312,7 +314,7 @@ class List:
                 index_text = "{}/{}".format(self._selected_index + 1, _len)
                 index_text_width = len(index_text) * self.display.font_size.x
                 index_text_x = (self.size_x - index_text_width) // 2
-                self.display._text(
+                _text(
                     index_text_x,
                     indicator_y,
                     index_text,
@@ -321,7 +323,7 @@ class List:
 
             # Draw decorative bottom pattern
             for i in range(0, self.size_x, 10):
-                self.display._pixel(
+                _pixel(
                     i, indicator_y + self._five.y * 5, self.border_color
                 )
 
@@ -378,7 +380,7 @@ class List:
                     text_x = (self.size_x - text_width) // 2
                 else:
                     text_x = self._five.x * 2
-                self.display._text(text_x, text_y, item_text, self.text_color)
+                _text(text_x, text_y, item_text, self.text_color)
 
         # Swap buffers
         if swap:

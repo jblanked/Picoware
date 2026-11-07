@@ -10,8 +10,12 @@ target_include_directories(usermod_audio INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}
 )
 
-# The RP2 back end uses core 1; the ESP32 back end uses ESP-IDF I2S instead.
-if(NOT ESP32)
+# RP2 uses core 1; ESP32 uses the codec's I2S backend or POOM's LEDC buzzer.
+if(PICOWARE_AUDIO_BACKEND STREQUAL "poom")
+    target_link_libraries(usermod_audio INTERFACE
+        idf::esp_driver_ledc
+    )
+elseif(NOT ESP32)
     target_link_libraries(usermod_audio INTERFACE
         pico_multicore
         pico_sync

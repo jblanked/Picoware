@@ -1,5 +1,284 @@
 #include "audio_config.h"
 
+#if defined(AUDIO_ESP32_BUZZER)
+#include "audio.h"
+
+#include "driver/gpio.h"
+#include "driver/ledc.h"
+#include "esp_err.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "py/mpthread.h"
+#include "py/runtime.h"
+
+#ifndef PRINT
+#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#endif
+
+#define AUDIO_BUZZER_DUTY_MAX (1U << LEDC_TIMER_10_BIT)
+#define AUDIO_BUZZER_DUTY (AUDIO_BUZZER_DUTY_MAX / 2U)
+
+static bool audio_initialised;
+static bool is_playing;
+static uint8_t audio_volume = 100;
+static uint32_t tone_frequency;
+
+static void audio_sleep_ms(uint32_t ms)
+{
+    TickType_t ticks = pdMS_TO_TICKS(ms);
+    MP_THREAD_GIL_EXIT();
+    vTaskDelay(ticks ? ticks : 1);
+    MP_THREAD_GIL_ENTER();
+}
+
+static void audio_stop_output(void)
+{
+    if (audio_initialised && ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0) != ESP_OK)
+    {
+        PRINT("Audio: failed to stop the POOM buzzer\n");
+    }
+    is_playing = false;
+    tone_frequency = 0;
+}
+
+static bool audio_set_tone(uint32_t frequency)
+{
+    if (frequency == 0 || audio_volume == 0)
+    {
+        audio_stop_output();
+        return true;
+    }
+
+    esp_err_t err = ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_0, frequency);
+    if (err == ESP_OK)
+    {
+        uint32_t duty = (AUDIO_BUZZER_DUTY * audio_volume) / 100U;
+        err = ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty);
+    }
+    if (err == ESP_OK)
+    {
+        err = ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+    }
+    if (err != ESP_OK)
+    {
+        PRINT("Audio: failed to set POOM buzzer frequency to %lu Hz (%s)\n",
+              (unsigned long)frequency, esp_err_to_name(err));
+        audio_stop_output();
+        return false;
+    }
+
+    tone_frequency = frequency;
+    is_playing = true;
+    return true;
+}
+
+bool audio_init(void)
+{
+    if (audio_initialised)
+    {
+        return true;
+    }
+
+    const ledc_timer_config_t timer_config = {
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .duty_resolution = LEDC_TIMER_10_BIT,
+        .timer_num = LEDC_TIMER_0,
+        .freq_hz = 2000,
+        .clk_cfg = LEDC_AUTO_CLK,
+    };
+    esp_err_t err = ledc_timer_config(&timer_config);
+    if (err != ESP_OK)
+    {
+        PRINT("Audio: POOM buzzer timer setup failed (%s)\n", esp_err_to_name(err));
+        return false;
+    }
+
+    const ledc_channel_config_t channel_config = {
+        .gpio_num = AUDIO_BUZZER_PIN,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel = LEDC_CHANNEL_0,
+        .intr_type = LEDC_INTR_DISABLE,
+        .timer_sel = LEDC_TIMER_0,
+        .duty = 0,
+        .hpoint = 0,
+        .flags.output_invert = 0,
+    };
+    err = ledc_channel_config(&channel_config);
+    if (err != ESP_OK)
+    {
+        PRINT("Audio: POOM buzzer channel setup failed (%s)\n", esp_err_to_name(err));
+        gpio_reset_pin(AUDIO_BUZZER_PIN);
+        return false;
+    }
+
+    audio_initialised = true;
+    is_playing = false;
+    tone_frequency = 0;
+    return true;
+}
+
+void audio_deinit(void)
+{
+    if (!audio_initialised)
+    {
+        return;
+    }
+
+    audio_stop_output();
+    esp_err_t err = gpio_reset_pin(AUDIO_BUZZER_PIN);
+    if (err != ESP_OK)
+    {
+        PRINT("Audio: failed to reset POOM buzzer GPIO (%s)\n", esp_err_to_name(err));
+    }
+    audio_initialised = false;
+}
+
+uint8_t audio_get_volume(void)
+{
+    return audio_volume;
+}
+
+audio_info_t audio_get_info(void)
+{
+    return (audio_info_t){0};
+}
+
+bool audio_is_initialized(void)
+{
+    return audio_initialised;
+}
+
+bool audio_is_playing(void)
+{
+    return is_playing;
+}
+
+bool audio_is_sd_busy(void)
+{
+    return false;
+}
+
+bool audio_play_mp3(const char *filename)
+{
+    (void)filename;
+    PRINT("Audio: MP3 playback is unavailable on the POOM buzzer\n");
+    return false;
+}
+
+bool audio_seek(uint64_t target_sample)
+{
+    (void)target_sample;
+    PRINT("Audio: seeking is unavailable on the POOM buzzer\n");
+    return false;
+}
+
+void audio_play_note_blocking(const audio_note_t *note)
+{
+    if (note == NULL)
+    {
+        PRINT("Audio: note is NULL\n");
+        return;
+    }
+    audio_play_sound_blocking(note->left_frequency, note->right_frequency, note->duration_ms);
+}
+
+void audio_play_song_blocking(const audio_song_t *song)
+{
+    if (song == NULL || song->notes == NULL)
+    {
+        PRINT("Audio: song or song notes are NULL\n");
+        return;
+    }
+
+    for (size_t i = 0; song->notes[i].duration_ms != 0; ++i)
+    {
+        const audio_note_t *note = &song->notes[i];
+        audio_play_note_blocking(note);
+        if (note->left_frequency != SILENCE || note->right_frequency != SILENCE)
+        {
+            audio_sleep_ms(20);
+        }
+    }
+    audio_stop();
+}
+
+void audio_play_sound(uint32_t left_frequency, uint32_t right_frequency)
+{
+    if (!audio_initialised && !audio_init())
+    {
+        PRINT("Audio not initialized and failed to initialize\n");
+        return;
+    }
+
+    uint32_t frequency = left_frequency != SILENCE ? left_frequency : right_frequency;
+    audio_set_tone(frequency);
+}
+
+void audio_play_sound_blocking(uint32_t left_frequency, uint32_t right_frequency, uint32_t duration_ms)
+{
+    if (!audio_initialised && !audio_init())
+    {
+        PRINT("Audio not initialized and failed to initialize\n");
+        return;
+    }
+
+    uint32_t frequency = left_frequency != SILENCE ? left_frequency : right_frequency;
+    if (frequency == SILENCE || audio_volume == 0)
+    {
+        audio_stop_output();
+        return;
+    }
+
+    if (audio_set_tone(frequency) && duration_ms > 0)
+    {
+        audio_sleep_ms(duration_ms);
+        audio_stop_output();
+    }
+}
+
+bool audio_play_wav(const char *filename)
+{
+    (void)filename;
+    PRINT("Audio: WAV playback is unavailable on the POOM buzzer\n");
+    return false;
+}
+
+void audio_push_samples(const int16_t *samples, int count)
+{
+    (void)samples;
+    (void)count;
+}
+
+void audio_set_volume(uint8_t volume)
+{
+    if (volume > 100)
+    {
+        volume = 100;
+    }
+    audio_volume = volume;
+    if (is_playing)
+    {
+        audio_set_tone(tone_frequency);
+    }
+}
+
+bool audio_start_stream(uint32_t sample_rate)
+{
+    (void)sample_rate;
+    PRINT("Audio: PCM streaming is unavailable on the POOM buzzer\n");
+    return false;
+}
+
+void audio_stop(void)
+{
+    audio_stop_output();
+}
+
+void audio_stop_stream(void)
+{
+}
+
+#else
 #if defined(AUDIO_ESP32_I2S)
 // ESP32: an I2S master streams 16-bit stereo PCM into an ES8311 codec. A
 // FreeRTOS task mixes the tones, WAV streams and pushed PCM in software.
@@ -9,9 +288,13 @@
 #include "freertos/semphr.h"
 #include "driver/i2s_std.h"
 #include "driver/i2c_master.h"
+#include "driver/gpio.h"
+#include "esp_err.h"
 #include "py/runtime.h"
 #include "py/mpthread.h"
+#ifdef AUDIO_I2C_HEADER
 #include AUDIO_I2C_HEADER
+#endif
 #else
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
@@ -177,6 +460,9 @@ static SemaphoreHandle_t audio_lock = NULL; // held while the task mixes a chunk
 static TaskHandle_t audio_task = NULL;
 static i2s_chan_handle_t audio_tx = NULL;
 static i2c_master_dev_handle_t audio_codec = NULL;
+#if defined(AUDIO_AMP_ENABLE_PIN)
+static bool audio_amp_configured = false;
+#endif
 static uint32_t audio_rate = 0; // current I2S sample rate
 static uint32_t stream_sample_rate = 0;
 static volatile bool wav_refill_pending = false;
@@ -254,6 +540,39 @@ static void audio_wake(void)
     if (audio_task)
         xTaskNotifyGive(audio_task);
 }
+
+#ifndef AUDIO_I2C_ADD_DEVICE
+static esp_err_t audio_i2c_add_device(uint16_t address, i2c_master_dev_handle_t *out_dev)
+{
+    if (out_dev == NULL)
+        return ESP_ERR_INVALID_ARG;
+
+    i2c_master_bus_handle_t bus = NULL;
+    esp_err_t err = i2c_master_get_bus_handle(AUDIO_I2C_PORT, &bus);
+    if (err != ESP_OK)
+    {
+        i2c_master_bus_config_t bus_cfg = {
+            .i2c_port = AUDIO_I2C_PORT,
+            .sda_io_num = AUDIO_I2C_SDA_PIN,
+            .scl_io_num = AUDIO_I2C_SCL_PIN,
+            .clk_source = I2C_CLK_SRC_DEFAULT,
+            .glitch_ignore_cnt = 7,
+            .flags.enable_internal_pullup = true,
+        };
+        err = i2c_new_master_bus(&bus_cfg, &bus);
+        if (err != ESP_OK)
+            return err;
+    }
+
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = address,
+        .scl_speed_hz = AUDIO_I2C_FREQ_HZ,
+    };
+    return i2c_master_bus_add_device(bus, &dev_cfg, out_dev);
+}
+#define AUDIO_I2C_ADD_DEVICE audio_i2c_add_device
+#endif
 
 static esp_err_t es8311_write(uint8_t reg, uint8_t value)
 {
@@ -603,10 +922,23 @@ static void audio_hw_stop(void)
     }
     if (audio_codec)
     {
-        i2c_master_bus_rm_device(audio_codec);
+        esp_err_t err = i2c_master_bus_rm_device(audio_codec);
+        if (err != ESP_OK)
+            PRINT("Audio: failed to remove ES8311 from I2C bus (%s)\n", esp_err_to_name(err));
         audio_codec = NULL;
+#ifdef AUDIO_I2C_RELEASE
         AUDIO_I2C_RELEASE();
+#endif
     }
+#if defined(AUDIO_AMP_ENABLE_PIN)
+    if (audio_amp_configured)
+    {
+        esp_err_t err = gpio_set_level(AUDIO_AMP_ENABLE_PIN, 0);
+        if (err != ESP_OK)
+            PRINT("Audio: failed to disable speaker amplifier (%s)\n", esp_err_to_name(err));
+        audio_amp_configured = false;
+    }
+#endif
     if (audio_lock)
     {
         vSemaphoreDelete(audio_lock);
@@ -623,6 +955,31 @@ static bool audio_hw_start(void)
         PRINT("Audio: out of memory\n");
         return false;
     }
+#if defined(AUDIO_AMP_ENABLE_PIN)
+    gpio_config_t amp_cfg = {
+        .pin_bit_mask = 1ULL << AUDIO_AMP_ENABLE_PIN,
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    esp_err_t amp_err = gpio_config(&amp_cfg);
+    if (amp_err != ESP_OK)
+    {
+        PRINT("Audio: speaker amplifier GPIO setup failed (%s)\n", esp_err_to_name(amp_err));
+        audio_hw_stop();
+        return false;
+    }
+    audio_amp_configured = true;
+    amp_err = gpio_set_level(AUDIO_AMP_ENABLE_PIN, 0);
+    if (amp_err != ESP_OK)
+    {
+        PRINT("Audio: failed to keep speaker amplifier disabled during setup (%s)\n",
+              esp_err_to_name(amp_err));
+        audio_hw_stop();
+        return false;
+    }
+#endif
     if (AUDIO_I2C_ADD_DEVICE(AUDIO_ES8311_I2C_ADDR, &audio_codec) != ESP_OK)
     {
         PRINT("Audio: could not add the ES8311 to the I2C bus\n");
@@ -643,6 +1000,16 @@ static bool audio_hw_start(void)
         audio_hw_stop();
         return false;
     }
+
+#if defined(AUDIO_AMP_ENABLE_PIN)
+    amp_err = gpio_set_level(AUDIO_AMP_ENABLE_PIN, 1);
+    if (amp_err != ESP_OK)
+    {
+        PRINT("Audio: failed to enable speaker amplifier (%s)\n", esp_err_to_name(amp_err));
+        audio_hw_stop();
+        return false;
+    }
+#endif
 
     tone_frequency[0] = tone_frequency[1] = 0;
     tone_frames_left = 0;
@@ -2210,3 +2577,4 @@ void audio_stop_stream(void)
     pwm_set_gpio_level(AUDIO_RIGHT_PIN, AUDIO_STREAM_PWM_MIDPOINT);
 #endif
 }
+#endif // AUDIO_ESP32_BUZZER

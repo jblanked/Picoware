@@ -6,7 +6,7 @@ Source: https://github.com/jblanked/Picoware/blob/main/src/MicroPython/audio/aud
 #pragma once
 
 #include "audio_config.h"
-#if defined(AUDIO_ESP32_I2S)
+#if defined(AUDIO_ESP32_I2S) || defined(AUDIO_ESP32_BUZZER)
 #include <stdbool.h>
 #include <stdint.h>
 #else

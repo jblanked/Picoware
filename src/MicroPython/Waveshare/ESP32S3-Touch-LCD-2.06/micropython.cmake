@@ -14,6 +14,7 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/../../JPEGDEC/src)
 
 # Include Picoware modules
 include(${CMAKE_CURRENT_LIST_DIR}/../../auto_complete/micropython.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/../../audio/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../../c/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../../engine/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../../font/micropython.cmake)

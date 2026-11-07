@@ -1,5 +1,9 @@
 #ifndef MICROPY_HW_BOARD_NAME
+#ifdef CARDPUTER_ORIGINAL
+#define MICROPY_HW_BOARD_NAME "M5Stack Cardputer Original"
+#else
 #define MICROPY_HW_BOARD_NAME "M5Stack Cardputer"
+#endif
 #endif
 
 #define MICROPY_HW_MCU_NAME "ESP32-S3"
@@ -11,8 +15,14 @@
 #define MICROPY_HW_USB_CDC_DTR_RTS_BOOTLOADER (0)
 #define MICROPY_HW_USB_CDC_1200BPS_TOUCH (0)
 
+#ifdef CARDPUTER_ORIGINAL
+// Grove port: GPIO8/9 belong to the original keyboard matrix.
+#define MICROPY_HW_I2C0_SCL (1)
+#define MICROPY_HW_I2C0_SDA (2)
+#else
 #define MICROPY_HW_I2C0_SCL (9)
 #define MICROPY_HW_I2C0_SDA (8)
+#endif
 
 #define MICROPY_TASK_STACK_SIZE (16 * 1024)
 #define MICROPY_THREAD_STACK_SIZE (8 * 1024)
@@ -20,3 +30,13 @@
 
 #define MICROPY_PY_BLUETOOTH_USE_SYNC_EVENTS (1)
 #define MICROPY_PY_BLUETOOTH_ENABLE_PAIRING_BONDING (1)
+
+// Native SD/bridge state must not outlive the MicroPython VM that owns it.
+#ifdef __cplusplus
+extern "C" {
+#endif
+void cardputer_sd_init0(void);
+#ifdef __cplusplus
+}
+#endif
+#define MICROPY_PORT_INIT_FUNC cardputer_sd_init0()

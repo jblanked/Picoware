@@ -280,14 +280,16 @@ void audio_stop_stream(void)
 
 #else
 #if defined(AUDIO_ESP32_I2S)
-// ESP32: an I2S master streams 16-bit stereo PCM into an ES8311 codec. A
+// ESP32: an I2S master streams 16-bit PCM into a codec or direct amplifier. A
 // FreeRTOS task mixes the tones, WAV streams and pushed PCM in software.
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "driver/i2s_std.h"
+#ifdef AUDIO_ES8311_I2C_ADDR
 #include "driver/i2c_master.h"
+#endif
 #include "driver/gpio.h"
 #include "esp_err.h"
 #include "py/runtime.h"
@@ -457,9 +459,13 @@ static uint32_t wav_active_sample_rate = 0;
 MP_REGISTER_ROOT_POINTER(uint8_t *audio_wav_ring[4]);
 
 static SemaphoreHandle_t audio_lock = NULL; // held while the task mixes a chunk
+static SemaphoreHandle_t audio_stopped = NULL;
+static volatile bool audio_stop_requested = false;
 static TaskHandle_t audio_task = NULL;
 static i2s_chan_handle_t audio_tx = NULL;
+#ifdef AUDIO_ES8311_I2C_ADDR
 static i2c_master_dev_handle_t audio_codec = NULL;
+#endif
 #if defined(AUDIO_AMP_ENABLE_PIN)
 static bool audio_amp_configured = false;
 #endif
@@ -541,6 +547,7 @@ static void audio_wake(void)
         xTaskNotifyGive(audio_task);
 }
 
+#ifdef AUDIO_ES8311_I2C_ADDR
 #ifndef AUDIO_I2C_ADD_DEVICE
 static esp_err_t audio_i2c_add_device(uint16_t address, i2c_master_dev_handle_t *out_dev)
 {
@@ -655,6 +662,8 @@ static void es8311_power_down(void)
     es8311_write(0x31, 0x60); // mute
     es8311_write(0x12, 0x02); // power down the DAC
 }
+
+#endif // AUDIO_ES8311_I2C_ADDR
 
 static bool audio_i2s_start(uint32_t sample_rate)
 {
@@ -861,6 +870,14 @@ static bool audio_mix(uint32_t frames)
         stream_ring_read = read + n;
     }
 
+#ifdef AUDIO_I2S_MONO
+    // Send both logical channels to the single speaker, in either I2S slot.
+    for (uint32_t i = 0; i < frames; i++)
+    {
+        int32_t mono = (mix_acc[i * 2] + mix_acc[i * 2 + 1]) / 2;
+        mix_acc[i * 2] = mix_acc[i * 2 + 1] = mono;
+    }
+#endif
     for (uint32_t i = 0; i < frames * 2; i++)
     {
         int32_t v = mix_acc[i];
@@ -872,7 +889,7 @@ static bool audio_mix(uint32_t frames)
 static void audio_task_entry(void *arg)
 {
     (void)arg;
-    for (;;)
+    while (!audio_stop_requested)
     {
         xSemaphoreTake(audio_lock, portMAX_DELAY);
         uint32_t wanted = streaming ? stream_sample_rate : (audio_wav_any_active() ? wav_active_sample_rate : audio_rate);
@@ -888,6 +905,8 @@ static void audio_task_entry(void *arg)
         size_t written = 0;
         i2s_channel_write(audio_tx, mix_out, sizeof(mix_out), &written, portMAX_DELAY);
     }
+    xSemaphoreGive(audio_stopped);
+    vTaskDelete(NULL);
 }
 
 // frames < 0 plays until stopped; the mixer counts the rest down.
@@ -906,20 +925,24 @@ static void audio_hw_stop(void)
 {
     if (audio_task)
     {
-        // Take the lock so the task is not in the middle of a chunk.
-        xSemaphoreTake(audio_lock, portMAX_DELAY);
-        vTaskDelete(audio_task);
+        // Let an in-flight I2S write release the driver's semaphore before
+        // disabling the channel. Deleting the writer can strand that lock.
+        audio_stop_requested = true;
+        audio_wake();
+        xSemaphoreTake(audio_stopped, portMAX_DELAY);
         audio_task = NULL;
-        xSemaphoreGive(audio_lock);
     }
+#ifdef AUDIO_ES8311_I2C_ADDR
     if (audio_codec)
         es8311_power_down();
+#endif
     if (audio_tx)
     {
         i2s_channel_disable(audio_tx);
         i2s_del_channel(audio_tx);
         audio_tx = NULL;
     }
+#ifdef AUDIO_ES8311_I2C_ADDR
     if (audio_codec)
     {
         esp_err_t err = i2c_master_bus_rm_device(audio_codec);
@@ -930,6 +953,7 @@ static void audio_hw_stop(void)
         AUDIO_I2C_RELEASE();
 #endif
     }
+#endif // AUDIO_ES8311_I2C_ADDR
 #if defined(AUDIO_AMP_ENABLE_PIN)
     if (audio_amp_configured)
     {
@@ -939,6 +963,11 @@ static void audio_hw_stop(void)
         audio_amp_configured = false;
     }
 #endif
+    if (audio_stopped)
+    {
+        vSemaphoreDelete(audio_stopped);
+        audio_stopped = NULL;
+    }
     if (audio_lock)
     {
         vSemaphoreDelete(audio_lock);
@@ -955,6 +984,14 @@ static bool audio_hw_start(void)
         PRINT("Audio: out of memory\n");
         return false;
     }
+    audio_stopped = xSemaphoreCreateBinary();
+    if (!audio_stopped)
+    {
+        PRINT("Audio: out of memory\n");
+        audio_hw_stop();
+        return false;
+    }
+    audio_stop_requested = false;
 #if defined(AUDIO_AMP_ENABLE_PIN)
     gpio_config_t amp_cfg = {
         .pin_bit_mask = 1ULL << AUDIO_AMP_ENABLE_PIN,
@@ -980,6 +1017,7 @@ static bool audio_hw_start(void)
         return false;
     }
 #endif
+#ifdef AUDIO_ES8311_I2C_ADDR
     if (AUDIO_I2C_ADD_DEVICE(AUDIO_ES8311_I2C_ADDR, &audio_codec) != ESP_OK)
     {
         PRINT("Audio: could not add the ES8311 to the I2C bus\n");
@@ -987,13 +1025,15 @@ static bool audio_hw_start(void)
         audio_hw_stop();
         return false;
     }
-    // The codec runs from BCLK, so start the clocks before configuring it.
+#endif
+    // Start clocks before configuring codecs that derive their clock from BCLK.
     if (!audio_i2s_start(AUDIO_DEFAULT_RATE))
     {
         PRINT("Audio: I2S setup failed\n");
         audio_hw_stop();
         return false;
     }
+#ifdef AUDIO_ES8311_I2C_ADDR
     vTaskDelay(pdMS_TO_TICKS(10));
     if (!es8311_init())
     {
@@ -1001,6 +1041,7 @@ static bool audio_hw_start(void)
         return false;
     }
 
+#endif // AUDIO_ES8311_I2C_ADDR
 #if defined(AUDIO_AMP_ENABLE_PIN)
     amp_err = gpio_set_level(AUDIO_AMP_ENABLE_PIN, 1);
     if (amp_err != ESP_OK)

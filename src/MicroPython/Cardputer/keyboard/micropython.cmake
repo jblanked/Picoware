@@ -4,6 +4,7 @@ add_library(usermod_cardputer_keyboard INTERFACE)
 
 target_sources(usermod_cardputer_keyboard INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/keyboard.c
+    ${CMAKE_CURRENT_LIST_DIR}/keyboard_matrix.c
     ${CMAKE_CURRENT_LIST_DIR}/keyboard_mp.c
 )
 

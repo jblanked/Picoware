@@ -420,6 +420,7 @@ mp_obj_t picoware_boards_has_audio(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PICOW:
     case BOARD_PICOCALC_PICO_2W:
     case BOARD_PICOCALC_PIMORONI_2W:
+    case BOARD_CARDPUTER:
     case BOARD_DESKTOP:
         has_audio = true;
         break;

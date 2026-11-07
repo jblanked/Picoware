@@ -638,3 +638,19 @@ esp_err_t sdcard_vfs_bridge_unregister(void)
     s_bridge_registered = false;
     return ret;
 }
+
+void sdcard_vfs_bridge_reset(void)
+{
+    // MicroPython finalizes files before destroying the old heap. Only native
+    // bookkeeping remains; invoking close() on these old pointers is unsafe.
+    memset(s_file_slots, 0, sizeof(s_file_slots));
+    for (int i = 0; i < BRIDGE_MAX_OPEN_FILES; ++i)
+    {
+        BRIDGE_FILE_OBJ(i) = MP_OBJ_NULL;
+    }
+    if (s_bridge_registered)
+    {
+        esp_vfs_unregister(SDCARD_MOUNT_POINT);
+        s_bridge_registered = false;
+    }
+}

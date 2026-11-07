@@ -3,6 +3,10 @@
 
 # Identify Cardputer in shared modules (for board ID/capability flags).
 add_compile_definitions(CARDPUTER)
+if("$ENV{CARDPUTER_VARIANT}" STREQUAL "original")
+    add_compile_definitions(CARDPUTER_ORIGINAL)
+    list(APPEND MICROPY_DEF_BOARD CARDPUTER_ORIGINAL)
+endif()
 # Ensure core ESP32 port sources (including shared TinyUSB) also see CARDPUTER.
 list(APPEND MICROPY_DEF_BOARD CARDPUTER)
 

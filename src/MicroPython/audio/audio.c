@@ -287,6 +287,7 @@ void audio_stop_stream(void)
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "driver/i2s_std.h"
+#include "audio_mp3_esp32.h"
 #ifdef AUDIO_ES8311_I2C_ADDR
 #include "driver/i2c_master.h"
 #endif
@@ -449,7 +450,7 @@ static uint32_t wav_active_sample_rate = 0;
 #if defined(AUDIO_ESP32_I2S)
 #define AUDIO_DEFAULT_RATE 22050
 #define AUDIO_TONE_AMPLITUDE 6000 // square wave peak, about -15 dBFS
-#define AUDIO_TASK_STACK 8192
+#define AUDIO_TASK_STACK 32768 // minimp3 frame decoder uses stack scratch space
 #define AUDIO_TASK_PRIORITY 3 // above the MicroPython task
 #define WAV_RING_BYTES 32768  // raw PCM read ahead per stream; must be a power of 2
 #define WAV_RING_MASK (WAV_RING_BYTES - 1)
@@ -849,6 +850,10 @@ static bool audio_mix(uint32_t frames)
         }
     }
 
+    any |= audio_mp3_esp32_mix(mix_acc, frames);
+    if (audio_mp3_esp32_needs_refill())
+        audio_wav_request_refill();
+
     for (uint32_t i = 0; i < frames * 2; i++)
         mix_acc[i] = mix_acc[i] * (int32_t)audio_volume / 100;
 
@@ -892,7 +897,9 @@ static void audio_task_entry(void *arg)
     while (!audio_stop_requested)
     {
         xSemaphoreTake(audio_lock, portMAX_DELAY);
-        uint32_t wanted = streaming ? stream_sample_rate : (audio_wav_any_active() ? wav_active_sample_rate : audio_rate);
+        uint32_t wanted = streaming ? stream_sample_rate :
+                          (audio_mp3_esp32_active() ? audio_mp3_esp32_rate() :
+                           (audio_wav_any_active() ? wav_active_sample_rate : audio_rate));
         audio_i2s_set_rate(wanted);
         bool any = audio_mix(WAV_MIX_CHUNK);
         is_playing = any;
@@ -1575,7 +1582,29 @@ static void audio_mp3_close(void)
 
 bool audio_play_mp3(const char *filename)
 {
-#if SD_AVAILABLE
+#if defined(AUDIO_ESP32_I2S)
+    if (!audio_initialised && !audio_init())
+        return false;
+    audio_stop();
+    xSemaphoreTake(audio_lock, portMAX_DELAY);
+    // WAV keeps read-ahead buffers for reuse. Release those idle buffers so
+    // the MP3 decoder can fit on devices with a small MicroPython heap.
+    for (int i = 0; i < MAX_WAV_STREAMS; i++)
+    {
+        wav_streams[i].ring = NULL;
+        if (MP_STATE_VM(audio_wav_ring)[i])
+        {
+            AUDIO_MEMORY_FREE(MP_STATE_VM(audio_wav_ring)[i]);
+            MP_STATE_VM(audio_wav_ring)[i] = NULL;
+        }
+    }
+    bool opened = audio_mp3_esp32_open(filename);
+    is_playing = opened;
+    xSemaphoreGive(audio_lock);
+    if (opened)
+        audio_wake();
+    return opened;
+#elif SD_AVAILABLE
     if (!audio_initialised && !audio_init())
     {
         PRINT("Audio not initialized and failed to initialize\n");
@@ -1667,7 +1696,14 @@ bool audio_play_mp3(const char *filename)
 
 bool audio_is_sd_busy(void)
 {
-#if SD_AVAILABLE
+#if defined(AUDIO_ESP32_I2S)
+    if (!audio_lock)
+        return false;
+    xSemaphoreTake(audio_lock, portMAX_DELAY);
+    bool busy = audio_mp3_esp32_active();
+    xSemaphoreGive(audio_lock);
+    return busy;
+#elif SD_AVAILABLE
     return mp3_core1_running;
 #else
     return false;
@@ -1677,7 +1713,14 @@ bool audio_is_sd_busy(void)
 audio_info_t audio_get_info(void)
 {
     audio_info_t info = {0, 0, 0, 0};
-#if SD_AVAILABLE
+#if defined(AUDIO_ESP32_I2S)
+    if (audio_lock)
+    {
+        xSemaphoreTake(audio_lock, portMAX_DELAY);
+        info = audio_mp3_esp32_info();
+        xSemaphoreGive(audio_lock);
+    }
+#elif SD_AVAILABLE
     if (is_playing && mp3_core1_running)
     {
         info.sample_rate = mp3_dec.info.hz;
@@ -1691,7 +1734,17 @@ audio_info_t audio_get_info(void)
 
 bool audio_seek(uint64_t target_sample)
 {
-#if SD_AVAILABLE
+#if defined(AUDIO_ESP32_I2S)
+    if (!audio_initialised || !audio_lock)
+        return false;
+    xSemaphoreTake(audio_lock, portMAX_DELAY);
+    bool result = audio_mp3_esp32_seek(target_sample);
+    is_playing = audio_mp3_esp32_active();
+    xSemaphoreGive(audio_lock);
+    if (result)
+        audio_wake();
+    return result;
+#elif SD_AVAILABLE
     if (is_playing && mp3_core1_running)
     {
         if (mp3_pending_seek >= 0)
@@ -2149,6 +2202,7 @@ static mp_obj_t audio_wav_refill_cb(mp_obj_t arg)
     wav_refill_pending = false;
     if (!audio_initialised)
         return mp_const_none;
+    audio_mp3_esp32_refill();
     for (int i = 0; i < MAX_WAV_STREAMS; i++)
     {
         wav_stream_t *w = &wav_streams[i];
@@ -2164,6 +2218,18 @@ static mp_obj_t audio_wav_refill_cb(mp_obj_t arg)
 bool audio_play_wav(const char *filename)
 {
 #if SD_AVAILABLE || defined(AUDIO_ESP32_I2S)
+#if defined(AUDIO_ESP32_I2S)
+    if (audio_mp3_esp32_active())
+        audio_stop();
+    // A completed MP3 retains metadata until the next playback operation.
+    // Release its decoder before allocating a WAV read-ahead buffer.
+    if (audio_lock)
+    {
+        xSemaphoreTake(audio_lock, portMAX_DELAY);
+        audio_mp3_esp32_close();
+        xSemaphoreGive(audio_lock);
+    }
+#endif
     if (!audio_initialised && !audio_init())
     {
         PRINT("Audio not initialized and failed to initialize\n");
@@ -2396,6 +2462,7 @@ bool audio_start_stream(uint32_t sample_rate)
     xSemaphoreTake(audio_lock, portMAX_DELAY);
     stream_ring_read = 0;
     stream_ring_write = 0;
+    audio_mp3_esp32_close();
     stream_sample_rate = sample_rate; // the task switches I2S to this rate
     streaming = true;
     xSemaphoreGive(audio_lock);
@@ -2502,8 +2569,9 @@ void audio_stop(void)
         return;
     }
 #if defined(AUDIO_ESP32_I2S)
-    // Stop WAV playback; the files are closed here, in MicroPython context
+    // Files are closed here, in MicroPython context.
     xSemaphoreTake(audio_lock, portMAX_DELAY);
+    audio_mp3_esp32_close();
     for (int i = 0; i < MAX_WAV_STREAMS; i++)
     {
         if (wav_streams[i].active || wav_streams[i].file)

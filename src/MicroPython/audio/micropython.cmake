@@ -3,6 +3,7 @@ add_library(usermod_audio INTERFACE)
 
 target_sources(usermod_audio INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/audio_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/audio_mp3_esp32.c
     ${CMAKE_CURRENT_LIST_DIR}/audio.c
 )
 

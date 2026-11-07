@@ -16,6 +16,14 @@
 #define AUDIO_I2C_ADD_DEVICE ws_c5_35_i2c_add_device
 #define AUDIO_I2C_RELEASE ws_c5_35_i2c_bus_release
 #define AUDIO_SD_ROOT "/sdcard"
+#elif defined(CARDPUTER_ORIGINAL)
+// NS4168 direct I2S amplifier; no I2C codec or software enable pin.
+#define AUDIO_ESP32_I2S 1
+#define AUDIO_I2S_BCLK_PIN (41)
+#define AUDIO_I2S_WS_PIN (43)
+#define AUDIO_I2S_DOUT_PIN (42)
+#define AUDIO_I2S_MONO 1
+#define AUDIO_SD_ROOT "/sdcard"
 #elif defined(CARDPUTER)
 // Cardputer ADV I2S master into its ES8311 codec.
 #define AUDIO_ESP32_I2S 1

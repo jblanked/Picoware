@@ -80,6 +80,7 @@ void audio_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         }
         case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&audio_mp_del_obj);
+            destination[1] = self_in;
             return;
         default:
             destination[1] = MP_OBJ_SENTINEL;

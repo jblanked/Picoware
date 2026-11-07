@@ -4,18 +4,27 @@
 
 #include "board_config.h"
 #include "driver/gpio.h"
+#ifdef CARDPUTER_ORIGINAL
+#include "keyboard_matrix.h"
+#else
 #include "driver/i2c_master.h"
+#endif
 #include "esp_check.h"
 #include "esp_log.h"
 
+#ifndef CARDPUTER_ORIGINAL
 static const char *TAG = "keyboard";
+#endif
 
+#ifndef CARDPUTER_ORIGINAL
 static i2c_master_bus_handle_t s_i2c_bus;
 static i2c_master_dev_handle_t s_tca_dev;
+#endif
 static bool s_fn_pressed;
 static bool s_caps_lock;
 static uint8_t s_pressed_keycodes[16];
 
+#ifndef CARDPUTER_ORIGINAL
 enum
 {
     REG_CFG = 0x01,
@@ -40,6 +49,8 @@ static esp_err_t tca_read(uint8_t reg, uint8_t *value)
 {
     return i2c_master_transmit_receive(s_tca_dev, &reg, 1, value, 1, -1);
 }
+
+#endif
 
 static bool is_alpha_ascii(char value)
 {
@@ -312,6 +323,7 @@ static char map_keycode_to_ascii(uint8_t keycode, bool pressed)
     return apply_caps_lock(value);
 }
 
+#ifndef CARDPUTER_ORIGINAL
 static esp_err_t keyboard_clear_interrupt(void)
 {
     uint8_t int_status = 0;
@@ -322,8 +334,19 @@ static esp_err_t keyboard_clear_interrupt(void)
     return ESP_OK;
 }
 
+#endif
+
 esp_err_t keyboard_init(void)
 {
+#ifdef CARDPUTER_ORIGINAL
+    esp_err_t err = keyboard_matrix_init();
+    if (err != ESP_OK) return err;
+    s_fn_pressed = false;
+    s_caps_lock = false;
+    for (size_t i = 0; i < sizeof(s_pressed_keycodes); ++i)
+        s_pressed_keycodes[i] = 0;
+    return ESP_OK;
+#else
     if (s_tca_dev != NULL)
     {
         return ESP_OK;
@@ -379,11 +402,17 @@ esp_err_t keyboard_init(void)
 
     ESP_RETURN_ON_ERROR(keyboard_clear_interrupt(), TAG, "keyboard int clear failed");
     return ESP_OK;
+#endif
 }
 
 bool keyboard_irq_asserted(void)
 {
+#ifdef CARDPUTER_ORIGINAL
+    // The matrix is polled; it has no interrupt line.
+    return true;
+#else
     return gpio_get_level(CARDPUTER_KEYBOARD_INT_GPIO) == 0;
+#endif
 }
 
 bool keyboard_is_pressed(void)
@@ -404,6 +433,10 @@ esp_err_t keyboard_read_event(keyboard_event_t *out_event, bool *has_event)
     {
         return ESP_ERR_INVALID_ARG;
     }
+#ifdef CARDPUTER_ORIGINAL
+    esp_err_t err = keyboard_matrix_read(out_event, has_event);
+    if (err != ESP_OK || !*has_event) return err;
+#else
     if (s_tca_dev == NULL)
     {
         return ESP_ERR_INVALID_STATE;
@@ -425,6 +458,7 @@ esp_err_t keyboard_read_event(keyboard_event_t *out_event, bool *has_event)
 
     out_event->pressed = (event_byte & 0x80) != 0;
     out_event->keycode = (event_byte & 0x7F);
+#endif
     uint8_t keycode_byte = out_event->keycode / 8;
     uint8_t keycode_mask = (uint8_t)(1U << (out_event->keycode % 8));
     if (out_event->pressed)
@@ -438,6 +472,8 @@ esp_err_t keyboard_read_event(keyboard_event_t *out_event, bool *has_event)
     out_event->ascii = map_keycode_to_ascii(out_event->keycode, out_event->pressed);
     *has_event = true;
 
+#ifndef CARDPUTER_ORIGINAL
     ESP_RETURN_ON_ERROR(keyboard_clear_interrupt(), TAG, "keyboard int clear failed");
+#endif
     return ESP_OK;
 }

@@ -17,6 +17,7 @@ Options:
 
 Environment overrides:
     ESP_IDF_DIR              Path to ESP-IDF root
+    CARDPUTER_VARIANT        adv (default) or original
     CARDPUTER_BUILD_DIR      Path to Cardputer build artifacts directory
     CARDPUTER_PORT           Default serial port
     CARDPUTER_BAUD           Default baud rate
@@ -41,6 +42,12 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 picoware_dir="$(cd "$script_dir/.." && pwd)"
 esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.2/esp-idf}"
 build_dir="${CARDPUTER_BUILD_DIR:-$picoware_dir/builds/MicroPython}"
+
+case "${CARDPUTER_VARIANT:-adv}" in
+    adv) artifact_name="Picoware-Cardputer" ;;
+    original) artifact_name="Picoware-Cardputer-Original" ;;
+    *) echo "ERROR: CARDPUTER_VARIANT must be adv or original"; exit 1 ;;
+esac
 
 port="${CARDPUTER_PORT:-}"
 baud="${CARDPUTER_BAUD:-460800}"
@@ -100,9 +107,9 @@ require_dir "$esp_idf_dir"
 require_dir "$build_dir"
 require_file "$esp_idf_dir/export.sh"
 
-bootloader_bin="$build_dir/Picoware-Cardputer-bootloader.bin"
-partition_bin="$build_dir/Picoware-Cardputer-partition-table.bin"
-firmware_bin="$build_dir/Picoware-Cardputer.bin"
+bootloader_bin="$build_dir/${artifact_name}-bootloader.bin"
+partition_bin="$build_dir/${artifact_name}-partition-table.bin"
+firmware_bin="$build_dir/${artifact_name}.bin"
 
 if [ ! -f "$bootloader_bin" ] || [ ! -f "$partition_bin" ] || [ ! -f "$firmware_bin" ]; then
     echo "ERROR: Cardputer flash artifacts were not found in $build_dir"

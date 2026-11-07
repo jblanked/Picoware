@@ -26,10 +26,22 @@
 // card would otherwise pay a full SPI + card init every time.
 #define SDCARD_RETRY_BACKOFF_MS (3000)
 
-static mp_obj_t s_sdcard_obj = MP_OBJ_NULL;
+MP_REGISTER_ROOT_POINTER(mp_obj_t cardputer_sdcard_obj);
+#define s_sdcard_obj MP_STATE_PORT(cardputer_sdcard_obj)
 static bool s_sdcard_mounted = false;
 static bool s_mount_in_progress = false;
 static uint32_t s_next_mount_attempt_ms = 0;
+
+// Called at VM startup, after the previous heap and VFS have been discarded.
+// The SDCard finalizer already released its SPI host during gc_sweep_all().
+void cardputer_sd_init0(void)
+{
+    s_sdcard_obj = MP_OBJ_NULL;
+    s_sdcard_mounted = false;
+    s_mount_in_progress = false;
+    s_next_mount_attempt_ms = 0;
+    sdcard_vfs_bridge_reset();
+}
 
 static void sdcard_try_deinit_obj(void)
 {

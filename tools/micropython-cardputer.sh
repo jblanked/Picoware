@@ -23,7 +23,13 @@ esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.2/esp-idf}"
 idf_tools_dir="${IDF_TOOLS_PATH:-$HOME/.espressif}"
 
 cardputer_src_dir="$picoware_dir/src/MicroPython/Cardputer"
-output_dir="$picoware_dir/builds/MicroPython"
+output_dir="${CARDPUTER_OUTPUT_DIR:-$picoware_dir/builds/MicroPython}"
+export CARDPUTER_VARIANT="${CARDPUTER_VARIANT:-adv}"
+case "$CARDPUTER_VARIANT" in
+    adv) artifact_name="Picoware-Cardputer"; variant_cflags="" ;;
+    original) artifact_name="Picoware-Cardputer-Original"; variant_cflags="-DCARDPUTER_ORIGINAL" ;;
+    *) echo "ERROR: CARDPUTER_VARIANT must be adv or original"; exit 1 ;;
+esac
 build_dir="$micropython_dir/build-ESP32_GENERIC_S3"
 
 require_dir() {
@@ -94,9 +100,9 @@ fi
 mkdir -p "$output_dir"
 
 echo "Cleaning previous Cardputer outputs and build directory..."
-rm -f "$output_dir"/Picoware-Cardputer.bin
-rm -f "$output_dir"/Picoware-Cardputer-bootloader.bin
-rm -f "$output_dir"/Picoware-Cardputer-partition-table.bin
+rm -f "$output_dir"/${artifact_name}.bin
+rm -f "$output_dir"/${artifact_name}-bootloader.bin
+rm -f "$output_dir"/${artifact_name}-partition-table.bin
 rm -rf "$build_dir"
 
 echo "Cleaning staged MicroPython modules..."
@@ -146,6 +152,11 @@ cp -r "$cardputer_src_dir/lcd" "$micropython_dir/modules/cardputer/lcd"
 cp -r "$cardputer_src_dir/keyboard" "$micropython_dir/modules/cardputer/keyboard"
 cp -r "$cardputer_src_dir/battery" "$micropython_dir/modules/cardputer/battery"
 cp -r "$cardputer_src_dir/sd" "$micropython_dir/modules/cardputer/sd"
+
+# Shared headers retain the source-tree capitalization on case-sensitive hosts.
+if [ ! -e "$micropython_dir/modules/Cardputer" ]; then
+    ln -s cardputer "$micropython_dir/modules/Cardputer"
+fi
 
 echo "Staging shared C modules referenced by Cardputer CMake..."
 shared_c_modules="$(sed -nE '
@@ -294,7 +305,7 @@ cd "$micropython_dir"
 
 # Keep ESP-IDF warnings from failing the build, keep legacy I2C API checks permissive,
 # and force the Cardputer board define for preprocess-only qstr generation paths.
-export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DCARDPUTER -DPBUF_POOL_SIZE=10 -DESP32"
+export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DCARDPUTER -DPBUF_POOL_SIZE=10 -DESP32 $variant_cflags"
 
 make BOARD=ESP32_GENERIC_S3 \
     USER_C_MODULES="$micropython_dir/modules/cardputer/micropython.cmake" \
@@ -321,12 +332,12 @@ else
     echo "Generated sdkconfig not present after clean; validation will rely on build output."
 fi
 
-make -j BOARD=ESP32_GENERIC_S3 \
+make -j"${PICOWARE_BUILD_JOBS:-4}" BOARD=ESP32_GENERIC_S3 \
     USER_C_MODULES="$micropython_dir/modules/cardputer/micropython.cmake"
 
 app_bin="$build_dir/micropython.bin"
 require_file "$app_bin"
-app_size_bytes="$(stat -f%z "$app_bin")"
+app_size_bytes="$(wc -c < "$app_bin" | tr -d '[:space:]')"
 if [ "$app_size_bytes" -ge "$factory_partition_size" ]; then
     printf 'ERROR: firmware binary (%d bytes) does not fit factory partition (%d bytes).\n' "$app_size_bytes" "$factory_partition_size"
     exit 1
@@ -334,22 +345,22 @@ fi
 
 printf 'Firmware size check: %d / %d bytes used in factory app partition.\n' "$app_size_bytes" "$factory_partition_size"
 
-cp "$build_dir/micropython.bin" "$output_dir/Picoware-Cardputer.bin"
+cp "$build_dir/micropython.bin" "$output_dir/${artifact_name}.bin"
 
 if [ -f "$build_dir/bootloader/bootloader.bin" ]; then
-    cp "$build_dir/bootloader/bootloader.bin" "$output_dir/Picoware-Cardputer-bootloader.bin"
+    cp "$build_dir/bootloader/bootloader.bin" "$output_dir/${artifact_name}-bootloader.bin"
 fi
 
 if [ -f "$build_dir/partition_table/partition-table.bin" ]; then
-    cp "$build_dir/partition_table/partition-table.bin" "$output_dir/Picoware-Cardputer-partition-table.bin"
+    cp "$build_dir/partition_table/partition-table.bin" "$output_dir/${artifact_name}-partition-table.bin"
 fi
 
 echo "Cardputer build complete."
 echo "Artifacts:"
-echo "  $output_dir/Picoware-Cardputer.bin"
-if [ -f "$output_dir/Picoware-Cardputer-bootloader.bin" ]; then
-    echo "  $output_dir/Picoware-Cardputer-bootloader.bin"
+echo "  $output_dir/${artifact_name}.bin"
+if [ -f "$output_dir/${artifact_name}-bootloader.bin" ]; then
+    echo "  $output_dir/${artifact_name}-bootloader.bin"
 fi
-if [ -f "$output_dir/Picoware-Cardputer-partition-table.bin" ]; then
-    echo "  $output_dir/Picoware-Cardputer-partition-table.bin"
+if [ -f "$output_dir/${artifact_name}-partition-table.bin" ]; then
+    echo "  $output_dir/${artifact_name}-partition-table.bin"
 fi

@@ -145,6 +145,20 @@ extern "C"
         uint64_t position;
     } audio_info_t;
 
+#if defined(AUDIO_ESP32_I2S)
+    // File access belongs to the MicroPython task. Mixing belongs to the audio
+    // task; callers serialize open/close/mix/info with the audio mutex.
+    bool audio_mp3_esp32_open(const char *filename);
+    void audio_mp3_esp32_close(void);
+    bool audio_mp3_esp32_seek(uint64_t target_sample);
+    void audio_mp3_esp32_refill(void);
+    bool audio_mp3_esp32_needs_refill(void);
+    bool audio_mp3_esp32_active(void);
+    uint32_t audio_mp3_esp32_rate(void);
+    bool audio_mp3_esp32_mix(int32_t *output, uint32_t frames);
+    audio_info_t audio_mp3_esp32_info(void);
+#endif
+
     void audio_deinit(void);                                                                                 // Deinitialize the audio subsystem
     uint8_t audio_get_volume(void);                                                                          // Get the current audio volume (0-100)
     audio_info_t audio_get_info(void);                                                                       // Get current audio info

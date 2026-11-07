@@ -287,6 +287,7 @@ void audio_stop_stream(void)
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "driver/i2s_std.h"
+#include <stdatomic.h>
 #ifdef AUDIO_ES8311_I2C_ADDR
 #include "driver/i2c_master.h"
 #endif
@@ -342,19 +343,364 @@ volatile bool user_interrupt = false;
 
 #include "py/gc.h"
 
-#if !defined(AUDIO_ESP32_I2S) // MP3 is not supported on ESP32 yet
+#if !defined(AUDIO_ESP32_I2S)
 #define MINIMP3_MALLOC(sz) m_malloc(sz)
 #define MINIMP3_FREE(p) m_free(p)
 #define MINIMP3_REALLOC(p, sz) m_realloc(p, sz)
-#define MINIMP3_IMPLEMENTATION
-#define MINIMP3_NO_STDIO
 #define MINIMP3_IO_SIZE (8 * 1024)
 #define MINIMP3_BUF_SIZE (4 * 1024)
 #define MP3D_SEEK_TO_BYTE 0
 #define MP3D_SEEK_TO_SAMPLE 1
 #define MINIMP3_PREDECODE_FRAMES 2
-#include "minimp3/minimp3_ex.h"
 #endif
+#define MINIMP3_IMPLEMENTATION
+#define MINIMP3_NO_STDIO
+#include "minimp3/minimp3_ex.h"
+
+#if defined(AUDIO_ESP32_I2S)
+// File reads stay in MicroPython context; decoding runs on the audio task.
+#define MP3_RING_BYTES 16384u
+#define MP3_INPUT_BYTES 8192u
+
+typedef struct
+{
+    FILE *file;
+    mp3dec_t decoder;
+    uint8_t ring[MP3_RING_BYTES];
+    uint8_t input[MP3_INPUT_BYTES];
+    mp3d_sample_t pcm[MINIMP3_MAX_SAMPLES_PER_FRAME];
+    _Atomic uint32_t head, tail;
+    _Atomic bool eof, done;
+    bool active, seeking;
+    char path[256];
+    long data_start;
+    uint32_t initial_skip;
+    uint32_t buffered, pcm_frames, pcm_pos, skip;
+    uint32_t rate, channels;
+    uint64_t duration, position; // frames per channel
+} audio_mp3_state_t;
+
+MP_REGISTER_ROOT_POINTER(void *audio_mp3_esp32_state);
+#define MP3_STATE ((audio_mp3_state_t *)MP_STATE_PORT(audio_mp3_esp32_state))
+
+void audio_mp3_esp32_close(void)
+{
+    audio_mp3_state_t *s = MP3_STATE;
+    if (!s)
+        return;
+    s->active = false;
+    FILE *file = s->file;
+    s->file = NULL;
+    if (file)
+        fclose(file);
+    MP_STATE_PORT(audio_mp3_esp32_state) = NULL;
+    m_free(s);
+}
+
+void audio_mp3_esp32_refill(void)
+{
+    audio_mp3_state_t *s = MP3_STATE;
+    if (!s || !s->file || s->seeking)
+        return;
+    if (s->done)
+    {
+        FILE *file = s->file;
+        s->file = NULL;
+        fclose(file);
+        return;
+    }
+    while (!s->eof)
+    {
+        uint32_t tail = atomic_load_explicit(&s->tail, memory_order_acquire);
+        uint32_t head = atomic_load_explicit(&s->head, memory_order_relaxed);
+        uint32_t space = MP3_RING_BYTES - (head - tail);
+        if (!space)
+            break;
+        uint32_t offset = head & (MP3_RING_BYTES - 1);
+        uint32_t count = MP3_RING_BYTES - offset;
+        if (count > space)
+            count = space;
+        size_t got = fread(s->ring + offset, 1, count, s->file);
+        atomic_store_explicit(&s->head, head + got, memory_order_release);
+        if (got < count)
+            s->eof = true;
+    }
+}
+
+bool audio_mp3_esp32_open(const char *filename)
+{
+    audio_mp3_esp32_close();
+    if (!filename)
+        return false;
+    char path[256];
+    size_t root_len = strlen(AUDIO_SD_ROOT);
+    int length;
+    if (strncmp(filename, AUDIO_SD_ROOT, root_len) == 0 &&
+        (filename[root_len] == '/' || filename[root_len] == '\0'))
+        length = snprintf(path, sizeof(path), "%s", filename);
+    else
+        length = snprintf(path, sizeof(path), "%s%s%s", AUDIO_SD_ROOT,
+                          filename[0] == '/' ? "" : "/", filename);
+    if (length < 0 || (size_t)length >= sizeof(path))
+        return false;
+    audio_mp3_state_t *s = m_malloc_maybe(sizeof(*s));
+    if (!s)
+        return false;
+    memset(s, 0, sizeof(*s));
+    MP_STATE_PORT(audio_mp3_esp32_state) = s;
+    memcpy(s->path, path, strlen(path) + 1);
+    s->file = fopen(path, "rb");
+    if (!s->file)
+    {
+        audio_mp3_esp32_close();
+        return false;
+    }
+    uint8_t tag[10];
+    size_t got = fread(tag, 1, sizeof(tag), s->file);
+    size_t offset = mp3dec_skip_id3v2(tag, got);
+    if (fseek(s->file, (long)offset, SEEK_SET) != 0)
+    {
+        audio_mp3_esp32_close();
+        return false;
+    }
+    audio_mp3_esp32_refill();
+    int free_format_bytes = 0, frame_size = 0;
+    int frame_offset = mp3d_find_frame(s->ring, (int)s->head,
+                                     &free_format_bytes, &frame_size);
+    if (!frame_size || frame_offset + frame_size > (int)s->head)
+    {
+        audio_mp3_esp32_close();
+        return false;
+    }
+    const uint8_t *header = s->ring + frame_offset;
+    s->rate = hdr_sample_rate_hz(header);
+    s->channels = HDR_IS_MONO(header) ? 1 : 2;
+    uint32_t frames = 0;
+    int delay = 0, padding = 0;
+    int vbr = mp3dec_check_vbrtag(header, frame_size, &frames, &delay, &padding);
+    s->tail = frame_offset;
+    if (vbr > 0)
+    {
+        uint64_t total = (uint64_t)hdr_frame_samples(header) * frames;
+        uint32_t trim = (delay > 0 ? delay : 0) + (padding > 0 ? padding : 0);
+        if (total > trim)
+            s->duration = total - trim;
+        s->skip = delay > 0 ? delay : 0;
+        s->tail += frame_size; // Xing/Info frame is metadata, not audio.
+    }
+    s->data_start = (long)offset + s->tail;
+    s->initial_skip = s->skip;
+    mp3dec_init(&s->decoder);
+    s->active = true;
+    return true;
+}
+
+// Scan frame headers in MicroPython context; decode only a bounded preroll
+// on the audio task. Byte-rate estimates are inaccurate for VBR files.
+// Retaining 32 frames restores the Layer III bit reservoir and synthesis
+// history without allocating a full-file seek index.
+bool audio_mp3_esp32_seek(uint64_t target_sample)
+{
+    audio_mp3_state_t *s = MP3_STATE;
+    if (!s)
+        return false;
+    uint64_t target = target_sample / s->channels;
+    if (s->duration && target > s->duration)
+        target = s->duration;
+    s->seeking = true; // VFS reads may run a queued refill callback.
+    s->active = false;
+    if (!s->file)
+        s->file = fopen(s->path, "rb");
+    if (!s->file || fseek(s->file, s->data_start, SEEK_SET) != 0)
+    {
+        s->done = true;
+        s->seeking = false;
+        return false;
+    }
+
+    long offsets[32];
+    uint64_t samples[32];
+    unsigned history = 0;
+    uint64_t sample = 0;
+    uint64_t wanted = target > UINT64_MAX - s->initial_skip
+                          ? UINT64_MAX : target + s->initial_skip;
+    long offset = s->data_start;
+    uint32_t buffered = 0;
+    bool eof = false;
+    int free_format = 0;
+    for (;;)
+    {
+        // Batch SD/VFS reads rather than issuing one tiny read per frame.
+        if (!eof && buffered < MP3_INPUT_BYTES / 2)
+        {
+            size_t count = MP3_INPUT_BYTES - buffered;
+            size_t got = fread(s->input + buffered, 1, count, s->file);
+            buffered += got;
+            eof = got < count;
+            if (ferror(s->file))
+            {
+                s->done = true;
+                s->seeking = false;
+                return false;
+            }
+        }
+        int size = 0;
+        int start = mp3d_find_frame(s->input, buffered, &free_format, &size);
+        if (!size || (uint32_t)(start + size) > buffered)
+        {
+            if (!eof)
+            {
+                s->done = true;
+                s->seeking = false;
+                return false;
+            }
+            // Files without Xing metadata acquire a duration at EOF.
+            s->duration = sample > s->initial_skip ? sample - s->initial_skip : 0;
+            s->position = s->duration;
+            s->done = true;
+            s->seeking = false;
+            return true;
+        }
+        const uint8_t *header = s->input + start;
+        if (hdr_sample_rate_hz(header) != s->rate ||
+            (HDR_IS_MONO(header) ? 1u : 2u) != s->channels)
+        {
+            s->done = true;
+            s->seeking = false;
+            return false;
+        }
+        offsets[history % 32] = offset + start;
+        samples[history % 32] = sample;
+        history++;
+        uint32_t frames = hdr_frame_samples(header);
+        if (sample + frames > wanted)
+            break;
+        sample += frames;
+        uint32_t used = start + size;
+        buffered -= used;
+        memmove(s->input, s->input + used, buffered);
+        offset += used;
+    }
+    unsigned first = history > 32 ? history % 32 : 0;
+    if (fseek(s->file, offsets[first], SEEK_SET) != 0)
+    {
+        s->done = true;
+        s->seeking = false;
+        return false;
+    }
+    mp3dec_init(&s->decoder);
+    s->head = s->tail = 0;
+    s->buffered = s->pcm_frames = s->pcm_pos = 0;
+    s->skip = (uint32_t)(wanted - samples[first]);
+    s->position = target;
+    s->eof = s->done = false;
+    s->seeking = false;
+    audio_mp3_esp32_refill();
+    s->active = true;
+    return true;
+}
+
+bool audio_mp3_esp32_active(void)
+{
+    return MP3_STATE && MP3_STATE->active;
+}
+
+uint32_t audio_mp3_esp32_rate(void)
+{
+    return MP3_STATE ? MP3_STATE->rate : 0;
+}
+
+bool audio_mp3_esp32_needs_refill(void)
+{
+    audio_mp3_state_t *s = MP3_STATE;
+    return s && (s->done || (!s->eof && s->head - s->tail < MP3_RING_BYTES / 2));
+}
+
+// Audio task only. No allocation, filesystem access or MicroPython calls.
+static bool decode_frame(audio_mp3_state_t *s)
+{
+    for (unsigned attempt = 0; attempt < 8; ++attempt)
+    {
+        bool eof = atomic_load_explicit(&s->eof, memory_order_acquire);
+        uint32_t head = atomic_load_explicit(&s->head, memory_order_acquire);
+        uint32_t tail = atomic_load_explicit(&s->tail, memory_order_relaxed);
+        uint32_t count = head - tail;
+        if (count > MP3_INPUT_BYTES - s->buffered)
+            count = MP3_INPUT_BYTES - s->buffered;
+        for (uint32_t i = 0; i < count; ++i)
+            s->input[s->buffered + i] = s->ring[(tail + i) & (MP3_RING_BYTES - 1)];
+        s->buffered += count;
+        atomic_store_explicit(&s->tail, tail + count, memory_order_release);
+        if (s->buffered < MP3_INPUT_BYTES && !eof)
+            return false; // refill before asking the decoder to find a frame
+        if (!s->buffered)
+            break;
+        mp3dec_frame_info_t info = {0};
+        int frames = mp3dec_decode_frame(&s->decoder, s->input, s->buffered, s->pcm, &info);
+        uint32_t used = info.frame_bytes;
+        if (!used || used > s->buffered)
+            break;
+        // The first preroll frame can lack bit-reservoir data and produce no
+        // PCM. It still occupies time in the frame index used by seeking.
+        if (!frames && s->skip && info.hz && info.frame_offset + 4 <= (int)used)
+        {
+            uint32_t skipped = hdr_frame_samples(s->input + info.frame_offset);
+            s->skip -= s->skip < skipped ? s->skip : skipped;
+        }
+        s->buffered -= used;
+        memmove(s->input, s->input + used, s->buffered);
+        if (frames > 0)
+        {
+            if ((uint32_t)info.hz != s->rate || (uint32_t)info.channels != s->channels)
+                break; // concatenated formats need a new playback session
+            s->pcm_frames = frames;
+            s->pcm_pos = s->skip < (uint32_t)frames ? s->skip : (uint32_t)frames;
+            s->skip -= s->pcm_pos;
+            if (s->pcm_pos < s->pcm_frames)
+                return true;
+        }
+        if (attempt == 7)
+            return false; // Continue seek preroll in the next mixer chunk.
+    }
+    if (!s->buffered && !s->eof)
+        return false;
+    s->active = false;
+    s->done = true;
+    return false;
+}
+
+bool audio_mp3_esp32_mix(int32_t *output, uint32_t frames)
+{
+    audio_mp3_state_t *s = MP3_STATE;
+    if (!s || !s->active)
+        return false;
+    bool any = true;
+    for (uint32_t i = 0; i < frames; ++i)
+    {
+        if (s->duration && s->position >= s->duration)
+        {
+            s->active = false;
+            s->done = true;
+            break;
+        }
+        if (s->pcm_pos == s->pcm_frames && !decode_frame(s))
+            break;
+        uint32_t index = s->pcm_pos++ * s->channels;
+        output[i * 2] += s->pcm[index];
+        output[i * 2 + 1] += s->pcm[index + (s->channels == 2 ? 1 : 0)];
+        s->position++;
+    }
+    return any;
+}
+
+audio_info_t audio_mp3_esp32_info(void)
+{
+    audio_mp3_state_t *s = MP3_STATE;
+    if (!s)
+        return (audio_info_t){0};
+    return (audio_info_t){s->rate, s->channels, s->duration * s->channels, s->position * s->channels};
+}
+#endif // AUDIO_ESP32_I2S MP3 backend
 
 static bool audio_initialised = false;
 static bool is_playing = false;
@@ -449,7 +795,7 @@ static uint32_t wav_active_sample_rate = 0;
 #if defined(AUDIO_ESP32_I2S)
 #define AUDIO_DEFAULT_RATE 22050
 #define AUDIO_TONE_AMPLITUDE 6000 // square wave peak, about -15 dBFS
-#define AUDIO_TASK_STACK 8192
+#define AUDIO_TASK_STACK 32768 // minimp3 frame decoder uses stack scratch space
 #define AUDIO_TASK_PRIORITY 3 // above the MicroPython task
 #define WAV_RING_BYTES 32768  // raw PCM read ahead per stream; must be a power of 2
 #define WAV_RING_MASK (WAV_RING_BYTES - 1)
@@ -849,6 +1195,10 @@ static bool audio_mix(uint32_t frames)
         }
     }
 
+    any |= audio_mp3_esp32_mix(mix_acc, frames);
+    if (audio_mp3_esp32_needs_refill())
+        audio_wav_request_refill();
+
     for (uint32_t i = 0; i < frames * 2; i++)
         mix_acc[i] = mix_acc[i] * (int32_t)audio_volume / 100;
 
@@ -892,7 +1242,9 @@ static void audio_task_entry(void *arg)
     while (!audio_stop_requested)
     {
         xSemaphoreTake(audio_lock, portMAX_DELAY);
-        uint32_t wanted = streaming ? stream_sample_rate : (audio_wav_any_active() ? wav_active_sample_rate : audio_rate);
+        uint32_t wanted = streaming ? stream_sample_rate :
+                          (audio_mp3_esp32_active() ? audio_mp3_esp32_rate() :
+                           (audio_wav_any_active() ? wav_active_sample_rate : audio_rate));
         audio_i2s_set_rate(wanted);
         bool any = audio_mix(WAV_MIX_CHUNK);
         is_playing = any;
@@ -1575,7 +1927,29 @@ static void audio_mp3_close(void)
 
 bool audio_play_mp3(const char *filename)
 {
-#if SD_AVAILABLE
+#if defined(AUDIO_ESP32_I2S)
+    if (!audio_initialised && !audio_init())
+        return false;
+    audio_stop();
+    xSemaphoreTake(audio_lock, portMAX_DELAY);
+    // WAV keeps read-ahead buffers for reuse. Release those idle buffers so
+    // the MP3 decoder can fit on devices with a small MicroPython heap.
+    for (int i = 0; i < MAX_WAV_STREAMS; i++)
+    {
+        wav_streams[i].ring = NULL;
+        if (MP_STATE_VM(audio_wav_ring)[i])
+        {
+            AUDIO_MEMORY_FREE(MP_STATE_VM(audio_wav_ring)[i]);
+            MP_STATE_VM(audio_wav_ring)[i] = NULL;
+        }
+    }
+    bool opened = audio_mp3_esp32_open(filename);
+    is_playing = opened;
+    xSemaphoreGive(audio_lock);
+    if (opened)
+        audio_wake();
+    return opened;
+#elif SD_AVAILABLE
     if (!audio_initialised && !audio_init())
     {
         PRINT("Audio not initialized and failed to initialize\n");
@@ -1667,7 +2041,14 @@ bool audio_play_mp3(const char *filename)
 
 bool audio_is_sd_busy(void)
 {
-#if SD_AVAILABLE
+#if defined(AUDIO_ESP32_I2S)
+    if (!audio_lock)
+        return false;
+    xSemaphoreTake(audio_lock, portMAX_DELAY);
+    bool busy = audio_mp3_esp32_active();
+    xSemaphoreGive(audio_lock);
+    return busy;
+#elif SD_AVAILABLE
     return mp3_core1_running;
 #else
     return false;
@@ -1677,7 +2058,14 @@ bool audio_is_sd_busy(void)
 audio_info_t audio_get_info(void)
 {
     audio_info_t info = {0, 0, 0, 0};
-#if SD_AVAILABLE
+#if defined(AUDIO_ESP32_I2S)
+    if (audio_lock)
+    {
+        xSemaphoreTake(audio_lock, portMAX_DELAY);
+        info = audio_mp3_esp32_info();
+        xSemaphoreGive(audio_lock);
+    }
+#elif SD_AVAILABLE
     if (is_playing && mp3_core1_running)
     {
         info.sample_rate = mp3_dec.info.hz;
@@ -1691,7 +2079,17 @@ audio_info_t audio_get_info(void)
 
 bool audio_seek(uint64_t target_sample)
 {
-#if SD_AVAILABLE
+#if defined(AUDIO_ESP32_I2S)
+    if (!audio_initialised || !audio_lock)
+        return false;
+    xSemaphoreTake(audio_lock, portMAX_DELAY);
+    bool result = audio_mp3_esp32_seek(target_sample);
+    is_playing = audio_mp3_esp32_active();
+    xSemaphoreGive(audio_lock);
+    if (result)
+        audio_wake();
+    return result;
+#elif SD_AVAILABLE
     if (is_playing && mp3_core1_running)
     {
         if (mp3_pending_seek >= 0)
@@ -2149,6 +2547,7 @@ static mp_obj_t audio_wav_refill_cb(mp_obj_t arg)
     wav_refill_pending = false;
     if (!audio_initialised)
         return mp_const_none;
+    audio_mp3_esp32_refill();
     for (int i = 0; i < MAX_WAV_STREAMS; i++)
     {
         wav_stream_t *w = &wav_streams[i];
@@ -2164,6 +2563,18 @@ static mp_obj_t audio_wav_refill_cb(mp_obj_t arg)
 bool audio_play_wav(const char *filename)
 {
 #if SD_AVAILABLE || defined(AUDIO_ESP32_I2S)
+#if defined(AUDIO_ESP32_I2S)
+    if (audio_mp3_esp32_active())
+        audio_stop();
+    // A completed MP3 retains metadata until the next playback operation.
+    // Release its decoder before allocating a WAV read-ahead buffer.
+    if (audio_lock)
+    {
+        xSemaphoreTake(audio_lock, portMAX_DELAY);
+        audio_mp3_esp32_close();
+        xSemaphoreGive(audio_lock);
+    }
+#endif
     if (!audio_initialised && !audio_init())
     {
         PRINT("Audio not initialized and failed to initialize\n");
@@ -2396,6 +2807,7 @@ bool audio_start_stream(uint32_t sample_rate)
     xSemaphoreTake(audio_lock, portMAX_DELAY);
     stream_ring_read = 0;
     stream_ring_write = 0;
+    audio_mp3_esp32_close();
     stream_sample_rate = sample_rate; // the task switches I2S to this rate
     streaming = true;
     xSemaphoreGive(audio_lock);
@@ -2502,8 +2914,9 @@ void audio_stop(void)
         return;
     }
 #if defined(AUDIO_ESP32_I2S)
-    // Stop WAV playback; the files are closed here, in MicroPython context
+    // Files are closed here, in MicroPython context.
     xSemaphoreTake(audio_lock, portMAX_DELAY);
+    audio_mp3_esp32_close();
     for (int i = 0; i < MAX_WAV_STREAMS; i++)
     {
         if (wav_streams[i].active || wav_streams[i].file)

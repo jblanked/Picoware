@@ -41,6 +41,7 @@ _BOARD_DISPLAY_SIZES = {
     "crowpanel-10.1": (1024, 600),
     "crowpanel": (1024, 600),
     "cardputer": (240, 135),
+    "cardputer-original": (240, 135),
     "waveshare-2.06": (410, 502),
     "waveshare-c6-2.06": (410, 502),
     "waveshare-c6-2-06": (410, 502),

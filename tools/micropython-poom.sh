@@ -95,6 +95,14 @@ if ! grep -q '^CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y$' "$poom_src_dir/sdkconfig.d
     exit 1
 fi
 
+# Some ESP-IDF 5.5.2 installations reference this port include directory even
+# when the package does not provide it. Create it if absent.
+mspi_include_dir="$esp_idf_dir/components/esp_hw_support/mspi_timing_tuning/port/esp32c5/include"
+if [ ! -d "$mspi_include_dir" ]; then
+    echo "Creating missing ESP-IDF include directory: $mspi_include_dir"
+    mkdir -p "$mspi_include_dir"
+fi
+
 mkdir -p "$output_dir"
 
 echo "Cleaning previous POOM outputs and build directory..."

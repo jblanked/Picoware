@@ -82,6 +82,12 @@ Entity::Entity(
 
 Entity::~Entity()
 {
+    if (_destroy_callback)
+    {
+        auto callback = _destroy_callback;
+        _destroy_callback = nullptr;
+        callback(this, _destroy_context);
+    }
     // Clean up 3D sprite first
     destroy3DSprite();
 

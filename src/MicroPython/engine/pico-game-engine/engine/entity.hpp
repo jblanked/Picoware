@@ -122,6 +122,14 @@ public:
 
     virtual ~Entity(); // Virtual destructor for proper inheritance
 
+    // Notify external wrappers before owned resources are released. The callback
+    // must not throw, allocate, or delete this entity recursively.
+    void setDestroyCallback(void (*callback)(Entity *, void *), void *context = nullptr)
+    {
+        _destroy_callback = callback;
+        _destroy_context = context;
+    }
+
     virtual void collision(Entity *other, Game *game);                         // Handles the collision with another entity.
     Vector position_get();                                                     // Gets the position of the entity.
     void position_set(Vector value);                                           // Sets the position of the entity.
@@ -141,6 +149,9 @@ public:
     bool hasChangedPosition() const; // Check if the entity's position has changed
 
 private:
+    void (*_destroy_callback)(Entity *, void *) = nullptr;
+    void *_destroy_context = nullptr;
+
     // Internal 3D sprite management
     void create3DSprite(Sprite3DType type, float height = 2.0f, float width = 1.0f, float rotation = 0.0f, uint16_t color = 0x0000);
     void destroy3DSprite();

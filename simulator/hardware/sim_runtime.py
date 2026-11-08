@@ -1319,7 +1319,7 @@ def poll_viewer_controls():
             path = sd_root + "/sim_screenshot_" + str(frame_count) + ".bmp"
             if _lcd is not None:
                 try:
-                    _lcd.screenshot(path)
+                    _lcd._screenshot_host(path)
                     _log_event("screenshot " + path)
                 except Exception as e:
                     _log_event("screenshot failed " + str(e))
@@ -1402,7 +1402,7 @@ def frame_swapped():
     frame_count += 1
     _write_status(False)
     if screenshot_path and _lcd is not None:
-        _lcd.screenshot(screenshot_path)
+        _lcd._screenshot_host(screenshot_path)
     if max_frames and frame_count >= max_frames:
         _check_expectations(True)
         raise StopSimulation()

@@ -1857,6 +1857,14 @@ def _run_board_parity_check():
     )
     if boards.BOARD_HAS_PICOCALC != int(boards.BOARD_ID in picocalc_ids):
         raise RuntimeError("simulator PicoCalc capability mismatch")
+    audio_ids = picocalc_ids + (
+        boards.BOARD_CARDPUTER, boards.BOARD_POOM,
+        boards.BOARD_WAVESHARE_2_06, boards.BOARD_WAVESHARE_C6_2_06,
+        boards.BOARD_WAVESHARE_C5_3_5, boards.BOARD_DESKTOP,
+    )
+    for board_id in range(boards.BOARD_WAVESHARE_C5_3_5 + 1):
+        assert boards.has_audio(board_id) == (board_id in audio_ids)
+    assert boards.BOARD_HAS_AUDIO == int(boards.BOARD_ID in audio_ids)
     keyboard_ids = picocalc_ids + (boards.BOARD_CARDPUTER,)
     if boards.BOARD_HAS_KEYBOARD != int(boards.BOARD_ID in keyboard_ids):
         raise RuntimeError("simulator keyboard capability mismatch")

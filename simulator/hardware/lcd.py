@@ -778,6 +778,10 @@ class LCD:
         return None
 
     def screenshot(self, file_path):
+        return self._screenshot_host(sim_runtime.host_path(file_path))
+
+    def _screenshot_host(self, file_path):
+        """Write a host-side capture requested by the simulator UI or CLI."""
         row_bytes = self.width * 3
         padding = (4 - row_bytes % 4) % 4
         pixel_size = (row_bytes + padding) * self.height

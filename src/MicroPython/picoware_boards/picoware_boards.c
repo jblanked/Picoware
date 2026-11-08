@@ -417,6 +417,12 @@ mp_obj_t picoware_boards_has_audio(mp_obj_t board_id_obj)
 
     switch (board_id)
     {
+    case BOARD_PICOCALC_PICO:
+    case BOARD_PICOCALC_PICO_2:
+    case BOARD_WAVESHARE_C5_3_5:
+    case BOARD_POOM:
+    case BOARD_WAVESHARE_2_06:
+    case BOARD_WAVESHARE_C6_2_06:
     case BOARD_PICOCALC_PICOW:
     case BOARD_PICOCALC_PICO_2W:
     case BOARD_PICOCALC_PIMORONI_2W:

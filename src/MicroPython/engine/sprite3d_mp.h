@@ -23,12 +23,14 @@ extern "C"
         mp_obj_base_t base;
         void *context; // Sprite3D* in C++
         bool freed;
+        bool owns_context;
+        mp_obj_t owner; // Keep an owning Entity alive while its sprite is referenced.
         mp_obj_t position_obj;
     } sprite3d_mp_obj_t;
 
     extern const mp_obj_type_t sprite3d_mp_type;
 
-    mp_obj_t sprite3d_mp_init(void *context);
+    mp_obj_t sprite3d_mp_init(void *context, bool psramAllowed = true);
     void sprite3d_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);
     mp_obj_t sprite3d_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args);
     mp_obj_t sprite3d_mp_del(mp_obj_t self_in);

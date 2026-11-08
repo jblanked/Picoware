@@ -3,18 +3,19 @@
 
 static inline Sprite3D *sprite3d_get_context(sprite3d_mp_obj_t *self)
 {
+    if (self->freed || !self->context)
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Sprite3D has been freed"));
     return static_cast<Sprite3D *>(self->context);
 }
 
-mp_obj_t sprite3d_mp_init(void *context)
+mp_obj_t sprite3d_mp_init(void *context, bool psramAllowed)
 {
     sprite3d_mp_obj_t *sprite3d = mp_obj_malloc_with_finaliser(sprite3d_mp_obj_t, &sprite3d_mp_type);
     sprite3d->base.type = &sprite3d_mp_type;
-    // Arguments: psramAllowed (bool, optional)
-    mp_arg_check_num(n_args, n_kw, 0, 1, true);
-    bool psramAllowed = n_args > 0 ? mp_obj_is_true(args[0]) : true;
     sprite3d->context = context ? context : new Sprite3D(psramAllowed);
     sprite3d->freed = false;
+    sprite3d->owns_context = context == nullptr;
+    sprite3d->owner = MP_OBJ_NULL;
     Sprite3D *ctx = sprite3d_get_context(sprite3d);
     Vector pos = ctx->getPosition();
     sprite3d->position_obj = vector_mp_init(pos.x, pos.y, pos.z, pos.integer);
@@ -51,8 +52,12 @@ void sprite3d_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_
 
 mp_obj_t sprite3d_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
-    mp_arg_check_num(n_args, n_kw, 0, 0, false);
-    return sprite3d_mp_init(nullptr);
+    static const mp_arg_t allowed_args[] = {
+        {MP_QSTR_psramAllowed, MP_ARG_BOOL, {.u_bool = true}},
+    };
+    mp_arg_val_t values[1];
+    mp_arg_parse_all_kw_array(n_args, n_kw, args, 1, allowed_args, values);
+    return sprite3d_mp_init(nullptr, values[0].u_bool);
 }
 
 mp_obj_t sprite3d_mp_del(mp_obj_t self_in)
@@ -64,9 +69,10 @@ mp_obj_t sprite3d_mp_del(mp_obj_t self_in)
     {
         return mp_const_none;
     }
+    if (!self->owns_context)
+        return mp_const_none; // The Entity releases its sprite.
     Sprite3D *ctx = sprite3d_get_context(self);
-    if (ctx)
-        delete ctx;
+    delete ctx;
     self->context = nullptr;
     self->freed = true;
     self->position_obj = MP_OBJ_NULL;
@@ -79,6 +85,13 @@ void sprite3d_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
     if (destination[0] == MP_OBJ_NULL)
     {
+        // Bind cleanup before checking the context so repeated cleanup is safe.
+        if (attribute == MP_QSTR___del__)
+        {
+            destination[0] = MP_OBJ_FROM_PTR(&sprite3d_mp_del_obj);
+            destination[1] = self_in;
+            return;
+        }
         // load attributes
         Sprite3D *ctx = sprite3d_get_context(self);
         switch (attribute)
@@ -102,9 +115,6 @@ void sprite3d_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             break;
         case MP_QSTR_triangle_count:
             destination[0] = mp_obj_new_int(ctx->getTriangleCount());
-            break;
-        case MP_QSTR___del__:
-            destination[0] = MP_OBJ_FROM_PTR(&sprite3d_mp_del_obj);
             break;
         default:
             destination[1] = MP_OBJ_SENTINEL;

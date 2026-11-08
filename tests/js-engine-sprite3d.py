@@ -3,7 +3,7 @@ from picoware.system.js import JS
 js = JS()
 
 # init/getters
-print("\nSprite3D: %s" % js.run("let sprite3d = import('sprite3d');"))
+print("\nSprite3D: %s" % js.run("let sprite3d = import('sprite3d', true);"))
 
 print("Position: %s" % js.run("let position = sprite3d.get('position');"))
 print("Rotation: %s" % js.run("let rotation = sprite3d.get('rotation');"))

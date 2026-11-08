@@ -28,14 +28,14 @@ class Sprite3D
 private:
     bool active;
     Vector position;
+    bool psramAllowed;
     float rotation_y;
     float scale_factor;
     uint16_t triangle_capacity;
     uint16_t triangle_count;
-#ifdef ENGINE_USE_PSRAM
-    TrianglePSRAM triangles;
-#else
     Triangle3D *triangles;
+#ifdef ENGINE_USE_PSRAM
+    TrianglePSRAM psramTriangles;
 #endif
     SpriteType type;
 
@@ -46,7 +46,7 @@ private:
                          float &out_x, float &out_y, float &out_z) const;
 
 public:
-    Sprite3D();
+    Sprite3D(bool psramAllowed = true);
     ~Sprite3D();
 
     Sprite3D(const Sprite3D &) = delete;

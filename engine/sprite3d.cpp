@@ -24,12 +24,11 @@ static uint16_t shadeColor565(uint16_t color, float factor)
     return ((uint16_t)r << 11) | ((uint16_t)g << 5) | b;
 }
 
-Sprite3D::Sprite3D() : active(false), position(Vector(0, 0)), rotation_y(0), scale_factor(1.0f),
-                       triangle_capacity(0), triangle_count(0), type(SPRITE_CUSTOM)
+Sprite3D::Sprite3D(bool usePsram) : active(false), position(Vector(0, 0)), psramAllowed(usePsram),
+                                    rotation_y(0), scale_factor(1.0f),
+                                    triangle_capacity(0), triangle_count(0), triangles(nullptr),
+                                    type(SPRITE_CUSTOM)
 {
-#ifndef ENGINE_USE_PSRAM
-    triangles = nullptr;
-#endif
 }
 
 Sprite3D::~Sprite3D()
@@ -41,24 +40,8 @@ bool Sprite3D::addTriangle(const Triangle3D &triangle)
 {
     if (triangle_count >= ENGINE_MAX_TRIANGLES_PER_SPRITE)
         return false;
-    if (triangle_count == triangle_capacity)
-    {
-#ifdef ENGINE_USE_PSRAM
-        if (!reserveTriangles(triangle_count + 1))
-            return false;
-#else
-        Triangle3D *new_block = (Triangle3D *)ENGINE_MEM_MALLOC(
-            (triangle_count + 1) * sizeof(Triangle3D));
-        if (!new_block)
-            return false;
-        if (triangle_count > 0)
-            memcpy(new_block, triangles, triangle_count * sizeof(Triangle3D));
-        if (triangles != nullptr)
-            ENGINE_MEM_FREE(triangles);
-        triangles = new_block;
-        triangle_capacity = triangle_count + 1;
-#endif
-    }
+    if (triangle_count == triangle_capacity && !reserveTriangles(triangle_count + 1))
+        return false;
     if (!storeTriangle(triangle_count, triangle))
         return false;
     triangle_count++;
@@ -119,12 +102,17 @@ bool Sprite3D::bakeTransform()
 
 void Sprite3D::clearTriangles()
 {
-#ifndef ENGINE_USE_PSRAM
+#ifdef ENGINE_USE_PSRAM
+    if (psramAllowed)
+    {
+        triangle_count = 0;
+        return;
+    }
+#endif
     if (triangles != nullptr)
         ENGINE_MEM_FREE(triangles);
     triangles = nullptr;
     triangle_capacity = 0;
-#endif
     triangle_count = 0;
 }
 
@@ -686,21 +674,24 @@ bool Sprite3D::initializeAsTree(Vector pos, float height, uint16_t color, bool w
 bool Sprite3D::loadTriangle(uint16_t index, Triangle3D &out) const
 {
 #ifdef ENGINE_USE_PSRAM
-    return triangles.at(index).read(out);
-#else
+    if (psramAllowed)
+        return psramTriangles.at(index).read(out);
+#endif
+    if (triangles == nullptr)
+        return false;
     out = triangles[index];
     return true;
-#endif
 }
 
 bool Sprite3D::reserveExtra(uint16_t extra)
 {
 #ifdef ENGINE_USE_PSRAM
-    return reserveTriangles((uint16_t)(triangle_count + extra));
+    if (psramAllowed)
+        return reserveTriangles((uint16_t)(triangle_count + extra));
 #else
     (void)extra;
-    return true;
 #endif
+    return true;
 }
 
 bool Sprite3D::reserveTriangles(uint16_t count)
@@ -711,32 +702,34 @@ bool Sprite3D::reserveTriangles(uint16_t count)
         return true;
 
 #ifdef ENGINE_USE_PSRAM
-    const uint32_t base = TrianglePSRAM::reserve(count);
-    if (base == TrianglePSRAM::INVALID)
-        return false;
-    const TrianglePSRAM replacement(base);
-    Triangle3D t;
-    for (uint16_t i = 0; i < triangle_count; i++)
+    if (psramAllowed)
     {
-        if (!triangles.at(i).read(t) || !replacement.at(i).set(t))
+        const uint32_t base = TrianglePSRAM::reserve(count);
+        if (base == TrianglePSRAM::INVALID)
             return false;
+        const TrianglePSRAM replacement(base);
+        Triangle3D t;
+        for (uint16_t i = 0; i < triangle_count; i++)
+        {
+            if (!psramTriangles.at(i).read(t) || !replacement.at(i).set(t))
+                return false;
+        }
+        psramTriangles = replacement;
+        triangle_capacity = count;
+        return true;
     }
-    triangles = replacement;
-    triangle_capacity = count;
-    return true;
-#else
+#endif
     Triangle3D *replacement = (Triangle3D *)ENGINE_MEM_MALLOC(
         static_cast<size_t>(count) * sizeof(Triangle3D));
     if (!replacement)
         return false;
-    if (triangle_count)
+    if (triangle_count > 0)
         memcpy(replacement, triangles, triangle_count * sizeof(Triangle3D));
     if (triangles)
         ENGINE_MEM_FREE(triangles);
     triangles = replacement;
     triangle_capacity = count;
     return true;
-#endif
 }
 
 void Sprite3D::setWireframe(bool wireframe)
@@ -755,11 +748,13 @@ void Sprite3D::setWireframe(bool wireframe)
 bool Sprite3D::storeTriangle(uint16_t index, const Triangle3D &triangle)
 {
 #ifdef ENGINE_USE_PSRAM
-    return triangles.at(index).set(triangle);
-#else
+    if (psramAllowed)
+        return psramTriangles.at(index).set(triangle);
+#endif
+    if (triangles == nullptr)
+        return false;
     triangles[index] = triangle;
     return true;
-#endif
 }
 
 bool Sprite3D::toPath(const char *path) const
@@ -767,10 +762,8 @@ bool Sprite3D::toPath(const char *path) const
 #ifdef ENGINE_STORAGE_WRITE
     if (triangle_count == 0)
         return false;
-#ifndef ENGINE_USE_PSRAM
-    if (triangle_count == ENGINE_MAX_TRIANGLES_PER_SPRITE)
+    if (triangles != nullptr && triangle_count == ENGINE_MAX_TRIANGLES_PER_SPRITE)
         return ENGINE_STORAGE_WRITE(path, triangles, sizeof(Triangle3D) * triangle_count);
-#endif
     Triangle3D *buf = ENGINE_MEM_NEW Triangle3D[triangle_count];
     if (!buf)
         return false;

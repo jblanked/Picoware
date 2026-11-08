@@ -23,8 +23,6 @@ extern "C"
         mp_obj_base_t base;
         void *context; // Sprite3D* in C++
         bool freed;
-        bool owns_context;
-        mp_obj_t owner; // Keep an owning Entity alive while its sprite is referenced.
         mp_obj_t position_obj;
     } sprite3d_mp_obj_t;
 

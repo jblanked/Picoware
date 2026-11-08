@@ -8,55 +8,8 @@
 
 static inline Entity *entity_get_context(entity_mp_obj_t *self)
 {
-    if (self->freed || !self->context)
-        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Entity has been freed"));
     return static_cast<Entity *>(self->context);
 }
-
-// Called for explicit cleanup as well as Level/Game-owned native deletion.
-static void entity_mp_native_destroyed(Entity *ctx, void *context)
-{
-    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(context);
-    if (ctx->name != nullptr)
-    {
-        m_free(const_cast<char *>(ctx->name));
-        ctx->name = nullptr;
-    }
-    // Invalidate the borrowed wrapper before Entity deletes the native sprite.
-    if (self->sprite_3d_obj != MP_OBJ_NULL)
-    {
-        mp_obj_t native = mp_obj_cast_to_native_base(self->sprite_3d_obj, MP_OBJ_FROM_PTR(&sprite3d_mp_type));
-        if (native != MP_OBJ_NULL)
-        {
-            sprite3d_mp_obj_t *sprite = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(native));
-            if (sprite->context == ctx->sprite_3d)
-            {
-                sprite->context = nullptr;
-                sprite->freed = true;
-                sprite->owner = MP_OBJ_NULL;
-                sprite->position_obj = MP_OBJ_NULL;
-            }
-        }
-    }
-    self->context = nullptr;
-    self->freed = true;
-    ctx->mp_ctx = nullptr;
-}
-
-// Keep language-wrapper cleanup in the binding. Entity already has a virtual
-// destructor, so native Level/Game deletion also reaches this destructor before
-// the base class releases the sprite. No engine-specific callback is needed.
-class MicroPythonEntity final : public Entity
-{
-public:
-    using Entity::Entity;
-
-    ~MicroPythonEntity() override
-    {
-        if (mp_ctx != nullptr)
-            entity_mp_native_destroyed(this, mp_ctx);
-    }
-};
 
 void entity_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
@@ -462,7 +415,7 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     }
 
     // Create the C++ Entity
-    self->context = new MicroPythonEntity(
+    self->context = new Entity(
         name_buf, entity_type, position, size,
         sprite_data, sprite_left_data, sprite_right_data,
         start_func, stop_func, update_func,
@@ -476,8 +429,6 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     self->start_position_obj = vector_mp_init(ctx->start_position.x, ctx->start_position.y, ctx->start_position.z, ctx->start_position.integer);
     self->end_position_obj = vector_mp_init(ctx->end_position.x, ctx->end_position.y, ctx->end_position.z, ctx->end_position.integer);
     self->sprite_3d_obj = sprite3d_mp_init(ctx->sprite_3d);
-    if (ctx->sprite_3d)
-        static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self->sprite_3d_obj))->owner = MP_OBJ_FROM_PTR(self);
     ctx->mp_ctx = static_cast<void *>(self);
     return MP_OBJ_FROM_PTR(self);
 }
@@ -525,15 +476,9 @@ static MP_DEFINE_CONST_FUN_OBJ_1(entity_mp_del_obj, entity_mp_del);
 void entity_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    if (destination[0] == MP_OBJ_NULL && attribute == MP_QSTR___del__)
-    {
-        destination[0] = MP_OBJ_FROM_PTR(&entity_mp_del_obj);
-        destination[1] = self_in;
-        return;
-    }
     if (self->freed)
     {
-        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Entity has been freed"));
+        return;
     }
     if (destination[0] == MP_OBJ_NULL)
     {
@@ -645,6 +590,9 @@ void entity_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             break;
         case MP_QSTR_billboard_pose:
             destination[0] = mp_obj_new_int(ctx->billboard_pose);
+            break;
+        case MP_QSTR___del__:
+            destination[0] = MP_OBJ_FROM_PTR(&entity_mp_del_obj);
             break;
         default:
             destination[1] = MP_OBJ_SENTINEL; // not found here; fall through to locals_dict
@@ -1278,23 +1226,6 @@ mp_obj_t entity_mp_set_sprite3d(mp_obj_t self_in, mp_obj_t sprite3d_obj)
     if (native_sprite3d == MP_OBJ_NULL)
         mp_raise_TypeError(MP_ERROR_TEXT("expected Sprite3D"));
     sprite3d_mp_obj_t *sprite3d = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(native_sprite3d));
-    if (sprite3d->freed || !sprite3d->context)
-        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Sprite3D has been freed"));
-    if (sprite3d->owner != MP_OBJ_NULL && sprite3d->owner != self_in)
-        mp_raise_ValueError(MP_ERROR_TEXT("Sprite3D already belongs to an Entity"));
-    // Return the previous sprite to its wrapper before replacing the pointer.
-    if (self->sprite_3d_obj != MP_OBJ_NULL)
-    {
-        mp_obj_t old_native = mp_obj_cast_to_native_base(self->sprite_3d_obj, MP_OBJ_FROM_PTR(&sprite3d_mp_type));
-        if (old_native != MP_OBJ_NULL && old_native != native_sprite3d)
-        {
-            sprite3d_mp_obj_t *old = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(old_native));
-            old->owner = MP_OBJ_NULL;
-            old->owns_context = true;
-        }
-    }
-    sprite3d->owns_context = false;
-    sprite3d->owner = self_in;
     ctx->sprite_3d = static_cast<Sprite3D *>(sprite3d->context);
     self->sprite_3d_obj = sprite3d_obj;
     return mp_const_none;

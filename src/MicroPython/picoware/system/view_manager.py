@@ -792,7 +792,7 @@ class ViewManager:
 
     def run(self) -> bool:
         """Run the current view."""
-        button = self.input_manager.button
+        button = self._input_manager.button
         self._button = button
         if button == 80:  # BUTTON_HOME
             while self._stack_depth > 0:
@@ -801,8 +801,7 @@ class ViewManager:
                 else:
                     self.back(should_clear=False, should_start=False)
         elif button == 87:  # BUTTON_F1
-            date = self._time.date.replace("/", "-")
-            self._draw.screenshot(f"screenshot{date}.bmp")
+            self._draw.screenshot(f"screenshot{self._time.date}.bmp")
 
         if self._thread_manager.run():
             self.log(self._thread_manager._outgoing)

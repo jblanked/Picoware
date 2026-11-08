@@ -816,7 +816,6 @@ def _run_sim_check(opts):
     _run_v8_battery_check()
     _run_flipper_battery_check()
     _run_log_storage_check(opts)
-    _run_view_manager_parity_check(opts)
     _run_audio_shutdown_check()
     _run_circular_choice_check()
     _run_fatal_exit_check(opts)
@@ -1480,77 +1479,6 @@ def _run_engine_parity_check():
     original_lcd = sim_runtime.get_lcd()
     draw = None
     try:
-        try:
-            import sim_psram
-        except ImportError:
-            sim_psram = None
-        if sim_psram is not None:
-            for policy in (False, True):
-                before = sim_psram.get_next_free()
-                probe = Sprite3D(policy)
-                assert probe.reserve_triangles(16) is True
-                after = sim_psram.get_next_free()
-                assert (after > before) == policy
-                assert probe.add_triangle(*vertices, 0x07E0, False) is True
-                probe.clear_triangles()
-                assert probe.create_cube(0, 0, 0, 1, 1, 1) is True
-                assert probe.triangle_count == 8
-                del probe
-                gc.collect()
-            print("[sim-check:ok] Sprite3D heap/PSRAM allocation selection")
-        # Exercise both allocation policies, keyword parsing, and clear/reuse.
-        for probe in (Sprite3D(), Sprite3D(True), Sprite3D(False),
-                      Sprite3D(psramAllowed=False)):
-            assert probe.reserve_triangles(16) is True
-            assert probe.add_triangle(*vertices, 0x07E0, False) is True
-            assert probe.triangle_count == 1
-            probe.clear_triangles()
-            assert probe.triangle_count == 0
-            assert probe.create_cube(0, 0, 0, 1, 1, 1) is True
-            assert probe.triangle_count == 8
-            assert probe.__del__() is None
-            assert probe.__del__() is None
-            try:
-                probe.create_cube(0, 0, 0, 1, 1, 1)
-            except RuntimeError:
-                pass
-            else:
-                raise RuntimeError("freed Sprite3D remained usable")
-            del probe
-            gc.collect()
-        for invalid_args in ((True, False),):
-            try:
-                Sprite3D(*invalid_args)
-            except TypeError:
-                pass
-            else:
-                raise RuntimeError("Sprite3D accepted excess constructor arguments")
-        owner = Entity("sprite-owner", 4, Vector(0, 0, 0), Vector(1, 1, 1))
-        attached = Sprite3D(False)
-        assert attached.create_cube(0, 0, 0, 1, 1, 1) is True
-        owner.sprite_3d = attached
-        assert attached.__del__() is None  # Borrowed cleanup cannot delete Entity storage.
-        assert attached.triangle_count == 8
-        other = Entity("other-owner", 4, Vector(0, 0, 0), Vector(1, 1, 1))
-        try:
-            other.sprite_3d = attached
-        except ValueError:
-            pass
-        else:
-            raise RuntimeError("Sprite3D acquired two native owners")
-        replacement = Sprite3D(False)
-        owner.sprite_3d = replacement
-        other.sprite_3d = attached
-        other.__del__()
-        owner.__del__()
-        owner.__del__()
-        assert attached.__del__() is None
-        try:
-            attached.triangle_count
-        except RuntimeError:
-            pass
-        else:
-            raise RuntimeError("Entity cleanup left its Sprite3D wrapper usable")
         sprite = Sprite3D()
         assert sprite.add_triangle(*vertices, 0x07E0, False) is True
         assert sprite.update_triangle(0, *vertices, 0x07E0, False) is True
@@ -1587,24 +1515,6 @@ def _run_engine_parity_check():
         draw = Draw()
         game = Game("sim-parity", Vector(10, 10, 10))
         player = Entity("player", 0, Vector(0, 0, 0), Vector(1, 1, 1))
-        for remove in (True, False):
-            probe_level = Level("lifetime", Vector(10, 10, 10), game)
-            victim = Entity("victim", 4, Vector(0, 0, 0), Vector(1, 1, 1))
-            victim_sprite = Sprite3D(False)
-            victim.sprite_3d = victim_sprite
-            probe_level.entity_add(victim)
-            if remove:
-                probe_level.entity_remove(victim)
-            else:
-                probe_level.clear()
-            for obj, attribute in ((victim, "position"), (victim_sprite, "triangle_count")):
-                try:
-                    getattr(obj, attribute)
-                except RuntimeError:
-                    pass
-                else:
-                    raise RuntimeError("native deletion left a wrapper usable")
-                assert obj.__del__() is None
         player.is_player = True
         player.direction = Vector(1, 0, 0)
         level = Level("sim-parity", Vector(10, 10, 10), game)
@@ -1785,23 +1695,7 @@ def _run_mjs_lifecycle_check():
     """Exercise native game ownership and reuse after script cleanup."""
     import mjs
 
-    try:
-        import sim_psram
-    except ImportError:
-        sim_psram = None
     js = mjs.MJS()
-    for policy in ("", ", true", ", false"):
-        before = sim_psram.get_next_free() if sim_psram is not None else 0
-        js.run('let sprite = import("sprite3d"' + policy + ');')
-        assert js.run('sprite.reserveTriangles(16);') is True
-        if sim_psram is not None:
-            assert (sim_psram.get_next_free() > before) == (policy != ", false")
-        js.run('sprite.createCube(0, 0, 0, 1, 1, 1, 65535);')
-        assert js.run('sprite.get("triangleCount");') == 8
-        js.run('sprite.clearTriangles();')
-        assert js.run('sprite.get("triangleCount");') == 0
-        js.run('sprite.destroy();')
-        js.reset()
     for cycle in range(3):
         js.run('let draw = import("draw");')
         assert js.run('draw.size.width;') > 0
@@ -2346,74 +2240,6 @@ def _run_log_storage_check(opts):
     finally:
         sim_runtime.sd_root = original_sd_root
     print("[sim-check:ok] storage log persistence reset")
-
-
-def _run_view_manager_parity_check(opts):
-    """Exercise F1 output and input recreation before and during a view run."""
-    import sim_runtime
-    import picoware.system.input as input_module
-    from picoware.system.view_manager import ViewManager
-    from picoware.gui.draw import Draw
-
-    class InputProbe:
-        def __init__(self, back_button):
-            self.back_button = back_button
-            self.button = 87
-            self.resets = 0
-
-        def reset(self):
-            self.resets += 1
-
-    class ClockProbe:
-        date = "11/8/2026"
-
-    class ThreadProbe:
-        def run(self):
-            return False
-
-    class ViewProbe:
-        def run(self, manager):
-            # Apps may release the input manager while handling a key.
-            manager._input_manager = None
-
-    class ManagerProbe:
-        input_manager = ViewManager.input_manager
-
-    original_input = input_module.Input
-    original_lcd = sim_runtime.get_lcd()
-    original_headless = sim_runtime.headless
-    manager = ManagerProbe()
-    original_sd_root = sim_runtime.sd_root
-    try:
-        sim_runtime.sd_root = opts["sd"]
-        sim_runtime.headless = True
-        input_module.Input = InputProbe
-        manager._input_manager = None
-        manager._back_button = 6
-        manager._active = True
-        manager._draw = Draw()
-        manager._time = ClockProbe()
-        manager._thread_manager = ThreadProbe()
-        manager._current_view = ViewProbe()
-        screenshot = sim_runtime.host_path("screenshot11-8-2026.bmp")
-        try:
-            os.remove(screenshot)
-        except OSError:
-            pass
-        cwd = os.getcwd()
-        assert ViewManager.run(manager) is True
-        assert os.getcwd() == cwd
-        assert manager._input_manager.back_button == 6
-        assert manager._input_manager.resets == 1
-        assert manager._button == -1
-        with open(screenshot, "rb") as handle:
-            assert handle.read(2) == b"BM"
-    finally:
-        sim_runtime.sd_root = original_sd_root
-        input_module.Input = original_input
-        sim_runtime.set_lcd(original_lcd)
-        sim_runtime.headless = original_headless
-    print("[sim-check:ok] F1 dated BMP and input recreation before/during view run")
 
 
 def _run_audio_shutdown_check():

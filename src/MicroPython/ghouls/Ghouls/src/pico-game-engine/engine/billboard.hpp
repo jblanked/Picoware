@@ -15,6 +15,9 @@ public:
     Billboard(const Billboard &) = delete;
     Billboard &operator=(const Billboard &) = delete;
     bool setDirectionPose(int dir, int pose, Image *image);
+    bool setDirectionPoseData(int dir, int pose, uint16_t width, uint16_t height,
+                              const uint8_t *pixels, size_t pixels_length,
+                              const uint8_t *mask, size_t mask_length);
     void setCounts(int directions, int poses);
     Image *viewForFacing(float angle, int pose) const;
 };

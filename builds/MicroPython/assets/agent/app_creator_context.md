@@ -1074,97 +1074,67 @@ Supported DuckyScript commands: `DELAY`, `DEFAULT_DELAY`, `STRING_DELAY`, `STRIN
 ### Engine
 
 #### picoware-engine-billboard
-- `Billboard` class: Store directional and pose images for a billboard in the game engine. Inherits from the C `engine.Billboard` module.
-    - `__init__(dirs=8, poses=1)`: Create a billboard. `dirs` is the number of directions (1 through 8), `poses` is the number of poses (1 through 8).
-    - `set_counts(dirs, poses)`: Set the number of directions and poses.
-    - `set_direction_pose(direction, pose, image)`: Set an image for a direction and pose. Images must have RGB332 pixel data with dimensions from 1 to 1024 pixels. Pass `None` to clear a direction and pose.
+- `Billboard(dirs=8, poses=1)`: Store directional and pose images. Both counts must be from 1 through 8.
+- `set_counts(dirs, poses)`: Change the direction and pose counts.
+- `set_direction_pose(direction, pose, image)`: Assign an `Image` or pass `None` to clear the slot. Images must have RGB332 pixel data with dimensions from 1 through 1024 pixels; image data is copied.
+- `set_direction_pose_data(direction, pose, width, height, pixels, mask)`: Assign raw pixel and mask buffers. Returns a success boolean.
 
 #### picoware-engine-camera
-- `CAMERA_FIRST_PERSON`: First-person camera mode constant (0)
-- `CAMERA_THIRD_PERSON`: Third-person camera mode constant (1)
-- `Camera` class: Wraps the C `engine.Camera` object. Stores camera parameters used by the 3D renderer (position, direction, plane vectors). Passed as `camera_context` to `Game`.
+- `CAMERA_FIRST_PERSON` (0), `CAMERA_THIRD_PERSON` (1): Camera perspectives; available from both the camera and level modules.
+- `Camera(position=Vector(0, 0, 0), direction=Vector(1, 0, 0), plane=Vector(0, 0.66, 0), height=1.0, distance=2.0, perspective=CAMERA_FIRST_PERSON)`: 3D camera parameters.
+- Writable attributes: `position`, `direction`, `plane`, `height`, `distance`, `perspective`.
+- Methods: `set_position`, `set_direction`, `set_plane`, `set_height`, `set_distance`, `set_perspective`; `position_set`, `direction_set`, and `plane_set` accept `x, y, [z, integer]`.
 
 #### picoware-engine-engine
-- `GameEngine` class: Represents a game engine:
-    - `__init__(game, fps)`: Initialize the game engine.
-    - `run()`: Run the game engine.
-    - `run_async(should_delay)`: Run the game engine asynchronously.
-    - `stop()`: Stop the game engine.
-    - `update_game_input(game_input)`: Update the game input.
+- `GameEngine(game, fps, clamp=False)`: Run a `Game` at the target frame rate, optionally clamping rendering.
+- `game`: The managed `Game`.
+- `run()`: Run the blocking update/render loop until the game stops, then call `stop()` and release the native game context.
+- `run_async(should_delay=True)`: Run one update/render tick and optionally delay for the frame rate.
+- `set_clamp(clamp)`: Set render clamping.
+- `update_game_input(input)`: Set input while the game is active.
+- `stop()`: Stop the game, clear the screen, and release the native game context.
 
 #### picoware-engine-entity
-- `ENTITY_STATE_IDLE` (0), `ENTITY_STATE_MOVING` (1), `ENTITY_STATE_MOVING_TO_START` (2), `ENTITY_STATE_MOVING_TO_END` (3), `ENTITY_STATE_ATTACKING` (4), `ENTITY_STATE_ATTACKED` (5), `ENTITY_STATE_DEAD` (6): Constants for entity states.
-- `ENTITY_TYPE_PLAYER`, `ENTITY_TYPE_ENEMY`, `ENTITY_TYPE_ICON`, `ENTITY_TYPE_NPC`, `ENTITY_TYPE_3D_SPRITE`: Constants for entity types.
-- `SPRITE_3D_NONE`, `SPRITE_3D_HUMANOID`, `SPRITE_3D_TREE`, `SPRITE_3D_HOUSE`, `SPRITE_3D_PILLAR`, `SPRITE_3D_CUSTOM`: Constants for 3D sprite types.
-- `Entity` class: Represents an entity in the game:
-    - `__init__(name, entity_type, position, size, sprite_data, sprite_data_left, sprite_data_right, start, stop, update, render, collision, sprite_3d_type, is_8bit, sprite_3d_color)`: Initializes the entity.
-    - `has_3d_sprite`: Property that returns True if the entity has a 3D sprite.
-    - `position`: Property for getting and setting the position.
-    - `is_active`: Attribute indicating if the entity is active.
-    - `is_visible`: Attribute indicating if the entity is visible.
-    - `is_player`: Attribute indicating if the entity is the player.
-    - `direction`: Attribute for the entity's direction vector.
-    - `state`: Attribute for the entity's current state.
-    - `speed`: Attribute for the entity's movement speed.
-    - `health`: Attribute for the entity's current health.
-    - `max_health`: Attribute for the entity's maximum health.
-    - `create_3d_sprite(sprite_3d_type, height, width, rotation, color)`: Creates a 3D sprite for the entity.
-    - `collision(other, game)`: Called when the entity collides with another entity.
-    - `render(draw, game)`: Called every frame to render the entity.
-    - `start(game)`: Called when the entity is created.
-    - `stop(game)`: Called when the entity is destroyed.
-    - `update(game)`: Called every frame.
+- Module state constants: `ENTITY_STATE_IDLE`=0, `ENTITY_STATE_MOVING`=1, `ENTITY_STATE_MOVING_TO_START`=2, `ENTITY_STATE_MOVING_TO_END`=3, `ENTITY_STATE_ATTACKING`=4, `ENTITY_STATE_ATTACKED`=5, `ENTITY_STATE_DEAD`=6.
+- Module entity-type constants: `ENTITY_TYPE_PLAYER`=0, `ENTITY_TYPE_ENEMY`=1, `ENTITY_TYPE_ICON`=2, `ENTITY_TYPE_NPC`=3, `ENTITY_TYPE_3D_SPRITE`=4.
+- Module 3D-sprite constants: `SPRITE_3D_NONE`=0, `SPRITE_3D_HUMANOID`=1, `SPRITE_3D_TREE`=2, `SPRITE_3D_HOUSE`=3, `SPRITE_3D_PILLAR`=4, `SPRITE_3D_CUSTOM`=5.
+- `Entity(name, type, position, size, sprite_data=None, sprite_left=None, sprite_right=None, start=None, stop=None, update=None, render=None, collision=None, is_8bit_sprite=False, sprite_3d_type=SPRITE_3D_NONE, sprite_3d_color=0x0000)`: Create an entity. The native class also exposes shorter constants such as `ENTITY_PLAYER` and `ENTITY_IDLE`.
+- Writable attributes: `name`, `type`, `position`, `old_position`, `size`, `is_8bit`, `is_active`, `is_visible`, `is_player`, `direction`, `plane`, `state`, `start_position`, `end_position`, `move_timer`, `elapsed_move_timer`, `radius`, `speed`, `attack_timer`, `elapsed_attack_timer`, `strength`, `health`, `max_health`, `level`, `xp`, `health_regen`, `elapsed_health_regen`, `sprite_3d_type`, `sprite_rotation`, `sprite_scale`, `sprite_3d`, `sprite`, `sprite_left`, `sprite_right`, and `billboard_pose`.
+- Methods: `has_3d_sprite()`, `has_changed_position()`, `update_3d_sprite_position()`, `set_3d_sprite_rotation(rotation)`, `set_3d_sprite_scale(scale)`, and `set_billboard(billboard, height=1.8)`.
+- Setters are exposed for the writable attributes: `set_name`, `set_type`, `set_position`, `set_old_position`, `set_size`, `set_is_8bit`, `set_is_active`, `set_is_visible`, `set_is_player`, `set_direction`, `set_plane`, `set_state`, `set_start_position`, `set_end_position`, `set_move_timer`, `set_elapsed_move_timer`, `set_radius`, `set_speed`, `set_attack_timer`, `set_elapsed_attack_timer`, `set_strength`, `set_health`, `set_max_health`, `set_level`, `set_xp`, `set_health_regen`, `set_elapsed_health_regen`, `set_sprite_rotation`, `set_sprite_scale`, `set_sprite3d_type`, `set_sprite3d`, `set_sprite`, `set_sprite_left`, `set_sprite_right`, and `set_billboard_pose`. `position_set`, `direction_set`, and `plane_set` also accept `x, y, [z, integer]`.
+- The constructor callbacks are not callable entity methods: bound `start`/`stop`/`update` methods receive `game`; plain functions receive `(entity, game)`. Bound `render` methods receive `(draw, game)` and plain functions receive `(entity, draw, game)`. Bound `collision` methods receive `(other, game)` and plain functions receive `(entity, other, game)`.
 
 #### picoware-engine-game
-- `Game` class: Represents a game:
-    - `__init__(name, size, draw, input_manager, foreground_color, background_color, camera_context=None, start=None, stop=None)`: Initializes the game. `camera_context` is an optional `CameraParams` instance for 3D rendering.
-    - `camera_context`: Property to get/set the `CameraParams` instance.
-    - `is_active`: Attribute indicating if the game is active.
-    - `input`: Attribute containing the last button pressed.
-    - `camera`: Attribute containing the camera position as a Vector.
-    - `current_level`: Attribute containing the current level.
-    - `clamp(value, lower, upper)`: Clamp a value between a lower and upper bound.
-    - `level_add(level)`: Add a level to the game.
-    - `level_remove(level)`: Remove a level from the game.
-    - `level_switch(level)`: Switch to a new level (by index or name).
-    - `render()`: Render the current level.
-    - `start()`: Start the game. Returns True on success.
-    - `stop()`: Stop the game.
-    - `update()`: Update the game input and entity positions.
+- `Game(name, size, draw, input_manager, foreground_color=0xFFFF, background_color=0x0000, camera_context=None, start=None, stop=None)`: Create a game. `camera_context` is an optional `Camera`; when omitted, the wrapper creates one. The wrapper's internal update reads `input_manager.button` and resets the manager.
+- Writable attributes: `name`, `position`, `size`, `is_active`, `foreground_color`, `background_color`, `camera`, `input`, and `current_level`; `draw` is read-only. `camera` is a `Camera`, while `camera_context` is only a constructor argument.
+- Methods: `set_camera`, `set_input`, `level_add`, `level_remove` (removes and deletes the native level), `level_switch(index_or_name)`, `set_name`, `set_position`, `set_size`, `set_is_active`, `set_foreground_color`, `set_background_color`, `set_current_level(level_or_none)`, and `level_exists(name)`. `MAX_LEVELS` is 10.
+- Optional `start` and `stop` callbacks are supported; bound methods receive no arguments and plain functions receive the `Game`. Starting, updating, rendering, and stopping are driven by `GameEngine`, not exposed as direct `Game` methods.
 
 #### picoware-engine-level
-- `CAMERA_FIRST_PERSON`, `CAMERA_THIRD_PERSON`: Constants for camera perspectives.
-- `Level` class: Represents a level in the game:
-    - `__init__(name, size, game, start, stop)`: Initializes the level.
-    - `clear_allowed`: Property to get/set if the level is allowed to clear the screen.
-    - `entities`: Attribute containing the list of entities in the level.
-    - `clear()`: Clear the level and stop all entities.
-    - `collision_list(entity)`: Return a list of entities that the entity collided with.
-    - `entity_add(entity)`: Add an entity to the level.
-    - `entity_remove(entity)`: Remove an entity from the level.
-    - `has_collided(entity)`: Check for collisions with other entities.
-    - `is_collision(entity, other)`: Check if two entities collided using AABB logic.
-    - `render(perspective, camera_params)`: Render the level with optional camera perspective.
-    - `start()`: Start the level.
-    - `stop()`: Stop the level.
-    - `update()`: Update the level and check for collisions.
+- `Level(name, size, game, start=None, stop=None)`: Create a level associated with a `Game`. Bound `start`/`stop` callbacks receive no arguments; plain functions receive the `Level`.
+- Writable attributes: `name`, `size`, and `clear_allowed`; `entity_count` is read-only. There is no exposed `entities` list.
+- `entity_add(entity)`: Add and start an entity; the level marks it active.
+- `entity_remove(entity)`: Stop and remove an entity. Non-player entities are deleted; player entities are managed externally.
+- `clear()`: Stop all entities and delete non-player entities.
+- Other methods: `get_entity(index)` (raises `ValueError` for an invalid index), `set_name`, `set_size`, `set_clear_allowed`, `set_light_direction(x, y, z)`, and `set_shadow_color(color)`.
+- `render_3d_sprite(path, view_height=0.0, clamp=False, wireframe=True)`: Render a file-backed 3D sprite using the first player entity's position and direction.
 
 #### picoware-engine-image
-- `Image` class: Wraps the C `engine.Image` structure. Represents a sprite or texture image used by the 3D engine. Typically constructed with image byte data and dimensions.
+- `Image(size, is_8bit, data=None, path="", mask=None, psram_address=None, psram_mask_address=None)`: Store image dimensions, optional pixel data/path, and optional mask or PSRAM addresses. Pixel data, masks, and paths are copied into native-owned storage.
+- Writable attribute: `size`; `set_size(size)` changes it, except for masked images whose size is fixed.
 
 #### picoware-engine-sprite3d
 - `SPRITE_HUMANOID` (0), `SPRITE_TREE` (1), `SPRITE_HOUSE` (2), `SPRITE_PILLAR` (3), `SPRITE_CUSTOM` (4): Constants for 3D sprite template types.
-- `Sprite3D` class: Wraps the C `engine.Sprite3D` object. Represents a billboard sprite rendered in 3D space.
-    - `__init__(sprite_type, position, height, width, rotation, color, image)`: Initializes the sprite. `sprite_type` is a `SPRITE_*` constant. `position` is a `Vector`, `image` is an optional `Image`.
-    - `position`: Property to get/set the sprite's `Vector` position in world space.
-    - `rotation`: Property to get/set the rotation angle (float, radians).
-    - `color`: Property to get/set the tint color (RGB565 int).
-    - `is_visible`: Property to get/set visibility (bool).
+- `Sprite3D()`: Create an empty triangle mesh; this is not a billboard image.
+- Attributes: writable `position`, `rotation_y`, `scale_factor`, and `active`; read-only `type`, `triangle_count`, and `MAX_TRIANGLES_PER_SPRITE`.
+- Mesh methods: `add_triangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, color=0x0000, wireframe=True)`, `get_triangle(index)`, `update_triangle(index, x1, y1, z1, x2, y2, z2, x3, y3, z3, color=0x0000, wireframe=True)`, `clear_triangles()`, and `reserve_triangles(count)`.
+- Shape helpers: `create_humanoid`, `create_tree`, `create_house`, `create_pillar`, `create_wall`, `create_cube`, `create_cylinder`, `create_sphere`, and `create_triangular_prism`; `initialize_as_house`, `initialize_as_humanoid`, `initialize_as_pillar`, and `initialize_as_tree` initialize a template at a position.
+- Other methods: `set_position`, `set_rotation_y`, `set_scale`, `set_active`, `set_wireframe`, `from_path(path, wireframe=True)`, `to_path(path)`, and `bake_transform()`.
 
 #### picoware-engine-triangle3d
-- `Triangle3D` class: Wraps the C `engine.Triangle3D` structure. Represents a single 3D triangle (face) for use in polygon-based mesh rendering.
-    - `__init__(v0, v1, v2, color)`: Initializes the triangle. `v0`, `v1`, `v2` are `Vector` vertices; `color` is an RGB565 int.
-    - `color`: Property to get/set the fill color.
+- `Triangle3D(x1=0.0, y1=0.0, z1=0.0, x2=0.0, y2=0.0, z2=0.0, x3=0.0, y3=0.0, z3=0.0, color=0x0000, wireframe=False)`: Create a triangle from three scalar-coordinate vertices.
+- Writable attributes: `x1`, `y1`, `z1`, `x2`, `y2`, `z2`, `x3`, `y3`, `z3`, `color`, and `wireframe`.
+- Methods: `get_center()` returns a `Vector`; `is_facing_camera(camera_pos)` checks orientation; `set_x1`, `set_y1`, `set_z1`, `set_x2`, `set_y2`, `set_z2`, `set_x3`, `set_y3`, `set_z3`, `set_color`, and `set_wireframe` update fields.
 
                 
 # Brief Examples

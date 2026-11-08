@@ -28,7 +28,7 @@ public:
     Entity **collision_list(Entity *entity, int &count) const;
     void entity_add(Entity *entity);
     void entity_remove(Entity *entity);
-    Entity *getEntity(int index) const { return entities[index]; }
+    Entity *getEntity(int index) const;
     int getEntityCount() const { return entity_count; }
     const Vector &getLightDirection() const { return lightDirection; }
     uint16_t getShadowColor() const { return shadowColor; }
@@ -41,6 +41,7 @@ public:
     void render3DSprite(const char *path, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp = false, bool wireframe = true, bool drawShadow = false);
     void setClearAllowed(bool status) { clearAllowed = status; }
     void setLightDirection(float x, float y, float z);
+    void setGame(Game *game) { gameRef = game; }
     void setShadowColor(uint16_t color) { shadowColor = color; }
     virtual void start();
     virtual void stop();

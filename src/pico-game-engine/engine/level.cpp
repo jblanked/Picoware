@@ -175,6 +175,12 @@ void Level::entity_add(Entity *entity)
 // Remove an entity from the level
 void Level::entity_remove(Entity *entity)
 {
+    if (!entity)
+    {
+        ENGINE_LOG_INFO("Level::entity_remove called with null entity pointer\n");
+        return;
+    }
+
     if (entity_count == 0)
     {
         ENGINE_LOG_INFO("Level::entity_remove called but no entities are present\n");
@@ -223,6 +229,16 @@ void Level::entity_remove(Entity *entity)
     // Shrink the depth-sort scratch buffer to match
     ENGINE_MEM_FREE(renderOrder);
     renderOrder = entity_count > 0 ? (int *)ENGINE_MEM_MALLOC(entity_count * sizeof(int)) : nullptr;
+}
+
+Entity *Level::getEntity(int index) const
+{
+    if (index < 0 || index >= entity_count)
+    {
+        ENGINE_LOG_INFO("Level::getEntity called with out-of-bounds index\n");
+        return nullptr;
+    }
+    return entities[index];
 }
 
 // Check if any entity has collided with the given entity
@@ -517,14 +533,13 @@ void Level::render(Game *game, bool clamp)
         {
             const float facing = atan2f(entityCamera.position.y - ent->position.y, entityCamera.position.x - ent->position.x) - atan2f(ent->direction.y, ent->direction.x);
             Image *img = ent->billboard->viewForFacing(facing, ent->billboard_pose);
-            if (img && img->getPixels() && img->mask)
+            if (img && img->hasData() && img->hasMask())
             {
                 int16_t bx, by;
                 uint16_t bw, bh;
                 if (projectBillboard(entityCamera, ent->position, ent->billboard_world_height, bx, by, bw, bh))
                 {
-                    const uint16_t sw = img->size.x, sh = img->size.y;
-                    game->draw->imageMasked(bx, by, bw, bh, sw, sh, img->getPixels(), img->mask);
+                    img->renderMasked(game->draw, bx, by, bw, bh);
                 }
             }
             continue;

@@ -43,6 +43,21 @@ static void entity_mp_native_destroyed(Entity *ctx, void *context)
     ctx->mp_ctx = nullptr;
 }
 
+// Keep language-wrapper cleanup in the binding. Entity already has a virtual
+// destructor, so native Level/Game deletion also reaches this destructor before
+// the base class releases the sprite. No engine-specific callback is needed.
+class MicroPythonEntity final : public Entity
+{
+public:
+    using Entity::Entity;
+
+    ~MicroPythonEntity() override
+    {
+        if (mp_ctx != nullptr)
+            entity_mp_native_destroyed(this, mp_ctx);
+    }
+};
+
 void entity_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
     (void)kind;
@@ -447,7 +462,7 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     }
 
     // Create the C++ Entity
-    self->context = new Entity(
+    self->context = new MicroPythonEntity(
         name_buf, entity_type, position, size,
         sprite_data, sprite_left_data, sprite_right_data,
         start_func, stop_func, update_func,
@@ -464,7 +479,6 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     if (ctx->sprite_3d)
         static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self->sprite_3d_obj))->owner = MP_OBJ_FROM_PTR(self);
     ctx->mp_ctx = static_cast<void *>(self);
-    ctx->setDestroyCallback(entity_mp_native_destroyed, self);
     return MP_OBJ_FROM_PTR(self);
 }
 

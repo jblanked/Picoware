@@ -13,6 +13,9 @@ SPRITE_CUSTOM = const(4)
 class Sprite3D(engine.Sprite3D):
     """Represent a native 3D sprite made from triangles.
 
+    Args:
+        psramAllowed (bool, optional): Whether to allow PSRAM usage. Defaults to True.
+
     Attributes:
         position (Vector): Sprite position. Writable.
         rotation_y (float): Rotation around the Y axis. Writable.

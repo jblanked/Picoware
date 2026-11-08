@@ -10,7 +10,10 @@ mp_obj_t sprite3d_mp_init(void *context)
 {
     sprite3d_mp_obj_t *sprite3d = mp_obj_malloc_with_finaliser(sprite3d_mp_obj_t, &sprite3d_mp_type);
     sprite3d->base.type = &sprite3d_mp_type;
-    sprite3d->context = context ? context : new Sprite3D();
+    // Arguments: psramAllowed (bool, optional)
+    mp_arg_check_num(n_args, n_kw, 0, 1, true);
+    bool psramAllowed = n_args > 0 ? mp_obj_is_true(args[0]) : true;
+    sprite3d->context = context ? context : new Sprite3D(psramAllowed);
     sprite3d->freed = false;
     Sprite3D *ctx = sprite3d_get_context(sprite3d);
     Vector pos = ctx->getPosition();

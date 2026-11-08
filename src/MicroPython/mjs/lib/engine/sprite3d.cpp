@@ -535,7 +535,11 @@ void sprite3d_create_triangular_prism(struct mjs *mjs)
 
 void sprite3d_create(struct mjs *mjs, mjs_val_t *sprite3d_obj)
 {
-    Sprite3D *sprite3d_instance = new Sprite3D();
+    // Arguments: psramAllowed (bool, optional)
+    // shifted because parent func has the first arg as the import name
+    mjs_val_t val = mjs_arg(mjs, 1);
+    bool psramAllowed = mjs_is_boolean(val) ? mjs_get_boolean(mjs, 1) : true;
+    Sprite3D *sprite3d_instance = new Sprite3D(psramAllowed);
     mjs_slot_set(sprite3d_instance);
     *sprite3d_obj = sprite3d_get_object(mjs, sprite3d_instance);
 }

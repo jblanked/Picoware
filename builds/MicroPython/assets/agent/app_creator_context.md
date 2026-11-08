@@ -1072,6 +1072,7 @@ Supported DuckyScript commands: `DELAY`, `DEFAULT_DELAY`, `STRING_DELAY`, `STRIN
     - `update_toggle(index, text, state)`: Update the text and state of a toggle. Returns True on success.
 
 ### Engine
+The engine module provides classes and functions for managing 3D game logic, rendering, and camera control. None of the class initializers accept keyword arguments. The engine’s first-person render path requiring a level entity marked `is_player`; it also interprets the camera’s ground plane as X/Z, with height stored separately in the `height` attribute.
 
 #### picoware-engine-billboard
 - `Billboard(dirs=8, poses=1)`: Store directional and pose images. Both counts must be from 1 through 8.
@@ -1125,7 +1126,7 @@ Supported DuckyScript commands: `DELAY`, `DEFAULT_DELAY`, `STRING_DELAY`, `STRIN
 
 #### picoware-engine-sprite3d
 - `SPRITE_HUMANOID` (0), `SPRITE_TREE` (1), `SPRITE_HOUSE` (2), `SPRITE_PILLAR` (3), `SPRITE_CUSTOM` (4): Constants for 3D sprite template types.
-- `Sprite3D()`: Create an empty triangle mesh; this is not a billboard image.
+- `Sprite3D(psramAllowed=True)`: Create an empty triangle mesh; this is not a billboard image.
 - Attributes: writable `position`, `rotation_y`, `scale_factor`, and `active`; read-only `type`, `triangle_count`, and `MAX_TRIANGLES_PER_SPRITE`.
 - Mesh methods: `add_triangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, color=0x0000, wireframe=True)`, `get_triangle(index)`, `update_triangle(index, x1, y1, z1, x2, y2, z2, x3, y3, z3, color=0x0000, wireframe=True)`, `clear_triangles()`, and `reserve_triangles(count)`.
 - Shape helpers: `create_humanoid`, `create_tree`, `create_house`, `create_pillar`, `create_wall`, `create_cube`, `create_cylinder`, `create_sphere`, and `create_triangular_prism`; `initialize_as_house`, `initialize_as_humanoid`, `initialize_as_pillar`, and `initialize_as_tree` initialize a template at a position.

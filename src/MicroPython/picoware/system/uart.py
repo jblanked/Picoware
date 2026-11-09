@@ -68,9 +68,7 @@ class UART:
 
     def __del__(self) -> None:
         """Deinitialize the UART interface."""
-        self._uart.deinit()
-        del self._uart
-        self._uart = None
+        self.__deinit()
 
     @property
     def baud_rate(self) -> int:
@@ -120,6 +118,14 @@ class UART:
     def uart(self):
         """Get the UART context."""
         return self._uart
+
+    def __deinit(self) -> None:
+        """Deinitialize the UART interface."""
+        if self._uart is not None:
+            self._uart.deinit()
+            del self._uart
+            self._uart = None
+        self._callback = None
 
     def clear(self) -> None:
         """Clear the serial buffer"""

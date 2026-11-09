@@ -509,6 +509,7 @@ class ViewManager:
             del self._battery
             self._battery = None
         if self._uart is not None:
+            self._uart.__deinit()
             del self._uart
             self._uart = None
         if self._usb_video_stream is not None:

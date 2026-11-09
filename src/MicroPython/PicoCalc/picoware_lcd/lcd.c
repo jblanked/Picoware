@@ -240,11 +240,11 @@ void lcd_display_off()
 }
 
 // Initialize the LCD display
-void lcd_init()
+bool lcd_init(void)
 {
     if (lcd_initialised)
     {
-        return; // already initialized
+        return true; // already initialized
     }
 
     // initialise GPIO pins
@@ -320,4 +320,5 @@ void lcd_init()
     lcd_display_on();
 
     lcd_initialised = true; // Set the initialised flag
+    return true;
 }

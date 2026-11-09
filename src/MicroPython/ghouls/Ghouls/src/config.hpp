@@ -25,7 +25,7 @@
 #define ENEMY_SPAWN_MAX 25
 
 // time
-#if defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06)
+#if defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06) || defined(PICOCALC_ESP32_P4)
 #include "esp_timer.h"
 #define TIME_INCLUDE "esp_timer.h"
 #define TIME_MILLIS esp_timer_get_time() / 1000

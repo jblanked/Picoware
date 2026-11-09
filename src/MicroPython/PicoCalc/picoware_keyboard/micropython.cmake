@@ -35,3 +35,17 @@ target_compile_definitions(usermod_picoware_southbridge INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_picoware_southbridge)
+
+if(PICOCALC_ESP32_P4)
+    target_link_libraries(usermod_picoware_keyboard INTERFACE
+        idf::esp_driver_i2c
+        idf::esp_rom
+        idf::log
+        idf::esp_timer
+    )
+    target_link_libraries(usermod_picoware_southbridge INTERFACE
+        idf::esp_driver_i2c
+        idf::esp_rom
+        idf::log
+    )
+endif()

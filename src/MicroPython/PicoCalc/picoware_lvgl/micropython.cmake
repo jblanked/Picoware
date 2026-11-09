@@ -17,8 +17,12 @@ target_include_directories(usermod_picoware_lvgl INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/lvgl/src
 )
 
-# Add LVGL library as subdirectory
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lvgl)
+if(ESP_PLATFORM)
+    set(LVGL_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/lvgl)
+    include(${LVGL_ROOT_DIR}/env_support/cmake/micropython.cmake)
+else()
+    add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lvgl)
+endif()
 
 target_link_libraries(usermod_picoware_lvgl INTERFACE lvgl_interface)
 

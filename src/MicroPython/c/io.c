@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-#if defined(CROWPANEL_WATCH_2_01)
+#if defined(CROWPANEL_WATCH_2_01) || defined(PICOCALC_ESP32_P4)
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -10,6 +10,10 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#if defined(PICOCALC_ESP32_P4)
+#include "../PicoCalc/sd/sdcard.h"
+#endif
 
 #define C_IO_PATH_MAX 512
 
@@ -21,6 +25,12 @@ typedef struct
 
 static bool c_io_resolve_path(const char *path, char resolved[C_IO_PATH_MAX])
 {
+#if defined(PICOCALC_ESP32_P4)
+    if (!sdcard_is_mounted() && sdcard_mount() != ESP_OK)
+    {
+        return false;
+    }
+#endif
     return storage_resolve_path(path, resolved, C_IO_PATH_MAX);
 }
 
@@ -36,11 +46,18 @@ int fs_unload(void)
 
 int fs_mount(void)
 {
+#if defined(PICOCALC_ESP32_P4)
+    return sdcard_is_mounted() || sdcard_mount() == ESP_OK ? LFS_ERR_OK : -1;
+#else
     return LFS_ERR_OK;
+#endif
 }
 
 int fs_unmount(void)
 {
+#if defined(PICOCALC_ESP32_P4)
+    sdcard_unmount();
+#endif
     return LFS_ERR_OK;
 }
 

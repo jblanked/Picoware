@@ -8,7 +8,7 @@
 #define ENGINE_LOG_INFO(...) LOG_MESSAGE(__VA_ARGS__)
 
 // memory
-#if defined(PICOCALC)
+#if defined(PICOCALC) || defined(PICOCALC_ESP32_P4)
 #define ENGINE_MEM_INCLUDE "../../engine/memory.h"
 #elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(PICO_DUO) || defined(POOM) || defined(WAVESHARE_C6_2_06)
 #define ENGINE_MEM_INCLUDE "../engine/memory.h"
@@ -25,7 +25,7 @@
 #if defined(DESKTOP)
 #define ENGINE_DELAY_INCLUDE "py/mphal.h"
 #define ENGINE_DELAY_MS(ms) mp_hal_delay_ms(ms)
-#elif defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06)
+#elif defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06) || defined(PICOCALC_ESP32_P4)
 #define ENGINE_DELAY_INCLUDE "freertos/FreeRTOS.h"
 #define ENGINE_DELAY_MS(ms) vTaskDelay(pdMS_TO_TICKS(ms))
 #else
@@ -34,7 +34,7 @@
 #endif
 
 // font
-#if defined(PICOCALC)
+#if defined(PICOCALC) || defined(PICOCALC_ESP32_P4)
 #define ENGINE_FONT_INCLUDE "../../font/font.h"
 #elif defined(CARDPUTER) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(PICO_DUO) || defined(POOM)
 #define ENGINE_FONT_INCLUDE "../font/font.h"
@@ -79,7 +79,9 @@
 #define ENGINE_LCD_FILL_POLYGON_ALPHA LCD_MP_FILL_POLYGON_ALPHA
 
 // storage
-#if defined(PICOCALC)
+#if defined(PICOCALC_ESP32_P4)
+#define ENGINE_STORAGE_INCLUDE "../../PicoCalc/sd/storage.h"
+#elif defined(PICOCALC)
 #define ENGINE_STORAGE_INCLUDE "../../sd/storage.h"
 #elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM) || defined(PICO_DUO)
 #define ENGINE_STORAGE_INCLUDE "../sd/storage.h"
@@ -94,7 +96,7 @@
 #endif
 
 // psram
-#ifdef PICOCALC
+#if defined(PICOCALC) || defined(PICOCALC_ESP32_P4)
 #include "../lcd/lcd_config.h"
 #include LCD_INCLUDE
 #define ENGINE_USE_PSRAM 1

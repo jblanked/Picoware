@@ -124,7 +124,7 @@ def start(view_manager) -> bool:
         view_manager: The view manager for the app.
     """
     from picoware.system.buttons import BUTTON_BACK
-    from picoware.system.boards import BOARD_HAS_PICOCALC
+    from picoware.system.boards import BOARD_HAS_PICOCALC, BOARD_ID, BOARD_PICOCALC_ESP32_P4
 
     global _textbox, _uart, state, _loading, _received, _prev_callback
 
@@ -141,7 +141,7 @@ def start(view_manager) -> bool:
     view_manager.freq(True)  # set to lower frequency
     is_pico_calc = BOARD_HAS_PICOCALC == 1
     d = view_manager.draw
-    if is_pico_calc and d.mode != 1:
+    if is_pico_calc and BOARD_ID != BOARD_PICOCALC_ESP32_P4 and d.mode != 1:
         view_manager.alert("PicoCalc requires Heap mode. Change in: Settings -> LCD Mode -> Heap\nNote: This is really only possible on the Pico2/Pico2w/Pimoroni2w but may work on the Pico.")
         return False
     _uart = view_manager.uart
@@ -157,6 +157,9 @@ def start(view_manager) -> bool:
     if not is_pico_calc:
         d._text(0, sixteen * 2, f"TX Pin: GP{_uart.tx_pin if _uart else 'N/A'}", fg)
         d._text(0, sixteen * 3, f"RX Pin: GP{_uart.rx_pin if _uart else 'N/A'}", fg)
+    elif BOARD_ID == BOARD_PICOCALC_ESP32_P4:
+        d._text(0, sixteen * 2, "TX Pin: GPIO29", fg)
+        d._text(0, sixteen * 3, "RX Pin: GPIO28", fg)
     else:
         d._text(0, sixteen * 2, "TX Pin: GP4", fg)
         d._text(0, sixteen * 3, "RX Pin: GP5", fg)

@@ -1,7 +1,7 @@
 #include "audio.h"
 #include "color.h"
 
-#ifdef PICOCALC
+#if defined(PICOCALC) || defined(PICOCALC_ESP32_P4)
 #include "../../audio/audio.h"
 #define AUDIO_JS_ENABLED
 #endif

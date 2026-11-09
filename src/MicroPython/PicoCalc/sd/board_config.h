@@ -1,0 +1,9 @@
+#pragma once
+
+#include "driver/gpio.h"
+
+#define PICOCALC_SD_MISO_GPIO GPIO_NUM_48
+#define PICOCALC_SD_MOSI_GPIO GPIO_NUM_33
+#define PICOCALC_SD_SCLK_GPIO GPIO_NUM_46
+#define PICOCALC_SD_CS_GPIO GPIO_NUM_47
+#define PICOCALC_SD_LDO_CHAN 4

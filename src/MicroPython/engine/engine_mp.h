@@ -6,7 +6,7 @@ Source: https://github.com/jblanked/Picoware
 
 #pragma once
 
-#if defined(PICOCALC)
+#if defined(PICOCALC) || defined(PICOCALC_ESP32_P4)
 #include "../../vector/vector_mp.h"
 #elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM)
 #include "../vector/vector_mp.h"

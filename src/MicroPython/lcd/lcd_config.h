@@ -1,7 +1,7 @@
 #pragma once
 #include <stdbool.h>
 
-#if defined(PICOCALC)
+#if defined(PICOCALC) || defined(PICOCALC_ESP32_P4)
 #define LCD_INCLUDE "../PicoCalc/picoware_lcd/picoware_lcd.h"
 #define LCD_MP_INIT picocalc_lcd_init
 #define LCD_MP_DEINIT lcd_deinit

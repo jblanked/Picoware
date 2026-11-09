@@ -1,7 +1,6 @@
 #pragma once
 
 #include "lcd.h"
-#include "../picoware_psram/psram_qspi.h"
 #include "../picoware_psram/picoware_psram_shared.h"
 #include "../../font/font_mp.h"
 

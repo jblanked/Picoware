@@ -4,7 +4,7 @@
 
 #if defined(CARDPUTER) || defined(CROWPANEL_WATCH_2_01) || defined(WAVESHARE_2_06) || defined(WAVESHARE_C6_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(POOM) || defined(WAVESHARE_C5_3_5)
 #include "../lcd/lcd_config.h"
-#elif defined(PICOCALC) || defined(PIMORONI_PICO_PLUS2W_RP2350) || defined(PICO_DUO)
+#elif defined(PICOCALC) || defined(PICOCALC_ESP32_P4) || defined(PIMORONI_PICO_PLUS2W_RP2350) || defined(PICO_DUO)
 #include "../../lcd/lcd_config.h"
 #elif defined(WAVESHARE_1_28) || defined(WAVESHARE_1_43) || defined(WAVESHARE_1_69) || defined(WAVESHARE_3_49)
 #include "../../../lcd/lcd_config.h"
@@ -60,6 +60,8 @@ mp_obj_t picoware_boards_get_current_name(void)
     return mp_obj_new_str("Flipper Zero", strlen("Flipper Zero"));
 #elif defined(CROWPANEL_10_1)
     return mp_obj_new_str("CrowPanel 10.1", strlen("CrowPanel 10.1"));
+#elif defined(PICOCALC_ESP32_P4)
+    return mp_obj_new_str("PicoCalc - ESP32-P4", strlen("PicoCalc - ESP32-P4"));
 #elif defined(PIMORONI_PICO_PLUS2W_RP2350)
     // PicoCalc - Pimoroni 2 W
     return mp_obj_new_str("PicoCalc - Pimoroni", strlen("PicoCalc - Pimoroni"));
@@ -96,6 +98,8 @@ mp_obj_t picoware_boards_get_device_name(void)
     return mp_obj_new_str("Flipper Zero STM32WB55RG", strlen("Flipper Zero STM32WB55RG"));
 #elif defined(CROWPANEL_10_1)
     return mp_obj_new_str("CrowPanel 10.1 ESP32-P4", strlen("CrowPanel 10.1 ESP32-P4"));
+#elif defined(PICOCALC_ESP32_P4)
+    return mp_obj_new_str("ESP32-P4-WIFI6", strlen("ESP32-P4-WIFI6"));
 #elif defined(CROWPANEL_WATCH_2_01)
     return mp_obj_new_str("ESP32-S3", strlen("ESP32-S3"));
 #elif defined(PANCAKE)
@@ -164,6 +168,9 @@ mp_obj_t picoware_boards_get_name(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PIMORONI_2W:
         snprintf(board_name, sizeof(board_name), "PicoCalc - Pimoroni 2 W");
         break;
+    case BOARD_PICOCALC_ESP32_P4:
+        snprintf(board_name, sizeof(board_name), "PicoCalc - ESP32-P4-WIFI6");
+        break;
     case BOARD_CROWPANEL_10_1:
         snprintf(board_name, sizeof(board_name), "CrowPanel 10.1");
         break;
@@ -222,6 +229,7 @@ mp_obj_t picoware_boards_get_display_size(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PICO_2:
     case BOARD_PICOCALC_PICO_2W:
     case BOARD_PICOCALC_PIMORONI_2W:
+    case BOARD_PICOCALC_ESP32_P4:
         width = 320;
         height = 320;
         break;
@@ -304,6 +312,7 @@ mp_obj_t picoware_boards_has_psram(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PICO_2:
     case BOARD_PICOCALC_PICO_2W:
     case BOARD_PICOCALC_PIMORONI_2W:
+    case BOARD_PICOCALC_ESP32_P4:
         has_psram = true;
         break;
     default:
@@ -325,6 +334,7 @@ mp_obj_t picoware_boards_has_sd_card(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PICOW:
     case BOARD_PICOCALC_PICO_2:
     case BOARD_PICOCALC_PICO_2W:
+    case BOARD_PICOCALC_ESP32_P4:
     case BOARD_WAVESHARE_1_43_RP2350:
     case BOARD_WAVESHARE_3_49_RP2350:
     case BOARD_PICOCALC_PIMORONI_2W:
@@ -387,6 +397,7 @@ mp_obj_t picoware_boards_has_wifi(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PICOW:
     case BOARD_PICOCALC_PICO_2W:
     case BOARD_PICOCALC_PIMORONI_2W:
+    case BOARD_PICOCALC_ESP32_P4:
     case BOARD_CARDPUTER:
     case BOARD_WAVESHARE_2_06:
     case BOARD_CROWPANEL_WATCH_2_01:
@@ -428,6 +439,7 @@ mp_obj_t picoware_boards_has_audio(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PIMORONI_2W:
     case BOARD_CARDPUTER:
     case BOARD_DESKTOP:
+    case BOARD_PICOCALC_ESP32_P4:
         has_audio = true;
         break;
     default:
@@ -449,6 +461,7 @@ mp_obj_t picoware_boards_has_bluetooth(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PICOW:
     case BOARD_PICOCALC_PICO_2W:
     case BOARD_PICOCALC_PIMORONI_2W:
+    case BOARD_PICOCALC_ESP32_P4:
     case BOARD_CARDPUTER:
     case BOARD_WAVESHARE_2_06:
     case BOARD_CROWPANEL_WATCH_2_01:
@@ -498,6 +511,7 @@ mp_obj_t picoware_boards_has_keyboard(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PICOW:
     case BOARD_PICOCALC_PICO_2:
     case BOARD_PICOCALC_PIMORONI_2W:
+    case BOARD_PICOCALC_ESP32_P4:
     case BOARD_CARDPUTER:
         has_keyboard = true;
         break;
@@ -555,6 +569,7 @@ static const mp_rom_map_elem_t picoware_boards_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_BOARD_PICOCALC_PICOW), MP_ROM_INT(BOARD_PICOCALC_PICOW)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_PICOCALC_PICO_2), MP_ROM_INT(BOARD_PICOCALC_PICO_2)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_PICOCALC_PICO_2W), MP_ROM_INT(BOARD_PICOCALC_PICO_2W)},
+    {MP_ROM_QSTR(MP_QSTR_BOARD_PICOCALC_ESP32_P4), MP_ROM_INT(BOARD_PICOCALC_ESP32_P4)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_1_28_RP2350), MP_ROM_INT(BOARD_WAVESHARE_1_28_RP2350)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_1_43_RP2350), MP_ROM_INT(BOARD_WAVESHARE_1_43_RP2350)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_3_49_RP2350), MP_ROM_INT(BOARD_WAVESHARE_3_49_RP2350)},

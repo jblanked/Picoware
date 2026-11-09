@@ -5,6 +5,7 @@ Attributes:
     BOARD_PICOCALC_PICOW (int): Board ID for PicoCalc with a Raspberry Pi Pico W.
     BOARD_PICOCALC_PICO_2 (int): Board ID for PicoCalc with a Raspberry Pi Pico 2.
     BOARD_PICOCALC_PICO_2W (int): Board ID for PicoCalc with a Raspberry Pi Pico 2 W.
+    BOARD_PICOCALC_ESP32_P4 (int): Board ID for PicoCalc with a Waveshare ESP32-P4-WIFI6.
     BOARD_WAVESHARE_1_28_RP2350 (int): Board ID for Waveshare 1.28" RP2350.
     BOARD_WAVESHARE_1_43_RP2350 (int): Board ID for Waveshare 1.43" RP2350.
     BOARD_WAVESHARE_1_69_RP2350 (int): Board ID for Waveshare 1.69" RP2350.
@@ -44,6 +45,7 @@ BOARD_PICOCALC_PICO = picoware_boards.BOARD_PICOCALC_PICO
 BOARD_PICOCALC_PICOW = picoware_boards.BOARD_PICOCALC_PICOW
 BOARD_PICOCALC_PICO_2 = picoware_boards.BOARD_PICOCALC_PICO_2
 BOARD_PICOCALC_PICO_2W = picoware_boards.BOARD_PICOCALC_PICO_2W
+BOARD_PICOCALC_ESP32_P4 = picoware_boards.BOARD_PICOCALC_ESP32_P4
 BOARD_WAVESHARE_1_28_RP2350 = picoware_boards.BOARD_WAVESHARE_1_28_RP2350
 BOARD_WAVESHARE_1_43_RP2350 = picoware_boards.BOARD_WAVESHARE_1_43_RP2350
 BOARD_WAVESHARE_1_69_RP2350 = picoware_boards.BOARD_WAVESHARE_1_69_RP2350

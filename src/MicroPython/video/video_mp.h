@@ -39,7 +39,7 @@ extern "C"
         bool audio_owned;
         bool audio_stream_started;
         int last_error;
-#if defined(PICOCALC) || defined(WAVESHARE_1_28) || defined(WAVESHARE_1_43) || defined(WAVESHARE_1_69) || defined(WAVESHARE_3_49)
+#if defined(PICOCALC) || defined(PICOCALC_ESP32_P4) || defined(WAVESHARE_1_28) || defined(WAVESHARE_1_43) || defined(WAVESHARE_1_69) || defined(WAVESHARE_3_49)
         void *audio_decoder;
         int16_t *audio_pcm;
         uint32_t audio_sample_index;

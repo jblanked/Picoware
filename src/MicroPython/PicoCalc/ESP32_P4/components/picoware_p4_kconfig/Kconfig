@@ -1,0 +1,19 @@
+#
+# ESP-Hosted's optional USB host manifests are not used by the PicoCalc P4.
+# These int symbols let Component Manager resolve those manifest conditions.
+#
+menu "Picoware ESP32-P4 hosted transport compatibility"
+
+config ESP_HOSTED_HOST_USB_CDC_ACM_MANIFEST
+    int
+    default 0
+
+config ESP_HOSTED_HOST_USB_CHERRYUSB_MANIFEST
+    int
+    default 0
+
+config ESP_HOSTED_HOST_USB_RNDIS_MANIFEST
+    int
+    default 0
+
+endmenu

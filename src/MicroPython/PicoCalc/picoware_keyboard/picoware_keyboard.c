@@ -54,7 +54,10 @@ static MP_DEFINE_CONST_FUN_OBJ_1(picoware_keyboard_set_key_available_callback_ob
 static mp_obj_t picoware_keyboard_set_background_poll(mp_obj_t enable_obj)
 {
     bool enable = mp_obj_is_true(enable_obj);
-    keyboard_set_background_poll(enable);
+    if (!keyboard_set_background_poll(enable))
+    {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("failed to configure keyboard polling"));
+    }
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(picoware_keyboard_set_background_poll_obj, picoware_keyboard_set_background_poll);

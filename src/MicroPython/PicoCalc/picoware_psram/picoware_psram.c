@@ -3,8 +3,8 @@
  * Copyright © 2025 JBlanked
  * https://github.com/jblanked/Picoware
  *
- * This module provides access to external PSRAM via QSPI
- * using PIO for high-speed memory operations.
+ * This module provides access to the PicoCalc's external PSRAM via QSPI.
+ * RP boards use PIO; the ESP32-P4 uses its shared SPI2 peripheral.
  */
 
 #include "picoware_psram.h"
@@ -31,7 +31,7 @@ static void psram_ensure_init(void)
 {
     if (!psram_initialized)
     {
-        psram_instance = psram_qspi_init(pio1, -1, 1.0f);
+        psram_instance = PICOWARE_PSRAM_INIT();
         psram_initialized = true;
     }
 }
@@ -1015,6 +1015,13 @@ mp_obj_t picoware_psram_alloc_buffer(uint32_t size)
 // Function to initialize the PSRAM
 mp_obj_t picoware_psram_init(size_t n_args, const mp_obj_t *args)
 {
+#if defined(PICOCALC_ESP32_P4)
+    (void)args;
+    if (n_args != 0)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("the PicoCalc ESP32-P4 uses onboard PSRAM and accepts no PIO arguments"));
+    }
+#else
     // Optional arguments: pio_num (0 or 1), sm_num (-1 for auto), use_qspi (true/false)
     int pio_num = 1; // Default to PIO1
     int sm_num = -1; // Default to auto-select
@@ -1036,11 +1043,16 @@ mp_obj_t picoware_psram_init(size_t n_args, const mp_obj_t *args)
             mp_raise_ValueError(MP_ERROR_TEXT("State machine must be -1 (auto) or 0-3"));
         }
     }
+#endif
 
     if (!psram_initialized)
     {
+#if defined(PICOCALC_ESP32_P4)
+        psram_instance = PICOWARE_PSRAM_INIT();
+#else
         PIO pio = (pio_num == 0) ? pio0 : pio1;
         psram_instance = psram_qspi_init(pio, sm_num, 1.0f);
+#endif
         psram_initialized = true;
     }
 

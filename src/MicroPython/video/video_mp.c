@@ -5,7 +5,10 @@
 
 #include "py/mperrno.h"
 
-#if defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(FLIPPER_ZERO) || defined(POOM)
+#if defined(PICOCALC_ESP32_P4)
+#define VIDEO_HAS_STORAGE 1
+#define VIDEO_HAS_JPEG 1
+#elif defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(FLIPPER_ZERO) || defined(POOM)
 #define VIDEO_HAS_STORAGE 1
 #define VIDEO_HAS_JPEG 1
 #else
@@ -13,14 +16,18 @@
 #define VIDEO_HAS_JPEG 0
 #endif
 
-#if defined(PICOCALC) || defined(WAVESHARE_1_28) || defined(WAVESHARE_1_43) || defined(WAVESHARE_1_69) || defined(WAVESHARE_3_49)
+#if defined(PICOCALC) || defined(PICOCALC_ESP32_P4) || defined(WAVESHARE_1_28) || defined(WAVESHARE_1_43) || defined(WAVESHARE_1_69) || defined(WAVESHARE_3_49)
 #define VIDEO_HAS_AUDIO 1
 #else
 #define VIDEO_HAS_AUDIO 0
 #endif
 
 #if VIDEO_HAS_STORAGE
+#if defined(PICOCALC_ESP32_P4)
+#include "../PicoCalc/sd/storage.h"
+#else
 #include "../sd/storage.h"
+#endif
 #endif
 
 #include "../lcd/lcd_config.h"

@@ -515,7 +515,7 @@ def _split_raw_timings(timings, max_timing):
 
 def _default_tx_pin():
     from machine import Pin
-    from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_HAS_PICOCALC, BOARD_POOM
+    from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_HAS_PICOCALC, BOARD_PICOCALC_ESP32_P4, BOARD_POOM
 
     if BOARD_ID == BOARD_CARDPUTER:
         return Pin(44, Pin.OUT, value=0)
@@ -526,6 +526,8 @@ def _default_tx_pin():
             return Pin.board.IR_TX
         except AttributeError:
             return Pin.cpu.B9
+    if BOARD_ID == BOARD_PICOCALC_ESP32_P4:
+        return Pin(21, Pin.OUT)
     if BOARD_HAS_PICOCALC == 1:
         return Pin(28, Pin.OUT)
     raise ValueError("no built-in infrared transmitter on this board")

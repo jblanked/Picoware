@@ -23,7 +23,7 @@ class UART:
         Raises:
             Exception: If the UART peripheral could not be initialized.
         """
-        from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_WAVESHARE_1_28_RP2350, BOARD_WAVESHARE_1_43_RP2350, BOARD_WAVESHARE_3_49_RP2350, BOARD_CARDPUTER
+        from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_WAVESHARE_1_28_RP2350, BOARD_WAVESHARE_1_43_RP2350, BOARD_WAVESHARE_3_49_RP2350, BOARD_CARDPUTER, BOARD_PICOCALC_ESP32_P4
         from machine import UART as MachineUART
         from machine import Pin
 
@@ -32,6 +32,7 @@ class UART:
             BOARD_WAVESHARE_1_43_RP2350: (1, 4, 5),
             BOARD_WAVESHARE_3_49_RP2350: (1, 4, 5),
             BOARD_CARDPUTER: (1, 1, 2),
+            BOARD_PICOCALC_ESP32_P4: (1, 29, 28),
         }
         if BOARD_ID == BOARD_FLIPPER_ZERO:
             _map[BOARD_FLIPPER_ZERO] = (1, Pin.cpu.B6, Pin.cpu.B7)

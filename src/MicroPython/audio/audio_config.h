@@ -74,6 +74,15 @@ PA_CTRL (46)
 #define AUDIO_I2C_FREQ_HZ (400000)
 #define AUDIO_AMP_ENABLE_PIN (6)
 #define AUDIO_SD_ROOT "/sdcard"
+#elif defined(PICOCALC_ESP32_P4)
+// The PicoCalc speakers are driven by the P4's dual-line PDM DAC output.
+#define AUDIO_ESP32_I2S 1
+#define AUDIO_ESP32_PDM 1
+#define AUDIO_I2S_PORT (I2S_NUM_0)
+#define AUDIO_I2S_PDM_DOUT_PIN (23)
+#define AUDIO_I2S_PDM_DOUT2_PIN (22)
+#define AUDIO_PDM_DEFAULT_RATE (44100)
+#define AUDIO_SD_ROOT "/sdcard"
 #else
 // GPIO pins
 #define AUDIO_LEFT_PIN (26)

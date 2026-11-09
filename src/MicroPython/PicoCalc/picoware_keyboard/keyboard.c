@@ -15,11 +15,18 @@
 //  such as reading the battery level.
 //
 
-#include "pico/stdlib.h"
-
 #include "keyboard.h"
 #include "southbridge.h"
+#if defined(PICOCALC_ESP32_P4)
+#include "esp_err.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#else
+#include "pico/stdlib.h"
 #include "hardware/sync.h"
+#endif
 
 volatile bool user_interrupt = false;
 
@@ -35,7 +42,12 @@ static bool key_alt = false;     // alt key state
 static volatile char rx_buffer[KBD_BUFFER_SIZE];
 static volatile uint16_t rx_head = 0;
 static volatile uint16_t rx_tail = 0;
+#if defined(PICOCALC_ESP32_P4)
+static esp_timer_handle_t key_timer;
+static bool key_timer_running;
+#else
 static repeating_timer_t key_timer;
+#endif
 
 //
 //  Keyboard Driver
@@ -133,6 +145,16 @@ void keyboard_poll()
     }
 }
 
+#if defined(PICOCALC_ESP32_P4)
+static void on_keyboard_timer(void *arg)
+{
+    (void)arg;
+    if (sb_available())
+    {
+        keyboard_poll();
+    }
+}
+#else
 static bool on_keyboard_timer(repeating_timer_t *rt)
 {
     if (!sb_available())
@@ -144,6 +166,7 @@ static bool on_keyboard_timer(repeating_timer_t *rt)
 
     return true; // continue the timer
 }
+#endif
 
 //
 // Keyboard API
@@ -158,7 +181,11 @@ char keyboard_get_key()
 {
     while (!keyboard_key_available())
     {
+#if defined(PICOCALC_ESP32_P4)
+        vTaskDelay(pdMS_TO_TICKS(1));
+#else
         tight_loop_contents();
+#endif
     }
 
     char ch = rx_buffer[rx_tail];
@@ -175,19 +202,65 @@ void keyboard_set_key_available_callback(keyboard_key_available_callback_t callb
     keyboard_key_available_callback = callback;
 }
 
-void keyboard_set_background_poll(bool enable)
+bool keyboard_set_background_poll(bool enable)
 {
+#if defined(PICOCALC_ESP32_P4)
+    if (enable)
+    {
+        if (key_timer_running)
+        {
+            return true;
+        }
+
+        if (key_timer == NULL)
+        {
+            const esp_timer_create_args_t timer_args = {
+                .callback = on_keyboard_timer,
+                .name = "picocalc-kbd",
+            };
+            esp_err_t err = esp_timer_create(&timer_args, &key_timer);
+            if (err != ESP_OK)
+            {
+                ESP_LOGE("picocalc-kbd", "failed to create poll timer: %s", esp_err_to_name(err));
+                return false;
+            }
+        }
+
+        esp_err_t err = esp_timer_start_periodic(key_timer, KEYBOARD_POLL_MS * 1000);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE("picocalc-kbd", "failed to start poll timer: %s", esp_err_to_name(err));
+            return false;
+        }
+        key_timer_running = true;
+        return true;
+    }
+
+    if (!key_timer_running)
+    {
+        return true;
+    }
+    esp_err_t err = esp_timer_stop(key_timer);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE("picocalc-kbd", "failed to stop poll timer: %s", esp_err_to_name(err));
+        return false;
+    }
+    key_timer_running = false;
+    return true;
+#else
     if (enable)
     {
         // Start the repeating timer to poll the keyboard
         // poll every 100 ms for key events
-        add_repeating_timer_ms(-KEYBOARD_POLL_MS, on_keyboard_timer, NULL, &key_timer);
+        return add_repeating_timer_ms(-KEYBOARD_POLL_MS, on_keyboard_timer, NULL, &key_timer);
     }
     else
     {
         // Stop the repeating timer
-        cancel_repeating_timer(&key_timer);
+        return cancel_repeating_timer(&key_timer);
     }
+#endif
 }
 
 //
@@ -201,7 +274,9 @@ void keyboard_init(void)
         return; // already initialized
     }
 
+#if !defined(PICOCALC_ESP32_P4)
     enable_interrupts();
+#endif
 
     // Initialize the south bridge if not already done
     sb_init(); // Initialize the south bridge

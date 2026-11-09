@@ -287,6 +287,9 @@ void audio_stop_stream(void)
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "driver/i2s_std.h"
+#ifdef AUDIO_ESP32_PDM
+#include "driver/i2s_pdm.h"
+#endif
 #include <stdatomic.h>
 #ifdef AUDIO_ES8311_I2C_ADDR
 #include "driver/i2c_master.h"
@@ -331,7 +334,7 @@ void audio_stop_stream(void)
 #define SD_AVAILABLE 0
 #endif
 
-#ifndef PICOCALC
+#if !defined(PICOCALC) && !defined(PICOCALC_ESP32_P4)
 volatile bool user_interrupt = false;
 #endif
 
@@ -793,7 +796,11 @@ typedef struct
 static wav_stream_t wav_streams[MAX_WAV_STREAMS];
 static uint32_t wav_active_sample_rate = 0;
 #if defined(AUDIO_ESP32_I2S)
+#ifdef AUDIO_ESP32_PDM
+#define AUDIO_DEFAULT_RATE AUDIO_PDM_DEFAULT_RATE
+#else
 #define AUDIO_DEFAULT_RATE 22050
+#endif
 #define AUDIO_TONE_AMPLITUDE 6000 // square wave peak, about -15 dBFS
 #define AUDIO_TASK_STACK 32768 // minimp3 frame decoder uses stack scratch space
 #define AUDIO_TASK_PRIORITY 3 // above the MicroPython task
@@ -1013,7 +1020,11 @@ static void es8311_power_down(void)
 
 static bool audio_i2s_start(uint32_t sample_rate)
 {
+#ifdef AUDIO_I2S_PORT
+    i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(AUDIO_I2S_PORT, I2S_ROLE_MASTER);
+#else
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
+#endif
     chan_cfg.auto_clear = true; // send silence when the task has nothing queued
     chan_cfg.dma_desc_num = 6;
     chan_cfg.dma_frame_num = 240;
@@ -1022,6 +1033,19 @@ static bool audio_i2s_start(uint32_t sample_rate)
         audio_tx = NULL;
         return false;
     }
+#ifdef AUDIO_ESP32_PDM
+    i2s_pdm_tx_config_t pdm_cfg = {
+        .clk_cfg = I2S_PDM_TX_CLK_DAC_DEFAULT_CONFIG(sample_rate),
+        .slot_cfg = I2S_PDM_TX_SLOT_PCM_FMT_DAC_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
+        .gpio_cfg = {
+            .clk = I2S_GPIO_UNUSED,
+            .dout = AUDIO_I2S_PDM_DOUT_PIN,
+            .dout2 = AUDIO_I2S_PDM_DOUT2_PIN,
+            .invert_flags = {.clk_inv = 0},
+        },
+    };
+    esp_err_t init_err = i2s_channel_init_pdm_tx_mode(audio_tx, &pdm_cfg);
+#else
     i2s_std_config_t std_cfg = {
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(sample_rate),
         .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
@@ -1034,7 +1058,9 @@ static bool audio_i2s_start(uint32_t sample_rate)
             .invert_flags = {0},
         },
     };
-    if (i2s_channel_init_std_mode(audio_tx, &std_cfg) != ESP_OK || i2s_channel_enable(audio_tx) != ESP_OK)
+    esp_err_t init_err = i2s_channel_init_std_mode(audio_tx, &std_cfg);
+#endif
+    if (init_err != ESP_OK || i2s_channel_enable(audio_tx) != ESP_OK)
     {
         i2s_del_channel(audio_tx);
         audio_tx = NULL;
@@ -1048,9 +1074,17 @@ static void audio_i2s_set_rate(uint32_t sample_rate)
 {
     if (sample_rate == 0 || sample_rate == audio_rate)
         return;
+#ifdef AUDIO_ESP32_PDM
+    i2s_pdm_tx_clk_config_t clk_cfg = I2S_PDM_TX_CLK_DAC_DEFAULT_CONFIG(sample_rate);
+#else
     i2s_std_clk_config_t clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(sample_rate);
+#endif
     i2s_channel_disable(audio_tx);
+#ifdef AUDIO_ESP32_PDM
+    if (i2s_channel_reconfig_pdm_tx_clock(audio_tx, &clk_cfg) == ESP_OK)
+#else
     if (i2s_channel_reconfig_std_clock(audio_tx, &clk_cfg) == ESP_OK)
+#endif
         audio_rate = sample_rate;
     i2s_channel_enable(audio_tx);
 }

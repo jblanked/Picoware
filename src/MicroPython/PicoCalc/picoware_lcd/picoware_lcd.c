@@ -5,7 +5,6 @@
  * Uses PSRAM for framebuffer storage instead of static RAM
  */
 #include "picoware_lcd.h"
-#include "../picoware_psram/psram_qspi.h"
 #include "../picoware_psram/picoware_psram_shared.h"
 #include "py/runtime.h"
 
@@ -22,7 +21,11 @@ static uint8_t line_buffer[DISPLAY_WIDTH] __attribute__((aligned(4)));
 #define LCD_MODE_PSRAM 0 // PSRAM framebuffer with RGB332 palette
 #define LCD_MODE_HEAP 1  // Heap RAM framebuffer with RGB332 (converted to RGB565 on swap)
 
+#if defined(PICOCALC_ESP32_P4)
+static uint8_t lcd_mode = LCD_MODE_HEAP;
+#else
 static uint8_t lcd_mode = LCD_MODE_PSRAM;
+#endif
 
 // Heap mode state
 static uint8_t *heap_framebuffer = NULL;
@@ -89,7 +92,7 @@ void picoware_write_buffer_fb_16(psram_qspi_inst_t *psram, int x, int y, int wid
     }
 }
 
-__force_inline static void psram_write_hline(int x, int y, int length, uint8_t color_index)
+static inline void psram_write_hline(int x, int y, int length, uint8_t color_index)
 {
     if (y < 0 || y >= DISPLAY_HEIGHT || length <= 0)
         return;
@@ -198,7 +201,7 @@ static bool picoware_psram_ensure_initialized(void)
     }
     if (!psram_initialized)
     {
-        psram_instance = psram_qspi_init(pio1, -1, 1.0f);
+        psram_instance = PICOWARE_PSRAM_INIT();
         psram_initialized = true;
     }
     return psram_initialized;
@@ -212,7 +215,10 @@ void picocalc_lcd_init(void)
 {
     if (!module_initialized)
     {
-        lcd_init();
+        if (!lcd_init())
+        {
+            mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("PicoCalc LCD initialization failed"));
+        }
 
         for (int i = 0; i < 256; i++)
         {
@@ -238,7 +244,7 @@ void picocalc_lcd_init(void)
     }
     else if (!allocate_heap_framebuffer())
     {
-        LOG_MESSAGE("Failed to allocate heap framebuffer");
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("Failed to allocate PicoCalc framebuffer"));
     }
 }
 
@@ -1566,7 +1572,7 @@ void lcd_set_mode(uint8_t mode)
         // Switch to PSRAM mode
         if (!psram_initialized)
         {
-            psram_instance = psram_qspi_init(pio1, -1, 1.0f);
+            psram_instance = PICOWARE_PSRAM_INIT();
             psram_initialized = true;
         }
 

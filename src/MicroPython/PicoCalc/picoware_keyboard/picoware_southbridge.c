@@ -6,6 +6,7 @@
 
 #include "py/runtime.h"
 #include "py/obj.h"
+#include "keyboard.h"
 #include "southbridge.h"
 
 // Define STATIC if not already defined (MicroPython macro)
@@ -16,6 +17,10 @@
 // deinit() Deinitialize the southbridge
 STATIC mp_obj_t picoware_southbridge_deinit(void)
 {
+    if (!keyboard_set_background_poll(false))
+    {
+        mp_printf(&mp_plat_print, "Failed to stop PicoCalc keyboard polling\n");
+    }
     sb_deinit();
     return mp_const_none;
 }

@@ -31,7 +31,7 @@ extern "C"
 #include "lv_conf.h"
 #include "lvgl/lvgl.h"
 
-#if defined(PICOCALC)
+#if defined(PICOCALC) || defined(PICOCALC_ESP32_P4)
 #include "../../lcd/lcd_config.h"
 #else
 #include "../../../lcd/lcd_config.h"

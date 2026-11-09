@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 #include "storage.h"
-#if defined(C_STORAGE_ENABLED) && !defined(CROWPANEL_WATCH_2_01)
+#if defined(C_STORAGE_ENABLED) && !defined(CROWPANEL_WATCH_2_01) && !defined(PICOCALC_ESP32_P4)
 typedef fat32_file_t lfs_file_t;
 typedef fat32_file_t lfs_dir_t;
 #define C_IO_FILENAME_MAX FAT32_MAX_FILENAME_LEN

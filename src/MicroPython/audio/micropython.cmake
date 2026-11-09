@@ -15,6 +15,10 @@ if(PICOWARE_AUDIO_BACKEND STREQUAL "poom")
     target_link_libraries(usermod_audio INTERFACE
         idf::esp_driver_ledc
     )
+elseif(PICOWARE_AUDIO_BACKEND STREQUAL "pdm")
+    target_link_libraries(usermod_audio INTERFACE
+        idf::esp_driver_i2s
+    )
 elseif(NOT ESP32)
     target_link_libraries(usermod_audio INTERFACE
         pico_multicore

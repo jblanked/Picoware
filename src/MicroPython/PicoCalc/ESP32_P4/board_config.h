@@ -1,0 +1,11 @@
+#pragma once
+
+#include "driver/gpio.h"
+
+// PicoCalc's external QSPI PSRAM on the ESP32-P4 socket mapping.
+#define PICOCALC_PSRAM_SCK_GPIO GPIO_NUM_27
+#define PICOCALC_PSRAM_CS_GPIO GPIO_NUM_32
+#define PICOCALC_PSRAM_SIO0_GPIO GPIO_NUM_31
+#define PICOCALC_PSRAM_SIO1_GPIO GPIO_NUM_30
+#define PICOCALC_PSRAM_SIO2_GPIO GPIO_NUM_29
+#define PICOCALC_PSRAM_SIO3_GPIO GPIO_NUM_28

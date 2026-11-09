@@ -672,9 +672,10 @@ class ViewManager:
             BOARD_PICOCALC_PIMORONI_2W,
             BOARD_HAS_ESP32,
             BOARD_FLIPPER_ZERO,
-            BOARD_WAVESHARE_C6_2_06
+            BOARD_WAVESHARE_C6_2_06,
+            BOARD_PICOCALC_ESP32_P4
         )
-        if self._current_board_id == BOARD_FLIPPER_ZERO:
+        if self._current_board_id in (BOARD_FLIPPER_ZERO, BOARD_PICOCALC_ESP32_P4):
             return
 
         if self._current_board_id == BOARD_WAVESHARE_C6_2_06:

@@ -9,6 +9,18 @@ extern "C"
 {
 #endif
 
+#if defined(PICOCALC_ESP32_P4)
+#include "../PicoCalc/sd/storage.h"
+static inline size_t storage_read(const char *file_path, char *buffer, size_t buffer_size)
+{
+    size_t bytes_read = storage_file_read(file_path, buffer, buffer_size);
+    if (bytes_read < buffer_size)
+    {
+        buffer[bytes_read] = '\0';
+    }
+    return bytes_read;
+}
+#else
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(PICO_DUO)
 #include "../sd/fat32.h"
 #endif
@@ -37,6 +49,7 @@ extern "C"
         fat32_close(&file);
         return status ? bytes_read : 0;
     }
+#endif
 
 #ifdef __cplusplus
 }

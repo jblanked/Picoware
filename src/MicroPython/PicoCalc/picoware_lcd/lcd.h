@@ -6,6 +6,19 @@ Source: https://github.com/jblanked/Picoware/blob/dev/src/MicroPython/PicoCalc/p
 
 #pragma once
 
+#if defined(PICOCALC_ESP32_P4)
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#define LCD_SCL (3)
+#define LCD_SDI (2)
+#define LCD_SDO (8)
+#define LCD_CSX (7)
+#define LCD_DCX (24)
+#define LCD_RST (25)
+#define LCD_BAUDRATE (40000000)
+#else
 #include "pico/stdlib.h"
 
 #define LCD_SPI (spi1) // SPI interface for the LCD display
@@ -22,6 +35,7 @@ Source: https://github.com/jblanked/Picoware/blob/dev/src/MicroPython/PicoCalc/p
 // According to the ST7789P datasheet, the maximum SPI clock speed is 62.5 MHz.
 // However, the controller can handle 80 MHz in practice.
 #define LCD_BAUDRATE (80000000) // 80 MHz SPI clock speed
+#endif
 
 // LCD command definitions
 #define LCD_CMD_NOP (0x00)     // no operation
@@ -101,7 +115,7 @@ extern "C"
 
     // Initialization
     void lcd_clear_screen(void);
-    void lcd_init(void);
+    bool lcd_init(void);
 
 #ifdef __cplusplus
 }

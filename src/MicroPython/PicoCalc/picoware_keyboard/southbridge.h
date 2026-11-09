@@ -6,6 +6,16 @@ Source: https://github.com/BlairLeduc/picocalc-text-starter
 
 #pragma once
 
+#if defined(PICOCALC_ESP32_P4)
+#include <stdbool.h>
+#include <stdint.h>
+
+#define SB_I2C_PORT (0)
+#define SB_SDA (50)
+#define SB_SCL (49)
+#define SB_BAUDRATE (10000)
+#define SB_I2C_TIMEOUT_MS (50)
+#else
 #include "pico/stdlib.h"
 
 #define SB_I2C (i2c1) // I2C interface for the south bridge
@@ -16,8 +26,10 @@ Source: https://github.com/BlairLeduc/picocalc-text-starter
 
 // Keyboard interface definitions
 #define SB_BAUDRATE (100000)
-#define SB_ADDR (0x1F)
 #define SB_I2C_TIMEOUT_US (10000)
+#endif
+
+#define SB_ADDR (0x1F)
 
 // Keyboard register definitions
 #define SB_REG_KEY (0x04) // *key status

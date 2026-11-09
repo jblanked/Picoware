@@ -11,7 +11,7 @@ Source: https://github.com/jblanked/Picoware
 #include "py/objarray.h"
 #include "py/mphal.h"
 
-#if defined(PICOCALC)
+#if defined(PICOCALC) || defined(PICOCALC_ESP32_P4)
 #include "../../JPEGDEC/src/JPEGDEC.h"
 #include "../../JPEGDEC/src/jpeg.inl"
 #elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(CROWPANEL_WATCH_2_01) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(FLIPPER_ZERO) || defined(PICO_DUO) || defined(POOM) || defined(WAVESHARE_C6_2_06)

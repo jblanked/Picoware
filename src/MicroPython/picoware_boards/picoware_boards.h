@@ -32,6 +32,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_WAVESHARE_C6_2_06 18
 #define BOARD_CROWPANEL_WATCH_2_01 19
 #define BOARD_WAVESHARE_C5_3_5 20
+#define BOARD_PICOCALC_ESP32_P4 21
 
 #if defined(DESKTOP)
 #define BOARD_ID BOARD_DESKTOP
@@ -187,6 +188,14 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_WIFI 1      // has wifi
 #define BOARD_HAS_AUDIO 0     // no audio module in esp32 build yet
 #define BOARD_HAS_BLUETOOTH 1 // has bluetooth
+#elif defined(PICOCALC_ESP32_P4)
+#define BOARD_ID BOARD_PICOCALC_ESP32_P4
+#define BOARD_HAS_PSRAM 1     // has psram
+#define BOARD_HAS_SD 1        // has sd card
+#define BOARD_HAS_TOUCH 0     // no touch
+#define BOARD_HAS_WIFI 1      // has wifi
+#define BOARD_HAS_AUDIO 1     // has audio
+#define BOARD_HAS_BLUETOOTH 1 // has bluetooth
 #elif defined CYW43_WL_GPIO_LED_PIN
 #define BOARD_HAS_PSRAM 1     // has psram
 #define BOARD_HAS_SD 1        // has sd card
@@ -259,7 +268,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_IR_RX 0
 #endif
 
-#if defined(PICOCALC) || defined(CARDPUTER)
+#if defined(PICOCALC) || defined(PICOCALC_ESP32_P4) || defined(CARDPUTER)
 #define BOARD_HAS_KEYBOARD 1
 #else
 #define BOARD_HAS_KEYBOARD 0
@@ -277,16 +286,16 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_RP2350 0
 #endif
 
-#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(CROWPANEL_WATCH_2_01) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06) || defined(WAVESHARE_C5_3_5)
+#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(CROWPANEL_WATCH_2_01) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06) || defined(WAVESHARE_C5_3_5) || defined(PICOCALC_ESP32_P4)
 #define BOARD_HAS_ESP32 1
 #else
 #define BOARD_HAS_ESP32 0
 #endif
 
-#ifndef PICOCALC
-#define BOARD_HAS_PICOCALC 0
-#else
+#if defined(PICOCALC) || defined(PICOCALC_ESP32_P4)
 #define BOARD_HAS_PICOCALC 1
+#else
+#define BOARD_HAS_PICOCALC 0
 #endif
 
 mp_obj_t picoware_boards_get_current_display_size(void);

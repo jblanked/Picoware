@@ -13,7 +13,7 @@ def _flash(view_manager, firmware_path: str, chip: str = "esp32s2") -> bool:
         bool: True if the flash operation succeeded.
     """
     from picoware.system.drivers.espflasher import ESPFlasher
-    from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_HAS_PICOCALC
+    from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_HAS_PICOCALC, BOARD_PICOCALC_ESP32_P4
     from machine import Pin
 
     s = view_manager.storage
@@ -32,6 +32,9 @@ def _flash(view_manager, firmware_path: str, chip: str = "esp32s2") -> bool:
         if _id == BOARD_FLIPPER_ZERO:
             reset = Pin(Pin.cpu.B2, Pin.OUT) # on devboard, its the 6th pin from the left (RTS/EN)
             gpio0 = Pin(Pin.cpu.C3, Pin.OUT) # on devboard, its the 7th pin from the left (DTR/BOOT)
+        elif _id == BOARD_PICOCALC_ESP32_P4:
+            reset = Pin(31, Pin.OUT)
+            gpio0 = Pin(30, Pin.OUT)
         elif BOARD_HAS_PICOCALC == 1:
             # 2 = reset, 3 = gpio0, 4 = TX, 5 = RX
             reset = Pin(2, Pin.OUT)
@@ -89,7 +92,9 @@ def start(view_manager) -> bool:
     Args:
         view_manager: The view manager for the app.
     """
-    if view_manager.has_picocalc and view_manager.draw.mode != 1:
+    from picoware.system.boards import BOARD_ID, BOARD_PICOCALC_ESP32_P4
+
+    if view_manager.has_picocalc and BOARD_ID != BOARD_PICOCALC_ESP32_P4 and view_manager.draw.mode != 1:
         view_manager.alert("PicoCalc requires Heap mode. Change in: Settings -> LCD Mode -> Heap\nNote: This is really only possible on the Pico2/Pico2w/Pimoroni2w but may work on the Pico.")
         return False
     

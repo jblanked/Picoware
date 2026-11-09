@@ -1,8 +1,14 @@
 #pragma once
+#if defined(PICOCALC_ESP32_P4)
+#include "psram_qspi_esp32.h"
+#define PICOWARE_PSRAM_INIT() psram_qspi_init(NULL, -1, 1.0f)
+#else
 #include "psram_qspi.h"
+#define PICOWARE_PSRAM_INIT() psram_qspi_init(pio1, -1, 1.0f)
+#endif
 #include "picoware_psram.h"
 
-#define PSRAM_SIZE (8 * 1024 * 1024) // 8MB PSRAM
+#define PSRAM_SIZE (8 * 1024 * 1024) // PicoCalc's external 8 MiB PSRAM
 
 #ifndef DISPLAY_WIDTH
 #define DISPLAY_WIDTH 320
@@ -17,10 +23,7 @@
 #define PSRAM_BUFFER_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT)                        // 102,400 bytes
 #define PSRAM_HEAP_START_ADDR (PSRAM_FRAMEBUFFER_ADDR + PSRAM_BUFFER_SIZE + 1024) // Start of heap area after framebuffer
 
-// Chunk size must be <= 123 bytes to avoid uint8_t nibble count overflow
-// Write: (4 + count) * 2 must fit in uint8_t -> count <= (255/2) - 4 = 123
-// Read: count * 2 must fit in uint8_t -> count <= 127
-// Use 64 for safety and efficiency (power of 2)
+// Keep transfers below the RP PIO driver's 8-bit nibble-count limit.
 #define PSRAM_CHUNK_SIZE 120
 
 extern bool psram_initialized;

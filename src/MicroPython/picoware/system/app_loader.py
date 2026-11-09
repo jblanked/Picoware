@@ -30,16 +30,20 @@ class AppLoader:
 
     def __del__(self):
         """Cleanup loaded apps on deletion"""
-        self.stop()
-        self.cleanup_modules()
-        if self._vfs_ready:
-            self.view_manager.storage.unmount_vfs("/sd")
-        self._vfs_ready = False
+        self.__deinit()
 
     @property
     def error(self):
         """Get the last error encountered by the AppLoader."""
         return self._error
+
+    def __deinit(self):
+        """Deinitialize the AppLoader and cleanup resources."""
+        self.stop()
+        self.cleanup_modules()
+        if self._vfs_ready:
+            self.view_manager.storage.unmount_vfs("/sd")
+        self._vfs_ready = False
 
     def cleanup_modules(self):
         """Remove all app modules from sys.modules"""

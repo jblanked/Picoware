@@ -37,14 +37,19 @@ class Time:
 
     def __del__(self):
         """Deinitialize the RTC and stop any running time task."""
-        self._rtc.deinit()
-        del self._rtc
-        self._rtc = None
-        self._is_set = False
+        self.__deinit()
+
+    def __deinit(self):
+        """Deinitialize the Time manager and cleanup resources."""
         if self._current_task:
             self._current_task.stop()
             self._current_task = None
         self._lock = None
+        if self._rtc:
+            self._rtc.deinit()
+            del self._rtc
+            self._rtc = None
+        self._is_set = False
 
     @property
     def date(self) -> str:

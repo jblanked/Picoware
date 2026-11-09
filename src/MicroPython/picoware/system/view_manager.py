@@ -499,6 +499,7 @@ class ViewManager:
             del self._audio
             self._audio = None
         if self._time:
+            self._time.__deinit()
             del self._time
             self._time = None
         if self._thread_manager:

@@ -17,7 +17,7 @@ Source: https://github.com/jblanked/Picoware/blob/dev/src/MicroPython/PicoCalc/p
 #define LCD_CSX (7)
 #define LCD_DCX (24)
 #define LCD_RST (25)
-#define LCD_BAUDRATE (40000000)
+#define LCD_BAUDRATE (80000000)
 #else
 #include "pico/stdlib.h"
 

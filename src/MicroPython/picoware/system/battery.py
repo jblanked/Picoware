@@ -56,13 +56,7 @@ class Battery:
 
     def __del__(self):
         """Destructor to clean up resources."""
-        if BOARD_ID == BOARD_FLIPPER_ZERO:
-            from flipper_battery import deinit 
-            deinit()
-        elif BOARD_ID == BOARD_CROWPANEL_WATCH_2_01:
-            from crowpanel_watch_battery import deinit
-
-            deinit()
+        self.__deinit()
 
     @property
     def has_voltage(self) -> bool:
@@ -190,6 +184,20 @@ class Battery:
             return get_voltage_mv()
 
         return 4200
+
+    def __deinit(self):
+        """Deinitialize the Battery manager and cleanup resources."""
+        self._last_voltage = 0
+        self._drop_avg = 0
+        self._minutes = 0
+        self._interval_s = 0
+        if BOARD_ID == BOARD_FLIPPER_ZERO:
+            from flipper_battery import deinit 
+            deinit()
+        elif BOARD_ID == BOARD_CROWPANEL_WATCH_2_01:
+            from crowpanel_watch_battery import deinit
+
+            deinit()
     
     def sample(self):
         """Call once per interval from ViewManager."""

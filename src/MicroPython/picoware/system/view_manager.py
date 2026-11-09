@@ -510,6 +510,7 @@ class ViewManager:
             del self._timer
             self._timer = None
         if self._battery is not None:
+            self._battery.__deinit()
             del self._battery
             self._battery = None
         if self._uart is not None:

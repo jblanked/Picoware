@@ -358,11 +358,11 @@ class Storage:
 
         return sd_mp.is_directory(path)
 
-    def listdir(self, path: str = "") -> list[str]:
+    def listdir(self, path: str = "/") -> list[str]:
         """List files in a directory.
 
         Args:
-            path (str): Directory path to list. Defaults to "".
+            path (str): Directory path to list. Defaults to "/".
 
         Returns:
             list[str]: The filenames in the directory.

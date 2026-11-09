@@ -187,66 +187,7 @@ class ViewManager:
 
     def __del__(self):
         """Destructor to clean up resources."""
-        from gc import collect
-
-        # Clean up views
-        for i in range(self.MAX_VIEWS):
-            if self.views[i] is not None:
-                del self.views[i]
-                self.views[i] = None
-
-        if self._current_view is not None:
-            del self._current_view
-            self._current_view = None
-
-        # Clean up other resources
-        if self._keyboard:
-            del self._keyboard
-            self._keyboard = None
-        if self._draw:
-            del self._draw
-            self._draw = None
-        if self._input_manager:
-            del self._input_manager
-            self._input_manager = None
-        if self._app_loader is not None:
-            del self._app_loader
-            self._app_loader = None
-        if self._storage is not None:
-            del self._storage
-            self._storage = None
-        if self._wifi is not None:
-            del self._wifi
-            self._wifi = None
-        if self._audio is not None:
-            del self._audio
-            self._audio = None
-        if self._time:
-            del self._time
-            self._time = None
-        if self._thread_manager:
-            del self._thread_manager
-            self._thread_manager = None
-        if self._timer is not None:
-            self._timer.stop()
-            del self._timer
-            self._timer = None
-        if self._battery is not None:
-            del self._battery
-            self._battery = None
-        if self._uart is not None:
-            del self._uart
-            self._uart = None
-        if self._usb_video_stream is not None:
-            if self._usb_video_stream.active:
-                self._usb_video_stream.stop()
-            del self._usb_video_stream
-            self._usb_video_stream = None
-        if self._bluetooth is not None:
-            del self._bluetooth
-            self._bluetooth = None
-
-        collect()
+        self.__cleanup()
 
     @property
     def active(self):
@@ -514,6 +455,71 @@ class ViewManager:
     def wifi(self):
         """Return the WiFi instance."""
         return self._wifi
+
+    def __cleanup(self):
+        """Clean up resources managed by the view manager."""
+        from gc import collect
+        
+        # Clean up views
+        for i in range(self.MAX_VIEWS):
+            if self.views[i] is not None:
+                del self.views[i]
+                self.views[i] = None
+
+        if self._current_view is not None:
+            del self._current_view
+            self._current_view = None
+
+        # Clean up other resources
+        if self._keyboard:
+            del self._keyboard
+            self._keyboard = None
+        if self._draw:
+            self._draw.deinit()
+            del self._draw
+            self._draw = None
+        if self._input_manager:
+            del self._input_manager
+            self._input_manager = None
+        if self._app_loader is not None:
+            del self._app_loader
+            self._app_loader = None
+        if self._storage is not None:
+            self._storage.unmount()
+            del self._storage
+            self._storage = None
+        if self._wifi is not None:
+            del self._wifi
+            self._wifi = None
+        if self._audio is not None:
+            del self._audio
+            self._audio = None
+        if self._time:
+            del self._time
+            self._time = None
+        if self._thread_manager:
+            del self._thread_manager
+            self._thread_manager = None
+        if self._timer is not None:
+            self._timer.stop()
+            del self._timer
+            self._timer = None
+        if self._battery is not None:
+            del self._battery
+            self._battery = None
+        if self._uart is not None:
+            del self._uart
+            self._uart = None
+        if self._usb_video_stream is not None:
+            if self._usb_video_stream.active:
+                self._usb_video_stream.stop()
+            del self._usb_video_stream
+            self._usb_video_stream = None
+        if self._bluetooth is not None:
+            del self._bluetooth
+            self._bluetooth = None
+
+        collect()
 
     def add(self, view):
         """Add a view to the manager.

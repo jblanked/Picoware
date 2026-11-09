@@ -30,19 +30,26 @@ def main():
         # Switch views
         vm.switch_to("desktop_view")
 
+        collect()
+        threshold(mem_free() // 4 + mem_alloc())
+
         # Main loop
         while vm.run():
             pass
 
     except Exception as e:
-        print(f"Error occurred: {e}")
         if vm:
             try:
                 vm.alert(f"Critical Error:\n{e}\nPlease restart.")
             except Exception:
                 pass
+        else:
+            print(f"Error occurred: {e}")
+
     finally:
-        del vm
+        if vm:
+            vm.__cleanup()
+            del vm
         vm = None
         # Final cleanup
         collect()

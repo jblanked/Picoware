@@ -10,7 +10,13 @@
 
 #include "../../log/log_mp.h"
 
+#if defined(PICOCALC_ESP32_P4)
+#define PSRAM_FRAMEBUFFER_FILL_CHUNK_SIZE 8192
+#define LCD_CHUNK_LINES 32
+#else
+#define PSRAM_FRAMEBUFFER_FILL_CHUNK_SIZE PSRAM_CHUNK_SIZE
 #define LCD_CHUNK_LINES 16
+#endif
 
 // Module state
 static bool module_initialized = false;
@@ -34,6 +40,9 @@ static bool heap_framebuffer_allocated = false;
 
 static uint16_t palette[256] __attribute__((aligned(4)));
 static uint16_t lcd_line_buffer[DISPLAY_WIDTH * LCD_CHUNK_LINES] __attribute__((aligned(4)));
+#if defined(PICOCALC_ESP32_P4)
+static uint8_t psram_lcd_chunk[DISPLAY_WIDTH * LCD_CHUNK_LINES] __attribute__((aligned(4)));
+#endif
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -170,16 +179,18 @@ static void clear_psram_framebuffer(uint8_t color_index)
     uint32_t fill_value = ((uint32_t)color_index << 24) | ((uint32_t)color_index << 16) | ((uint32_t)color_index << 8) | color_index;
 
     uint32_t word_count = PSRAM_BUFFER_SIZE / 4;
-    static uint32_t fill32_buffer[PSRAM_CHUNK_SIZE / 4] __attribute__((aligned(4)));
+    static uint32_t fill32_buffer[PSRAM_FRAMEBUFFER_FILL_CHUNK_SIZE / 4] __attribute__((aligned(4)));
 
-    for (size_t i = 0; i < PSRAM_CHUNK_SIZE / 4; i++)
+    for (size_t i = 0; i < PSRAM_FRAMEBUFFER_FILL_CHUNK_SIZE / 4; i++)
         fill32_buffer[i] = fill_value;
 
     uint32_t current_addr = PSRAM_FRAMEBUFFER_ADDR;
     uint32_t remaining = word_count;
     while (remaining > 0)
     {
-        uint32_t words = (remaining > (PSRAM_CHUNK_SIZE / 4)) ? (PSRAM_CHUNK_SIZE / 4) : remaining;
+        uint32_t words = (remaining > (PSRAM_FRAMEBUFFER_FILL_CHUNK_SIZE / 4))
+                             ? (PSRAM_FRAMEBUFFER_FILL_CHUNK_SIZE / 4)
+                             : remaining;
         psram_qspi_write(&psram_instance, current_addr, (const uint8_t *)fill32_buffer, words * 4);
         current_addr += words * 4;
         remaining -= words;
@@ -275,34 +286,74 @@ void picoware_lcd_swap_region(uint16_t x, uint16_t y, uint16_t width, uint16_t h
     {
         if (module_initialized && !picoware_psram_ensure_initialized())
             return;
+    }
 
-        uint8_t psram_row_buffer[DISPLAY_WIDTH];
+#if defined(PICOCALC_ESP32_P4)
+    const bool full_frame = x == 0 && y == 0 &&
+                            width == DISPLAY_WIDTH && height == DISPLAY_HEIGHT &&
+                            (lcd_mode == LCD_MODE_PSRAM || heap_framebuffer != NULL);
+    if (full_frame)
+    {
+        lcd_acquire();
+        lcd_set_window(0, 0, DISPLAY_WIDTH - 1, DISPLAY_HEIGHT - 1);
+    }
+#endif
 
+    if (lcd_mode == LCD_MODE_PSRAM)
+    {
         for (uint16_t row = 0; row < height; row += LCD_CHUNK_LINES)
         {
             uint16_t lines_to_send = (row + LCD_CHUNK_LINES > height) ? (height - row) : LCD_CHUNK_LINES;
 
-            for (uint16_t line = 0; line < lines_to_send; line++)
+#if defined(PICOCALC_ESP32_P4)
+            if (full_frame)
             {
-                uint32_t psram_addr = PSRAM_FRAMEBUFFER_ADDR + ((y + row + line) * PSRAM_ROW_SIZE) + x;
-                uint32_t remaining = width, offset = 0;
-                while (remaining > 0)
+                size_t pixel_count = (size_t)width * lines_to_send;
+                uint32_t psram_addr = PSRAM_FRAMEBUFFER_ADDR +
+                                      ((y + row) * PSRAM_ROW_SIZE) + x;
+                psram_qspi_read(&psram_instance, psram_addr, psram_lcd_chunk, pixel_count);
+                for (size_t pixel = 0; pixel < pixel_count; ++pixel)
                 {
-                    uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
-                    psram_qspi_read(&psram_instance, psram_addr + offset, psram_row_buffer + offset, chunk_size);
-                    offset += chunk_size;
-                    remaining -= chunk_size;
+                    lcd_line_buffer[pixel] = palette[psram_lcd_chunk[pixel]];
                 }
-
-                for (uint16_t col = 0; col < width; col++)
+            }
+            else
+#endif
+            {
+                uint8_t psram_row_buffer[DISPLAY_WIDTH];
+                for (uint16_t line = 0; line < lines_to_send; line++)
                 {
-                    size_t buf_index = line * width + col;
-                    uint8_t pal_index = psram_row_buffer[col];
-                    lcd_line_buffer[buf_index] = palette[pal_index];
+                    uint32_t psram_addr = PSRAM_FRAMEBUFFER_ADDR + ((y + row + line) * PSRAM_ROW_SIZE) + x;
+                    uint32_t remaining = width, offset = 0;
+                    while (remaining > 0)
+                    {
+                        uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+                        psram_qspi_read(&psram_instance, psram_addr + offset, psram_row_buffer + offset, chunk_size);
+                        offset += chunk_size;
+                        remaining -= chunk_size;
+                    }
+
+                    for (uint16_t col = 0; col < width; col++)
+                    {
+                        size_t buf_index = line * width + col;
+                        uint8_t pal_index = psram_row_buffer[col];
+                        lcd_line_buffer[buf_index] = palette[pal_index];
+                    }
                 }
             }
 
+#if defined(PICOCALC_ESP32_P4)
+            if (full_frame)
+            {
+                lcd_write16_buf(lcd_line_buffer, (size_t)width * lines_to_send);
+            }
+            else
+            {
+                lcd_blit(lcd_line_buffer, x, y + row, width, lines_to_send);
+            }
+#else
             lcd_blit(lcd_line_buffer, x, y + row, width, lines_to_send);
+#endif
         }
     }
     else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
@@ -322,9 +373,27 @@ void picoware_lcd_swap_region(uint16_t x, uint16_t y, uint16_t width, uint16_t h
                 }
             }
 
+#if defined(PICOCALC_ESP32_P4)
+            if (full_frame)
+            {
+                lcd_write16_buf(lcd_line_buffer, (size_t)width * lines_to_send);
+            }
+            else
+            {
+                lcd_blit(lcd_line_buffer, x, y + row, width, lines_to_send);
+            }
+#else
             lcd_blit(lcd_line_buffer, x, y + row, width, lines_to_send);
+#endif
         }
     }
+
+#if defined(PICOCALC_ESP32_P4)
+    if (full_frame)
+    {
+        lcd_release();
+    }
+#endif
 }
 
 // ---------------------------------------------------------------------------

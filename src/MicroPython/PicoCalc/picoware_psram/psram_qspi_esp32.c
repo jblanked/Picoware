@@ -8,7 +8,7 @@
 #include "py/runtime.h"
 
 static const char *TAG = "picocalc-psram";
-#define QSPI_CHUNK_SIZE 4092 // https://docs.espressif.com/projects/esp-idf/en/latest/esp32p4/api-reference/peripherals/spi_master.html?utm_source=chatgpt.com#_CPPv4N16spi_bus_config_t15max_transfer_szE
+#define QSPI_CHUNK_SIZE 8192
 
 static bool psram_range_valid(const psram_qspi_inst_t *qspi, uint32_t addr, size_t count)
 {

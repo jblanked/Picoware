@@ -23,8 +23,12 @@
 #define PSRAM_BUFFER_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT)                        // 102,400 bytes
 #define PSRAM_HEAP_START_ADDR (PSRAM_FRAMEBUFFER_ADDR + PSRAM_BUFFER_SIZE + 1024) // Start of heap area after framebuffer
 
+#if defined(PICOCALC_ESP32_P4)
+#define PSRAM_CHUNK_SIZE 4092
+#else
 // Keep transfers below the RP PIO driver's 8-bit nibble-count limit.
 #define PSRAM_CHUNK_SIZE 120
+#endif
 
 extern bool psram_initialized;
 extern psram_qspi_inst_t psram_instance;

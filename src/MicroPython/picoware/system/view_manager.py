@@ -472,6 +472,7 @@ class ViewManager:
 
         # Clean up other resources
         if self._keyboard:
+            self._keyboard.__deinit()
             del self._keyboard
             self._keyboard = None
         if self._draw:

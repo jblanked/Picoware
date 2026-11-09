@@ -369,23 +369,7 @@ class Keyboard:
 
     def __del__(self) -> None:
         """Clean up keyboard resources."""
-        self.reset()
-        self.current_title = ""
-        self.size_vec = None
-        self.text_vec = None
-        self.cursor = None
-        self.text_box_pos_vec = None
-        self.text_box_pos_size = None
-        self.text_border_pos = None
-        self.text_border_size = None
-        self.title_vec = None
-        self._key_rects = None
-        self.manual_keys = {}
-        self.key_mappings = {}
-        self.d_pad = {}
-        del self._auto_complete
-        self._auto_complete = None
-        self._auto_complete_words.clear()
+        self.__deinit()
 
     @property
     def callback(self) -> callable:
@@ -471,6 +455,26 @@ class Keyboard:
         """
         self._auto_complete_words = value
         self._auto_complete_words_set = False
+
+    def __deinit(self) -> None:
+        """Deinitialize the keyboard."""
+        self.reset()
+        self.current_title = ""
+        self.size_vec = None
+        self.text_vec = None
+        self.cursor = None
+        self.text_box_pos_vec = None
+        self.text_box_pos_size = None
+        self.text_border_pos = None
+        self.text_border_size = None
+        self.title_vec = None
+        self._key_rects = None
+        self.manual_keys = {}
+        self.key_mappings = {}
+        self.d_pad = {}
+        del self._auto_complete
+        self._auto_complete = None
+        self._auto_complete_words.clear()
 
     def set_save_callback(self, callback: callable) -> None:
         """Set the save callback function.

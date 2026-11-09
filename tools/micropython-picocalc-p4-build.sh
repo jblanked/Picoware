@@ -168,7 +168,7 @@ fi
 
 source "$esp_idf_dir/export.sh"
 cd "$micropython_dir"
-export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1"
+export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DPICOCALC_ESP32_P4 -DESP32"
 # Avoid rebuilding mpy-cross with the ESP32 build's generated-header directory.
 export MICROPY_MPYCROSS="$mpy_cross"
 

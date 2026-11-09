@@ -454,7 +454,7 @@ class ViewManager:
         from gc import collect
         
         # Clean up views
-        for i in range(self.MAX_VIEWS):
+        for i in range(self._view_count):
             if self.views[i] is not None:
                 del self.views[i]
                 self.views[i] = None

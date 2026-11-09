@@ -10,13 +10,6 @@ class ViewManager:
     FREQ_RP2350 = 240000000
     FREQ_PIMORONI = 210000000
 
-    _CORE_MODULES = {
-        "picoware.gui.draw",
-        "picoware.gui.keyboard",
-        "picoware.gui.alert",
-        "picoware.gui.desktop",
-    }
-
     __slots__ = (
         "_active",
         "_battery",

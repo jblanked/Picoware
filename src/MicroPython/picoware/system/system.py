@@ -114,7 +114,7 @@ class System:
 
     @property
     def free_flash(self):
-        """Return the free flash memory size."""
+        """Return the free space in the flash filesystem."""
         from os import statvfs
 
         stat = statvfs("/")
@@ -125,16 +125,18 @@ class System:
     @property
     def total_flash(self):
         """Return the total flash memory size."""
-        from os import statvfs
+        try:
+            from esp import flash_size
+            return flash_size()
+        except ImportError:
+            from os import statvfs
 
-        stat = statvfs("/")
-        size = stat[1] * stat[2]
-
-        return size
+            stat = statvfs("/")
+            return stat[1] * stat[2]
 
     @property
     def used_flash(self):
-        """Return the used flash memory size."""
+        """Return the used space in the flash filesystem."""
         from os import statvfs
 
         stat = statvfs("/")

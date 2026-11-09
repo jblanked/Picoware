@@ -8,6 +8,7 @@
 #include "py/runtime.h"
 
 static const char *TAG = "picocalc-psram";
+#define QSPI_CHUNK_SIZE 4092 // https://docs.espressif.com/projects/esp-idf/en/latest/esp32p4/api-reference/peripherals/spi_master.html?utm_source=chatgpt.com#_CPPv4N16spi_bus_config_t15max_transfer_szE
 
 static bool psram_range_valid(const psram_qspi_inst_t *qspi, uint32_t addr, size_t count)
 {
@@ -179,7 +180,7 @@ void psram_qspi_write(psram_qspi_inst_t *qspi, uint32_t addr, const uint8_t *src
 
     while (count != 0)
     {
-        size_t chunk = count > PSRAM_CHUNK_SIZE ? PSRAM_CHUNK_SIZE : count;
+        size_t chunk = count > QSPI_CHUNK_SIZE ? QSPI_CHUNK_SIZE : count;
         esp_err_t err = psram_write_qio(qspi, addr, src, chunk);
         if (err != ESP_OK)
         {
@@ -210,7 +211,7 @@ void psram_qspi_read(psram_qspi_inst_t *qspi, uint32_t addr, uint8_t *dst, size_
 
     while (count != 0)
     {
-        size_t chunk = count > PSRAM_CHUNK_SIZE ? PSRAM_CHUNK_SIZE : count;
+        size_t chunk = count > QSPI_CHUNK_SIZE ? QSPI_CHUNK_SIZE : count;
         esp_err_t err = psram_read_qio(qspi, addr, dst, chunk);
         if (err != ESP_OK)
         {

@@ -540,6 +540,21 @@ mp_obj_t lcd_mp_clear(mp_obj_t self_in, mp_obj_t color)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(lcd_mp_clear_obj, lcd_mp_clear);
 
+mp_obj_t lcd_mp_deinit(mp_obj_t self_in)
+{
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+    self->initialized = false;
+#ifdef LCD_MP_DEINIT
+    LCD_MP_DEINIT();
+#endif
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(lcd_mp_deinit_obj, lcd_mp_deinit);
+
 mp_obj_t lcd_mp_fill_circle(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: self, center_x, center_y, radius, color
@@ -1600,6 +1615,7 @@ static const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__char), MP_ROM_PTR(&lcd_mp_char_obj)},                                 // self._char()
     {MP_ROM_QSTR(MP_QSTR__circle), MP_ROM_PTR(&lcd_mp_circle_obj)},                             // self._circle()
     {MP_ROM_QSTR(MP_QSTR__clear), MP_ROM_PTR(&lcd_mp_clear_obj)},                               // self._clear()
+    {MP_ROM_QSTR(MP_QSTR_deinit), MP_ROM_PTR(&lcd_mp_deinit_obj)},                              // self.deinit()
     {MP_ROM_QSTR(MP_QSTR__fill_circle), MP_ROM_PTR(&lcd_mp_fill_circle_obj)},                   // self._fill_circle()
     {MP_ROM_QSTR(MP_QSTR__fill_polygon), MP_ROM_PTR(&lcd_mp_fill_polygon_obj)},                 // self._fill_polygon()
     {MP_ROM_QSTR(MP_QSTR__fill_polygon_alpha), MP_ROM_PTR(&lcd_mp_fill_polygon_alpha_obj)},     // self._fill_polygon_alpha()

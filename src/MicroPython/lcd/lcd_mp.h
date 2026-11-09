@@ -34,6 +34,7 @@ mp_obj_t lcd_mp_bmp(size_t n_args, const mp_obj_t *args);                  // dr
 mp_obj_t lcd_mp_char(size_t n_args, const mp_obj_t *args);                 // draw a character on the LCD
 mp_obj_t lcd_mp_circle(size_t n_args, const mp_obj_t *args);               // draw a circle on the LCD
 mp_obj_t lcd_mp_clear(mp_obj_t self_in, mp_obj_t color);                   // clear the LCD framebuffer
+mp_obj_t lcd_mp_deinit(mp_obj_t self_in);                                  // deinitialize the LCD object
 mp_obj_t lcd_mp_fill_circle(size_t n_args, const mp_obj_t *args);          // fill a circle on the LCD
 mp_obj_t lcd_mp_fill_polygon(size_t n_args, const mp_obj_t *args);         // fill a polygon on the LCD
 mp_obj_t lcd_mp_fill_polygon_alpha(size_t n_args, const mp_obj_t *args);   // fill a polygon with alpha blending

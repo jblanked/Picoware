@@ -7,6 +7,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_rom_sys.h"
+#include "hal/spi_ll.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -15,7 +16,7 @@
 #include "picocalc_spi_bus.h"
 
 #define LCD_SPI_HOST SPI2_HOST
-#define LCD_TRANSFER_BUFFER_BYTES 4096
+#define LCD_TRANSFER_BUFFER_BYTES 32768
 
 static const char *TAG = "picocalc-lcd";
 static spi_device_handle_t lcd_spi;
@@ -23,6 +24,7 @@ static SemaphoreHandle_t lcd_sem;
 static bool lcd_initialised;
 static esp_err_t lcd_transfer_error = ESP_OK;
 static uint8_t lcd_transfer_buffer[LCD_TRANSFER_BUFFER_BYTES] DMA_ATTR __attribute__((aligned(4)));
+static size_t lcd_transfer_max_pixels = LCD_TRANSFER_BUFFER_BYTES / 2;
 
 static uint16_t lcd_scroll_top;
 static uint16_t lcd_memory_scroll_height = FRAME_HEIGHT;
@@ -161,7 +163,7 @@ void lcd_write16_buf(const uint16_t *buffer, size_t len)
 
     gpio_set_level(LCD_DCX, 1);
     size_t offset = 0;
-    const size_t max_pixels = LCD_TRANSFER_BUFFER_BYTES / 2;
+    const size_t max_pixels = lcd_transfer_max_pixels;
     while (offset < len)
     {
         size_t pixels = len - offset;
@@ -219,6 +221,47 @@ void lcd_blit(uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t
 
 void lcd_solid_rectangle(uint16_t colour, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
+    if (width == 0 || height == 0 || width > WIDTH)
+    {
+        return;
+    }
+
+    uint32_t x_end = (uint32_t)x + width;
+    uint32_t y_end = (uint32_t)y + height;
+    if (lcd_scroll_top == 0 && lcd_scroll_bottom == 0 &&
+        lcd_memory_scroll_height == HEIGHT && lcd_y_offset == 0 &&
+        x_end <= WIDTH && y_end <= HEIGHT)
+    {
+        lcd_acquire();
+        lcd_set_window(x, y, (uint16_t)(x_end - 1), (uint16_t)(y_end - 1));
+
+        if (lcd_transfer_error == ESP_OK)
+        {
+            uint8_t high = (uint8_t)(colour >> 8);
+            uint8_t low = (uint8_t)colour;
+            for (size_t i = 0; i < LCD_TRANSFER_BUFFER_BYTES; i += 2)
+            {
+                lcd_transfer_buffer[i] = high;
+                lcd_transfer_buffer[i + 1] = low;
+            }
+
+            size_t remaining = (size_t)width * height;
+            const size_t max_pixels = lcd_transfer_max_pixels;
+            while (remaining > 0)
+            {
+                size_t pixels = remaining > max_pixels ? max_pixels : remaining;
+                if (lcd_transmit(lcd_transfer_buffer, pixels * 2) != ESP_OK)
+                {
+                    break;
+                }
+                remaining -= pixels;
+            }
+        }
+
+        lcd_release();
+        return;
+    }
+
     static uint16_t pixels[WIDTH];
     for (uint16_t i = 0; i < width; i++)
     {
@@ -288,26 +331,44 @@ bool lcd_init(void)
         return false;
     }
 
-    spi_device_interface_config_t device_config = {
-        .clock_speed_hz = LCD_BAUDRATE,
-        .mode = 0,
-        .spics_io_num = -1,
-        .queue_size = 1,
-    };
-    err = spi_bus_add_device(LCD_SPI_HOST, &device_config, &lcd_spi);
-    if (err != ESP_OK)
+    size_t max_transfer_bytes = SPI_LL_DMA_MAX_BIT_LEN / 8;
+    if (max_transfer_bytes > LCD_TRANSFER_BUFFER_BYTES)
     {
-        ESP_LOGE(TAG, "SPI device initialization failed: %s", esp_err_to_name(err));
+        max_transfer_bytes = LCD_TRANSFER_BUFFER_BYTES;
+    }
+    lcd_transfer_max_pixels = max_transfer_bytes / 2;
+    if (lcd_transfer_max_pixels == 0)
+    {
+        ESP_LOGE(TAG, "SPI transfer limit is too small for RGB565 pixels");
         return false;
     }
 
-    lcd_sem = xSemaphoreCreateMutex();
+    if (lcd_spi == NULL)
+    {
+        spi_device_interface_config_t device_config = {
+            .clock_speed_hz = LCD_BAUDRATE,
+            .mode = 0,
+            .spics_io_num = -1,
+            .queue_size = 1,
+        };
+        err = spi_bus_add_device(LCD_SPI_HOST, &device_config, &lcd_spi);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "SPI device initialization failed: %s", esp_err_to_name(err));
+            return false;
+        }
+    }
+
     if (lcd_sem == NULL)
     {
-        ESP_LOGE(TAG, "LCD mutex allocation failed");
-        spi_bus_remove_device(lcd_spi);
-        lcd_spi = NULL;
-        return false;
+        lcd_sem = xSemaphoreCreateMutex();
+        if (lcd_sem == NULL)
+        {
+            ESP_LOGE(TAG, "LCD mutex allocation failed");
+            spi_bus_remove_device(lcd_spi);
+            lcd_spi = NULL;
+            return false;
+        }
     }
 
     lcd_transfer_error = ESP_OK;

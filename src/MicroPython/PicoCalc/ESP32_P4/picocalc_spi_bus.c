@@ -11,17 +11,32 @@
 
 #include <stdbool.h>
 
-#define PICOCALC_SPI_MAX_TRANSFER_SIZE 4096
+#define PICOCALC_SPI_MAX_TRANSFER_SIZE 32768
 
 static const char *TAG = "picocalc-spi";
 static bool spi_bus_initialized;
 
 esp_err_t picocalc_spi_bus_init(void)
 {
-    if (spi_bus_initialized)
+    size_t max_transfer_bytes = 0;
+    esp_err_t bus_status = spi_bus_get_max_transaction_len(SPI2_HOST, &max_transfer_bytes);
+    if (bus_status == ESP_OK && max_transfer_bytes == 0)
+    {
+        ESP_LOGE(TAG, "SPI2 bus reports zero transfer capacity");
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (bus_status != ESP_OK && bus_status != ESP_ERR_INVALID_ARG)
+    {
+        ESP_LOGE(TAG, "SPI2 bus state query failed: %s", esp_err_to_name(bus_status));
+        return bus_status;
+    }
+
+    bool bus_ready = bus_status == ESP_OK;
+    if (bus_ready && spi_bus_initialized)
     {
         return ESP_OK;
     }
+    spi_bus_initialized = false;
 
     USB_SERIAL_JTAG.conf0.pad_pull_override = 1;
     USB_SERIAL_JTAG.conf0.dp_pullup = 0;
@@ -60,11 +75,14 @@ esp_err_t picocalc_spi_bus_init(void)
         .max_transfer_sz = PICOCALC_SPI_MAX_TRANSFER_SIZE,
         .flags = SPICOMMON_BUSFLAG_QUAD,
     };
-    err = spi_bus_initialize(SPI2_HOST, &bus_config, SPI_DMA_CH_AUTO);
-    if (err != ESP_OK)
+    if (!bus_ready)
     {
-        ESP_LOGE(TAG, "SPI2 bus initialization failed: %s", esp_err_to_name(err));
-        return err;
+        err = spi_bus_initialize(SPI2_HOST, &bus_config, SPI_DMA_CH_AUTO);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "SPI2 bus initialization failed: %s", esp_err_to_name(err));
+            return err;
+        }
     }
 
     // SPI2 serves the PSRAM pins; mirror its clock and data0 to the LCD pins.

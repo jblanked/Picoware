@@ -99,7 +99,7 @@ psram_qspi_inst_t psram_qspi_init(void *unused, int sm, float clkdiv)
         .async_busy = false,
     };
     spi_device_interface_config_t device_config = {
-        .clock_speed_hz = 20000000,
+        .clock_speed_hz = 40000000,
         .mode = 0,
         .spics_io_num = PICOCALC_PSRAM_CS_GPIO,
         .queue_size = 1,

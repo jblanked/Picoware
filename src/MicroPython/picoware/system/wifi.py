@@ -77,18 +77,7 @@ class WiFi:
 
     def __del__(self):
         """Destructor to clean up resources."""
-        if self._is_flipper and self._wifi_uart:
-            self._wifi_uart.reset()
-            del self._wifi_uart
-            self._wifi_uart = None
-            return
-        if self.wlan:
-            self.wlan.active(False)
-            del self.wlan
-            self.wlan = None
-        self.reset()
-        self.callback_connect = None
-        self.__close_thread()
+        self.__deinit()
 
     def __close_thread(self):
         """Internal method to close the background thread."""
@@ -102,6 +91,21 @@ class WiFi:
         with self._thread_lock:
             self._thread_running = False
             self._thread = None
+
+    def __deinit(self):
+        """Deinitialize the Wi-Fi interface."""
+        if self._is_flipper and self._wifi_uart:
+            self._wifi_uart.reset()
+            del self._wifi_uart
+            self._wifi_uart = None
+            return
+        if self.wlan:
+            self.wlan.active(False)
+            del self.wlan
+            self.wlan = None
+        self.reset()
+        self.callback_connect = None
+        self.__close_thread()
 
     def _should_continue(self) -> bool:
         """Check if the operation should continue running."""

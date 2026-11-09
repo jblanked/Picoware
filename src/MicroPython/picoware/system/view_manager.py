@@ -484,6 +484,7 @@ class ViewManager:
             del self._input_manager
             self._input_manager = None
         if self._app_loader is not None:
+            self._app_loader.__deinit()
             del self._app_loader
             self._app_loader = None
         if self._storage is not None:
@@ -491,6 +492,7 @@ class ViewManager:
             del self._storage
             self._storage = None
         if self._wifi is not None:
+            self._wifi.__deinit()
             del self._wifi
             self._wifi = None
         if self._audio is not None:

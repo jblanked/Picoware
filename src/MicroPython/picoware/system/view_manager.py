@@ -502,7 +502,7 @@ class ViewManager:
             del self._thread_manager
             self._thread_manager = None
         if self._timer is not None:
-            self._timer.stop()
+            self._timer.__deinit()
             del self._timer
             self._timer = None
         if self._battery is not None:

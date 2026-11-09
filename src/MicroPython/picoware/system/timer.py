@@ -27,11 +27,7 @@ class Timer:
 
     def __del__(self):
         """Destructor to clean up the timer."""
-        self.stop()
-        if self._timer is not None:
-            del self._timer
-        self._timer = None
-        self._callback = None
+        self.__deinit()
 
     @property
     def callback(self):
@@ -79,6 +75,14 @@ class Timer:
     def timer(self):
         """Get the underlying machine.Timer object."""
         return self._timer
+
+    def __deinit(self):
+        """Deinitialize the timer."""
+        self.stop()
+        if self._timer is not None:
+            del self._timer
+        self._timer = None
+        self._callback = None
 
     def start(self):
         """Start the timer with the configured mode and interval."""

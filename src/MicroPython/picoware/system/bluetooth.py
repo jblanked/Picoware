@@ -154,36 +154,7 @@ class Bluetooth:
 
     def __del__(self):
         """Clean up Bluetooth resources."""
-        if self._ble is not None:
-            if self._connected and self._conn_handle is not None:
-                try:
-                    self._ble.gap_disconnect(self._conn_handle)
-                except Exception:
-                    pass
-            # Disconnect all central connections (peripheral mode)
-            for conn_handle in list(self._central_connections):
-                try:
-                    self._ble.gap_disconnect(conn_handle)
-                except Exception:
-                    pass
-            self._ble.active(False)
-            del self._ble
-            self._ble = None
-        self._callback = None
-        self._write_callback = None
-        self._notify_callback = None
-        self._scan_callback = None
-        self._tx_handle = None
-        self._rx_handle = None
-        self._peripheral_tx_handle = None
-        self._peripheral_rx_handle = None
-        self._services.clear()
-        self._characteristics.clear()
-        self._central_connections.clear()
-        self._passkey = None
-        self._passkey_action = None
-        self._passkey_conn_handle = None
-        self._secrets.clear()
+        self.__deinit()
 
     @property
     def callback(self):
@@ -258,6 +229,39 @@ class Bluetooth:
     def services(self) -> list:
         """Get discovered services."""
         return self._services
+
+    def __deinit(self):
+        """Clean up Bluetooth resources."""
+        if self._ble is not None:
+            if self._connected and self._conn_handle is not None:
+                try:
+                    self._ble.gap_disconnect(self._conn_handle)
+                except Exception:
+                    pass
+            # Disconnect all central connections (peripheral mode)
+            for conn_handle in list(self._central_connections):
+                try:
+                    self._ble.gap_disconnect(conn_handle)
+                except Exception:
+                    pass
+            self._ble.active(False)
+            del self._ble
+            self._ble = None
+        self._callback = None
+        self._write_callback = None
+        self._notify_callback = None
+        self._scan_callback = None
+        self._tx_handle = None
+        self._rx_handle = None
+        self._peripheral_tx_handle = None
+        self._peripheral_rx_handle = None
+        self._services.clear()
+        self._characteristics.clear()
+        self._central_connections.clear()
+        self._passkey = None
+        self._passkey_action = None
+        self._passkey_conn_handle = None
+        self._secrets.clear()
 
     def __irq(self, event, data):
         """Handle Bluetooth IRQ events for both central and peripheral modes.

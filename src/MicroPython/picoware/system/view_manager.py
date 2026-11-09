@@ -517,6 +517,7 @@ class ViewManager:
             del self._usb_video_stream
             self._usb_video_stream = None
         if self._bluetooth is not None:
+            self._bluetooth.__deinit()
             del self._bluetooth
             self._bluetooth = None
 
@@ -747,7 +748,9 @@ class ViewManager:
         if enable:
             del self._wifi
             self._wifi = None
-            del self._bluetooth
+            if self._bluetooth is not None:
+                self._bluetooth.__deinit()
+                del self._bluetooth
             self._bluetooth = None
             self._draw.set_brightness(10)
             self.freq(True)

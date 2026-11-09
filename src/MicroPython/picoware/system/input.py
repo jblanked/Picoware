@@ -460,51 +460,7 @@ class Input:
 
     def __del__(self):
         """Destructor to clean up resources."""
-        self.reset()
-        if self.pin is not None:
-            self.pin.irq(handler=None)
-            del self.pin
-            self.pin = None
-
-        if self._touch is not None:
-            del self._touch
-            self._touch = None
-        self._gpio_buttons = None
-
-        if self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
-            from gpio_buttons import deinit
-
-            deinit()
-
-        if self._current_board_id == BOARD_CARDPUTER:
-            from cardputer_keyboard import deinit
-
-            deinit()
-        elif self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_input import deinit
-            deinit()
-        elif self._current_board_id == BOARD_POOM:
-            from poom_input import deinit
-            deinit()
-
-        elif self._current_board_id not in (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_1_69_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-            BOARD_CROWPANEL_10_1,
-            BOARD_CROWPANEL_WATCH_2_01,
-            BOARD_WAVESHARE_2_06,
-            BOARD_WAVESHARE_C6_2_06,
-            BOARD_PANCAKE,
-            BOARD_WAVESHARE_C5_3_5,
-            BOARD_V8,
-        ):
-            from picoware_southbridge import deinit
-
-            deinit()
-        del self._button_map
-        self._button_map = None
+        self.__deinit()
 
     @property
     def button(self) -> int:
@@ -568,6 +524,54 @@ class Input:
     def was_capitalized(self) -> bool:
         """Returns True if the last key pressed was a capital letter."""
         return self._was_capitalized
+
+    def __deinit(self):
+        """Deinitialize the input system."""
+        self.reset()
+        if self.pin is not None:
+            self.pin.irq(handler=None)
+            del self.pin
+            self.pin = None
+
+        if self._touch is not None:
+            del self._touch
+            self._touch = None
+        self._gpio_buttons = None
+
+        if self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
+            from gpio_buttons import deinit
+
+            deinit()
+
+        if self._current_board_id == BOARD_CARDPUTER:
+            from cardputer_keyboard import deinit
+
+            deinit()
+        elif self._current_board_id == BOARD_FLIPPER_ZERO:
+            from flipper_input import deinit
+            deinit()
+        elif self._current_board_id == BOARD_POOM:
+            from poom_input import deinit
+            deinit()
+
+        elif self._current_board_id not in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+            BOARD_CROWPANEL_10_1,
+            BOARD_CROWPANEL_WATCH_2_01,
+            BOARD_WAVESHARE_2_06,
+            BOARD_WAVESHARE_C6_2_06,
+            BOARD_PANCAKE,
+            BOARD_WAVESHARE_C5_3_5,
+            BOARD_V8,
+        ):
+            from picoware_southbridge import deinit
+
+            deinit()
+        del self._button_map
+        self._button_map = None
 
     def _key_to_button(self, key) -> int:
         """Map a key to a button.

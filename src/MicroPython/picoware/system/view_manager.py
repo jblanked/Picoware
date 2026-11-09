@@ -479,6 +479,7 @@ class ViewManager:
             del self._draw
             self._draw = None
         if self._input_manager:
+            self._input_manager.__deinit()
             del self._input_manager
             self._input_manager = None
         if self._app_loader is not None:

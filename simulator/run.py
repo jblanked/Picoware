@@ -291,6 +291,17 @@ def _safe_reset_sd(path):
 def _run_main():
     """Execute the Picoware main.py entry point."""
     fatal_errors = []
+    from picoware.system.view_manager import ViewManager
+
+    original_alert = ViewManager.alert
+
+    def main_alert(self, message, *args, **kwargs):
+        # main.py now reports failures through the UI when a manager exists.
+        if str(message).startswith("Critical Error:\n"):
+            fatal_errors.append(str(message))
+            builtins.print(message)
+        return original_alert(self, message, *args, **kwargs)
+
 
     def main_print(*args, **kwargs):
         separator = kwargs.get("sep", " ")
@@ -307,6 +318,7 @@ def _run_main():
     with open(MICROPYTHON_DIR + "/main.py", "r") as handle:
         code = handle.read()
     exec(code, namespace)
+    ViewManager.alert = main_alert
     try:
         result = namespace["main"]()
     except BaseException:
@@ -315,6 +327,8 @@ def _run_main():
                 "Picoware main reported a fatal error: " + fatal_errors[-1]
             )
         raise
+    finally:
+        ViewManager.alert = original_alert
     if result is False:
         raise RuntimeError("Picoware main reported a fatal error")
     if fatal_errors:
@@ -496,6 +510,8 @@ def _board_supports_ghouls(board_name):
     wifi_boards = (
         "picocalc-picow",
         "picocalc-pico2w",
+        "picocalc-esp32-p4",
+        "picocalc-esp32p4",
         "picocalc-pimoroni-2w",
         "pimoroni-2w",
         "cardputer",
@@ -751,6 +767,13 @@ def _run_sim_check(opts):
         _interpreter_command()
         + " "
         + _quote(THIS_DIR + "/run.py")
+        + " --headless --board picocalc-esp32-p4 --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        _interpreter_command()
+        + " "
+        + _quote(THIS_DIR + "/run.py")
         + " --headless --board waveshare-1.69-rp2350 --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
@@ -821,7 +844,42 @@ def _run_sim_check(opts):
     _run_fatal_exit_check(opts)
     if board_name not in ("desktop", "unix"):
         _run_mjs_check(opts)
+    _run_cleanup_parity_check(opts)
     print("[sim-check:pass]")
+
+
+def _run_cleanup_parity_check(opts):
+    """Exercise real manager teardown and recreation, including lazy keyboard."""
+    import sim_runtime
+    import picoware_keyboard
+    from picoware.system.view_manager import ViewManager
+    from picoware.system.view import View
+
+    sim_runtime.configure(ROOT, opts["sd"], opts["apps_source"], 1,
+                          opts["board"], 0, True, False, False, False, "",
+                          _network_mode="offline", _audio_mode="silent")
+    for view_count in range(ViewManager.MAX_VIEWS + 1):
+        manager = ViewManager()
+        keyboard = manager.keyboard
+        display = manager.draw
+        for index in range(view_count):
+            assert manager.add(View("cleanup_probe_" + str(index), None, None, None))
+        manager.__cleanup()
+        assert len(manager.views) == manager.MAX_VIEWS
+        assert all(view is None for view in manager.views)
+        for field in ("_keyboard", "_draw", "_input_manager", "_app_loader",
+                      "_storage", "_wifi", "_time", "_timer", "_battery"):
+            assert getattr(manager, field) is None, field
+        assert not display._initialized
+        assert sim_runtime.get_lcd() is None
+        assert sim_runtime._key_callback is None
+        assert not picoware_keyboard._initialized
+        manager.__cleanup()
+        assert len(manager.views) == manager.MAX_VIEWS
+        assert all(view is None for view in manager.views)
+        del keyboard, display, manager
+        gc.collect()
+    print("[sim-check:ok] ViewManager cleanup for 0..MAX_VIEWS, repeated cleanup, and recreation")
 
 
 def _run_desktop_native_check(opts):
@@ -1241,6 +1299,16 @@ def _run_lcd_parity_check():
     if display._get_pixel(3, 3) != 0x07E0:
         raise RuntimeError("simulator LCD polygon fill mismatch")
     _run_polygon_parity_check(display)
+    display.deinit()
+    for operation, args in ((display.deinit, ()), (display._clear, (0,)),
+                            (display.swap, ()), (display.set_brightness, (50,))):
+        try:
+            operation(*args)
+        except ValueError as error:
+            if str(error) != "LCD object is not initialized":
+                raise
+        else:
+            raise RuntimeError("simulator LCD accepted an operation after deinit")
     print("[sim-check:ok] lcd brightness RGB LED bytearray inversion alpha triangle polygon")
 
 
@@ -1848,12 +1916,28 @@ def _run_board_parity_check():
     """Verify the latest board profile and capability helpers."""
     import picoware_boards as boards
 
+    with open(MICROPYTHON_DIR + "/picoware_boards/picoware_boards.h") as source:
+        for line in source:
+            fields = line.split()
+            if (len(fields) == 3 and fields[0] == "#define"
+                    and fields[1].startswith("BOARD_")
+                    and not fields[1].startswith("BOARD_HAS_")
+                    and fields[2].isdigit()):
+                assert getattr(boards, fields[1]) == int(fields[2]), fields[1]
+    p4 = boards.BOARD_PICOCALC_ESP32_P4
+    assert boards.get_name(p4) == "PicoCalc - ESP32-P4"
+    assert boards.get_display_size(p4) == (320, 320)
+    for capability in (boards.has_psram, boards.has_sd_card, boards.has_wifi,
+                       boards.has_audio, boards.has_bluetooth, boards.has_keyboard):
+        assert capability(p4)
+    assert not boards.has_touch(p4)
     picocalc_ids = (
         boards.BOARD_PICOCALC_PICO,
         boards.BOARD_PICOCALC_PICOW,
         boards.BOARD_PICOCALC_PICO_2,
         boards.BOARD_PICOCALC_PICO_2W,
         boards.BOARD_PICOCALC_PIMORONI_2W,
+        boards.BOARD_PICOCALC_ESP32_P4,
     )
     if boards.BOARD_HAS_PICOCALC != int(boards.BOARD_ID in picocalc_ids):
         raise RuntimeError("simulator PicoCalc capability mismatch")
@@ -1862,7 +1946,7 @@ def _run_board_parity_check():
         boards.BOARD_WAVESHARE_2_06, boards.BOARD_WAVESHARE_C6_2_06,
         boards.BOARD_WAVESHARE_C5_3_5, boards.BOARD_DESKTOP,
     )
-    for board_id in range(boards.BOARD_WAVESHARE_C5_3_5 + 1):
+    for board_id in range(boards.BOARD_PICOCALC_ESP32_P4 + 1):
         assert boards.has_audio(board_id) == (board_id in audio_ids)
     assert boards.BOARD_HAS_AUDIO == int(boards.BOARD_ID in audio_ids)
     keyboard_ids = picocalc_ids + (boards.BOARD_CARDPUTER,)

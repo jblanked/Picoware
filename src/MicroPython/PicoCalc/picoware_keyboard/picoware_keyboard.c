@@ -96,6 +96,7 @@ static MP_DEFINE_CONST_FUN_OBJ_0(picoware_keyboard_get_key_nonblocking_obj, pico
 static mp_obj_t picoware_keyboard_deinit(void)
 {
     keyboard_deinit();
+    MP_STATE_VM(picoware_keyboard_callback) = mp_const_none;
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(picoware_keyboard_deinit_obj, picoware_keyboard_deinit);

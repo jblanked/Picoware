@@ -100,7 +100,10 @@ class WiFi:
             self._wifi_uart = None
             return
         if self.wlan:
-            self.wlan.active(False)
+            try:
+                self.wlan.active(False)
+            except Exception:
+                pass
             del self.wlan
             self.wlan = None
         self.reset()

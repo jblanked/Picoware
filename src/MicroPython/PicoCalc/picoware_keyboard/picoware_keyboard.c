@@ -93,6 +93,13 @@ static mp_obj_t picoware_keyboard_get_key_nonblocking(void)
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(picoware_keyboard_get_key_nonblocking_obj, picoware_keyboard_get_key_nonblocking);
 
+static mp_obj_t picoware_keyboard_deinit(void)
+{
+    keyboard_deinit();
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(picoware_keyboard_deinit_obj, picoware_keyboard_deinit);
+
 static const mp_rom_map_elem_t picoware_keyboard_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_picoware_keyboard)},
     {MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&picoware_keyboard_init_obj)},
@@ -102,6 +109,7 @@ static const mp_rom_map_elem_t picoware_keyboard_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_key_available), MP_ROM_PTR(&picoware_keyboard_key_available_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_key), MP_ROM_PTR(&picoware_keyboard_get_key_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_key_nonblocking), MP_ROM_PTR(&picoware_keyboard_get_key_nonblocking_obj)},
+    {MP_ROM_QSTR(MP_QSTR_deinit), MP_ROM_PTR(&picoware_keyboard_deinit_obj)},
 };
 static MP_DEFINE_CONST_DICT(picoware_keyboard_module_globals, picoware_keyboard_module_globals_table);
 

@@ -283,3 +283,13 @@ void keyboard_init(void)
 
     keyboard_initialised = true;
 }
+
+void keyboard_deinit(void)
+{
+    if (!keyboard_initialised)
+    {
+        return; // not initialized
+    }
+    sb_deinit();
+    keyboard_initialised = false;
+}

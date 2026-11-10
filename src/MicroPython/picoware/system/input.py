@@ -567,7 +567,7 @@ class Input:
             BOARD_WAVESHARE_C5_3_5,
             BOARD_V8,
         ):
-            from picoware_southbridge import deinit
+            from picoware_keyboard import deinit
 
             deinit()
         del self._button_map

@@ -85,6 +85,7 @@ extern "C"
     void keyboard_poll(void);
     bool keyboard_key_available(void);
     char keyboard_get_key(void);
+    void keyboard_deinit(void);
 
 #ifdef __cplusplus
 }

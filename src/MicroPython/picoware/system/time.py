@@ -46,7 +46,10 @@ class Time:
             self._current_task = None
         self._lock = None
         if self._rtc:
-            self._rtc.deinit()
+            try:
+                self._rtc.deinit()
+            except Exception:
+                pass
             del self._rtc
             self._rtc = None
         self._is_set = False

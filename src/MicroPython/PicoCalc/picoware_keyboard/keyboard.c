@@ -44,10 +44,10 @@ static volatile uint16_t rx_head = 0;
 static volatile uint16_t rx_tail = 0;
 #if defined(PICOCALC_ESP32_P4)
 static esp_timer_handle_t key_timer;
-static bool key_timer_running;
 #else
 static repeating_timer_t key_timer;
 #endif
+static bool key_timer_running;
 
 //
 //  Keyboard Driver
@@ -59,6 +59,10 @@ static repeating_timer_t key_timer;
 
 void keyboard_poll()
 {
+    if (!keyboard_initialised)
+    {
+        return;
+    }
     uint16_t key = sb_read_keyboard();
     uint8_t key_state = (key >> 8) & 0xFF;
     uint8_t key_code = key & 0xFF;
@@ -251,14 +255,25 @@ bool keyboard_set_background_poll(bool enable)
 #else
     if (enable)
     {
+        if (key_timer_running)
+        {
+            return true;
+        }
         // Start the repeating timer to poll the keyboard
         // poll every 100 ms for key events
-        return add_repeating_timer_ms(-KEYBOARD_POLL_MS, on_keyboard_timer, NULL, &key_timer);
+        key_timer_running = add_repeating_timer_ms(-KEYBOARD_POLL_MS, on_keyboard_timer, NULL, &key_timer);
+        return key_timer_running;
     }
     else
     {
+        if (!key_timer_running)
+        {
+            return true;
+        }
         // Stop the repeating timer
-        return cancel_repeating_timer(&key_timer);
+        bool cancelled = cancel_repeating_timer(&key_timer);
+        key_timer_running = false;
+        return cancelled;
     }
 #endif
 }
@@ -286,10 +301,16 @@ void keyboard_init(void)
 
 void keyboard_deinit(void)
 {
+    // Stop polling before releasing the I2C bus or any callback state.
+    keyboard_set_background_poll(false);
+    keyboard_set_key_available_callback(NULL);
     if (!keyboard_initialised)
     {
         return; // not initialized
     }
-    sb_deinit();
     keyboard_initialised = false;
+    sb_deinit();
+    rx_head = rx_tail = 0;
+    key_control = key_shift = key_alt = false;
+    user_interrupt = false;
 }

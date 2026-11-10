@@ -455,9 +455,7 @@ class ViewManager:
         
         # Clean up views
         for i in range(self._view_count):
-            if self.views[i] is not None:
-                del self.views[i]
-                self.views[i] = None
+            self.views[i] = None
 
         if self._current_view is not None:
             del self._current_view

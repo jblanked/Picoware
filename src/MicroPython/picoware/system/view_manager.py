@@ -461,6 +461,8 @@ class ViewManager:
             del self._current_view
             self._current_view = None
 
+        self.clear_stack()
+
         # Clean up other resources
         if self._keyboard:
             self._keyboard.__deinit()

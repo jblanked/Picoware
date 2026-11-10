@@ -52,6 +52,7 @@ class LCD:
     MODE_PSRAM = 1
 
     def __init__(self, scale_x=1.0, scale_y=1.0, scale_position=False, lcd_mode=0):
+        self._initialized = True
         self._is_flipper = False
         try:
             import picoware_boards
@@ -77,6 +78,7 @@ class LCD:
         self._clear_buffer = self._buffer
         self._framebuffer = framebuf.FrameBuffer(self._buffer, self.width, self.height, framebuf.RGB565)
         self._sdl = None
+        self._sdl_initialized = False
         self._window = 0
         self._renderer = 0
         self._texture = 0
@@ -85,6 +87,30 @@ class LCD:
         if not sim_runtime.headless:
             self._init_sdl()
         sim_runtime.set_lcd(self)
+
+    def _require_initialized(self):
+        if not self._initialized:
+            raise ValueError("LCD object is not initialized")
+
+    def deinit(self):
+        """Match firmware LCD teardown and release the simulator display."""
+        self._require_initialized()
+        self._initialized = False
+        if self._sdl_initialized:
+            for field, destroy in (
+                ("_texture", self._SDL_DestroyTexture),
+                ("_renderer", self._SDL_DestroyRenderer),
+                ("_window", self._SDL_DestroyWindow),
+            ):
+                resource = getattr(self, field)
+                if resource:
+                    destroy(resource)
+                    setattr(self, field, 0)
+            self._SDL_QuitSubSystem(32)
+            self._sdl_initialized = False
+        self._use_sdl = False
+        if sim_runtime.get_lcd() is self:
+            sim_runtime.set_lcd(None)
 
     def _init_sdl(self):
         try:
@@ -102,10 +128,14 @@ class LCD:
             self._SDL_RenderPresent = lib.func("v", "SDL_RenderPresent", "p")
             self._SDL_SetRenderDrawColor = lib.func("i", "SDL_SetRenderDrawColor", "piiii")
             self._SDL_PollEvent = lib.func("i", "SDL_PollEvent", "p")
-            self._SDL_Quit = lib.func("v", "SDL_Quit", "")
+            self._SDL_DestroyTexture = lib.func("v", "SDL_DestroyTexture", "p")
+            self._SDL_DestroyRenderer = lib.func("v", "SDL_DestroyRenderer", "p")
+            self._SDL_DestroyWindow = lib.func("v", "SDL_DestroyWindow", "p")
+            self._SDL_QuitSubSystem = lib.func("v", "SDL_QuitSubSystem", "i")
             if self._SDL_Init(32) != 0:
                 print("SDL unavailable, using headless LCD")
                 return
+            self._sdl_initialized = True
             s = sim_runtime.scale
             self._window = self._SDL_CreateWindow("Picoware MicroPython Simulator", 100, 100, self.width * s, self.height * s, 0)
             if not self._window:
@@ -167,6 +197,7 @@ class LCD:
         return bytes(row)
 
     def _clear(self, color=0):
+        self._require_initialized()
         color = self._display_color(color)
         if self._clear_buffer is not self._buffer:
             self._clear_buffer = self._buffer
@@ -175,9 +206,11 @@ class LCD:
         self._framebuffer.fill(color)
 
     def _pixel(self, x, y, color):
+        self._require_initialized()
         self._set_pixel(x, y, color)
 
     def _line(self, x1, y1, x2, y2, color):
+        self._require_initialized()
         x1 = int(x1)
         y1 = int(y1)
         x2 = int(x2)
@@ -202,6 +235,7 @@ class LCD:
                 y += sy
 
     def _rectangle(self, x, y, w, h, color):
+        self._require_initialized()
         if self._is_flipper:
             # Flipper lcd_draw_rect() includes the border in width and height.
             w -= 1
@@ -212,6 +246,7 @@ class LCD:
         self._line(x, y + h, x + w, y + h, color)
 
     def _fill_rectangle(self, x, y, w, h, color):
+        self._require_initialized()
         x = int(x)
         y = int(y)
         w = int(w)
@@ -234,6 +269,7 @@ class LCD:
             self._buffer[off : off + row_bytes] = row
 
     def _circle(self, x, y, radius, color):
+        self._require_initialized()
         x = int(x)
         y = int(y)
         radius = int(radius)
@@ -252,6 +288,7 @@ class LCD:
                 err -= 2 * xx + 1
 
     def _fill_circle(self, x, y, radius, color):
+        self._require_initialized()
         x = int(x)
         y = int(y)
         radius = int(radius)
@@ -261,6 +298,7 @@ class LCD:
                     self._set_pixel(xx, yy, color)
 
     def _triangle(self, x1, y1, x2, y2, x3, y3, color):
+        self._require_initialized()
         self._line(x1, y1, x2, y2, color)
         self._line(x2, y2, x3, y3, color)
         self._line(x3, y3, x1, y1, color)
@@ -278,6 +316,7 @@ class LCD:
         return result
 
     def _polygon(self, points, color):
+        self._require_initialized()
         points = self._polygon_points(points)
         count = len(points)
         if count < 2:
@@ -288,12 +327,15 @@ class LCD:
             self._line(first[0], first[1], second[0], second[1], color)
 
     def _fill_triangle(self, x1, y1, x2, y2, x3, y3, color):
+        self._require_initialized()
         self._fill_triangle_alpha(x1, y1, x2, y2, x3, y3, color, 255)
 
     def _fill_polygon(self, points, color):
+        self._require_initialized()
         self._fill_polygon_alpha(points, color, 255)
 
     def _fill_polygon_alpha(self, points, color, alpha):
+        self._require_initialized()
         alpha = int(alpha) & 0xFF
         if len(points) < 3 or alpha == 0:
             return
@@ -339,6 +381,7 @@ class LCD:
                 last = right
 
     def _fill_triangle_alpha(self, x1, y1, x2, y2, x3, y3, color, alpha):
+        self._require_initialized()
         points = (
             [int(x1), int(y1)],
             [int(x2), int(y2)],
@@ -407,6 +450,7 @@ class LCD:
         return (red << 11) | (green << 5) | blue
 
     def _fill_round_rectangle(self, x, y, w, h, radius, color):
+        self._require_initialized()
         self._fill_rectangle(x, y, w, h, color)
 
     def _font_metrics(self, font_size):
@@ -428,6 +472,7 @@ class LCD:
                     self._set_pixel(x + dx, y + dy, color)
 
     def _text(self, x, y, text, color, font_size=None):
+        self._require_initialized()
         try:
             sim_runtime.note_text(text)
         except Exception:
@@ -461,9 +506,11 @@ class LCD:
             xx += w + spacing
 
     def _char(self, x, y, char, color, font_size=None):
+        self._require_initialized()
         self._text(x, y, char, color, font_size)
 
     def _bytearray(self, x, y, w, h, data, invert=False):
+        self._require_initialized()
         width = int(w)
         height = int(h)
         pixel_count = width * height
@@ -515,6 +562,7 @@ class LCD:
         return self._rgb_to_565(r8, g8, b8)
 
     def _bmp(self, x, y, path):
+        self._require_initialized()
         try:
             data = self._read_file(path)
             if len(data) < 54 or data[0:2] != b"BM":
@@ -566,6 +614,7 @@ class LCD:
             return False
 
     def _psram(self, x, y, w, h, addr):
+        self._require_initialized()
         try:
             import picoware_psram
 
@@ -649,12 +698,15 @@ class LCD:
         return None
 
     def set_mode(self, mode):
+        self._require_initialized()
         self._mode = mode
 
     def set_brightness(self, level):
+        self._require_initialized()
         self._brightness = max(0, min(100, int(level)))
 
     def set_rgb_led(self, red, green, blue):
+        self._require_initialized()
         self._rgb_led = (
             int(red) & 0xFF,
             int(green) & 0xFF,
@@ -662,24 +714,29 @@ class LCD:
         )
 
     def set_scaling(self, scale_x, scale_y, scale_position=False):
+        self._require_initialized()
         self._scale_x_factor = scale_x
         self._scale_y_factor = scale_y
         self.scale_position = scale_position
 
     def scale_x(self, value, screen_width=320):
         """Convert a layout coordinate from the reference display width."""
+        self._require_initialized()
         scaled = 0.0 if value == 0 else value * self.width / float(screen_width)
         return int(scaled) if isinstance(value, int) else scaled
 
     def scale_y(self, value, screen_height=320):
         """Convert a layout coordinate from the reference display height."""
+        self._require_initialized()
         scaled = 0.0 if value == 0 else value * self.height / float(screen_height)
         return int(scaled) if isinstance(value, int) else scaled
 
     def scale(self, x, y, screen_width=320, screen_height=320):
+        self._require_initialized()
         return int(self.scale_x(x, screen_width)), int(self.scale_y(y, screen_height))
 
     def scale_vector(self, position, screen_width=320, screen_height=320):
+        self._require_initialized()
         x = self.scale_x(float(position.x), screen_width)
         y = self.scale_y(float(position.y), screen_height)
         # The native Vector exposes its integer mode through coordinate types.
@@ -713,6 +770,7 @@ class LCD:
             self.swap()
 
     def swap(self):
+        self._require_initialized()
         self.poll_events()
         if sim_runtime.viewer and sim_runtime.viewer_frame_path:
             self._write_raw_frame(sim_runtime.viewer_frame_path)
@@ -778,6 +836,7 @@ class LCD:
         return None
 
     def screenshot(self, file_path):
+        self._require_initialized()
         return self._screenshot_host(sim_runtime.host_path(file_path))
 
     def _screenshot_host(self, file_path):

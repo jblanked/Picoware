@@ -816,6 +816,12 @@ def _dispatch_key_callback():
         or not _keys
     ):
         return
+    # Firmware keyboard_poll() is inert until the keyboard is initialized,
+    # even if a callback and background polling were enabled after teardown.
+    import picoware_keyboard
+
+    if not picoware_keyboard._initialized:
+        return
     _notifying_key = True
     try:
         _key_callback(None)

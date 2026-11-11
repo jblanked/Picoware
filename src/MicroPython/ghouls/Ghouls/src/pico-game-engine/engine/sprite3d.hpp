@@ -14,6 +14,10 @@
 #define ENGINE_MAX_TRIANGLES_PER_SPRITE 64
 #endif
 
+#ifndef ENGINE_SPRITE3D_PSRAM_DEFAULT
+#define ENGINE_SPRITE3D_PSRAM_DEFAULT true
+#endif
+
 typedef enum
 {
     SPRITE_HUMANOID = 0,
@@ -46,7 +50,7 @@ private:
                          float &out_x, float &out_y, float &out_z) const;
 
 public:
-    Sprite3D(bool psramAllowed = true);
+    Sprite3D(bool psramAllowed = ENGINE_SPRITE3D_PSRAM_DEFAULT);
     ~Sprite3D();
 
     Sprite3D(const Sprite3D &) = delete;

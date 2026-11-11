@@ -15,8 +15,10 @@ if(PICOCALC_ESP32_P4)
     )
     target_link_libraries(usermod_picoware_lcd INTERFACE
         idf::esp_driver_gpio
+        idf::esp_driver_ppa
         idf::esp_driver_spi
         idf::esp_rom
+        idf::heap
         idf::hal
         idf::log
         idf::soc

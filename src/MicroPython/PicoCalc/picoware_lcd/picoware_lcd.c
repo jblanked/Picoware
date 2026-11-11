@@ -2,13 +2,21 @@
  * Picoware LCD C Library
  * Copyright © 2025 JBlanked
  *
- * Uses PSRAM for framebuffer storage instead of static RAM
+ * Uses a board-specific framebuffer format: RGB565 on ESP32-P4, RGB332 elsewhere.
  */
 #include "picoware_lcd.h"
 #include "../picoware_psram/picoware_psram_shared.h"
 #include "py/runtime.h"
 
 #include "../../log/log_mp.h"
+
+#if defined(PICOCALC_ESP32_P4)
+#include "driver/ppa.h"
+#include "esp_err.h"
+#include "esp_attr.h"
+#include "esp_heap_caps.h"
+#include "esp_log.h"
+#endif
 
 #if defined(PICOCALC_ESP32_P4)
 #define PSRAM_FRAMEBUFFER_FILL_CHUNK_SIZE 8192
@@ -21,11 +29,19 @@
 // Module state
 static bool module_initialized = false;
 
-// Line buffer for batch operations (reusable)
-static uint8_t line_buffer[DISPLAY_WIDTH] __attribute__((aligned(4)));
+#if defined(PICOCALC_ESP32_P4)
+typedef uint16_t lcd_pixel_t;
+#else
+typedef uint8_t lcd_pixel_t;
+#endif
 
-#define LCD_MODE_PSRAM 0 // PSRAM framebuffer with RGB332 palette
-#define LCD_MODE_HEAP 1  // Heap RAM framebuffer with RGB332 (converted to RGB565 on swap)
+#define LCD_PIXEL_BYTES (sizeof(lcd_pixel_t))
+
+// Line buffer for batch operations (reusable)
+static lcd_pixel_t line_buffer[DISPLAY_WIDTH] __attribute__((aligned(4)));
+
+#define LCD_MODE_PSRAM 0
+#define LCD_MODE_HEAP 1
 
 #if defined(PICOCALC_ESP32_P4)
 static uint8_t lcd_mode = LCD_MODE_HEAP;
@@ -34,14 +50,25 @@ static uint8_t lcd_mode = LCD_MODE_PSRAM;
 #endif
 
 // Heap mode state
-static uint8_t *heap_framebuffer = NULL;
+static lcd_pixel_t *heap_framebuffer = NULL;
 static bool heap_framebuffer_allocated = false;
 #define HEAP_BUFFER_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT)
+#define HEAP_FRAMEBUFFER_BYTES ((size_t)HEAP_BUFFER_SIZE * LCD_PIXEL_BYTES)
+static size_t heap_framebuffer_alloc_size;
+#if defined(PICOCALC_ESP32_P4)
+#define PPA_OUTPUT_ALIGNMENT 64 // ESP-IDF 5.5 P4 cache-line alignment for PPA buffers
+// The P4 system PSRAM is memory-mapped and accessible to the PPA.
+static lcd_pixel_t p4_heap_framebuffer[HEAP_BUFFER_SIZE] EXT_RAM_BSS_ATTR
+    __attribute__((aligned(PPA_OUTPUT_ALIGNMENT)));
+#endif
 
 static uint16_t palette[256] __attribute__((aligned(4)));
 static uint16_t lcd_line_buffer[DISPLAY_WIDTH * LCD_CHUNK_LINES] __attribute__((aligned(4)));
 #if defined(PICOCALC_ESP32_P4)
-static uint8_t psram_lcd_chunk[DISPLAY_WIDTH * LCD_CHUNK_LINES] __attribute__((aligned(4)));
+static const char *TAG = "picocalc-lcd";
+static ppa_client_handle_t ppa_fill_client;
+static ppa_client_handle_t ppa_blend_client;
+static bool ppa_initialized;
 #endif
 
 // ---------------------------------------------------------------------------
@@ -58,28 +85,137 @@ static uint16_t lcd_color332_to_565(uint8_t r, uint8_t g, uint8_t b)
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 }
 
+static inline lcd_pixel_t rgb565_to_lcd_pixel(uint16_t color)
+{
+#if defined(PICOCALC_ESP32_P4)
+    return color;
+#else
+    return color565_to_332(color);
+#endif
+}
+
+static inline lcd_pixel_t rgb332_to_lcd_pixel(uint8_t pixel_index)
+{
+#if defined(PICOCALC_ESP32_P4)
+    return palette[pixel_index];
+#else
+    return pixel_index;
+#endif
+}
+
+static inline uint16_t lcd_pixel_to_rgb565(lcd_pixel_t pixel)
+{
+#if defined(PICOCALC_ESP32_P4)
+    return pixel;
+#else
+    return palette[pixel];
+#endif
+}
+
+static inline uint32_t psram_framebuffer_pixel_addr(int x, int y)
+{
+    return PSRAM_FRAMEBUFFER_ADDR + (uint32_t)y * PSRAM_ROW_SIZE + (uint32_t)x * LCD_PIXEL_BYTES;
+}
+
+static void psram_write_pixel(int x, int y, lcd_pixel_t pixel)
+{
+    psram_qspi_write(&psram_instance, psram_framebuffer_pixel_addr(x, y),
+                     (const uint8_t *)&pixel, LCD_PIXEL_BYTES);
+}
+
+static void psram_write_span_to(psram_qspi_inst_t *psram, int x, int y,
+                                const lcd_pixel_t *pixels, size_t count)
+{
+    if (psram == NULL || count == 0)
+    {
+        return;
+    }
+
+    uint32_t addr = psram_framebuffer_pixel_addr(x, y);
+    const uint8_t *source = (const uint8_t *)pixels;
+    size_t remaining = count * LCD_PIXEL_BYTES;
+    size_t offset = 0;
+    while (remaining > 0)
+    {
+        size_t chunk_size = remaining > PSRAM_CHUNK_SIZE ? PSRAM_CHUNK_SIZE : remaining;
+        psram_qspi_write(psram, addr + offset, source + offset, chunk_size);
+        offset += chunk_size;
+        remaining -= chunk_size;
+    }
+}
+
+static void psram_write_span(int x, int y, const lcd_pixel_t *pixels, size_t count)
+{
+    psram_write_span_to(&psram_instance, x, y, pixels, count);
+}
+
+static void psram_read_span(int x, int y, lcd_pixel_t *pixels, size_t count)
+{
+    if (count == 0)
+    {
+        return;
+    }
+
+    uint32_t addr = psram_framebuffer_pixel_addr(x, y);
+    uint8_t *destination = (uint8_t *)pixels;
+    size_t remaining = count * LCD_PIXEL_BYTES;
+    size_t offset = 0;
+    while (remaining > 0)
+    {
+        size_t chunk_size = remaining > PSRAM_CHUNK_SIZE ? PSRAM_CHUNK_SIZE : remaining;
+        psram_qspi_read(&psram_instance, addr + offset, destination + offset, chunk_size);
+        offset += chunk_size;
+        remaining -= chunk_size;
+    }
+}
+
+static void write_framebuffer_pixel(int x, int y, lcd_pixel_t pixel)
+{
+    if (x < 0 || x >= DISPLAY_WIDTH || y < 0 || y >= DISPLAY_HEIGHT)
+    {
+        return;
+    }
+    if (lcd_mode == LCD_MODE_PSRAM)
+    {
+        psram_write_pixel(x, y, pixel);
+    }
+    else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
+    {
+        heap_framebuffer[(size_t)y * DISPLAY_WIDTH + x] = pixel;
+    }
+}
+
 void picoware_write_pixel_fb(psram_qspi_inst_t *psram, int x, int y, uint8_t color_index)
 {
     if (lcd_mode == LCD_MODE_PSRAM)
     {
-        if (x >= 0 && x < DISPLAY_WIDTH && y >= 0 && y < DISPLAY_HEIGHT)
+        if (psram != NULL && x >= 0 && x < DISPLAY_WIDTH && y >= 0 && y < DISPLAY_HEIGHT)
         {
-            uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (y * PSRAM_ROW_SIZE) + x;
-            psram_qspi_write8(psram, addr, color_index);
+            lcd_pixel_t pixel = rgb332_to_lcd_pixel(color_index);
+            psram_qspi_write(psram, psram_framebuffer_pixel_addr(x, y),
+                             (const uint8_t *)&pixel, LCD_PIXEL_BYTES);
         }
     }
     else if (lcd_mode == LCD_MODE_HEAP)
     {
         if (heap_framebuffer != NULL && x >= 0 && x < DISPLAY_WIDTH && y >= 0 && y < DISPLAY_HEIGHT)
         {
-            heap_framebuffer[y * DISPLAY_WIDTH + x] = color_index;
+            heap_framebuffer[(size_t)y * DISPLAY_WIDTH + x] = rgb332_to_lcd_pixel(color_index);
         }
     }
 }
 
 void picoware_write_buffer_fb_16(psram_qspi_inst_t *psram, int x, int y, int width, int height, const uint16_t *buffer)
 {
-    if (!buffer)
+    if (!buffer || width <= 0 || height <= 0)
+        return;
+
+    int src_x = x < 0 ? -x : 0;
+    int dst_x = x < 0 ? 0 : x;
+    int copy_width = width - src_x;
+    if (dst_x + copy_width > DISPLAY_WIDTH)
+        copy_width = DISPLAY_WIDTH - dst_x;
+    if (copy_width <= 0)
         return;
 
     for (int row = 0; row < height; row++)
@@ -88,20 +224,25 @@ void picoware_write_buffer_fb_16(psram_qspi_inst_t *psram, int x, int y, int wid
         if (fb_y < 0 || fb_y >= DISPLAY_HEIGHT)
             continue;
 
-        for (int col = 0; col < width; col++)
+        const uint16_t *source = &buffer[(size_t)row * width + src_x];
+        for (int col = 0; col < copy_width; col++)
         {
-            int fb_x = x + col;
-            if (fb_x < 0 || fb_x >= DISPLAY_WIDTH)
-                continue;
+            line_buffer[col] = rgb565_to_lcd_pixel(source[col]);
+        }
 
-            uint16_t rgb565 = buffer[row * width + col];
-            uint8_t rgb332 = color565_to_332(rgb565);
-            picoware_write_pixel_fb(psram, fb_x, fb_y, rgb332);
+        if (lcd_mode == LCD_MODE_PSRAM)
+        {
+            psram_write_span_to(psram, dst_x, fb_y, line_buffer, (size_t)copy_width);
+        }
+        else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
+        {
+            memcpy(&heap_framebuffer[(size_t)fb_y * DISPLAY_WIDTH + dst_x], line_buffer,
+                   (size_t)copy_width * LCD_PIXEL_BYTES);
         }
     }
 }
 
-static inline void psram_write_hline(int x, int y, int length, uint8_t color_index)
+static inline void psram_write_hline(int x, int y, int length, lcd_pixel_t pixel)
 {
     if (y < 0 || y >= DISPLAY_HEIGHT || length <= 0)
         return;
@@ -118,20 +259,18 @@ static inline void psram_write_hline(int x, int y, int length, uint8_t color_ind
     if (length <= 0)
         return;
 
-    uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (y * PSRAM_ROW_SIZE) + x;
-    memset(line_buffer, color_index, length);
-
-    uint32_t remaining = length, offset = 0;
-    while (remaining > 0)
+#if defined(PICOCALC_ESP32_P4)
+    for (int i = 0; i < length; i++)
     {
-        uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
-        psram_qspi_write(&psram_instance, addr + offset, line_buffer + offset, chunk_size);
-        offset += chunk_size;
-        remaining -= chunk_size;
+        line_buffer[i] = pixel;
     }
+#else
+    memset(line_buffer, pixel, length);
+#endif
+    psram_write_span(x, y, line_buffer, (size_t)length);
 }
 
-static void heap_write_hline(int x, int y, int length, uint8_t color_index)
+static void heap_write_hline(int x, int y, int length, lcd_pixel_t pixel)
 {
     if (y < 0 || y >= DISPLAY_HEIGHT || length <= 0 || heap_framebuffer == NULL)
         return;
@@ -148,17 +287,32 @@ static void heap_write_hline(int x, int y, int length, uint8_t color_index)
     if (length <= 0)
         return;
 
-    memset(&heap_framebuffer[y * DISPLAY_WIDTH + x], color_index, length);
+#if defined(PICOCALC_ESP32_P4)
+    lcd_pixel_t *destination = &heap_framebuffer[(size_t)y * DISPLAY_WIDTH + x];
+    for (int i = 0; i < length; i++)
+    {
+        destination[i] = pixel;
+    }
+#else
+    memset(&heap_framebuffer[(size_t)y * DISPLAY_WIDTH + x], pixel, length);
+#endif
 }
 
 static bool allocate_heap_framebuffer(void)
 {
     if (heap_framebuffer == NULL)
     {
-        heap_framebuffer = (uint8_t *)m_tracked_calloc(1, HEAP_BUFFER_SIZE);
+#if defined(PICOCALC_ESP32_P4)
+        heap_framebuffer = p4_heap_framebuffer;
+        heap_framebuffer_alloc_size = HEAP_FRAMEBUFFER_BYTES;
+        memset(heap_framebuffer, 0, HEAP_FRAMEBUFFER_BYTES);
+#else
+        heap_framebuffer = (lcd_pixel_t *)m_tracked_calloc(1, HEAP_FRAMEBUFFER_BYTES);
         if (heap_framebuffer == NULL)
             return false;
-        memset(heap_framebuffer, 0, HEAP_BUFFER_SIZE);
+        heap_framebuffer_alloc_size = HEAP_FRAMEBUFFER_BYTES;
+        memset(heap_framebuffer, 0, HEAP_FRAMEBUFFER_BYTES);
+#endif
         heap_framebuffer_allocated = true;
     }
     return true;
@@ -168,15 +322,22 @@ static void free_heap_framebuffer(void)
 {
     if (heap_framebuffer != NULL && heap_framebuffer_allocated)
     {
+#if !defined(PICOCALC_ESP32_P4)
         m_tracked_free(heap_framebuffer);
+#endif
         heap_framebuffer = NULL;
+        heap_framebuffer_alloc_size = 0;
         heap_framebuffer_allocated = false;
     }
 }
 
-static void clear_psram_framebuffer(uint8_t color_index)
+static void clear_psram_framebuffer(lcd_pixel_t pixel)
 {
-    uint32_t fill_value = ((uint32_t)color_index << 24) | ((uint32_t)color_index << 16) | ((uint32_t)color_index << 8) | color_index;
+#if defined(PICOCALC_ESP32_P4)
+    uint32_t fill_value = ((uint32_t)pixel << 16) | pixel;
+#else
+    uint32_t fill_value = ((uint32_t)pixel << 24) | ((uint32_t)pixel << 16) | ((uint32_t)pixel << 8) | pixel;
+#endif
 
     uint32_t word_count = PSRAM_BUFFER_SIZE / 4;
     static uint32_t fill32_buffer[PSRAM_FRAMEBUFFER_FILL_CHUNK_SIZE / 4] __attribute__((aligned(4)));
@@ -218,6 +379,200 @@ static bool picoware_psram_ensure_initialized(void)
     return psram_initialized;
 }
 
+#if defined(PICOCALC_ESP32_P4)
+static void picoware_ppa_init(void)
+{
+    if (ppa_initialized)
+    {
+        return;
+    }
+    ppa_initialized = true;
+
+    ppa_client_config_t client_config = {
+        .oper_type = PPA_OPERATION_FILL,
+        .max_pending_trans_num = 1,
+        .data_burst_length = PPA_DATA_BURST_LENGTH_128,
+    };
+    esp_err_t err = ppa_register_client(&client_config, &ppa_fill_client);
+    if (err != ESP_OK)
+    {
+        ESP_LOGW(TAG, "PPA fill client registration failed: %s", esp_err_to_name(err));
+    }
+
+    client_config.oper_type = PPA_OPERATION_BLEND;
+    err = ppa_register_client(&client_config, &ppa_blend_client);
+    if (err != ESP_OK)
+    {
+        ESP_LOGW(TAG, "PPA blend client registration failed: %s", esp_err_to_name(err));
+    }
+}
+
+static void picoware_ppa_deinit(void)
+{
+    if (ppa_blend_client != NULL)
+    {
+        esp_err_t err = ppa_unregister_client(ppa_blend_client);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "PPA blend client removal failed: %s", esp_err_to_name(err));
+        }
+        else
+        {
+            ppa_blend_client = NULL;
+        }
+    }
+
+    if (ppa_fill_client != NULL)
+    {
+        esp_err_t err = ppa_unregister_client(ppa_fill_client);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "PPA fill client removal failed: %s", esp_err_to_name(err));
+        }
+        else
+        {
+            ppa_fill_client = NULL;
+        }
+    }
+    ppa_initialized = false;
+}
+
+static bool ppa_fill_heap_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color)
+{
+    if (ppa_fill_client == NULL || heap_framebuffer == NULL || width == 0 || height == 0)
+    {
+        return false;
+    }
+
+    uint8_t r5 = (color >> 11) & 0x1F;
+    uint8_t g6 = (color >> 5) & 0x3F;
+    uint8_t b5 = color & 0x1F;
+    ppa_fill_oper_config_t config = {
+        .out = {
+            .buffer = heap_framebuffer,
+            .buffer_size = (uint32_t)heap_framebuffer_alloc_size,
+            .pic_w = DISPLAY_WIDTH,
+            .pic_h = DISPLAY_HEIGHT,
+            .block_offset_x = x,
+            .block_offset_y = y,
+            .fill_cm = PPA_FILL_COLOR_MODE_RGB565,
+        },
+        .fill_block_w = width,
+        .fill_block_h = height,
+        .fill_argb_color = {
+            .a = 0xFF,
+            .r = (uint8_t)((r5 << 3) | (r5 >> 2)),
+            .g = (uint8_t)((g6 << 2) | (g6 >> 4)),
+            .b = (uint8_t)((b5 << 3) | (b5 >> 2)),
+        },
+        .mode = PPA_TRANS_MODE_BLOCKING,
+    };
+
+    esp_err_t err = ppa_do_fill(ppa_fill_client, &config);
+    if (err != ESP_OK)
+    {
+        ESP_LOGW(TAG, "PPA fill failed; using CPU fill: %s", esp_err_to_name(err));
+        return false;
+    }
+    return true;
+}
+
+static bool ppa_blend_masked_rgb332(int dst_x, int dst_y, int src_x, int src_y,
+                                    uint16_t width, uint16_t height, uint16_t src_width,
+                                    const uint8_t *buffer, const uint8_t *mask)
+{
+    if (ppa_blend_client == NULL || heap_framebuffer == NULL || buffer == NULL || mask == NULL)
+    {
+        return false;
+    }
+
+    size_t pixel_count = (size_t)width * height;
+    if (pixel_count > SIZE_MAX / sizeof(color_pixel_argb8888_data_t))
+    {
+        ESP_LOGW(TAG, "PPA masked image is too large; using CPU blend");
+        return false;
+    }
+
+    size_t scratch_size = pixel_count * sizeof(color_pixel_argb8888_data_t);
+    color_pixel_argb8888_data_t *foreground =
+        (color_pixel_argb8888_data_t *)heap_caps_malloc(scratch_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+    if (foreground == NULL)
+    {
+        foreground = (color_pixel_argb8888_data_t *)heap_caps_malloc(
+            scratch_size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
+    }
+    if (foreground == NULL)
+    {
+        ESP_LOGW(TAG, "PPA masked image scratch allocation failed; using CPU blend");
+        return false;
+    }
+
+    for (uint16_t row = 0; row < height; row++)
+    {
+        for (uint16_t col = 0; col < width; col++)
+        {
+            size_t source_index = (size_t)(src_y + row) * src_width + src_x + col;
+            color_pixel_argb8888_data_t *pixel = &foreground[(size_t)row * width + col];
+            if (mask[source_index >> 3] & (0x80u >> (source_index & 7)))
+            {
+                uint16_t rgb565 = palette[buffer[source_index]];
+                uint8_t r5 = (rgb565 >> 11) & 0x1F;
+                uint8_t g6 = (rgb565 >> 5) & 0x3F;
+                uint8_t b5 = rgb565 & 0x1F;
+                pixel->a = 0xFF;
+                pixel->r = (uint8_t)((r5 << 3) | (r5 >> 2));
+                pixel->g = (uint8_t)((g6 << 2) | (g6 >> 4));
+                pixel->b = (uint8_t)((b5 << 3) | (b5 >> 2));
+            }
+            else
+            {
+                pixel->val = 0;
+            }
+        }
+    }
+
+    ppa_blend_oper_config_t config = {
+        .in_bg = {
+            .buffer = heap_framebuffer,
+            .pic_w = DISPLAY_WIDTH,
+            .pic_h = DISPLAY_HEIGHT,
+            .block_w = width,
+            .block_h = height,
+            .block_offset_x = dst_x,
+            .block_offset_y = dst_y,
+            .blend_cm = PPA_BLEND_COLOR_MODE_RGB565,
+        },
+        .in_fg = {
+            .buffer = foreground,
+            .pic_w = width,
+            .pic_h = height,
+            .block_w = width,
+            .block_h = height,
+            .blend_cm = PPA_BLEND_COLOR_MODE_ARGB8888,
+        },
+        .out = {
+            .buffer = heap_framebuffer,
+            .buffer_size = (uint32_t)heap_framebuffer_alloc_size,
+            .pic_w = DISPLAY_WIDTH,
+            .pic_h = DISPLAY_HEIGHT,
+            .block_offset_x = dst_x,
+            .block_offset_y = dst_y,
+            .blend_cm = PPA_BLEND_COLOR_MODE_RGB565,
+        },
+        .mode = PPA_TRANS_MODE_BLOCKING,
+    };
+
+    esp_err_t err = ppa_do_blend(ppa_blend_client, &config);
+    heap_caps_free(foreground);
+    if (err != ESP_OK)
+    {
+        ESP_LOGW(TAG, "PPA masked blend failed; using CPU blend: %s", esp_err_to_name(err));
+        return false;
+    }
+    return true;
+}
+#endif
+
 // ---------------------------------------------------------------------------
 // Public API – matches picoware_lcd.h
 // ---------------------------------------------------------------------------
@@ -247,6 +602,10 @@ void picocalc_lcd_init(void)
         module_initialized = true;
     }
 
+#if defined(PICOCALC_ESP32_P4)
+    picoware_ppa_init();
+#endif
+
     free_heap_framebuffer();
 
     if (lcd_mode == LCD_MODE_PSRAM)
@@ -263,6 +622,9 @@ void lcd_deinit(void)
 {
     if (module_initialized)
     {
+#if defined(PICOCALC_ESP32_P4)
+        picoware_ppa_deinit();
+#endif
         free_heap_framebuffer();
 
         if (psram_initialized)
@@ -289,6 +651,12 @@ void picoware_lcd_swap_region(uint16_t x, uint16_t y, uint16_t width, uint16_t h
     }
 
 #if defined(PICOCALC_ESP32_P4)
+    if ((lcd_mode == LCD_MODE_HEAP && heap_framebuffer == NULL) ||
+        (lcd_mode != LCD_MODE_HEAP && lcd_mode != LCD_MODE_PSRAM))
+    {
+        return;
+    }
+
     const bool full_frame = x == 0 && y == 0 &&
                             width == DISPLAY_WIDTH && height == DISPLAY_HEIGHT &&
                             (lcd_mode == LCD_MODE_PSRAM || heap_framebuffer != NULL);
@@ -297,63 +665,65 @@ void picoware_lcd_swap_region(uint16_t x, uint16_t y, uint16_t width, uint16_t h
         lcd_acquire();
         lcd_set_window(0, 0, DISPLAY_WIDTH - 1, DISPLAY_HEIGHT - 1);
     }
-#endif
 
+    for (uint16_t row = 0; row < height; row += LCD_CHUNK_LINES)
+    {
+        uint16_t lines_to_send = (row + LCD_CHUNK_LINES > height) ? (height - row) : LCD_CHUNK_LINES;
+        for (uint16_t line = 0; line < lines_to_send; line++)
+        {
+            lcd_pixel_t *destination = &lcd_line_buffer[(size_t)line * width];
+            uint16_t source_y = y + row + line;
+            if (lcd_mode == LCD_MODE_PSRAM)
+            {
+                psram_read_span(x, source_y, destination, width);
+            }
+            else
+            {
+                memcpy(destination, &heap_framebuffer[(size_t)source_y * DISPLAY_WIDTH + x],
+                       (size_t)width * LCD_PIXEL_BYTES);
+            }
+        }
+
+        if (full_frame)
+        {
+            lcd_write16_buf(lcd_line_buffer, (size_t)width * lines_to_send);
+        }
+        else
+        {
+            lcd_blit(lcd_line_buffer, x, y + row, width, lines_to_send);
+        }
+    }
+    if (full_frame)
+    {
+        lcd_release();
+    }
+    return;
+#else
     if (lcd_mode == LCD_MODE_PSRAM)
     {
         for (uint16_t row = 0; row < height; row += LCD_CHUNK_LINES)
         {
             uint16_t lines_to_send = (row + LCD_CHUNK_LINES > height) ? (height - row) : LCD_CHUNK_LINES;
-
-#if defined(PICOCALC_ESP32_P4)
-            if (full_frame)
+            uint8_t psram_row_buffer[DISPLAY_WIDTH];
+            for (uint16_t line = 0; line < lines_to_send; line++)
             {
-                size_t pixel_count = (size_t)width * lines_to_send;
-                uint32_t psram_addr = PSRAM_FRAMEBUFFER_ADDR +
-                                      ((y + row) * PSRAM_ROW_SIZE) + x;
-                psram_qspi_read(&psram_instance, psram_addr, psram_lcd_chunk, pixel_count);
-                for (size_t pixel = 0; pixel < pixel_count; ++pixel)
+                uint32_t psram_addr = PSRAM_FRAMEBUFFER_ADDR + ((y + row + line) * PSRAM_ROW_SIZE) + x;
+                uint32_t remaining = width, offset = 0;
+                while (remaining > 0)
                 {
-                    lcd_line_buffer[pixel] = palette[psram_lcd_chunk[pixel]];
+                    uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+                    psram_qspi_read(&psram_instance, psram_addr + offset, psram_row_buffer + offset, chunk_size);
+                    offset += chunk_size;
+                    remaining -= chunk_size;
+                }
+
+                for (uint16_t col = 0; col < width; col++)
+                {
+                    size_t buf_index = (size_t)line * width + col;
+                    lcd_line_buffer[buf_index] = palette[psram_row_buffer[col]];
                 }
             }
-            else
-#endif
-            {
-                uint8_t psram_row_buffer[DISPLAY_WIDTH];
-                for (uint16_t line = 0; line < lines_to_send; line++)
-                {
-                    uint32_t psram_addr = PSRAM_FRAMEBUFFER_ADDR + ((y + row + line) * PSRAM_ROW_SIZE) + x;
-                    uint32_t remaining = width, offset = 0;
-                    while (remaining > 0)
-                    {
-                        uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
-                        psram_qspi_read(&psram_instance, psram_addr + offset, psram_row_buffer + offset, chunk_size);
-                        offset += chunk_size;
-                        remaining -= chunk_size;
-                    }
-
-                    for (uint16_t col = 0; col < width; col++)
-                    {
-                        size_t buf_index = line * width + col;
-                        uint8_t pal_index = psram_row_buffer[col];
-                        lcd_line_buffer[buf_index] = palette[pal_index];
-                    }
-                }
-            }
-
-#if defined(PICOCALC_ESP32_P4)
-            if (full_frame)
-            {
-                lcd_write16_buf(lcd_line_buffer, (size_t)width * lines_to_send);
-            }
-            else
-            {
-                lcd_blit(lcd_line_buffer, x, y + row, width, lines_to_send);
-            }
-#else
             lcd_blit(lcd_line_buffer, x, y + row, width, lines_to_send);
-#endif
         }
     }
     else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
@@ -361,37 +731,17 @@ void picoware_lcd_swap_region(uint16_t x, uint16_t y, uint16_t width, uint16_t h
         for (uint16_t row = 0; row < height; row += LCD_CHUNK_LINES)
         {
             uint16_t lines_to_send = (row + LCD_CHUNK_LINES > height) ? (height - row) : LCD_CHUNK_LINES;
-
             for (uint16_t line = 0; line < lines_to_send; line++)
             {
-                uint8_t *heap_row = &heap_framebuffer[(y + row + line) * DISPLAY_WIDTH + x];
+                uint8_t *heap_row = (uint8_t *)&heap_framebuffer[(size_t)(y + row + line) * DISPLAY_WIDTH + x];
                 for (uint16_t col = 0; col < width; col++)
                 {
-                    size_t buf_index = line * width + col;
-                    uint8_t pal_index = heap_row[col];
-                    lcd_line_buffer[buf_index] = palette[pal_index];
+                    size_t buf_index = (size_t)line * width + col;
+                    lcd_line_buffer[buf_index] = palette[heap_row[col]];
                 }
             }
-
-#if defined(PICOCALC_ESP32_P4)
-            if (full_frame)
-            {
-                lcd_write16_buf(lcd_line_buffer, (size_t)width * lines_to_send);
-            }
-            else
-            {
-                lcd_blit(lcd_line_buffer, x, y + row, width, lines_to_send);
-            }
-#else
             lcd_blit(lcd_line_buffer, x, y + row, width, lines_to_send);
-#endif
         }
-    }
-
-#if defined(PICOCALC_ESP32_P4)
-    if (full_frame)
-    {
-        lcd_release();
     }
 #endif
 }
@@ -405,27 +755,34 @@ void lcd_draw_pixel(uint16_t x, uint16_t y, uint16_t color)
     if (x >= DISPLAY_WIDTH || y >= DISPLAY_HEIGHT)
         return;
 
-    uint8_t color_index = color565_to_332(color);
-
-    if (lcd_mode == LCD_MODE_PSRAM)
-    {
-        uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (y * PSRAM_ROW_SIZE) + x;
-        psram_qspi_write8(&psram_instance, addr, color_index);
-    }
-    else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
-    {
-        heap_framebuffer[y * DISPLAY_WIDTH + x] = color_index;
-    }
+    write_framebuffer_pixel(x, y, rgb565_to_lcd_pixel(color));
 }
 
 void lcd_fill(uint16_t color)
 {
-    uint8_t color_index = color565_to_332(color);
+    lcd_pixel_t pixel = rgb565_to_lcd_pixel(color);
 
     if (lcd_mode == LCD_MODE_PSRAM)
-        clear_psram_framebuffer(color_index);
+    {
+        clear_psram_framebuffer(pixel);
+    }
     else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
-        memset(heap_framebuffer, color_index, HEAP_BUFFER_SIZE);
+    {
+#if defined(PICOCALC_ESP32_P4)
+        if (ppa_fill_heap_rect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, color))
+        {
+            return;
+        }
+        uint32_t fill_value = ((uint32_t)color << 16) | color;
+        uint32_t *framebuffer_words = (uint32_t *)heap_framebuffer;
+        for (size_t i = 0; i < HEAP_FRAMEBUFFER_BYTES / sizeof(uint32_t); i++)
+        {
+            framebuffer_words[i] = fill_value;
+        }
+#else
+        memset(heap_framebuffer, pixel, HEAP_FRAMEBUFFER_BYTES);
+#endif
+    }
 }
 
 void picocalc_lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t *buffer)
@@ -452,16 +809,11 @@ void picocalc_lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, 
         for (int row = 0; row < copy_height; row++)
         {
             int src_row_start = (src_y + row) * (int)width + src_x;
-            uint32_t psram_addr = PSRAM_FRAMEBUFFER_ADDR + ((dst_y + row) * PSRAM_ROW_SIZE) + dst_x;
-            uint32_t remaining = copy_width, offset = 0;
-            while (remaining > 0)
+            for (int col = 0; col < copy_width; col++)
             {
-                uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
-                psram_qspi_write(&psram_instance, psram_addr + offset,
-                                 buffer + src_row_start + offset, chunk_size);
-                offset += chunk_size;
-                remaining -= chunk_size;
+                line_buffer[col] = rgb332_to_lcd_pixel(buffer[src_row_start + col]);
             }
+            psram_write_span(dst_x, dst_y + row, line_buffer, (size_t)copy_width);
         }
     }
     else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
@@ -469,8 +821,11 @@ void picocalc_lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, 
         for (int row = 0; row < copy_height; row++)
         {
             int src_row_start = (src_y + row) * (int)width + src_x;
-            uint8_t *dst_row = &heap_framebuffer[(dst_y + row) * DISPLAY_WIDTH + dst_x];
-            memcpy(dst_row, buffer + src_row_start, copy_width);
+            lcd_pixel_t *dst_row = &heap_framebuffer[(size_t)(dst_y + row) * DISPLAY_WIDTH + dst_x];
+            for (int col = 0; col < copy_width; col++)
+            {
+                dst_row[col] = rgb332_to_lcd_pixel(buffer[src_row_start + col]);
+            }
         }
     }
 }
@@ -507,7 +862,6 @@ void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
         return;
     if (src_w == dst_w && src_h == dst_h)
     {
-        // lcd_blit_mask_bmp(dst_x, dst_y, dst_w, dst_h, buffer, mask);
         const int src_x = dst_x < 0 ? -(int32_t)dst_x : 0;
         const int src_y = dst_y < 0 ? -(int32_t)dst_y : 0;
         const int dxx = dst_x < 0 ? 0 : dst_x;
@@ -520,6 +874,18 @@ void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
             copy_height = DISPLAY_HEIGHT - dyy;
         if (copy_width <= 0 || copy_height <= 0)
             return;
+        if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer == NULL)
+            return;
+
+#if defined(PICOCALC_ESP32_P4)
+        if (lcd_mode == LCD_MODE_HEAP &&
+            ppa_blend_masked_rgb332(dxx, dyy, src_x, src_y, copy_width, copy_height,
+                                    src_w, buffer, mask))
+        {
+            return;
+        }
+#endif
+
         for (int row = 0; row < copy_height; ++row)
         {
             const uint32_t src_row = (uint32_t)(src_y + row) * src_w + src_x;
@@ -534,24 +900,22 @@ void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
                 if (start == col)
                     continue;
                 const uint8_t *source = buffer + src_row + start;
-                const uint32_t length = col - start;
-                if (lcd_mode == LCD_MODE_HEAP)
-                    memcpy(heap_framebuffer + (uint32_t)(dyy + row) * DISPLAY_WIDTH + dxx + start, source, length);
-                else
+                const size_t length = (size_t)(col - start);
+                for (size_t i = 0; i < length; i++)
                 {
-                    const uint32_t address = PSRAM_FRAMEBUFFER_ADDR + (uint32_t)(dyy + row) * PSRAM_ROW_SIZE + dxx + start;
-                    for (uint32_t offset = 0; offset < length;)
-                    {
-                        const uint32_t chunk = length - offset > PSRAM_CHUNK_SIZE ? PSRAM_CHUNK_SIZE : length - offset;
-                        psram_qspi_write(&psram_instance, address + offset, source + offset, chunk);
-                        offset += chunk;
-                    }
+                    line_buffer[i] = rgb332_to_lcd_pixel(source[i]);
                 }
+                if (lcd_mode == LCD_MODE_HEAP)
+                    memcpy(&heap_framebuffer[(size_t)(dyy + row) * DISPLAY_WIDTH + dxx + start],
+                           line_buffer, length * LCD_PIXEL_BYTES);
+                else if (lcd_mode == LCD_MODE_PSRAM)
+                    psram_write_span(dxx + start, dyy + row, line_buffer, length);
             }
         }
         return;
     }
 
+    // Keep nearest-neighbor sampling for resized masked sprites.
     const int offset_x = dst_x < 0 ? -(int32_t)dst_x : 0;
     const int offset_y = dst_y < 0 ? -(int32_t)dst_y : 0;
     const int dxx = dst_x < 0 ? 0 : dst_x, dyy = dst_y < 0 ? 0 : dst_y;
@@ -571,19 +935,18 @@ void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
         uint32_t numerator = (uint32_t)offset_x * src_w;
         if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
         {
-            uint8_t *dst_row = heap_framebuffer + (uint32_t)fb_y * DISPLAY_WIDTH + dxx;
+            lcd_pixel_t *dst_row = &heap_framebuffer[(size_t)fb_y * DISPLAY_WIDTH + dxx];
             for (int dc = 0; dc < cw; ++dc)
             {
                 const uint32_t pixel = buf_row + numerator / dst_w;
                 numerator += src_w;
                 if (mask[pixel >> 3] & (0x80u >> (pixel & 7)))
-                    dst_row[dc] = buffer[pixel];
+                    dst_row[dc] = rgb332_to_lcd_pixel(buffer[pixel]);
             }
         }
         else if (lcd_mode == LCD_MODE_PSRAM)
         {
             // A bounded row buffer batches opaque spans without touching transparent pixels.
-            uint8_t span[DISPLAY_WIDTH];
             int start = 0, length = 0;
             for (int dc = 0; dc <= cw; ++dc)
             {
@@ -599,12 +962,11 @@ void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
                 {
                     if (!length)
                         start = dc;
-                    span[length++] = buffer[pixel];
+                    line_buffer[length++] = rgb332_to_lcd_pixel(buffer[pixel]);
                 }
                 if (length && (!opaque || length == PSRAM_CHUNK_SIZE))
                 {
-                    const uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (uint32_t)fb_y * PSRAM_ROW_SIZE + dxx + start;
-                    psram_qspi_write(&psram_instance, addr, span, length);
+                    psram_write_span(dxx + start, fb_y, line_buffer, (size_t)length);
                     length = 0;
                 }
             }
@@ -616,7 +978,7 @@ void lcd_blit_mask(int16_t dst_x, int16_t dst_y, uint16_t dst_w, uint16_t dst_h,
 
 void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color)
 {
-    uint8_t color_index = color565_to_332(color);
+    lcd_pixel_t pixel = rgb565_to_lcd_pixel(color);
     int ix1 = (int)x1, iy1 = (int)y1, ix2 = (int)x2, iy2 = (int)y2;
 
     // Fast path – horizontal line
@@ -629,9 +991,9 @@ void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t 
             ix2 = t;
         }
         if (lcd_mode == LCD_MODE_PSRAM)
-            psram_write_hline(ix1, iy1, ix2 - ix1 + 1, color_index);
+            psram_write_hline(ix1, iy1, ix2 - ix1 + 1, pixel);
         else
-            heap_write_hline(ix1, iy1, ix2 - ix1 + 1, color_index);
+            heap_write_hline(ix1, iy1, ix2 - ix1 + 1, pixel);
         return;
     }
 
@@ -645,15 +1007,7 @@ void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t 
     {
         if (ix1 >= 0 && ix1 < DISPLAY_WIDTH && iy1 >= 0 && iy1 < DISPLAY_HEIGHT)
         {
-            if (lcd_mode == LCD_MODE_PSRAM)
-            {
-                uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (iy1 * PSRAM_ROW_SIZE) + ix1;
-                psram_qspi_write8(&psram_instance, addr, color_index);
-            }
-            else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
-            {
-                heap_framebuffer[iy1 * DISPLAY_WIDTH + ix1] = color_index;
-            }
+            write_framebuffer_pixel(ix1, iy1, pixel);
         }
 
         if (ix1 == ix2 && iy1 == iy2)
@@ -702,28 +1056,25 @@ void lcd_fill_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint
     if (iw <= 0 || ih <= 0)
         return;
 
-    uint8_t color_index = color565_to_332(color);
+    lcd_pixel_t pixel = rgb565_to_lcd_pixel(color);
 
     if (lcd_mode == LCD_MODE_PSRAM)
     {
-        memset(line_buffer, color_index, iw);
         for (int py = iy; py < iy + ih; py++)
         {
-            uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + ix;
-            uint32_t remaining = iw, offset = 0;
-            while (remaining > 0)
-            {
-                uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
-                psram_qspi_write(&psram_instance, addr + offset, line_buffer + offset, chunk_size);
-                offset += chunk_size;
-                remaining -= chunk_size;
-            }
+            psram_write_hline(ix, py, iw, pixel);
         }
     }
     else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
     {
+#if defined(PICOCALC_ESP32_P4)
+        if (ppa_fill_heap_rect((uint16_t)ix, (uint16_t)iy, (uint16_t)iw, (uint16_t)ih, color))
+        {
+            return;
+        }
+#endif
         for (int py = iy; py < iy + ih; py++)
-            memset(&heap_framebuffer[py * DISPLAY_WIDTH + ix], color_index, iw);
+            heap_write_hline(ix, py, iw, pixel);
     }
 }
 
@@ -732,7 +1083,7 @@ void lcd_draw_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint
     if (radius == 0)
         return;
 
-    uint8_t color_index = color565_to_332(color);
+    lcd_pixel_t pixel = rgb565_to_lcd_pixel(color);
     int cx = (int)center_x, cy = (int)center_y, r = (int)radius;
     int xv = 0, yv = r, d = 3 - 2 * r;
 
@@ -753,11 +1104,7 @@ void lcd_draw_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint
             int px = pts[i][0], py = pts[i][1];
             if (px >= 0 && px < DISPLAY_WIDTH && py >= 0 && py < DISPLAY_HEIGHT)
             {
-                if (lcd_mode == LCD_MODE_PSRAM)
-                    psram_qspi_write8(&psram_instance,
-                                      PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + px, color_index);
-                else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
-                    heap_framebuffer[py * DISPLAY_WIDTH + px] = color_index;
+                write_framebuffer_pixel(px, py, pixel);
             }
         }
 
@@ -777,7 +1124,7 @@ void lcd_fill_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint
     if (radius == 0)
         return;
 
-    uint8_t color_index = color565_to_332(color);
+    lcd_pixel_t pixel = rgb565_to_lcd_pixel(color);
     int cx = (int)center_x, cy = (int)center_y, r = (int)radius;
     int xv = 0, yv = r, d = 3 - 2 * r;
 
@@ -785,17 +1132,17 @@ void lcd_fill_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint
     {
         if (lcd_mode == LCD_MODE_PSRAM)
         {
-            psram_write_hline(cx - xv, cy + yv, 2 * xv + 1, color_index);
-            psram_write_hline(cx - xv, cy - yv, 2 * xv + 1, color_index);
-            psram_write_hline(cx - yv, cy + xv, 2 * yv + 1, color_index);
-            psram_write_hline(cx - yv, cy - xv, 2 * yv + 1, color_index);
+            psram_write_hline(cx - xv, cy + yv, 2 * xv + 1, pixel);
+            psram_write_hline(cx - xv, cy - yv, 2 * xv + 1, pixel);
+            psram_write_hline(cx - yv, cy + xv, 2 * yv + 1, pixel);
+            psram_write_hline(cx - yv, cy - xv, 2 * yv + 1, pixel);
         }
         else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
         {
-            heap_write_hline(cx - xv, cy + yv, 2 * xv + 1, color_index);
-            heap_write_hline(cx - xv, cy - yv, 2 * xv + 1, color_index);
-            heap_write_hline(cx - yv, cy + xv, 2 * yv + 1, color_index);
-            heap_write_hline(cx - yv, cy - xv, 2 * yv + 1, color_index);
+            heap_write_hline(cx - xv, cy + yv, 2 * xv + 1, pixel);
+            heap_write_hline(cx - xv, cy - yv, 2 * xv + 1, pixel);
+            heap_write_hline(cx - yv, cy + xv, 2 * yv + 1, pixel);
+            heap_write_hline(cx - yv, cy - xv, 2 * yv + 1, pixel);
         }
 
         if (d < 0)
@@ -816,7 +1163,7 @@ void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
     float p2_x = (float)x2, p2_y = (float)y2;
     float p3_x = (float)x3, p3_y = (float)y3;
 
-    uint8_t color_index = color565_to_332(color);
+    lcd_pixel_t pixel = rgb565_to_lcd_pixel(color);
 
     // Sort vertices by Y (p1.y <= p2.y <= p3.y)
     if (p1_y > p2_y)
@@ -860,9 +1207,9 @@ void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
         int end_x = (int)(x_long > x_short ? x_long : x_short);
 
         if (lcd_mode == LCD_MODE_PSRAM)
-            psram_write_hline(start_x, scanY, end_x - start_x + 1, color_index);
+            psram_write_hline(start_x, scanY, end_x - start_x + 1, pixel);
         else
-            heap_write_hline(start_x, scanY, end_x - start_x + 1, color_index);
+            heap_write_hline(start_x, scanY, end_x - start_x + 1, pixel);
     }
 }
 
@@ -953,22 +1300,12 @@ void lcd_fill_triangle_alpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
 
         if (lcd_mode == LCD_MODE_PSRAM)
         {
-            uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (cur_y * PSRAM_ROW_SIZE) + ax;
-
-            // Read segment into line buffer
-            uint32_t remaining = seg_width, offset = 0;
-            while (remaining > 0)
-            {
-                uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
-                psram_qspi_read(&psram_instance, addr + offset, line_buffer + offset, chunk);
-                offset += chunk;
-                remaining -= chunk;
-            }
+            psram_read_span(ax, cur_y, line_buffer, (size_t)seg_width);
 
             // Alpha blend each pixel in place
             for (int j = 0; j < seg_width; j++)
             {
-                uint16_t dst_color = palette[line_buffer[j]];
+                uint16_t dst_color = lcd_pixel_to_rgb565(line_buffer[j]);
                 uint8_t dr = (dst_color >> 11) & 0x1F;
                 uint8_t dg = (dst_color >> 5) & 0x3F;
                 uint8_t db = dst_color & 0x1F;
@@ -978,26 +1315,16 @@ void lcd_fill_triangle_alpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
                 uint8_t bb = (uint8_t)((sb * alpha + db * inv_alpha) / 255);
 
                 uint16_t blended = ((uint16_t)br << 11) | ((uint16_t)bg << 5) | bb;
-                line_buffer[j] = color565_to_332(blended);
+                line_buffer[j] = rgb565_to_lcd_pixel(blended);
             }
-
-            // Write segment back
-            remaining = seg_width;
-            offset = 0;
-            while (remaining > 0)
-            {
-                uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
-                psram_qspi_write(&psram_instance, addr + offset, line_buffer + offset, chunk);
-                offset += chunk;
-                remaining -= chunk;
-            }
+            psram_write_span(ax, cur_y, line_buffer, (size_t)seg_width);
         }
         else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
         {
-            uint8_t *row = &heap_framebuffer[cur_y * DISPLAY_WIDTH + ax];
+            lcd_pixel_t *row = &heap_framebuffer[(size_t)cur_y * DISPLAY_WIDTH + ax];
             for (int j = 0; j < seg_width; j++)
             {
-                uint16_t dst_color = palette[row[j]];
+                uint16_t dst_color = lcd_pixel_to_rgb565(row[j]);
                 uint8_t dr = (dst_color >> 11) & 0x1F;
                 uint8_t dg = (dst_color >> 5) & 0x3F;
                 uint8_t db = dst_color & 0x1F;
@@ -1007,7 +1334,7 @@ void lcd_fill_triangle_alpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
                 uint8_t bb = (uint8_t)((sb * alpha + db * inv_alpha) / 255);
 
                 uint16_t blended = ((uint16_t)br << 11) | ((uint16_t)bg << 5) | bb;
-                row[j] = color565_to_332(blended);
+                row[j] = rgb565_to_lcd_pixel(blended);
             }
         }
     }
@@ -1026,7 +1353,7 @@ void lcd_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
     if (count < 2)
         return;
 
-    uint8_t color_index = color565_to_332(color);
+    lcd_pixel_t pixel = rgb565_to_lcd_pixel(color);
     int ix1 = (int)x[count - 1], iy1 = (int)y[count - 1];
 
     for (int i = 0; i < count; i++)
@@ -1039,9 +1366,9 @@ void lcd_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
             int ax = (ix1 < ix2) ? ix1 : ix2;
             int bx = (ix1 < ix2) ? ix2 : ix1;
             if (lcd_mode == LCD_MODE_PSRAM)
-                psram_write_hline(ax, iy1, bx - ax + 1, color_index);
+                psram_write_hline(ax, iy1, bx - ax + 1, pixel);
             else
-                heap_write_hline(ax, iy1, bx - ax + 1, color_index);
+                heap_write_hline(ax, iy1, bx - ax + 1, pixel);
         }
         else // Bresenham's line algorithm
         {
@@ -1054,11 +1381,7 @@ void lcd_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
             {
                 if (ix1 >= 0 && ix1 < DISPLAY_WIDTH && iy1 >= 0 && iy1 < DISPLAY_HEIGHT)
                 {
-                    if (lcd_mode == LCD_MODE_PSRAM)
-                        psram_qspi_write8(&psram_instance,
-                                          PSRAM_FRAMEBUFFER_ADDR + (iy1 * PSRAM_ROW_SIZE) + ix1, color_index);
-                    else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
-                        heap_framebuffer[iy1 * DISPLAY_WIDTH + ix1] = color_index;
+                    write_framebuffer_pixel(ix1, iy1, pixel);
                 }
 
                 if (ix1 == ix2 && iy1 == iy2)
@@ -1088,7 +1411,7 @@ void lcd_fill_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
     if (count < 3)
         return;
 
-    uint8_t color_index = color565_to_332(color);
+    lcd_pixel_t pixel = rgb565_to_lcd_pixel(color);
 
     // Edge x at top vertex (14.14 fixed point), row step, vertex levels
     int xtop[count], dxf[count], ys[count];
@@ -1185,9 +1508,9 @@ void lcd_fill_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
                     bx = DISPLAY_WIDTH - 1;
 
                 if (lcd_mode == LCD_MODE_PSRAM)
-                    psram_write_hline(ax, py, bx - ax + 1, color_index);
+                    psram_write_hline(ax, py, bx - ax + 1, pixel);
                 else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
-                    heap_write_hline(ax, py, bx - ax + 1, color_index);
+                    heap_write_hline(ax, py, bx - ax + 1, pixel);
             }
             continue;
         }
@@ -1232,9 +1555,9 @@ void lcd_fill_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
                     bx = DISPLAY_WIDTH - 1;
 
                 if (lcd_mode == LCD_MODE_PSRAM)
-                    psram_write_hline(ax, py, bx - ax + 1, color_index);
+                    psram_write_hline(ax, py, bx - ax + 1, pixel);
                 else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
-                    heap_write_hline(ax, py, bx - ax + 1, color_index);
+                    heap_write_hline(ax, py, bx - ax + 1, pixel);
             }
         }
     }
@@ -1377,19 +1700,12 @@ void lcd_fill_polygon_alpha(uint16_t x[], uint16_t y[], int count,
 
                 if (lcd_mode == LCD_MODE_PSRAM)
                 {
-                    uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + ax;
-                    uint32_t remaining = span, offset = 0;
-                    while (remaining > 0)
-                    {
-                        uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
-                        psram_qspi_read(&psram_instance, addr + offset, line_buffer + offset, chunk);
-                        offset += chunk;
-                        remaining -= chunk;
-                    }
+                    psram_read_span(ax, py, line_buffer, (size_t)span);
                 }
                 else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
                 {
-                    memcpy(line_buffer, &heap_framebuffer[py * DISPLAY_WIDTH + ax], span);
+                    memcpy(line_buffer, &heap_framebuffer[(size_t)py * DISPLAY_WIDTH + ax],
+                           (size_t)span * LCD_PIXEL_BYTES);
                 }
                 else
                     continue;
@@ -1397,7 +1713,7 @@ void lcd_fill_polygon_alpha(uint16_t x[], uint16_t y[], int count,
                 // Alpha blend the span in the line buffer
                 for (int j = 0; j < span; j++)
                 {
-                    uint16_t dst_color = palette[line_buffer[j]];
+                    uint16_t dst_color = lcd_pixel_to_rgb565(line_buffer[j]);
                     uint8_t dr = (dst_color >> 11) & 0x1F;
                     uint8_t dg = (dst_color >> 5) & 0x3F;
                     uint8_t db = dst_color & 0x1F;
@@ -1406,24 +1722,17 @@ void lcd_fill_polygon_alpha(uint16_t x[], uint16_t y[], int count,
                     uint8_t bg = (uint8_t)((sg * alpha + dg * inv_alpha) / 255);
                     uint8_t bb = (uint8_t)((sb * alpha + db * inv_alpha) / 255);
 
-                    line_buffer[j] = color565_to_332(((uint16_t)br << 11) | ((uint16_t)bg << 5) | bb);
+                    line_buffer[j] = rgb565_to_lcd_pixel(((uint16_t)br << 11) | ((uint16_t)bg << 5) | bb);
                 }
 
                 if (lcd_mode == LCD_MODE_PSRAM)
                 {
-                    uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + ax;
-                    uint32_t remaining = span, offset = 0;
-                    while (remaining > 0)
-                    {
-                        uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
-                        psram_qspi_write(&psram_instance, addr + offset, line_buffer + offset, chunk);
-                        offset += chunk;
-                        remaining -= chunk;
-                    }
+                    psram_write_span(ax, py, line_buffer, (size_t)span);
                 }
                 else
                 {
-                    memcpy(&heap_framebuffer[py * DISPLAY_WIDTH + ax], line_buffer, span);
+                    memcpy(&heap_framebuffer[(size_t)py * DISPLAY_WIDTH + ax], line_buffer,
+                           (size_t)span * LCD_PIXEL_BYTES);
                 }
             }
         }
@@ -1460,7 +1769,7 @@ void lcd_fill_round_rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t h
     if (r > ih / 2)
         r = ih / 2;
 
-    uint8_t color_index = color565_to_332(color);
+    lcd_pixel_t pixel = rgb565_to_lcd_pixel(color);
 
     int tl_cx = ix + r, tl_cy = iy + r;
     int tr_cx = ix + iw - r, tr_cy = iy + r;
@@ -1501,11 +1810,7 @@ void lcd_fill_round_rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t h
 
             if (!in_corner)
             {
-                if (lcd_mode == LCD_MODE_PSRAM)
-                    psram_qspi_write8(&psram_instance,
-                                      PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + px, color_index);
-                else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
-                    heap_framebuffer[py * DISPLAY_WIDTH + px] = color_index;
+                write_framebuffer_pixel(px, py, pixel);
             }
         }
     }
@@ -1524,7 +1829,7 @@ void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize size
     if ((int)x + char_width > DISPLAY_WIDTH || (int)y + char_height > DISPLAY_HEIGHT)
         return;
 
-    uint8_t color_index = color565_to_332(color);
+    lcd_pixel_t pixel = rgb565_to_lcd_pixel(color);
     const uint8_t *char_data = font_get_character(size, char_code);
     if (!char_data)
         return;
@@ -1540,11 +1845,7 @@ void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize size
             if (row_data[byte_index] & (1 << bit_index))
             {
                 int px = (int)x + col, py = (int)y + row;
-                if (lcd_mode == LCD_MODE_PSRAM)
-                    psram_qspi_write8(&psram_instance,
-                                      PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + px, color_index);
-                else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
-                    heap_framebuffer[py * DISPLAY_WIDTH + px] = color_index;
+                write_framebuffer_pixel(px, py, pixel);
             }
         }
     }
@@ -1559,7 +1860,7 @@ void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, Fon
     uint8_t char_height = font_get_height(size);
     uint8_t bytes_per_row = (char_width + 7) / 8;
     uint8_t char_spacing = char_width + 1;
-    uint8_t color_index = color565_to_332(color);
+    lcd_pixel_t pixel = rgb565_to_lcd_pixel(color);
 
     const uint8_t *font_data = font_get_data(size);
 
@@ -1611,11 +1912,7 @@ void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, Fon
                     int px = current_x + col, py = current_y + row;
                     if (px < DISPLAY_WIDTH && py < DISPLAY_HEIGHT)
                     {
-                        if (lcd_mode == LCD_MODE_PSRAM)
-                            psram_qspi_write8(&psram_instance,
-                                              PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + px, color_index);
-                        else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
-                            heap_framebuffer[py * DISPLAY_WIDTH + px] = color_index;
+                        write_framebuffer_pixel(px, py, pixel);
                     }
                 }
             }
@@ -1657,7 +1954,7 @@ void lcd_set_mode(uint8_t mode)
             return;
         }
         // Clear the framebuffer to black
-        memset(heap_framebuffer, 0, HEAP_BUFFER_SIZE);
+        memset(heap_framebuffer, 0, HEAP_FRAMEBUFFER_BYTES);
 
         // deinit psram
         if (psram_initialized)
@@ -1740,10 +2037,25 @@ bool lcd_read_row(uint16_t row, uint8_t *dst)
     {
         if (heap_framebuffer == NULL)
             return false;
+#if defined(PICOCALC_ESP32_P4)
+        const lcd_pixel_t *source = &heap_framebuffer[(size_t)row * DISPLAY_WIDTH];
+        for (uint16_t col = 0; col < DISPLAY_WIDTH; col++)
+        {
+            dst[col] = color565_to_332(source[col]);
+        }
+#else
         memcpy(dst, &heap_framebuffer[(uint32_t)row * DISPLAY_WIDTH], DISPLAY_WIDTH);
+#endif
         return true;
     }
-    // LCD_MODE_PSRAM: read directly from PSRAM framebuffer (1 byte/pixel, RGB332)
+    // Keep the row-read API in RGB332 even when the P4 framebuffer is RGB565.
+#if defined(PICOCALC_ESP32_P4)
+    psram_read_span(0, row, line_buffer, DISPLAY_WIDTH);
+    for (uint16_t col = 0; col < DISPLAY_WIDTH; col++)
+    {
+        dst[col] = color565_to_332(line_buffer[col]);
+    }
+#else
     uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (uint32_t)row * PSRAM_ROW_SIZE;
     uint32_t remaining = DISPLAY_WIDTH, off = 0;
     while (remaining > 0)
@@ -1753,5 +2065,6 @@ bool lcd_read_row(uint16_t row, uint8_t *dst)
         off += chunk;
         remaining -= chunk;
     }
+#endif
     return true;
 }

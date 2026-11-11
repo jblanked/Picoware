@@ -18,10 +18,15 @@
 #endif
 
 // PSRAM framebuffer configuration
-#define PSRAM_FRAMEBUFFER_ADDR 0x000000                                           // PSRAM start address
-#define PSRAM_ROW_SIZE (DISPLAY_WIDTH)                                            // 320 bytes per row (RGB332)
-#define PSRAM_BUFFER_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT)                        // 102,400 bytes
-#define PSRAM_HEAP_START_ADDR (PSRAM_FRAMEBUFFER_ADDR + PSRAM_BUFFER_SIZE + 1024) // Start of heap area after framebuffer
+#define PSRAM_FRAMEBUFFER_ADDR 0x000000 // PSRAM start address
+#if defined(PICOCALC_ESP32_P4)
+#define PICOWARE_FRAMEBUFFER_PIXEL_BYTES 2
+#else
+#define PICOWARE_FRAMEBUFFER_PIXEL_BYTES 1
+#endif
+#define PSRAM_ROW_SIZE (DISPLAY_WIDTH * PICOWARE_FRAMEBUFFER_PIXEL_BYTES)
+#define PSRAM_BUFFER_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT * PICOWARE_FRAMEBUFFER_PIXEL_BYTES)
+#define PSRAM_HEAP_START_ADDR (PSRAM_FRAMEBUFFER_ADDR + PSRAM_BUFFER_SIZE + 1024)
 
 #if defined(PICOCALC_ESP32_P4)
 #define PSRAM_CHUNK_SIZE 4092

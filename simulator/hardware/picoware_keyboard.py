@@ -6,15 +6,15 @@ _initialized = False
 def init():
     global _initialized
     _initialized = True
-    return True
 
 
 def deinit():
     global _initialized
-    _initialized = False
     sim_runtime.set_background_key_poll(False)
     sim_runtime.register_key_callback(None)
-    return True
+    if _initialized:
+        _initialized = False
+        sim_runtime._keys = []
 
 
 def set_background_poll(enable):
@@ -28,11 +28,13 @@ def set_key_available_callback(callback):
 
 
 def poll():
-    sim_runtime.loop_polled()
-    return True
+    if _initialized:
+        sim_runtime.loop_polled()
 
 
 def key_available():
+    if not _initialized:
+        return False
     sim_runtime.loop_polled()
     return sim_runtime.has_key()
 
@@ -44,6 +46,7 @@ def get_key():
 
 
 def get_key_nonblocking():
-    sim_runtime.loop_polled()
+    if not key_available():
+        return None
     key = sim_runtime.pop_key()
-    return 0 if key == -1 else key
+    return None if key == -1 else key

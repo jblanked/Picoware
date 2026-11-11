@@ -50,7 +50,7 @@ mp_obj_t sprite3d_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n
 {
     // Arguments: psramAllowed (bool, optional)
     mp_arg_check_num(n_args, n_kw, 0, 1, true);
-    bool psramAllowed = n_args > 0 ? mp_obj_is_true(args[0]) : true;
+    bool psramAllowed = n_args > 0 ? mp_obj_is_true(args[0]) : ENGINE_SPRITE3D_PSRAM_DEFAULT;
     return sprite3d_mp_init(nullptr, psramAllowed);
 }
 

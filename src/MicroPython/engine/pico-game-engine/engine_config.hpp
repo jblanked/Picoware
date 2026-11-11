@@ -117,3 +117,9 @@
 #define ENGINE_PSRAM_WRITE picoware_psram_write_data
 #define ENGINE_PSRAM_READ picoware_psram_read_data
 #endif
+
+#ifdef PICOCALC
+#define ENGINE_SPRITE3D_PSRAM_DEFAULT true
+#else
+#define ENGINE_SPRITE3D_PSRAM_DEFAULT false
+#endif

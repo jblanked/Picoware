@@ -616,6 +616,9 @@ void picocalc_lcd_init(void)
     {
         mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("Failed to allocate PicoCalc framebuffer"));
     }
+#if defined(PICOCALC_ESP32_P4)
+    lcd_ppa_srm_init();
+#endif
 }
 
 void lcd_deinit(void)
@@ -623,6 +626,7 @@ void lcd_deinit(void)
     if (module_initialized)
     {
 #if defined(PICOCALC_ESP32_P4)
+        lcd_ppa_srm_deinit();
         picoware_ppa_deinit();
 #endif
         free_heap_framebuffer();
@@ -686,7 +690,7 @@ void picoware_lcd_swap_region(uint16_t x, uint16_t y, uint16_t width, uint16_t h
 
         if (full_frame)
         {
-            lcd_write16_buf(lcd_line_buffer, (size_t)width * lines_to_send);
+            lcd_write16_buf_2d(lcd_line_buffer, width, lines_to_send);
         }
         else
         {

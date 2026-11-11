@@ -1,7 +1,7 @@
 #include <stdarg.h>
-#include <string.h>
 
 #include "driver/gpio.h"
+#include "driver/ppa.h"
 #include "driver/spi_master.h"
 #include "esp_attr.h"
 #include "esp_err.h"
@@ -17,13 +17,18 @@
 
 #define LCD_SPI_HOST SPI2_HOST
 #define LCD_TRANSFER_BUFFER_BYTES 32768
+#define LCD_PPA_MIN_PIXELS 1024
+#define LCD_PPA_MAX_PIXELS (LCD_TRANSFER_BUFFER_BYTES / 2)
 
 static const char *TAG = "picocalc-lcd";
 static spi_device_handle_t lcd_spi;
 static SemaphoreHandle_t lcd_sem;
 static bool lcd_initialised;
+static ppa_client_handle_t lcd_srm_client;
+static bool lcd_srm_copy_enabled;
+static bool lcd_srm_error_logged;
 static esp_err_t lcd_transfer_error = ESP_OK;
-static uint8_t lcd_transfer_buffer[LCD_TRANSFER_BUFFER_BYTES] DMA_ATTR __attribute__((aligned(4)));
+static uint8_t lcd_transfer_buffer[LCD_TRANSFER_BUFFER_BYTES] DMA_ATTR __attribute__((aligned(64)));
 static size_t lcd_transfer_max_pixels = LCD_TRANSFER_BUFFER_BYTES / 2;
 
 static uint16_t lcd_scroll_top;
@@ -60,6 +65,86 @@ static esp_err_t lcd_transmit(const uint8_t *data, size_t len)
         ESP_LOGE(TAG, "SPI transfer failed: %s", esp_err_to_name(err));
     }
     return err;
+}
+
+static esp_err_t lcd_ppa_srm_copy_to_wire_buffer(const uint16_t *buffer, size_t width, size_t height)
+{
+    if (lcd_srm_client == NULL || buffer == NULL || width == 0 || height == 0 ||
+        width > LCD_PPA_MAX_PIXELS || height > LCD_PPA_MAX_PIXELS / width)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    ppa_srm_oper_config_t config = {
+        .in = {
+            .buffer = buffer,
+            .pic_w = (uint32_t)width,
+            .pic_h = (uint32_t)height,
+            .block_w = (uint32_t)width,
+            .block_h = (uint32_t)height,
+            .block_offset_x = 0,
+            .block_offset_y = 0,
+            .srm_cm = PPA_SRM_COLOR_MODE_RGB565,
+        },
+        .out = {
+            .buffer = lcd_transfer_buffer,
+            .buffer_size = LCD_TRANSFER_BUFFER_BYTES,
+            .pic_w = (uint32_t)width,
+            .pic_h = (uint32_t)height,
+            .block_offset_x = 0,
+            .block_offset_y = 0,
+            .srm_cm = PPA_SRM_COLOR_MODE_RGB565,
+        },
+        .rotation_angle = PPA_SRM_ROTATION_ANGLE_0,
+        .scale_x = 1.0f,
+        .scale_y = 1.0f,
+        .byte_swap = true,
+        .mode = PPA_TRANS_MODE_BLOCKING,
+    };
+
+    return ppa_do_scale_rotate_mirror(lcd_srm_client, &config);
+}
+
+void lcd_ppa_srm_init(void)
+{
+    if (lcd_srm_copy_enabled)
+    {
+        return;
+    }
+
+    if (lcd_srm_client == NULL)
+    {
+        ppa_client_config_t client_config = {
+            .oper_type = PPA_OPERATION_SRM,
+            .max_pending_trans_num = 1,
+            .data_burst_length = PPA_DATA_BURST_LENGTH_128,
+        };
+        esp_err_t err = ppa_register_client(&client_config, &lcd_srm_client);
+        if (err != ESP_OK)
+        {
+            ESP_LOGW(TAG, "PPA SRM client registration failed: %s", esp_err_to_name(err));
+            return;
+        }
+    }
+
+    lcd_srm_error_logged = false;
+    lcd_srm_copy_enabled = true;
+    ESP_LOGI(TAG, "PPA SRM LCD staging initialized");
+}
+
+void lcd_ppa_srm_deinit(void)
+{
+    lcd_srm_copy_enabled = false;
+    if (lcd_srm_client != NULL)
+    {
+        esp_err_t err = ppa_unregister_client(lcd_srm_client);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "PPA SRM client removal failed: %s", esp_err_to_name(err));
+            return;
+        }
+        lcd_srm_client = NULL;
+    }
 }
 
 bool lcd_available(void)
@@ -185,6 +270,70 @@ void lcd_write16_buf(const uint16_t *buffer, size_t len)
     }
 }
 
+void lcd_write16_buf_2d(const uint16_t *buffer, uint16_t width, uint16_t height)
+{
+    if (buffer == NULL || width == 0 || height == 0)
+    {
+        return;
+    }
+
+    gpio_set_level(LCD_DCX, 1);
+    size_t total_pixels = (size_t)width * height;
+#if defined(PICOCALC_ESP32_P4)
+    if (lcd_srm_copy_enabled && total_pixels >= LCD_PPA_MIN_PIXELS)
+    {
+        size_t max_pixels = lcd_transfer_max_pixels;
+        if (max_pixels > LCD_PPA_MAX_PIXELS)
+        {
+            max_pixels = LCD_PPA_MAX_PIXELS;
+        }
+        size_t lines_per_chunk = max_pixels / width;
+        if (lines_per_chunk > 0)
+        {
+            size_t row = 0;
+            while (row < height)
+            {
+                size_t lines = height - row;
+                if (lines > lines_per_chunk)
+                {
+                    lines = lines_per_chunk;
+                }
+                size_t pixels = (size_t)width * lines;
+                if (pixels < LCD_PPA_MIN_PIXELS)
+                {
+                    lcd_write16_buf(buffer + row * width, pixels);
+                    row += lines;
+                    continue;
+                }
+
+                esp_err_t ppa_err =
+                    lcd_ppa_srm_copy_to_wire_buffer(buffer + row * width, width, lines);
+                if (ppa_err == ESP_OK)
+                {
+                    if (lcd_transmit(lcd_transfer_buffer, pixels * 2) != ESP_OK)
+                    {
+                        return;
+                    }
+                    row += lines;
+                    continue;
+                }
+                if (!lcd_srm_error_logged)
+                {
+                    ESP_LOGW(TAG, "PPA SRM RGB565 staging failed; using CPU staging: %s",
+                             esp_err_to_name(ppa_err));
+                    lcd_srm_error_logged = true;
+                }
+                lcd_srm_copy_enabled = false;
+                lcd_write16_buf(buffer + row * width, (size_t)width * (height - row));
+                return;
+            }
+            return;
+        }
+    }
+#endif
+    lcd_write16_buf(buffer, total_pixels);
+}
+
 void lcd_set_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 {
     lcd_write_cmd(LCD_CMD_CASET);
@@ -209,12 +358,12 @@ void lcd_blit(uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t
         }
         uint16_t actual_height = y_end - y_start + 1;
         lcd_set_window(x, y_start, x + width - 1, y_end);
-        lcd_write16_buf(pixels, (size_t)width * actual_height);
+        lcd_write16_buf_2d(pixels, width, actual_height);
     }
     else
     {
         lcd_set_window(x, y, x + width - 1, y + height - 1);
-        lcd_write16_buf(pixels, (size_t)width * height);
+        lcd_write16_buf_2d(pixels, width, height);
     }
     lcd_release();
 }

@@ -107,6 +107,11 @@ extern "C"
     void lcd_write_data(uint8_t len, ...);
     void lcd_write16_data(uint8_t len, ...);
     void lcd_write16_buf(const uint16_t *buffer, size_t len);
+#if defined(PICOCALC_ESP32_P4)
+    void lcd_write16_buf_2d(const uint16_t *buffer, uint16_t width, uint16_t height);
+    void lcd_ppa_srm_init(void);
+    void lcd_ppa_srm_deinit(void);
+#endif
 
     // Display window and drawing functions
     void lcd_set_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);

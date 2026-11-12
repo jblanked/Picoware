@@ -1,25 +1,49 @@
 """PGE Adventure: open-world 3D RPG."""
+
 from gc import collect, mem_free
 from math import atan2, cos, pi, sin
 from picoware.system.vector import Vector
 from picoware.engine.entity import (
-    Entity, ENTITY_TYPE_ENEMY, ENTITY_TYPE_3D_SPRITE,
-    SPRITE_3D_CUSTOM, SPRITE_3D_NONE, ENTITY_TYPE_PLAYER,
-    ENTITY_TYPE_NPC
+    Entity,
+    ENTITY_TYPE_ENEMY,
+    ENTITY_TYPE_3D_SPRITE,
+    SPRITE_3D_CUSTOM,
+    SPRITE_3D_NONE,
+    ENTITY_TYPE_PLAYER,
+    ENTITY_TYPE_NPC,
 )
 from picoware.engine.sprite3d import Sprite3D
 from picoware.engine.camera import CAMERA_FIRST_PERSON, CAMERA_THIRD_PERSON
 
 from picoware.system.buttons import (
-    BUTTON_BACK, BUTTON_CENTER, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP,
-    BUTTON_1, BUTTON_2, BUTTON_3, BUTTON_4, BUTTON_5, BUTTON_K, BUTTON_L,
-    BUTTON_O, BUTTON_P, BUTTON_SPACE
+    BUTTON_BACK,
+    BUTTON_CENTER,
+    BUTTON_DOWN,
+    BUTTON_LEFT,
+    BUTTON_RIGHT,
+    BUTTON_UP,
+    BUTTON_1,
+    BUTTON_2,
+    BUTTON_3,
+    BUTTON_4,
+    BUTTON_5,
+    BUTTON_K,
+    BUTTON_L,
+    BUTTON_O,
+    BUTTON_P,
+    BUTTON_SPACE,
 )
 
-from picoware.system.decorator import wifi_required, storage_required, server_settings_required
+from picoware.system.decorator import (
+    wifi_required,
+    storage_required,
+    server_settings_required,
+)
 
 _adv = None
 _seed = 0x51F0A3D
+
+
 def xp_for_level(level):
     """XP required to advance from level-1 to level."""
     if level < 2:
@@ -77,6 +101,7 @@ def _enemy_update(entity, _game):
     if _adv is not None:
         _adv.update_enemy(entity)
 
+
 def _enemy_render(entity, draw, game):
     """Draw the health bar above an enemy."""
     if _adv is None:
@@ -88,8 +113,13 @@ def _enemy_render(entity, draw, game):
     bar_h = draw.scale_y(3)
     bar_w = int(draw.scale_y(20) * entity.sprite_scale)
     bar_w = max(bar_w, draw.scale_x(10))
-    px, py = _adv._project(entity.position.x, entity.position.y,
-                            2.0 * entity.sprite_scale, screen_w, screen_h)
+    px, py = _adv._project(
+        entity.position.x,
+        entity.position.y,
+        2.0 * entity.sprite_scale,
+        screen_w,
+        screen_h,
+    )
     if px < 0:
         return
     left = int(px - bar_w * 0.5)
@@ -99,6 +129,7 @@ def _enemy_render(entity, draw, game):
     ratio = max(0.0, min(1.0, entity.health / entity.max_health))
     draw._fill_rectangle(left, top, bar_w, bar_h, _adv.COLOR_HP_BACK)
     draw._fill_rectangle(left, top, bar_w * ratio, bar_h, _adv.COLOR_HP)
+
 
 def _background_render(_entity, draw, _game):
     """Draw sky, horizon haze and ground by zone."""
@@ -112,10 +143,11 @@ def _background_render(_entity, draw, _game):
     sky = _shade(_adv.ZONE_SKY[zone], _adv.light)
     fog = _shade(_adv.ZONE_FOG[zone], _adv.light)
     ground_top = horizon + haze
-    draw._fill_rectangle(0, 0, width, horizon, sky)
-    draw._fill_rectangle(0, horizon, width, haze, fog)
-    draw._fill_rectangle(0, ground_top, width, height - ground_top,
-                    _adv.ZONE_GROUND[zone])
+    _fill_rectangle = draw._fill_rectangle
+    _fill_rectangle(0, 0, width, horizon, sky)
+    _fill_rectangle(0, horizon, width, haze, fog)
+    _fill_rectangle(0, ground_top, width, height - ground_top, _adv.ZONE_GROUND[zone])
+
 
 def _effect_update(entity, _game):
     """Expire one timed visual effect."""
@@ -132,6 +164,7 @@ def _on_projectile_collision(entity, other, _game):
     if _adv is None or other.type != ENTITY_TYPE_ENEMY:
         return
     _adv._projectile_hit(entity, other)
+
 
 def _projectile_update(entity, _game):
     """Move one projectile and resolve its lifetime and hits."""
@@ -243,12 +276,12 @@ class _Adventure:
     GUIDE_DISTANCE = 2.3
     HOUSE_POS = (-795.0, -690.0)
     BIRD_HEIGHT = 6.0
-    BIRD_FLIGHT = 90   # frames per bird flight
-    SPEED_MAX = 2.0    # default multiplier + 2
+    BIRD_FLIGHT = 90  # frames per bird flight
+    SPEED_MAX = 2.0  # default multiplier + 2
     SPEED_STEP = 0.2
     SHADOW_COLOR = 0x18E3  # ground shading tint
-    CLOCK_START = 8 * 60   # 08:00
-    TIME_STEP = 3          # frames per in-game minute
+    CLOCK_START = 8 * 60  # 08:00
+    TIME_STEP = 3  # frames per in-game minute
     MENU_ITEMS = ("Map", "Stats", "Camera", "Leave Game")
 
     COLOR_BLACK = 0x0000
@@ -281,24 +314,25 @@ class _Adventure:
     ZONE_STRONG = ("", "wooden house", "underground manor", "wooden fortress")
 
     # Strongholds: x, z, radius.
-    STRONGHOLDS = ((0.0, 0.0, 0.0), (3000.0, -1500.0, 300.0),
-                   (-3000.0, 1500.0, 300.0), (3200.0, 1400.0, 320.0))
+    STRONGHOLDS = (
+        (0.0, 0.0, 0.0),
+        (3000.0, -1500.0, 300.0),
+        (-3000.0, 1500.0, 300.0),
+        (3200.0, 1400.0, 320.0),
+    )
     PLAYER_SPAWN = (-820.0, -770.0)
     WIZARD_POS = (-820.0, -700.0)
 
     SAVE_PATH = "picoware/settings/pge_adventure.json"
 
-
-    NET_OFF = 0    # local only
+    NET_OFF = 0  # local only
     NET_LOGIN = 1  # login request in flight
     NET_FETCH = 2  # game-stats request in flight
     NET_READY = 3  # logged in, stats syncable
     NET_ERROR = 4  # request failed
 
-
     BOOT_LOGIN = 0  # login or register in flight
     BOOT_SCENE = 1  # scene open
-
 
     UI_NONE = 0  # playing
     UI_HELP = 1  # controls help
@@ -309,8 +343,7 @@ class _Adventure:
     FACTIONS = ("ghouls", "goblins", "soldiers")
 
     # Mage skills show effect sprites.
-    SKILL_FX = {"Lightning": "lightning", "FireBlast": "fire-blast",
-                "Orb": "orb"}
+    SKILL_FX = {"Lightning": "lightning", "FireBlast": "fire-blast", "Orb": "orb"}
 
     # Projectiles replace instant AOE.
     PROJECTILE_NAMES = ("FireBlast", "Orb")
@@ -323,9 +356,11 @@ class _Adventure:
     CONQUER_FRAMES = 6
     ATTACK_RETURN_FRAMES = 3
     LIGHT_TABLE = tuple(
-        (0.25 + 0.75 * max(0.0, sin((hour - 6.0) / 12.0 * pi)),
-         cos((hour - 6.0) / 12.0 * pi),
-         sin((hour - 6.0) / 12.0 * pi) * 0.5)
+        (
+            0.25 + 0.75 * max(0.0, sin((hour - 6.0) / 12.0 * pi)),
+            cos((hour - 6.0) / 12.0 * pi),
+            sin((hour - 6.0) / 12.0 * pi) * 0.5,
+        )
         for hour in range(24)
     )
     HALO_HEIGHT = 0.4
@@ -374,7 +409,6 @@ class _Adventure:
         "dragon_defeated",
         "armor_earned",
         "intro_done",
-
         "attack_cd",
         "skill_cd",
         "special_cd",
@@ -385,7 +419,6 @@ class _Adventure:
         "_halo_entity",
         "combo_timer",
         "prev_button",
-
         "quest_index",
         "quest_counts",
         "_quest_data",
@@ -402,11 +435,9 @@ class _Adventure:
         "talked_flag",
         "dragon_spawned",
         "wizard_met",
-
         "clock",
         "time_step",
         "light",
-
         "talking",
         "speed_scale",
         "base_speed",
@@ -414,7 +445,6 @@ class _Adventure:
         "bird_delay",
         "bird_dx",
         "bird_dz",
-
         "message",
         "message_timer",
         "dialogue",
@@ -427,12 +457,10 @@ class _Adventure:
         "land_anchor_x",
         "land_anchor_z",
         "land_type",
-
         "camera",
         "_loading",
         "old_xp",
         "old_level",
-
         "quest_line_cache",
         "quest_line_key",
         "_target_list",
@@ -578,7 +606,7 @@ class _Adventure:
 
         self.quest_line_cache = None
         self.quest_line_key = None
-        self._target_list = []   # Cache targets between frames.
+        self._target_list = []  # Cache targets between frames.
         self.sword_triangles = []
         self.beast_triangles = []
         self.beast_right_side = 1
@@ -610,9 +638,21 @@ class _Adventure:
     def _mesh_entity(self, name, position, size, mesh):
         """Create an entity backed by a custom 3D mesh."""
         entity = Entity(
-            name, ENTITY_TYPE_3D_SPRITE, position, size,
-            None, None, None, None, None, None, None, None, False,
-            SPRITE_3D_CUSTOM, self.COLOR_BLACK,
+            name,
+            ENTITY_TYPE_3D_SPRITE,
+            position,
+            size,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            False,
+            SPRITE_3D_CUSTOM,
+            self.COLOR_BLACK,
         )
         mesh.set_wireframe(False)
         entity.sprite_3d = mesh
@@ -625,10 +665,17 @@ class _Adventure:
     def _triangle(self, mesh, first, second, third, color):
         """Add one triangle to a mesh."""
         mesh.add_triangle(
-            first[0], first[1], first[2],
-            second[0], second[1], second[2],
-            third[0], third[1], third[2],
-            color, False,
+            first[0],
+            first[1],
+            first[2],
+            second[0],
+            second[1],
+            second[2],
+            third[0],
+            third[1],
+            third[2],
+            color,
+            False,
         )
 
     def _quad(self, mesh, first, second, third, fourth, color):
@@ -656,8 +703,9 @@ class _Adventure:
     def _house(self, mesh, x, z, width, depth, height, color):
         """Add a wooden house (body plus roof)."""
         mesh.create_cube(x, height * 0.5, z, width, height, depth, color)
-        mesh.create_cube(x, height + 0.12, z, width + 0.16, 0.24, depth + 0.16,
-                         self.COLOR_ROOF)
+        mesh.create_cube(
+            x, height + 0.12, z, width + 0.16, 0.24, depth + 0.16, self.COLOR_ROOF
+        )
 
     def _build_stronghold(self, mesh, zone, x, z):
         """Add a faction stronghold structure to the world mesh."""
@@ -668,14 +716,20 @@ class _Adventure:
             # Manor: sunken walls and pit.
             grid = 3
             step = 3.2
+            _create_cube = mesh.create_cube
             for col in range(grid):
                 for row in range(grid):
                     if col == 1 and row == 1:
-                        mesh.create_cube(x, -0.35, z, 5.0, 0.7, 5.0, self.COLOR_BLACK)
+                        _create_cube(x, -0.35, z, 5.0, 0.7, 5.0, self.COLOR_BLACK)
                         continue
-                    mesh.create_cube(
-                        x + (col - 1) * step, 1.4, z + (row - 1) * step,
-                        3.0, 2.8, 3.0, 0x4208,
+                    _create_cube(
+                        x + (col - 1) * step,
+                        1.4,
+                        z + (row - 1) * step,
+                        3.0,
+                        2.8,
+                        3.0,
+                        0x4208,
                     )
         else:
             # Fortress: corner towers and walls.
@@ -685,10 +739,12 @@ class _Adventure:
             mesh.create_cylinder(x - span, 2.6, z + span, 0.9, 5.2, 6, self.COLOR_WOOD)
             mesh.create_cylinder(x + span, 2.6, z + span, 0.9, 5.2, 6, self.COLOR_WOOD)
             for col in range(3):
-                mesh.create_cube(x + (col - 1) * span, 1.6, z - span, span, 3.2, 0.5,
-                                 self.COLOR_WOOD)
-                mesh.create_cube(x + (col - 1) * span, 1.6, z + span, span, 3.2, 0.5,
-                                 self.COLOR_WOOD)
+                mesh.create_cube(
+                    x + (col - 1) * span, 1.6, z - span, span, 3.2, 0.5, self.COLOR_WOOD
+                )
+                mesh.create_cube(
+                    x + (col - 1) * span, 1.6, z + span, span, 3.2, 0.5, self.COLOR_WOOD
+                )
             mesh.create_cube(x + span, 1.6, z, 0.5, 3.2, span * 2.0, self.COLOR_WOOD)
             mesh.create_cube(x - span, 1.6, z, 0.5, 3.2, span * 2.0, self.COLOR_WOOD)
 
@@ -705,25 +761,68 @@ class _Adventure:
         z0 = scene_z - hd + 0.1
         z1 = scene_z + hd - 0.1
         door = 1.2
-        mesh.create_cube(x, height + 0.05, scene_z, width + 0.5, 0.18, depth + 0.5,
-                         self.COLOR_ROOF)
+        mesh.create_cube(
+            x, height + 0.05, scene_z, width + 0.5, 0.18, depth + 0.5, self.COLOR_ROOF
+        )
 
-        self._squad(mesh, (x - hw, floor_y, z0), (x + hw, floor_y, z1),
-                    (x + hw, floor_y, z0), (x - hw, floor_y, z1), self.COLOR_WOOD)
-        self._squad(mesh, (x - hw, ceil_y, z0), (x + hw, ceil_y, z1),
-                    (x + hw, ceil_y, z0), (x - hw, ceil_y, z1), self.COLOR_ROOF)
+        self._squad(
+            mesh,
+            (x - hw, floor_y, z0),
+            (x + hw, floor_y, z1),
+            (x + hw, floor_y, z0),
+            (x - hw, floor_y, z1),
+            self.COLOR_WOOD,
+        )
+        self._squad(
+            mesh,
+            (x - hw, ceil_y, z0),
+            (x + hw, ceil_y, z1),
+            (x + hw, ceil_y, z0),
+            (x - hw, ceil_y, z1),
+            self.COLOR_ROOF,
+        )
         # Front wall contains doorway.
-        self._squad(mesh, (x - hw, floor_y, z0), (x + hw, ceil_y, z0),
-                    (x + hw, floor_y, z0), (x - hw, ceil_y, z0), self.COLOR_WOOD)
-        self._squad(mesh, (x - hw, floor_y, z1), (x - door, ceil_y, z1),
-                    (x - door, floor_y, z1), (x - hw, ceil_y, z1), self.COLOR_WOOD)
-        self._squad(mesh, (x + door, floor_y, z1), (x + hw, ceil_y, z1),
-                    (x + hw, floor_y, z1), (x + door, ceil_y, z1), self.COLOR_WOOD)
+        self._squad(
+            mesh,
+            (x - hw, floor_y, z0),
+            (x + hw, ceil_y, z0),
+            (x + hw, floor_y, z0),
+            (x - hw, ceil_y, z0),
+            self.COLOR_WOOD,
+        )
+        self._squad(
+            mesh,
+            (x - hw, floor_y, z1),
+            (x - door, ceil_y, z1),
+            (x - door, floor_y, z1),
+            (x - hw, ceil_y, z1),
+            self.COLOR_WOOD,
+        )
+        self._squad(
+            mesh,
+            (x + door, floor_y, z1),
+            (x + hw, ceil_y, z1),
+            (x + hw, floor_y, z1),
+            (x + door, ceil_y, z1),
+            self.COLOR_WOOD,
+        )
 
-        self._squad(mesh, (x - hw, floor_y, z0), (x - hw, ceil_y, z1),
-                    (x - hw, floor_y, z1), (x - hw, ceil_y, z0), self.COLOR_WOOD)
-        self._squad(mesh, (x + hw, floor_y, z0), (x + hw, ceil_y, z1),
-                    (x + hw, floor_y, z1), (x + hw, ceil_y, z0), self.COLOR_WOOD)
+        self._squad(
+            mesh,
+            (x - hw, floor_y, z0),
+            (x - hw, ceil_y, z1),
+            (x - hw, floor_y, z1),
+            (x - hw, ceil_y, z0),
+            self.COLOR_WOOD,
+        )
+        self._squad(
+            mesh,
+            (x + hw, floor_y, z0),
+            (x + hw, ceil_y, z1),
+            (x + hw, floor_y, z1),
+            (x + hw, ceil_y, z0),
+            self.COLOR_WOOD,
+        )
 
     def _build_world(self):
         """Create the streamed terrain mesh entity."""
@@ -749,19 +848,22 @@ class _Adventure:
         row1 = int((center_z + half) // cell)
         edge_x = self.WORLD_HALF_X - cell
         edge_z = self.WORLD_HALF_Z - cell
+        _zone_for = zone_for
+        _ground_cell = self._ground_cell
         for col in range(col0, col1 + 1):
             for row in range(row0, row1 + 1):
                 x = col * cell + cell * 0.5
                 z = row * cell + cell * 0.5
                 if x > edge_x or x < -edge_x or z > edge_z or z < -edge_z:
                     continue
-                zone = zone_for(x, z)
-                self._ground_cell(mesh, x, z - anchor, cell * 0.5, self.ZONE_GROUND[zone])
+                zone = _zone_for(x, z)
+                _ground_cell(mesh, x, z - anchor, cell * 0.5, self.ZONE_GROUND[zone])
+        _build_stronghold = self._build_stronghold
         for zone in (1, 2, 3):
             sx, sz, _radius = self.STRONGHOLDS[zone]
             if col0 * cell - cell < sx < col1 * cell + cell:
                 if row0 * cell - cell < sz < row1 * cell + cell:
-                    self._build_stronghold(mesh, zone, sx, sz - anchor)
+                    _build_stronghold(mesh, zone, sx, sz - anchor)
         hx, hz = self.HOUSE_POS
         if col0 * cell - cell < hx < col1 * cell + cell:
             if row0 * cell - cell < hz < row1 * cell + cell:
@@ -792,8 +894,7 @@ class _Adventure:
             land_offset_x = position.x - self.land_anchor_x
             land_offset_z = position.y - self.land_anchor_z
             land_lag = self.CHUNK_LAG * 0.5
-            if (abs(land_offset_x) > land_lag
-                    or abs(land_offset_z) > land_lag):
+            if abs(land_offset_x) > land_lag or abs(land_offset_z) > land_lag:
                 self._fill_lands(position.x, position.y)
 
     def _fill_lands(self, center_x, center_z):
@@ -804,7 +905,10 @@ class _Adventure:
         if land_type >= len(self.LAND_FILES):
             land_type = 0
         if land_type != self.land_type:
-            path = "picoware/apps/games/pge_adventure/%s.sprite3d" % self.LAND_FILES[land_type]
+            path = (
+                "picoware/apps/games/pge_adventure/%s.sprite3d"
+                % self.LAND_FILES[land_type]
+            )
             for entity in self.lands:
                 sprite = entity.sprite_3d
                 if sprite is not None and sprite.from_path(path, False):
@@ -822,10 +926,13 @@ class _Adventure:
         edge_x = self.WORLD_HALF_X - cell
         edge_z = self.WORLD_HALF_Z - cell
         bucket = []
+        _append = bucket.append
+        hash_ = _hash
+        _zone_for = zone_for
         for col in range(col0, col1 + 1):
             for row in range(row0, row1 + 1):
-                x = col * cell + cell * 0.5 + ((_hash(col, row, 5) % 100) - 50) * 0.04
-                z = row * cell + cell * 0.5 + ((_hash(col, row, 6) % 100) - 50) * 0.04
+                x = col * cell + cell * 0.5 + ((hash_(col, row, 5) % 100) - 50) * 0.04
+                z = row * cell + cell * 0.5 + ((hash_(col, row, 6) % 100) - 50) * 0.04
                 if x > edge_x or x < -edge_x or z > edge_z or z < -edge_z:
                     continue
                 dx = x - center_x
@@ -833,10 +940,10 @@ class _Adventure:
                 dist_sq = dx * dx + dz * dz
                 if dist_sq > limit:
                     continue
-                zone = zone_for(x, z)
+                zone = _zone_for(x, z)
                 kind = zone if zone < types else 0
                 if kind == self.land_type:
-                    bucket.append((dist_sq, x, z))
+                    _append((dist_sq, x, z))
         bucket.sort()
         for index, entity in enumerate(self.lands):
             if index < len(bucket):
@@ -849,9 +956,21 @@ class _Adventure:
     def _build_background(self):
         """Create the sky and horizon entity."""
         background = Entity(
-            "Background", ENTITY_TYPE_3D_SPRITE, Vector(0, self.BACKGROUND_Z), Vector(1, 1),
-            None, None, None, None, None, None, _background_render, None, False,
-            SPRITE_3D_NONE, self.COLOR_BLACK,
+            "Background",
+            ENTITY_TYPE_3D_SPRITE,
+            Vector(0, self.BACKGROUND_Z),
+            Vector(1, 1),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            _background_render,
+            None,
+            False,
+            SPRITE_3D_NONE,
+            self.COLOR_BLACK,
         )
         background.is_visible = True
         self.level.entity_add(background)
@@ -863,9 +982,21 @@ class _Adventure:
             self.engine.entity_remove(self.player)
             self.player = None
         self.player = Entity(
-            "Player", ENTITY_TYPE_PLAYER, Vector(self.PLAYER_SPAWN[0], self.PLAYER_SPAWN[1]),
-            Vector(0.7, 1.8), None, None, None, None, None, _player_update,
-            None, None, False, SPRITE_3D_CUSTOM, self.COLOR_PLAYER,
+            "Player",
+            ENTITY_TYPE_PLAYER,
+            Vector(self.PLAYER_SPAWN[0], self.PLAYER_SPAWN[1]),
+            Vector(0.7, 1.8),
+            None,
+            None,
+            None,
+            None,
+            None,
+            _player_update,
+            None,
+            None,
+            False,
+            SPRITE_3D_CUSTOM,
+            self.COLOR_PLAYER,
         )
         self.player.speed = self.base_speed
         self.player.is_player = True
@@ -873,8 +1004,7 @@ class _Adventure:
         self.player.direction_set(cos(self.heading), sin(self.heading))
         self.player.set_3d_sprite_rotation(self.heading - pi * 0.5 + self.PLAYER_ANGLE)
         # Intro shows Wizard, not hero.
-        sprite = self._load_sprite(
-            "picoware/apps/games/pge_adventure/wizard.sprite3d")
+        sprite = self._load_sprite("picoware/apps/games/pge_adventure/wizard.sprite3d")
         if sprite is None:
             # Provide visible fallback mesh.
             sprite = Sprite3D()
@@ -886,12 +1016,23 @@ class _Adventure:
     def _build_wizard(self):
         """Create the Wise Wizard NPC in the Nolands hub."""
         self.wizard = Entity(
-            "Wise Wizard", ENTITY_TYPE_NPC, Vector(self.WIZARD_POS[0], self.WIZARD_POS[1]),
-            Vector(0.8, 2.0), None, None, None, None, None, None, None, None, False,
-            SPRITE_3D_CUSTOM, self.COLOR_WIZARD,
+            "Wise Wizard",
+            ENTITY_TYPE_NPC,
+            Vector(self.WIZARD_POS[0], self.WIZARD_POS[1]),
+            Vector(0.8, 2.0),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            False,
+            SPRITE_3D_CUSTOM,
+            self.COLOR_WIZARD,
         )
-        sprite = self._load_sprite(
-            "picoware/apps/games/pge_adventure/wizard.sprite3d")
+        sprite = self._load_sprite("picoware/apps/games/pge_adventure/wizard.sprite3d")
         if sprite is not None:
             self.wizard.set_sprite3d(sprite)
         self.wizard.is_visible = False
@@ -902,9 +1043,21 @@ class _Adventure:
         for index in range(self.ENEMY_COUNT):
             zone = index % len(self.ENEMY_FILES) + 1
             enemy = Entity(
-                "Enemy %d" % index, ENTITY_TYPE_ENEMY, Vector(0, 0), Vector(0.7, 1.8),
-                None, None, None, None, None, _enemy_update, _enemy_render, None, False,
-                SPRITE_3D_CUSTOM, self.ZONE_ENEMY[zone],
+                "Enemy %d" % index,
+                ENTITY_TYPE_ENEMY,
+                Vector(0, 0),
+                Vector(0.7, 1.8),
+                None,
+                None,
+                None,
+                None,
+                None,
+                _enemy_update,
+                _enemy_render,
+                None,
+                False,
+                SPRITE_3D_CUSTOM,
+                self.ZONE_ENEMY[zone],
             )
             sprite = self._load_sprite(self._enemy_path(zone))
             if sprite is not None:
@@ -920,12 +1073,23 @@ class _Adventure:
     def _build_dragon(self):
         """Create the hidden Dragon boss."""
         dragon = Entity(
-            "Dragon", ENTITY_TYPE_ENEMY, Vector(0, 0), Vector(0.7, 1.8),
-            None, None, None, None, None, _enemy_update, _enemy_render, None, False,
-            SPRITE_3D_CUSTOM, self.COLOR_DRAGON,
+            "Dragon",
+            ENTITY_TYPE_ENEMY,
+            Vector(0, 0),
+            Vector(0.7, 1.8),
+            None,
+            None,
+            None,
+            None,
+            None,
+            _enemy_update,
+            _enemy_render,
+            None,
+            False,
+            SPRITE_3D_CUSTOM,
+            self.COLOR_DRAGON,
         )
-        sprite = self._load_sprite(
-            "picoware/apps/games/pge_adventure/dragon.sprite3d")
+        sprite = self._load_sprite("picoware/apps/games/pge_adventure/dragon.sprite3d")
         if sprite is not None:
             dragon.set_sprite3d(sprite)
         self.dragon = dragon
@@ -937,19 +1101,29 @@ class _Adventure:
         """Create the reusable skill effect sprites."""
         for key in self.EFFECT_FILES:
             coll = _on_projectile_collision if key in ("orb", "fire-blast") else None
-            update = (_projectile_update if key in ("orb", "fire-blast")
-                      else _effect_update)
+            update = (
+                _projectile_update if key in ("orb", "fire-blast") else _effect_update
+            )
             effect = Entity(
-                "FX %s" % key, ENTITY_TYPE_3D_SPRITE, Vector(0, 0, 1.0), Vector(1, 1),
-                None, None, None,      # 5,6,7: sprite_data, sprite_left, sprite_right
-                None, None,            # 8,9: start, stop
-                update, None,          # 10,11: update, render
-                coll,                  # 12: collision
-                False,                 # 13: is_8bit
-                SPRITE_3D_CUSTOM, self.COLOR_WHITE,   # 14,15: sprite_3d_type, sprite_3d_color
+                "FX %s" % key,
+                ENTITY_TYPE_3D_SPRITE,
+                Vector(0, 0, 1.0),
+                Vector(1, 1),
+                None,
+                None,
+                None,  # 5,6,7: sprite_data, sprite_left, sprite_right
+                None,
+                None,  # 8,9: start, stop
+                update,
+                None,  # 10,11: update, render
+                coll,  # 12: collision
+                False,  # 13: is_8bit
+                SPRITE_3D_CUSTOM,
+                self.COLOR_WHITE,  # 14,15: sprite_3d_type, sprite_3d_color
             )
             sprite = self._load_sprite(
-                "picoware/apps/games/pge_adventure/%s.sprite3d" % key)
+                "picoware/apps/games/pge_adventure/%s.sprite3d" % key
+            )
             if sprite is not None:
                 effect.set_sprite3d(sprite)
             effect.state = 1 if key == "orb" else 0
@@ -961,19 +1135,31 @@ class _Adventure:
         """Create the buff halo sprites that follow the player."""
         self.halos = {}
         self._halo_entity = {}
-        for stat, key in (("health", "blue-halo"), ("speed", "green-halo"),
-                          ("strength", "red-halo")):
+        for stat, key in (
+            ("health", "blue-halo"),
+            ("speed", "green-halo"),
+            ("strength", "red-halo"),
+        ):
             effect = Entity(
-                "Halo %s" % stat, ENTITY_TYPE_3D_SPRITE, Vector(0, 0, 1.0), Vector(1, 1),
-                None, None, None,      # 5,6,7: sprite_data, sprite_left, sprite_right
-                None, None,            # 8,9: start, stop
-                None, None,    # 10,11: update, render
-                None,                  # 12: collision
-                False,                 # 13: is_8bit
-                SPRITE_3D_CUSTOM, self.COLOR_WHITE,   # 14,15: sprite_3d_type, sprite_3d_color
+                "Halo %s" % stat,
+                ENTITY_TYPE_3D_SPRITE,
+                Vector(0, 0, 1.0),
+                Vector(1, 1),
+                None,
+                None,
+                None,  # 5,6,7: sprite_data, sprite_left, sprite_right
+                None,
+                None,  # 8,9: start, stop
+                None,
+                None,  # 10,11: update, render
+                None,  # 12: collision
+                False,  # 13: is_8bit
+                SPRITE_3D_CUSTOM,
+                self.COLOR_WHITE,  # 14,15: sprite_3d_type, sprite_3d_color
             )
             sprite = self._load_sprite(
-                "picoware/apps/games/pge_adventure/%s.sprite3d" % key)
+                "picoware/apps/games/pge_adventure/%s.sprite3d" % key
+            )
             if sprite is not None:
                 effect.set_sprite3d(sprite)
             effect.is_visible = False
@@ -985,9 +1171,21 @@ class _Adventure:
         """Create the land patch pool from the world sprite3d assets."""
         for index in range(self.LAND_COUNT):
             entity = Entity(
-                "Land %d" % index, ENTITY_TYPE_3D_SPRITE, Vector(0, 0), Vector(1, 1),
-                None, None, None, None, None, None, None, None, False,
-                SPRITE_3D_CUSTOM, self.COLOR_BLACK,
+                "Land %d" % index,
+                ENTITY_TYPE_3D_SPRITE,
+                Vector(0, 0),
+                Vector(1, 1),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                False,
+                SPRITE_3D_CUSTOM,
+                self.COLOR_BLACK,
             )
             sprite = self._load_sprite(
                 "picoware/apps/games/pge_adventure/%s.sprite3d"
@@ -1003,8 +1201,9 @@ class _Adventure:
 
     def _enemy_path(self, zone):
         """Return the sprite path for a faction's enemy."""
-        return ("picoware/apps/games/pge_adventure/%s.sprite3d"
-                % self.ENEMY_FILES[zone - 1])
+        return (
+            "picoware/apps/games/pge_adventure/%s.sprite3d" % self.ENEMY_FILES[zone - 1]
+        )
 
     def _load_sprite(self, path):
         """Load a Sprite3D, collecting once on low memory."""
@@ -1030,7 +1229,7 @@ class _Adventure:
         self.beast_triangles = []
         self.beast_right_side = 1
 
-        if (loaded and name == "Knight" and self.player.sprite_3d.triangle_count > 223):
+        if loaded and name == "Knight" and self.player.sprite_3d.triangle_count > 223:
             for index in range(216, 224):
                 self.sword_triangles.append(self.player.sprite_3d.get_triangle(index))
         elif loaded and name == "Beast":
@@ -1236,7 +1435,7 @@ class _Adventure:
         aggro_sq = self.AGGRO_RANGE * self.AGGRO_RANGE
         hit_sq = self.HIT_RANGE * self.HIT_RANGE
         if 1e-6 < dist_sq < aggro_sq:
-            dist = dist_sq ** 0.5
+            dist = dist_sq**0.5
             enemy.direction_set(dx / dist, dz / dist)
             if dist_sq > hit_sq:
                 if enemy.elapsed_move_timer <= 0:
@@ -1273,7 +1472,7 @@ class _Adventure:
             return
         if dist_sq < 1e-6:
             return
-        dist = dist_sq ** 0.5
+        dist = dist_sq**0.5
         enemy.direction_set(dx / dist, dz / dist)
         enemy.sprite_rotation = atan2(dz, dx) - pi * 0.5
         if dist_sq > self.DRAGON_RANGE * self.DRAGON_RANGE:
@@ -1290,8 +1489,12 @@ class _Adventure:
         """Breathe a fireball at the player."""
         px = self.player.position.x
         pz = self.player.position.y
-        self._show_effect("fire-ball", (enemy.position.x + px) * 0.5,
-                          (enemy.position.y + pz) * 0.5, 1.4)
+        self._show_effect(
+            "fire-ball",
+            (enemy.position.x + px) * 0.5,
+            (enemy.position.y + pz) * 0.5,
+            1.4,
+        )
         loss = int(enemy.strength * 0.5)
         self.player.health -= loss
         enemy.attack_timer = 90
@@ -1315,8 +1518,10 @@ class _Adventure:
         ex = enemy.position.x + enemy.direction.x * step
         ez = enemy.position.y + enemy.direction.y * step
         if (
-            ex < -self.WORLD_HALF_X or ex > self.WORLD_HALF_X
-            or ez < -self.WORLD_HALF_Z or ez > self.WORLD_HALF_Z
+            ex < -self.WORLD_HALF_X
+            or ex > self.WORLD_HALF_X
+            or ez < -self.WORLD_HALF_Z
+            or ez > self.WORLD_HALF_Z
         ):
             enemy.direction_set(-enemy.direction.x, -enemy.direction.y)
         else:
@@ -1416,10 +1621,13 @@ class _Adventure:
             self._class_entries = []
             for name in self.class_names:
                 entry = data[name]
-                self._class_entries.append((
-                    name, entry["attribute"],
-                    [tuple(skill) for skill in entry["skills"]],
-                ))
+                self._class_entries.append(
+                    (
+                        name,
+                        entry["attribute"],
+                        [tuple(skill) for skill in entry["skills"]],
+                    )
+                )
         return self.class_names
 
     def _class_entry(self, index=None):
@@ -1444,7 +1652,13 @@ class _Adventure:
         if self.skill_cd[slot] > 0:
             return
         skill = self._class_entry()[2][slot]
-        name, kind, power, radius, cooldown = skill[0], skill[1], skill[2], skill[3], skill[4]
+        name, kind, power, radius, cooldown = (
+            skill[0],
+            skill[1],
+            skill[2],
+            skill[3],
+            skill[4],
+        )
         duration = skill[5] if len(skill) > 5 else 0
         if self.class_name == "Knight":
             if kind == "bolt":
@@ -1489,10 +1703,8 @@ class _Adventure:
         elif name == "Teleport":
             next_x = self.player.position.x + self.player.direction.x * 12.0
             next_z = self.player.position.y + self.player.direction.y * 12.0
-            next_x = max(-self.WORLD_HALF_X + 1.0,
-                         min(self.WORLD_HALF_X - 1.0, next_x))
-            next_z = max(-self.WORLD_HALF_Z + 1.0,
-                         min(self.WORLD_HALF_Z - 1.0, next_z))
+            next_x = max(-self.WORLD_HALF_X + 1.0, min(self.WORLD_HALF_X - 1.0, next_x))
+            next_z = max(-self.WORLD_HALF_Z + 1.0, min(self.WORLD_HALF_Z - 1.0, next_z))
             self.player.position_set(next_x, next_z)
             self.special_cd = 0
         else:
@@ -1565,7 +1777,7 @@ class _Adventure:
     def _skill_boost(self, duration):
         """Apply the class boost (speed, health or strength)."""
         if self.buff_timer > 0:
-            return # Wait until buff ends.
+            return  # Wait until buff ends.
         stat = self._class_entry()[1]
         self.buff_stat = stat
         if stat == "health":
@@ -1579,7 +1791,8 @@ class _Adventure:
         self.buff_timer = duration
         if stat in self.halos:
             self.halos[stat].position_set(
-                self.player.position.x, self.player.position.y, self.HALO_HEIGHT)
+                self.player.position.x, self.player.position.y, self.HALO_HEIGHT
+            )
             self.halos[stat].is_visible = True
 
     def _knight_bolt(self, name, power, radius):
@@ -1608,10 +1821,8 @@ class _Adventure:
             stop = max(length - 1.4, 0.6)
             next_x = self.player.position.x + dx * stop / length
             next_z = self.player.position.y + dz * stop / length
-            next_x = max(-self.WORLD_HALF_X + 1.0,
-                         min(self.WORLD_HALF_X - 1.0, next_x))
-            next_z = max(-self.WORLD_HALF_Z + 1.0,
-                         min(self.WORLD_HALF_Z - 1.0, next_z))
+            next_x = max(-self.WORLD_HALF_X + 1.0, min(self.WORLD_HALF_X - 1.0, next_x))
+            next_z = max(-self.WORLD_HALF_Z + 1.0, min(self.WORLD_HALF_Z - 1.0, next_z))
             self.player.position_set(next_x, next_z, 0.0)
             self.player.direction_set(dx / length, dz / length)
             self.player.set_3d_sprite_rotation(self.player_yaw)
@@ -1653,10 +1864,8 @@ class _Adventure:
             approach_distance = max(length - 1.4, 0.6)
             next_x = self.player.position.x + dx * approach_distance / length
             next_z = self.player.position.y + dz * approach_distance / length
-            next_x = max(-self.WORLD_HALF_X + 1.0,
-                         min(self.WORLD_HALF_X - 1.0, next_x))
-            next_z = max(-self.WORLD_HALF_Z + 1.0,
-                         min(self.WORLD_HALF_Z - 1.0, next_z))
+            next_x = max(-self.WORLD_HALF_X + 1.0, min(self.WORLD_HALF_X - 1.0, next_x))
+            next_z = max(-self.WORLD_HALF_Z + 1.0, min(self.WORLD_HALF_Z - 1.0, next_z))
             self.player.position_set(next_x, next_z, 0.0)
             self.player.direction_set(dx / length, dz / length)
             self.player.set_3d_sprite_rotation(self.player_yaw)
@@ -1705,7 +1914,7 @@ class _Adventure:
             dist_sq = dx * dx + dz * dz
             if dist_sq > radius_sq:
                 continue
-            dist = dist_sq ** 0.5
+            dist = dist_sq**0.5
             if dist < 0.0001:
                 continue
             facing = (self.cos_h * dx + self.sin_h * dz) / dist
@@ -1734,10 +1943,8 @@ class _Adventure:
         step = self.conquer_speed
         px = self.player.position.x + self.conquer_dirx * step
         pz = self.player.position.y + self.conquer_dirz * step
-        next_x = max(-self.WORLD_HALF_X + 1.0,
-                     min(self.WORLD_HALF_X - 1.0, px))
-        next_z = max(-self.WORLD_HALF_Z + 1.0,
-                     min(self.WORLD_HALF_Z - 1.0, pz))
+        next_x = max(-self.WORLD_HALF_X + 1.0, min(self.WORLD_HALF_X - 1.0, px))
+        next_z = max(-self.WORLD_HALF_Z + 1.0, min(self.WORLD_HALF_Z - 1.0, pz))
         self.player.position_set(next_x, next_z, 0.0)
         for enemy in self._target_list:
             if not enemy.is_visible or enemy in self.conquer_hit:
@@ -1813,7 +2020,9 @@ class _Adventure:
         elif kind == "kill_fast":
             done = self.q_timer[zone] > 0 and self.q_streak[zone] >= a
         elif kind == "kill_low":
-            done = self.q_timer[zone] > 0 and self.q_streak[zone] >= a and self.q_low[zone]
+            done = (
+                self.q_timer[zone] > 0 and self.q_streak[zone] >= a and self.q_low[zone]
+            )
         elif kind == "find":
             done = self.strong_found[zone]
         elif kind == "clear":
@@ -1869,9 +2078,9 @@ class _Adventure:
         second = self.LIGHT_TABLE[(hour + 1) % 24]
         self.light = first[0] + (second[0] - first[0]) * fraction
         self.level.set_light_direction(
-            first[1] + (second[1] - first[1]) * fraction, 
-            1.0, 
-            first[2] + (second[2] - first[2]) * fraction
+            first[1] + (second[1] - first[1]) * fraction,
+            1.0,
+            first[2] + (second[2] - first[2]) * fraction,
         )
 
     def _objective_pos(self):
@@ -1895,10 +2104,18 @@ class _Adventure:
         return (
             self.wizard_met,
             self.return_to_wizard,
-            self.quest_index[1], self.quest_index[2], self.quest_index[3],
-            self.q_kills[1], self.q_kills[2], self.q_kills[3],
-            self.strong_kills[1], self.strong_kills[2], self.strong_kills[3],
-            self.faction_done[1], self.faction_done[2], self.faction_done[3],
+            self.quest_index[1],
+            self.quest_index[2],
+            self.quest_index[3],
+            self.q_kills[1],
+            self.q_kills[2],
+            self.q_kills[3],
+            self.strong_kills[1],
+            self.strong_kills[2],
+            self.strong_kills[3],
+            self.faction_done[1],
+            self.faction_done[2],
+            self.faction_done[3],
         )
 
     def _quest_line(self):
@@ -1919,7 +2136,10 @@ class _Adventure:
                     if kind == "kill":
                         text += " (%d/%d)" % (min(self.q_kills[zone], target), target)
                     elif kind == "clear":
-                        text += " (%d/%d)" % (min(self.strong_kills[zone], target), target)
+                        text += " (%d/%d)" % (
+                            min(self.strong_kills[zone], target),
+                            target,
+                        )
                     line = text
                     break
                 if line is None:
@@ -1932,17 +2152,62 @@ class _Adventure:
         """Create the ground arrow that points to the objective."""
         d = self.GUIDE_DISTANCE  # Match the player's sort key.
         mesh = Sprite3D()
-        mesh.add_triangle(-0.70 + d, 0.03, -0.12, 0.25 + d, 0.03, 0.12,
-                          0.25 + d, 0.03, -0.12, self.COLOR_ACCENT, False)
-        mesh.add_triangle(-0.70 + d, 0.03, -0.12, -0.70 + d, 0.03, 0.12,
-                          0.25 + d, 0.03, -0.12, self.COLOR_ACCENT, False)
-        mesh.add_triangle(0.95 + d, 0.03, 0.00, 0.25 + d, 0.03, -0.35,
-                          0.25 + d, 0.03, 0.35, self.COLOR_ACCENT, False)
+        mesh.add_triangle(
+            -0.70 + d,
+            0.03,
+            -0.12,
+            0.25 + d,
+            0.03,
+            0.12,
+            0.25 + d,
+            0.03,
+            -0.12,
+            self.COLOR_ACCENT,
+            False,
+        )
+        mesh.add_triangle(
+            -0.70 + d,
+            0.03,
+            -0.12,
+            -0.70 + d,
+            0.03,
+            0.12,
+            0.25 + d,
+            0.03,
+            -0.12,
+            self.COLOR_ACCENT,
+            False,
+        )
+        mesh.add_triangle(
+            0.95 + d,
+            0.03,
+            0.00,
+            0.25 + d,
+            0.03,
+            -0.35,
+            0.25 + d,
+            0.03,
+            0.35,
+            self.COLOR_ACCENT,
+            False,
+        )
         mesh.set_wireframe(False)
         self.guide = Entity(
-            "Guide", ENTITY_TYPE_3D_SPRITE, Vector(0, 0), Vector(1, 1),
-            None, None, None, None, None, None, None, None, False,
-            SPRITE_3D_CUSTOM, self.COLOR_ACCENT,
+            "Guide",
+            ENTITY_TYPE_3D_SPRITE,
+            Vector(0, 0),
+            Vector(1, 1),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            False,
+            SPRITE_3D_CUSTOM,
+            self.COLOR_ACCENT,
         )
         self.guide.sprite_3d = mesh
         self.guide.sprite_3d_type = SPRITE_3D_CUSTOM
@@ -1966,12 +2231,23 @@ class _Adventure:
     def _build_bird(self):
         """Create the background bird."""
         self.bird = Entity(
-            "Bird", ENTITY_TYPE_3D_SPRITE, Vector(0, 0, self.BIRD_HEIGHT),
-            Vector(1, 1), None, None, None, None, None, None, None, None, False,
-            SPRITE_3D_CUSTOM, self.COLOR_WHITE,
+            "Bird",
+            ENTITY_TYPE_3D_SPRITE,
+            Vector(0, 0, self.BIRD_HEIGHT),
+            Vector(1, 1),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            False,
+            SPRITE_3D_CUSTOM,
+            self.COLOR_WHITE,
         )
-        sprite = self._load_sprite(
-            "picoware/apps/games/pge_adventure/bird.sprite3d")
+        sprite = self._load_sprite("picoware/apps/games/pge_adventure/bird.sprite3d")
         if sprite is not None:
             self.bird.set_sprite3d(sprite)
         self.bird.is_visible = False
@@ -2006,14 +2282,23 @@ class _Adventure:
         side_x = -view_z
         side_z = view_x
         depth = 36.0
-        camera_offset = (self.CAMERA_DISTANCE
-                         if self.camera.perspective == CAMERA_THIRD_PERSON else 0.0)
+        camera_offset = (
+            self.CAMERA_DISTANCE
+            if self.camera.perspective == CAMERA_THIRD_PERSON
+            else 0.0
+        )
         half_width = depth * self.draw.size.x / (2.0 * self.draw.size.y)
         p = self.bird.position
-        p.x = (player.position.x + view_x * (depth + camera_offset)
-                       - side_x * half_width * 0.8)
-        p.y = (player.position.y + view_z * (depth + camera_offset)
-                       - side_z * half_width * 0.8)
+        p.x = (
+            player.position.x
+            + view_x * (depth + camera_offset)
+            - side_x * half_width * 0.8
+        )
+        p.y = (
+            player.position.y
+            + view_z * (depth + camera_offset)
+            - side_z * half_width * 0.8
+        )
         self.bird.position = p
         speed = half_width * 1.6 / self.BIRD_FLIGHT
         self.bird_dx = side_x * speed
@@ -2055,8 +2340,10 @@ class _Adventure:
             self.dialogue = ""
             for zone in (1, 2, 3):
                 if not self.faction_done[zone]:
-                    self.dialogue = "%s: %s" % (self.ZONE_NAMES[zone],
-                                                self.quest_text(zone))
+                    self.dialogue = "%s: %s" % (
+                        self.ZONE_NAMES[zone],
+                        self.quest_text(zone),
+                    )
                     break
             if not self.dialogue:
                 self.dialogue = "All lands are safe."
@@ -2086,10 +2373,8 @@ class _Adventure:
             step = (radius + 24.0) / length
             next_x = sx - dx * step
             next_z = sz - dz * step
-            next_x = max(-self.WORLD_HALF_X + 1.0,
-                         min(self.WORLD_HALF_X - 1.0, next_x))
-            next_z = max(-self.WORLD_HALF_Z + 1.0,
-                         min(self.WORLD_HALF_Z - 1.0, next_z))
+            next_x = max(-self.WORLD_HALF_X + 1.0, min(self.WORLD_HALF_X - 1.0, next_x))
+            next_z = max(-self.WORLD_HALF_Z + 1.0, min(self.WORLD_HALF_Z - 1.0, next_z))
             self.player.position_set(next_x, next_z)
             self.anchor_x = self.player.position.x
             self.anchor_z = self.player.position.y
@@ -2222,8 +2507,7 @@ class _Adventure:
         """Drive the story phase and the player."""
         button = self._button(game)
         self.player.is_visible = (
-            self.ui == self.UI_NONE
-            and self.camera.perspective != CAMERA_FIRST_PERSON
+            self.ui == self.UI_NONE and self.camera.perspective != CAMERA_FIRST_PERSON
         )
         # Skip game updates outside play.
         if self.phase != 2:
@@ -2247,8 +2531,7 @@ class _Adventure:
                 self.speed_scale = max(1.0, self._speed() - self.SPEED_STEP)
                 self._mark_progress()
             elif button == BUTTON_RIGHT and self.menu_index == 1:
-                self.speed_scale = min(self.SPEED_MAX,
-                                       self._speed() + self.SPEED_STEP)
+                self.speed_scale = min(self.SPEED_MAX, self._speed() + self.SPEED_STEP)
                 self._mark_progress()
             elif button == BUTTON_BACK:
                 self.ui = self.UI_NONE
@@ -2335,7 +2618,8 @@ class _Adventure:
                     y = rotated_x * swing_sin + y * swing_cos + 1.283
                     vertices.extend((x, y, rotated_z + 0.04))
                 self.player.sprite_3d.update_triangle(
-                    216 + offset, *vertices, triangle.color, triangle.wireframe)
+                    216 + offset, *vertices, triangle.color, triangle.wireframe
+                )
         elif self.class_name == "Beast" and self.beast_triangles:
             if self.chaos_frames <= 0 and self.sword_swing > 0.0:
                 self.sword_swing = max(0.0, self.sword_swing - 0.12)
@@ -2346,17 +2630,35 @@ class _Adventure:
             for index, triangle, side in self.beast_triangles:
                 if self.beast_swing_mode == 0:
                     self.player.sprite_3d.update_triangle(
-                        index, triangle.x1, triangle.y1, triangle.z1,
-                        triangle.x2, triangle.y2, triangle.z2,
-                        triangle.x3, triangle.y3, triangle.z3,
-                        triangle.color, triangle.wireframe)
+                        index,
+                        triangle.x1,
+                        triangle.y1,
+                        triangle.z1,
+                        triangle.x2,
+                        triangle.y2,
+                        triangle.z2,
+                        triangle.x3,
+                        triangle.y3,
+                        triangle.z3,
+                        triangle.color,
+                        triangle.wireframe,
+                    )
                     continue
                 if self.beast_swing_mode == 1 and side != self.beast_right_side:
                     self.player.sprite_3d.update_triangle(
-                        index, triangle.x1, triangle.y1, triangle.z1,
-                        triangle.x2, triangle.y2, triangle.z2,
-                        triangle.x3, triangle.y3, triangle.z3,
-                        triangle.color, triangle.wireframe)
+                        index,
+                        triangle.x1,
+                        triangle.y1,
+                        triangle.z1,
+                        triangle.x2,
+                        triangle.y2,
+                        triangle.z2,
+                        triangle.x3,
+                        triangle.y3,
+                        triangle.z3,
+                        triangle.color,
+                        triangle.wireframe,
+                    )
                     continue
                 if self.beast_swing_mode == 3:
                     swing = sin(self.chaos_yaw * 3.0 + (side < 0) * pi) * 0.9
@@ -2381,7 +2683,8 @@ class _Adventure:
                     y = rotated_x * swing_sin + y * swing_cos + 1.28
                     vertices.extend((x, y, rotated_z))
                 self.player.sprite_3d.update_triangle(
-                    index, *vertices, triangle.color, triangle.wireframe)
+                    index, *vertices, triangle.color, triangle.wireframe
+                )
 
         if self.special_active > 0:
             self._attack()
@@ -2404,7 +2707,9 @@ class _Adventure:
         # Show Wizard when nearby.
         dx = self.wizard.position.x - player.position.x
         dz = self.wizard.position.y - player.position.y
-        self.wizard.is_visible = dx * dx + dz * dz <= self.FIELD_OF_VIEW * self.FIELD_OF_VIEW
+        self.wizard.is_visible = (
+            dx * dx + dz * dz <= self.FIELD_OF_VIEW * self.FIELD_OF_VIEW
+        )
         if player.has_changed_position():
             self._update_guide(player)
 
@@ -2459,10 +2764,8 @@ class _Adventure:
         if speed != 0.0:
             next_x = player.position.x + dx * speed
             next_z = player.position.y + dz * speed
-            next_x = max(-self.WORLD_HALF_X + 1.0,
-                         min(self.WORLD_HALF_X - 1.0, next_x))
-            next_z = max(-self.WORLD_HALF_Z + 1.0,
-                         min(self.WORLD_HALF_Z - 1.0, next_z))
+            next_x = max(-self.WORLD_HALF_X + 1.0, min(self.WORLD_HALF_X - 1.0, next_x))
+            next_z = max(-self.WORLD_HALF_Z + 1.0, min(self.WORLD_HALF_Z - 1.0, next_z))
             player.position_set(next_x, next_z)
         player.direction_set(dx, dz)
         player.set_3d_sprite_rotation(self.player_yaw)
@@ -2481,9 +2784,7 @@ class _Adventure:
             direction_z = self.sin_h
             self.camera.position_set(px, pz)
             self.camera.direction_set(direction_x, direction_z)
-            self.camera.plane_set(
-                -direction_z * plane_scale, direction_x * plane_scale
-            )
+            self.camera.plane_set(-direction_z * plane_scale, direction_x * plane_scale)
             self.camera.height = self.CAMERA_FIRST_HEIGHT
         else:
             self.player.is_player = False
@@ -2498,8 +2799,7 @@ class _Adventure:
             )
             self.camera.height = self.CAMERA_HEIGHT
         self.player.is_visible = (
-            self.ui == self.UI_NONE
-            and self.camera.perspective != CAMERA_FIRST_PERSON
+            self.ui == self.UI_NONE and self.camera.perspective != CAMERA_FIRST_PERSON
         )
 
     def _near_wizard(self):
@@ -2537,33 +2837,45 @@ class _Adventure:
             return
 
         bar = draw.scale_y(6)
-        draw._fill_rectangle(0, 0, width, draw.scale_y(20), self.COLOR_BLACK)
+        _fill_rectangle = draw._fill_rectangle
+        _text = draw._text
+        _fill_rectangle(0, 0, width, draw.scale_y(20), self.COLOR_BLACK)
 
         hp_width = width * self.player.health / self.player.max_health
         hp_width = max(hp_width, 0)
-        draw._fill_rectangle(0, 0, width, bar, self.COLOR_HP_BACK)
-        draw._fill_rectangle(0, 0, hp_width, bar, self.COLOR_HP)
+        _fill_rectangle(0, 0, width, bar, self.COLOR_HP_BACK)
+        _fill_rectangle(0, 0, hp_width, bar, self.COLOR_HP)
 
-        xp_width = int(width * self.player.xp / self.xp_to_next) if self.xp_to_next else 0
+        xp_width = (
+            int(width * self.player.xp / self.xp_to_next) if self.xp_to_next else 0
+        )
         xp_width = max(0, min(xp_width, width))
-        draw._fill_rectangle(0, bar, width, bar, self.COLOR_XP_BACK)
-        draw._fill_rectangle(0, bar, xp_width, bar, self.COLOR_XP)
+        _fill_rectangle(0, bar, width, bar, self.COLOR_XP_BACK)
+        _fill_rectangle(0, bar, xp_width, bar, self.COLOR_XP)
 
         line = self._quest_line()
-        limit = int((width - draw.scale_y(self.MINIMAP_W) - draw.scale_x(6))
-                    // draw.font_size.x)
+        limit = int(
+            (width - draw.scale_y(self.MINIMAP_W) - draw.scale_x(6)) // draw.font_size.x
+        )
         twenty_one = draw.scale_y(21)
-        draw._text(draw.scale_x(3), twenty_one, line[:max(4, limit)],
-                   self.COLOR_TEXT)
+        _text(draw.scale_x(3), twenty_one, line[: max(4, limit)], self.COLOR_TEXT)
 
         if self.talking or self.dialogue_timer > 0:
             self._draw_dialogue(draw, width)
         elif self.message_timer > 0:
-            draw._text((draw.size.x - draw.len(self.message)) // 2, twenty_one + draw.font_size.y + 2,
-                       self.message, self.COLOR_ACCENT)
+            _text(
+                (draw.size.x - draw.len(self.message)) // 2,
+                twenty_one + draw.font_size.y + 2,
+                self.message,
+                self.COLOR_ACCENT,
+            )
         elif self._near_wizard():
-            draw._text((draw.size.x - draw.len("CENTER: talk")) // 2, twenty_one + draw.font_size.y + 2,
-                       "CENTER: talk", self.COLOR_ACCENT)
+            _text(
+                (draw.size.x - draw.len("CENTER: talk")) // 2,
+                twenty_one + draw.font_size.y + 2,
+                "CENTER: talk",
+                self.COLOR_ACCENT,
+            )
 
         self._draw_minimap(draw)
 
@@ -2576,8 +2888,10 @@ class _Adventure:
         if camera_z <= 0.1:
             return -1.0, -1.0
         inv = 1.0 / camera_z
-        return (camera_x * inv * screen_h + screen_w * 0.5,
-            -(height - self.camera.height) * inv * screen_h + screen_h * 0.5)
+        return (
+            camera_x * inv * screen_h + screen_w * 0.5,
+            -(height - self.camera.height) * inv * screen_h + screen_h * 0.5,
+        )
 
     def _draw_intro(self, draw):
         """Draw the opening dragon story beat."""
@@ -2589,10 +2903,18 @@ class _Adventure:
             "Slay them, grow strong, take back the Nolands.",
         )
         for index, line in enumerate(lines):
-            draw._text(draw.scale_x(6), draw.scale_y(10) + (index * draw.font_size.y), line,
-                       self.COLOR_TEXT)
-        draw._text(draw.scale_x(6), height - draw.scale_y(16), "CENTER to continue",
-                   self.COLOR_ACCENT)
+            draw._text(
+                draw.scale_x(6),
+                draw.scale_y(10) + (index * draw.font_size.y),
+                line,
+                self.COLOR_TEXT,
+            )
+        draw._text(
+            draw.scale_x(6),
+            height - draw.scale_y(16),
+            "CENTER to continue",
+            self.COLOR_ACCENT,
+        )
 
     def _draw_class_select(self, draw, width):
         """Draw the Wise Wizard character select."""
@@ -2601,19 +2923,30 @@ class _Adventure:
         top = draw.scale_y(18)
         names = self._load_class_names()
         box_h = int(pad * 2 + font_h * (len(names) + 2))
-        draw._fill_rectangle(draw.scale_x(8), top, width - draw.scale_x(16), box_h,
-                             self.COLOR_BLACK)
-        draw._rectangle(draw.scale_x(8), top, width - draw.scale_x(16), box_h,
-                        self.COLOR_ACCENT)
-        draw._text(draw.scale_x(12), top + pad,
-                   "Wise Wizard: Who are you?", self.COLOR_ACCENT)
+        draw._fill_rectangle(
+            draw.scale_x(8), top, width - draw.scale_x(16), box_h, self.COLOR_BLACK
+        )
+        draw._rectangle(
+            draw.scale_x(8), top, width - draw.scale_x(16), box_h, self.COLOR_ACCENT
+        )
+        draw._text(
+            draw.scale_x(12), top + pad, "Wise Wizard: Who are you?", self.COLOR_ACCENT
+        )
         for index, name in enumerate(names):
             marker = ">" if index == self.class_index else " "
             color = self.COLOR_ACCENT if index == self.class_index else self.COLOR_DIM
-            draw._text(draw.scale_x(12), top + pad + (index + 1) * font_h,
-                       "%s %s" % (marker, name), color)
-        draw._text(draw.scale_x(12), top + pad + (len(names) + 1) * font_h,
-                   "UP/DOWN: pick  CENTER: go", self.COLOR_ROCK)
+            draw._text(
+                draw.scale_x(12),
+                top + pad + (index + 1) * font_h,
+                "%s %s" % (marker, name),
+                color,
+            )
+        draw._text(
+            draw.scale_x(12),
+            top + pad + (len(names) + 1) * font_h,
+            "UP/DOWN: pick  CENTER: go",
+            self.COLOR_ROCK,
+        )
 
     def _draw_help(self, draw):
         """Draw the controls help screen."""
@@ -2629,10 +2962,15 @@ class _Adventure:
         )
         row = draw.scale_y(24)
         for index, line in enumerate(lines):
-            draw._text(draw.scale_x(6), row + index * draw.font_size.y, line,
-                       self.COLOR_TEXT)
-        draw._text(draw.scale_x(6), height - draw.scale_y(16), "CENTER to begin",
-                   self.COLOR_ACCENT)
+            draw._text(
+                draw.scale_x(6), row + index * draw.font_size.y, line, self.COLOR_TEXT
+            )
+        draw._text(
+            draw.scale_x(6),
+            height - draw.scale_y(16),
+            "CENTER to begin",
+            self.COLOR_ACCENT,
+        )
 
     def _draw_view_list(self, draw, width):
         """Draw the side view list."""
@@ -2640,21 +2978,39 @@ class _Adventure:
         left = int(width * 0.62)
         top = int(height * 0.10)
         step = draw.font_size.y + draw.scale_y(2)
-        draw._rectangle(left, top, int(width - left - draw.scale_x(4)),
-                        int(height * 0.74), self.COLOR_ACCENT)
+        draw._rectangle(
+            left,
+            top,
+            int(width - left - draw.scale_x(4)),
+            int(height * 0.74),
+            self.COLOR_ACCENT,
+        )
         for index, label in enumerate(self.MENU_ITEMS):
             if index == 2:
-                label = ("1st Person" if self.camera.perspective == CAMERA_FIRST_PERSON
-                         else "3rd Person")
+                label = (
+                    "1st Person"
+                    if self.camera.perspective == CAMERA_FIRST_PERSON
+                    else "3rd Person"
+                )
             color = self.COLOR_ACCENT if index == self.menu_index else self.COLOR_DIM
-            draw._text(left + draw.scale_x(4),
-                       int(top + draw.scale_y(6) + index * step), label, color)
-        draw._text(left + draw.scale_x(4),
-                   int(top + draw.scale_y(6) + len(self.MENU_ITEMS) * step),
-                   "%02d:%02d" % (self.clock // 60, self.clock % 60), self.COLOR_TEXT)
-        draw._text(left + draw.scale_x(4),
-                   int(top + draw.scale_y(6) + (len(self.MENU_ITEMS) + 1) * step),
-                   "%d KB free" % (mem_free() // 1024), self.COLOR_TEXT)
+            draw._text(
+                left + draw.scale_x(4),
+                int(top + draw.scale_y(6) + index * step),
+                label,
+                color,
+            )
+        draw._text(
+            left + draw.scale_x(4),
+            int(top + draw.scale_y(6) + len(self.MENU_ITEMS) * step),
+            "%02d:%02d" % (self.clock // 60, self.clock % 60),
+            self.COLOR_TEXT,
+        )
+        draw._text(
+            left + draw.scale_x(4),
+            int(top + draw.scale_y(6) + (len(self.MENU_ITEMS) + 1) * step),
+            "%d KB free" % (mem_free() // 1024),
+            self.COLOR_TEXT,
+        )
 
     def _draw_full_map(self, draw):
         """Draw the whole-world map screen."""
@@ -2683,54 +3039,89 @@ class _Adventure:
         half_w = map_w * 0.5
         half_h = map_h * 0.5
 
-        draw._fill_rectangle(int(left), int(top), int(half_w), int(half_h), self.ZONE_GROUND[0])
-        draw._fill_rectangle(int(left + half_w), int(top), int(half_w), int(half_h), self.ZONE_GROUND[1])
-        draw._fill_rectangle(int(left), int(top + half_h), int(half_w), int(half_h), self.ZONE_GROUND[2])
-        draw._fill_rectangle(int(left + half_w), int(top + half_h), int(half_w),
-                             int(half_h), self.ZONE_GROUND[3])
+        _fill_rectangle = draw._fill_rectangle
+        _text = draw._text
 
-        draw._text(int(left + half_w * 0.25), int(top + half_h * 0.45), "Nolands",
-                   self.COLOR_TEXT)
-        draw._text(int(left + half_w * 1.25), int(top + half_h * 0.45), "Ghouls",
-                   self.COLOR_TEXT)
-        draw._text(int(left + half_w * 0.25), int(top + half_h * 1.45), "Goblins",
-                   self.COLOR_TEXT)
-        draw._text(int(left + half_w * 1.25), int(top + half_h * 1.45), "Soldiers",
-                   self.COLOR_TEXT)
+        _fill_rectangle(
+            int(left), int(top), int(half_w), int(half_h), self.ZONE_GROUND[0]
+        )
+        _fill_rectangle(
+            int(left + half_w), int(top), int(half_w), int(half_h), self.ZONE_GROUND[1]
+        )
+        _fill_rectangle(
+            int(left), int(top + half_h), int(half_w), int(half_h), self.ZONE_GROUND[2]
+        )
+        _fill_rectangle(
+            int(left + half_w),
+            int(top + half_h),
+            int(half_w),
+            int(half_h),
+            self.ZONE_GROUND[3],
+        )
+
+        _text(
+            int(left + half_w * 0.25),
+            int(top + half_h * 0.45),
+            "Nolands",
+            self.COLOR_TEXT,
+        )
+        _text(
+            int(left + half_w * 1.25),
+            int(top + half_h * 0.45),
+            "Ghouls",
+            self.COLOR_TEXT,
+        )
+        _text(
+            int(left + half_w * 0.25),
+            int(top + half_h * 1.45),
+            "Goblins",
+            self.COLOR_TEXT,
+        )
+        _text(
+            int(left + half_w * 1.25),
+            int(top + half_h * 1.45),
+            "Soldiers",
+            self.COLOR_TEXT,
+        )
 
         for zone in (1, 2, 3):
             sx, sz, _radius = self.STRONGHOLDS[zone]
             mx = left + (sx / self.WORLD_HALF_X * 0.5 + 0.5) * map_w
             mz = top + (sz / self.WORLD_HALF_Z * 0.5 + 0.5) * map_h
             color = self.COLOR_DIM if self.faction_done[zone] else self.ZONE_ENEMY[zone]
-            draw._fill_rectangle(int(mx) - 3, int(mz) - 3, 6, 6, color)
+            _fill_rectangle(int(mx) - 3, int(mz) - 3, 6, 6, color)
 
         wx = left + (self.WIZARD_POS[0] / self.WORLD_HALF_X * 0.5 + 0.5) * map_w
         wz = top + (self.WIZARD_POS[1] / self.WORLD_HALF_Z * 0.5 + 0.5) * map_h
-        draw._fill_rectangle(int(wx) - 3, int(wz) - 3, 7, 7, self.COLOR_WHITE)
-        draw._fill_rectangle(int(wx) - 2, int(wz) - 2, 5, 5, self.COLOR_WIZARD)
+        _fill_rectangle(int(wx) - 3, int(wz) - 3, 7, 7, self.COLOR_WHITE)
+        _fill_rectangle(int(wx) - 2, int(wz) - 2, 5, 5, self.COLOR_WIZARD)
 
         for enemy in self._target_list:
             if not enemy.is_visible:
                 continue
             ex = left + (enemy.position.x / self.WORLD_HALF_X * 0.5 + 0.5) * map_w
             ez = top + (enemy.position.y / self.WORLD_HALF_Z * 0.5 + 0.5) * map_h
-            draw._fill_rectangle(int(ex), int(ez), 3, 3, self.COLOR_HP)
+            _fill_rectangle(int(ex), int(ez), 3, 3, self.COLOR_HP)
 
         px = left + (self.player.position.x / self.WORLD_HALF_X * 0.5 + 0.5) * map_w
         pz = top + (self.player.position.y / self.WORLD_HALF_Z * 0.5 + 0.5) * map_h
-        draw._fill_rectangle(int(px) - 2, int(pz) - 2, 5, 5, self.COLOR_PLAYER)
+        _fill_rectangle(int(px) - 2, int(pz) - 2, 5, 5, self.COLOR_PLAYER)
         draw._rectangle(int(left), int(top), int(map_w), int(map_h), self.COLOR_WHITE)
         # Legend below the map.
         swatch = int(draw.font_size.y)
         row = top + map_h + draw.scale_y(4)
         for color, label in legend:
-            draw._fill_rectangle(draw.scale_x(6), int(row), swatch, swatch, color)
-            draw._text(draw.scale_x(6) + swatch + draw.scale_x(3), row, label,
-                       self.COLOR_TEXT)
+            _fill_rectangle(draw.scale_x(6), int(row), swatch, swatch, color)
+            _text(
+                draw.scale_x(6) + swatch + draw.scale_x(3), row, label, self.COLOR_TEXT
+            )
             row += step
-        draw._text(draw.scale_x(6), height - draw.scale_y(10),
-                   "UP/DOWN: view  BACK: close", self.COLOR_ROCK)
+        _text(
+            draw.scale_x(6),
+            height - draw.scale_y(10),
+            "UP/DOWN: view  BACK: close",
+            self.COLOR_ROCK,
+        )
 
     def _draw_stats(self, draw, width):
         """Draw the stats, skills and class screen."""
@@ -2738,32 +3129,60 @@ class _Adventure:
         draw.erase()
         step = draw.font_size.y + draw.scale_y(2)
         row = draw.scale_y(6)
-        draw._text(draw.scale_x(6), row,
-                   "Class: %s" % self.class_name, self.COLOR_TEXT)
+        _text = draw._text
+        _text(draw.scale_x(6), row, "Class: %s" % self.class_name, self.COLOR_TEXT)
         row += step
-        draw._text(draw.scale_x(6), row,
-                   "Level %d   XP %d/%d" % (self.player.level, int(self.player.xp),
-                                            int(self.xp_to_next)), self.COLOR_TEXT)
+        _text(
+            draw.scale_x(6),
+            row,
+            "Level %d   XP %d/%d"
+            % (self.player.level, int(self.player.xp), int(self.xp_to_next)),
+            self.COLOR_TEXT,
+        )
         row += step
-        draw._text(draw.scale_x(6), row,
-                   "HP %d/%d   STR %d" % (int(self.player.health), int(self.player.max_health),
-                                          int(self.player.strength)), self.COLOR_TEXT)
+        _text(
+            draw.scale_x(6),
+            row,
+            "HP %d/%d   STR %d"
+            % (
+                int(self.player.health),
+                int(self.player.max_health),
+                int(self.player.strength),
+            ),
+            self.COLOR_TEXT,
+        )
         row += step
-        draw._text(draw.scale_x(6), row,
-                   "Speed x%.1f  (LEFT/RIGHT)" % self._speed(), self.COLOR_TEXT)
+        _text(
+            draw.scale_x(6),
+            row,
+            "Speed x%.1f  (LEFT/RIGHT)" % self._speed(),
+            self.COLOR_TEXT,
+        )
         row += step * 2
-        draw._text(draw.scale_x(6), row, "Skills", self.COLOR_ACCENT)
+        _text(draw.scale_x(6), row, "Skills", self.COLOR_ACCENT)
         row += step
         skills = self._class_entry()[2]
         for slot in range(5):
             if slot > self.skills_unlocked - 1:
-                draw._text(draw.scale_x(10), row + slot * step,
-                           "%d: --" % (slot + 1), self.COLOR_DIM)
+                _text(
+                    draw.scale_x(10),
+                    row + slot * step,
+                    "%d: --" % (slot + 1),
+                    self.COLOR_DIM,
+                )
             else:
-                draw._text(draw.scale_x(10), row + slot * step,
-                           "%d: %s" % (slot + 1, skills[slot][0]), self.COLOR_TEXT)
-        draw._text(draw.scale_x(6), height - draw.scale_y(10),
-                   "UP/DOWN: view  BACK: close", self.COLOR_ROCK)
+                _text(
+                    draw.scale_x(10),
+                    row + slot * step,
+                    "%d: %s" % (slot + 1, skills[slot][0]),
+                    self.COLOR_TEXT,
+                )
+        _text(
+            draw.scale_x(6),
+            height - draw.scale_y(10),
+            "UP/DOWN: view  BACK: close",
+            self.COLOR_ROCK,
+        )
 
     def _draw_dialogue(self, draw, width):
         """Draw the Wise Wizard dialogue box."""
@@ -2782,13 +3201,21 @@ class _Adventure:
         text = self.dialogue
         line = 0
         while text and line < lines:
-            draw._text(draw.scale_x(3), top + pad + (line + 1) * font_h,
-                       text[:wrap], self.COLOR_TEXT)
+            draw._text(
+                draw.scale_x(3),
+                top + pad + (line + 1) * font_h,
+                text[:wrap],
+                self.COLOR_TEXT,
+            )
             text = text[wrap:]
             line += 1
         if self.talking:
-            draw._text(draw.scale_x(3), top + pad + (lines + 1) * font_h,
-                       "CENTER: accept", self.COLOR_ACCENT)
+            draw._text(
+                draw.scale_x(3),
+                top + pad + (lines + 1) * font_h,
+                "CENTER: accept",
+                self.COLOR_ACCENT,
+            )
 
     def _draw_minimap(self, draw):
         """Draw a player-centred field-of-view radar."""
@@ -2805,8 +3232,8 @@ class _Adventure:
         player_x = self.player.position.x
         player_z = self.player.position.y
         zone = zone_for(player_x, player_z)
-        draw._fill_rectangle(left, top, size_w, size_h,
-                             self.ZONE_GROUND[zone])
+        _fill_rectangle = draw._fill_rectangle
+        _fill_rectangle(left, top, size_w, size_h, self.ZONE_GROUND[zone])
         # Nearby strongholds.
         for index in (1, 2, 3):
             sx, sz, _radius = self.STRONGHOLDS[index]
@@ -2816,15 +3243,17 @@ class _Adventure:
                 continue
             mx = center_x + (-dx * sin_h + dz * cos_h) * scale
             mz = center_y - (dx * cos_h + dz * sin_h) * scale
-            color = self.COLOR_DIM if self.faction_done[index] else self.ZONE_ENEMY[index]
-            draw._fill_rectangle(mx - 2, mz - 2, 4, 4, color)
+            color = (
+                self.COLOR_DIM if self.faction_done[index] else self.ZONE_ENEMY[index]
+            )
+            _fill_rectangle(mx - 2, mz - 2, 4, 4, color)
 
         dx = self.WIZARD_POS[0] - player_x
         dz = self.WIZARD_POS[1] - player_z
         if dx * dx + dz * dz <= self.FIELD_OF_VIEW * self.FIELD_OF_VIEW:
             mx = center_x + (-dx * sin_h + dz * cos_h) * scale
             mz = center_y - (dx * cos_h + dz * sin_h) * scale
-            draw._fill_rectangle(mx - 1, mz - 1, 3, 3, self.COLOR_WIZARD)
+            _fill_rectangle(mx - 1, mz - 1, 3, 3, self.COLOR_WIZARD)
 
         for enemy in self._target_list:
             dx = enemy.position.x - player_x
@@ -2833,16 +3262,18 @@ class _Adventure:
                 continue
             mx = center_x + (-dx * sin_h + dz * cos_h) * scale
             mz = center_y - (dx * cos_h + dz * sin_h) * scale
-            draw._fill_rectangle(mx, mz, 2, 2, self.COLOR_HP)
+            _fill_rectangle(mx, mz, 2, 2, self.COLOR_HP)
 
-        draw._fill_rectangle(center_x - 1, center_y - 1, 3, 3,
-                             self.COLOR_PLAYER)
-        draw._fill_rectangle(center_x - 1, center_y - 6, 3, 4,
-                             self.COLOR_PLAYER)
+        _fill_rectangle(center_x - 1, center_y - 1, 3, 3, self.COLOR_PLAYER)
+        _fill_rectangle(center_x - 1, center_y - 6, 3, 4, self.COLOR_PLAYER)
         draw._rectangle(left, top, size_w, size_h, self.COLOR_WHITE)
         name = self.ZONE_NAMES[zone]
-        draw._text(left + size_w - draw.len(name),
-                   top + size_h + draw.scale_y(2), name, self.COLOR_TEXT)
+        draw._text(
+            left + size_w - draw.len(name),
+            top + size_h + draw.scale_y(2),
+            name,
+            self.COLOR_TEXT,
+        )
 
     def _load_progress(self):
         """Load the local save dict, or None."""
@@ -2895,8 +3326,9 @@ class _Adventure:
                 self.skills_unlocked = max(self.skills_unlocked, 4)
             if self.dragon_defeated:
                 self.skills_unlocked = 5
-            self.dragon_spawned = (self.faction_done[1] and self.faction_done[2]
-                                   and self.faction_done[3])
+            self.dragon_spawned = (
+                self.faction_done[1] and self.faction_done[2] and self.faction_done[3]
+            )
             self.wizard_met = bool(data.get("met", 0))
             self.clock = int(data.get("clock", self.CLOCK_START)) % 1440
             self.speed_scale = float(data.get("speed", 1.0))
@@ -2909,10 +3341,8 @@ class _Adventure:
             self.sword_yaw = self.heading
             x = float(data.get("x", self.PLAYER_SPAWN[0]))
             z = float(data.get("z", self.PLAYER_SPAWN[1]))
-            x = max(-self.WORLD_HALF_X + 1.0,
-                    min(self.WORLD_HALF_X - 1.0, x))
-            z = max(-self.WORLD_HALF_Z + 1.0,
-                    min(self.WORLD_HALF_Z - 1.0, z))
+            x = max(-self.WORLD_HALF_X + 1.0, min(self.WORLD_HALF_X - 1.0, x))
+            z = max(-self.WORLD_HALF_Z + 1.0, min(self.WORLD_HALF_Z - 1.0, z))
             self.player.position_set(x, z)
             self.player.direction_set(self.cos_h, self.sin_h)
             self.player.set_3d_sprite_rotation(self.player_yaw)
@@ -2929,29 +3359,32 @@ class _Adventure:
         if self.player is None:
             return
         try:
-            self.view_manager.storage.serialize({
-                "v": 2,
-                "level": self.player.level,
-                "xp": int(self.player.xp),
-                "health": int(self.player.health),
-                "class": self.class_index,
-                "skills": self.skills_unlocked,
-                "dragon": 1 if self.dragon_defeated else 0,
-                "armor": 1 if self.armor_earned else 0,
-                "intro": 1 if self.intro_done else 0,
-                "qi": self.quest_index,
-                "sf": [1 if b else 0 for b in self.strong_found],
-                "sk": self.strong_kills,
-                "fd": [1 if b else 0 for b in self.faction_done],
-                "qk": self.q_kills,
-                "met": 1 if self.wizard_met else 0,
-                "clock": self.clock,
-                "speed": self.speed_scale,
-                "x": self.player.position.x,
-                "z": self.player.position.y,
-                "h": self.heading,
-                "camera": self.camera.perspective,
-            }, self.SAVE_PATH)
+            self.view_manager.storage.serialize(
+                {
+                    "v": 2,
+                    "level": self.player.level,
+                    "xp": int(self.player.xp),
+                    "health": int(self.player.health),
+                    "class": self.class_index,
+                    "skills": self.skills_unlocked,
+                    "dragon": 1 if self.dragon_defeated else 0,
+                    "armor": 1 if self.armor_earned else 0,
+                    "intro": 1 if self.intro_done else 0,
+                    "qi": self.quest_index,
+                    "sf": [1 if b else 0 for b in self.strong_found],
+                    "sk": self.strong_kills,
+                    "fd": [1 if b else 0 for b in self.faction_done],
+                    "qk": self.q_kills,
+                    "met": 1 if self.wizard_met else 0,
+                    "clock": self.clock,
+                    "speed": self.speed_scale,
+                    "x": self.player.position.x,
+                    "z": self.player.position.y,
+                    "h": self.heading,
+                    "camera": self.camera.perspective,
+                },
+                self.SAVE_PATH,
+            )
         except Exception:
             pass
 
@@ -2974,8 +3407,10 @@ class _Adventure:
         """Create the HTTP client and log in."""
         if not self.net_user or not self.net_pass:
             return
-        if self._http_request("https://www.jblanked.com/flipper/api/user/login/", {"username": self.net_user,
-                                          "password": self.net_pass}):
+        if self._http_request(
+            "https://www.jblanked.com/flipper/api/user/login/",
+            {"username": self.net_user, "password": self.net_pass},
+        ):
             self.net_state = self.NET_LOGIN
             self.net_status = "Logging in..."
 
@@ -3037,6 +3472,7 @@ class _Adventure:
         """Draw the login status screen while the scene is closed."""
         if self._loading is None:
             from picoware.gui.loading import Loading
+
             self._loading = Loading(self.draw)
         self._loading.text = self.net_status or "connecting"
         self._loading.animate(swap=True)
@@ -3127,7 +3563,7 @@ class _Adventure:
             self._spawn_dragon()
         self.world_ready = True
 
-    def _http_request(self, url: str, payload = None, method="POST") -> bool:
+    def _http_request(self, url: str, payload=None, method="POST") -> bool:
         """Start one async request."""
         if self.http is None:
             from picoware.system.http import HTTP
@@ -3164,7 +3600,12 @@ class _Adventure:
             return
         if "[SUCCESS]" in self.http.response.text:
             self.net_status = "Welcome %s!" % self.net_user
-            if self._http_request("https://www.jblanked.com/flipper/api/user/game-stats/%s/" % self.net_user, None, "GET"):
+            if self._http_request(
+                "https://www.jblanked.com/flipper/api/user/game-stats/%s/"
+                % self.net_user,
+                None,
+                "GET",
+            ):
                 self.net_state = self.NET_FETCH
             else:
                 self.net_state = self.NET_READY
@@ -3172,9 +3613,10 @@ class _Adventure:
             # No account: register, re-check.
             self.tried_register = True
             self.net_status = "Registering..."
-            if not self._http_request("https://www.jblanked.com/flipper/api/user/register/",
-                                  {"username": self.net_user,
-                                   "password": self.net_pass}):
+            if not self._http_request(
+                "https://www.jblanked.com/flipper/api/user/register/",
+                {"username": self.net_user, "password": self.net_pass},
+            ):
                 self.net_status = "offline"
                 self.net_state = self.NET_OFF
         else:
@@ -3223,12 +3665,15 @@ class _Adventure:
                 "health_regen": 1,
                 "attack_timer": 1,
                 "class": self.class_name,
-                "quests": self.quest_index[1] + self.quest_index[2]
+                "quests": self.quest_index[1]
+                + self.quest_index[2]
                 + self.quest_index[3],
                 "dragon": 1 if self.dragon_defeated else 0,
             },
         }
-        if self._http_request("https://www.jblanked.com/flipper/api/user/update-game-stats/", payload):
+        if self._http_request(
+            "https://www.jblanked.com/flipper/api/user/update-game-stats/", payload
+        ):
             self.net_dirty = False
             self.net_status = "saved"
 

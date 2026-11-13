@@ -537,6 +537,7 @@ class WebSocketAsync:
         self._current_task = None
         self._stack_size = stack_size
         self._last_received = None
+        self._data = None
 
     def __del__(self):
         """Destructor to clean up resources."""
@@ -611,6 +612,13 @@ class WebSocketAsync:
                 )
                 self._running = True
                 while self._should_continue():
+                    try:
+                        if self._data is not None:
+                            self._ws.send(self._data)
+                            self._data = None
+                    except Exception as e:
+                        if self._callback:
+                            self._callback(e)
                     try:
                         data = self._ws.recv()
                         if data is not None and data != "":
@@ -700,5 +708,6 @@ class WebSocketAsync:
         """
         with self._lock:
             if self._ws and self._running:
-                return self._ws.send(data)
+                self._data = data
+                return True
         return False

@@ -1985,8 +1985,9 @@ class _City:
     def _hidden_by_building(self, x, z):
         """Return whether a building blocks the view of a point."""
         car = self.player.position
+        _cross_building = self._crosses_building
         for building in self.buildings:
-            if self._crosses_building(car.x, car.y, x, z, building):
+            if _cross_building(car.x, car.y, x, z, building):
                 return True
         return False
 
@@ -2211,7 +2212,7 @@ class _City:
 
     def _draw_minimap(self, draw):
         """Draw the local street and building overview."""
-        width = int(draw.size.x)
+        width = draw.size.x
         size = draw.scale_y(self.MINIMAP_SIZE)
         left = width - size - draw.scale_x(3)
         top = draw.scale_y(19)
@@ -2219,63 +2220,56 @@ class _City:
         step = size / (self.MINIMAP_RANGE * 2.0)
         middle_x = left + size * 0.5
         middle_z = top + size * 0.5
-        thickness = draw.scale_y(2)
-        if thickness < 1:
-            thickness = 1
-        draw._fill_rectangle(left, top, size, size, self.COLOR_BLACK)
+        thickness = max(1, draw.scale_y(2))
+        _fill_rectangle = draw._fill_rectangle
+        _fill_rectangle(left, top, size, size, self.COLOR_BLACK)
         first = int((car.x - self.MINIMAP_RANGE) // self.ROAD_SPACING)
         last = int((car.x + self.MINIMAP_RANGE) // self.ROAD_SPACING)
         for index in range(first, last + 1):
             line = index * self.ROAD_SPACING
             if line < -self.WORLD_HALF or line > self.WORLD_HALF:
                 continue
-            offset = int(middle_x + (line - car.x) * step) - thickness // 2
-            draw._fill_rectangle(offset, top, thickness, size, self.COLOR_HORIZON)
+            offset = middle_x + (line - car.x) * step - thickness // 2
+            _fill_rectangle(offset, top, thickness, size, self.COLOR_HORIZON)
         first = int((car.y - self.MINIMAP_RANGE) // self.ROAD_SPACING)
         last = int((car.y + self.MINIMAP_RANGE) // self.ROAD_SPACING)
         for index in range(first, last + 1):
             line = index * self.ROAD_SPACING
             if line < -self.WORLD_HALF or line > self.WORLD_HALF:
                 continue
-            offset = int(middle_z + (line - car.y) * step) - thickness // 2
-            draw._fill_rectangle(left, offset, size, thickness, self.COLOR_HORIZON)
+            offset = middle_z + (line - car.y) * step - thickness // 2
+            _fill_rectangle(left, offset, size, thickness, self.COLOR_HORIZON)
         for building in self.buildings:
             start_x = middle_x + (building[0] - car.x) * step - building[2] * step
             end_x = start_x + building[2] * step * 2.0
             start_z = middle_z + (building[1] - car.y) * step - building[3] * step
             end_z = start_z + building[3] * step * 2.0
-            if start_x < left:
-                start_x = left
-            if start_z < top:
-                start_z = top
-            if end_x > left + size:
-                end_x = left + size
-            if end_z > top + size:
-                end_z = top + size
+            start_x = max(start_x, left)
+            start_z = max(start_z, top)
+            end_x = min(end_x, left + size)
+            end_z = min(end_z, top + size)
             if end_x - start_x < 1.0 or end_z - start_z < 1.0:
                 continue
-            draw._fill_rectangle(
-                int(start_x),
-                int(start_z),
-                int(end_x - start_x),
-                int(end_z - start_z),
+            _fill_rectangle(
+                start_x,
+                start_z,
+                end_x - start_x,
+                end_z - start_z,
                 self.COLOR_SIDEWALK,
             )
         draw._rectangle(left, top, size, size, self.COLOR_HORIZON)
-        dot = draw.scale_y(3)
-        if dot < 2:
-            dot = 2
+        dot = max(draw.scale_y(3), 2)
         tip = dot + draw.scale_y(3)
-        draw._fill_rectangle(
-            int(middle_x + cos(self.heading) * tip) - 1,
-            int(middle_z + sin(self.heading) * tip) - 1,
+        _fill_rectangle(
+            middle_x + cos(self.heading) * tip - 1,
+            middle_z + sin(self.heading) * tip - 1,
             2,
             2,
             self.COLOR_LINE,
         )
-        draw._fill_rectangle(
-            int(middle_x) - dot // 2,
-            int(middle_z) - dot // 2,
+        _fill_rectangle(
+            middle_x - dot // 2,
+            middle_z - dot // 2,
             dot,
             dot,
             self.COLOR_PLAYER,
@@ -2286,9 +2280,9 @@ class _City:
             remote_x = middle_x + (remote_position.x - car.x) * step
             remote_z = middle_z + (remote_position.y - car.y) * step
             if left <= remote_x < left + size and top <= remote_z < top + size:
-                draw._fill_rectangle(
-                    int(remote_x) - remote_dot // 2,
-                    int(remote_z) - remote_dot // 2,
+                _fill_rectangle(
+                    remote_x - remote_dot // 2,
+                    remote_z - remote_dot // 2,
                     remote_dot,
                     remote_dot,
                     remote["color"],

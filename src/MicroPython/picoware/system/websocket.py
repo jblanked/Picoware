@@ -416,9 +416,9 @@ class WebSocket:
         try:
             two_bytes = self._sock.read(2)
         except OSError as e:
-            # Timeout or connection error: ETIMEDOUT(110), EAGAIN(11), EWOULDBLOCK(11), etc
+            # Timeout or connection error: ETIMEDOUT(110), EAGAIN(11), EWOULDBLOCK(11), EHOSTUNREACH(113), etc
             errno = e.args[0] if e.args else None
-            if errno in (-110, 110, 11, -11, 35, -35, 116, -116):
+            if errno in (-110, 110, 11, -11, 35, -35, 116, -116, 113, -113):
                 raise NoDataException() from e
             # Other errors - connection might be closed
             print(f"Socket error during read_frame: errno={errno}")

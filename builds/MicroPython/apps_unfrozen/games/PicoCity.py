@@ -3,6 +3,7 @@
 from math import atan2, cos, pi, sin
 from picoware.system.vector import Vector
 from picoware.engine.entity import Entity
+from ujson import loads as json_loads
 
 _city = None
 _seed = 0x5A3C1D7
@@ -15,10 +16,130 @@ def _next_random(limit):
     _seed = (_seed * 1103515245 + 12345) & 0x7FFFFFFF
     return _seed % limit
 
+
+def _integer_to_ascii_bytes(value, base=10):
+    negative = value < 0
+    if negative:
+        value = -value
+
+    digits = b"0123456789abcdef"
+    result = bytearray()
+    while value:
+        result.append(digits[value % base])
+        value //= base
+    if not result:
+        result.append(48)
+    left = 0
+    right = len(result) - 1
+    while left < right:
+        digit = result[left]
+        result[left] = result[right]
+        result[right] = digit
+        left += 1
+        right -= 1
+    return (b"-" if negative else b"") + bytes(result)
+
+
+def _float_to_ascii_bytes(value, precision=3):
+    scale = 10**precision
+    scaled = int(abs(value) * scale + 0.5)
+    integer = _integer_to_ascii_bytes(scaled // scale)
+    if value < 0 and scaled:
+        integer = b"-" + integer
+    fraction = _integer_to_ascii_bytes(scaled % scale)
+    return integer + b"." + b"0" * (precision - len(fraction)) + fraction
+
+
+def _parse_ascii_float(value):
+    if not isinstance(value, bytes) or not value or len(value) > 16:
+        return None
+
+    sign = 1
+    index = 0
+    if value[0] == 45:
+        sign = -1
+        index = 1
+    if index == len(value):
+        return None
+
+    integer = 0
+    fraction = 0
+    scale = 1
+    decimal_seen = False
+    digit_seen = False
+    while index < len(value):
+        character = value[index]
+        if character == 46 and not decimal_seen:
+            decimal_seen = True
+        elif 48 <= character <= 57:
+            digit_seen = True
+            if decimal_seen:
+                fraction = fraction * 10 + character - 48
+                scale *= 10
+            else:
+                integer = integer * 10 + character - 48
+        else:
+            return None
+        index += 1
+
+    if not digit_seen:
+        return None
+    number = integer + fraction / scale
+    return -number if sign < 0 else number
+
+
+def _hex_bytes_to_text(data):
+    digits = "0123456789abcdef"
+    result = []
+    for value in data:
+        result.append(digits[value >> 4])
+        result.append(digits[value & 0x0F])
+    return "".join(result)
+
+
+def _pack_multiplayer_message(
+    player_id, message_type, x=0.0, z=0.0, heading=0.0, in_car=False
+):
+    return b",".join(
+        (
+            player_id,
+            message_type,
+            _float_to_ascii_bytes(x),
+            _float_to_ascii_bytes(z),
+            _float_to_ascii_bytes(heading),
+            b"1" if in_car else b"0",
+        )
+    )
+
+
+def _parse_multiplayer_message(message):
+    if not isinstance(message, bytes) or len(message) > 160:
+        return None
+
+    fields = message.split(b",")
+    if len(fields) != 6:
+        return None
+    player_id, message_type, x_bytes, z_bytes, heading_bytes, in_car_bytes = fields
+    if not player_id or len(player_id) > 100:
+        return None
+    if message_type == b"leave":
+        return player_id, message_type, 0.0, 0.0, 0.0, False
+    if message_type != b"state":
+        return None
+
+    x = _parse_ascii_float(x_bytes)
+    z = _parse_ascii_float(z_bytes)
+    heading = _parse_ascii_float(heading_bytes)
+    if x is None or z is None or heading is None or in_car_bytes not in (b"0", b"1"):
+        return None
+    return player_id, message_type, x, z, heading, in_car_bytes == b"1"
+
+
 def _cell_hash(col, row, salt):
     """Return a stable hash for a block cell and salt."""
     value = (col * 73856093) ^ (row * 19349663) ^ (salt * 83492791)
     return value & 0x7FFFFFFF
+
 
 def _player_update(entity, game):
     """Forward the player callback to the active city."""
@@ -98,6 +219,13 @@ class _City:
     CAR_COLORS = (0xF800, 0xFD20, 0x001F, 0x07FF, 0xF81F, 0x001F)
     CAMERA_DISTANCE = 8.2
     CAMERA_INDOOR_DISTANCE = 2.6
+    MULTIPLAYER_API = "https://www.jblanked.com/picoware/api/picocity/"
+    MULTIPLAYER_WS = "wss://www.jblanked.com/ws/picoware/picocity/"
+    MULTIPLAYER_MAX_PLAYERS = 4
+    MULTIPLAYER_MAX_LOBBIES = 4
+    MULTIPLAYER_SEND_INTERVAL = 6
+    MULTIPLAYER_REMOTE_TIMEOUT = 900
+    MULTIPLAYER_INBOX_SIZE = 24
 
     COLOR_BLACK = 0x0000
     COLOR_SKY = 0x5D9F
@@ -142,13 +270,9 @@ class _City:
     )
 
     def __init__(self, view_manager):
-        from picoware.engine.camera import CAMERA_THIRD_PERSON, Camera
-        from picoware.engine.engine import GameEngine
-        from picoware.engine.game import Game
-        from picoware.engine.level import Level
-
         self.view_manager = view_manager
         self.draw = view_manager.draw
+        self.game = None
         self.level = None
         self.engine = None
         self.meshes = []
@@ -170,12 +294,45 @@ class _City:
         self.heading = pi * 0.5
         self.message = ""
         self.message_timer = 0
+        self.multiplayer_view = "title"
+        self.multiplayer_menu_origin = None
+        self.multiplayer_selection = 0
+        self.multiplayer_lobbies = []
+        self.multiplayer_lobby_index = 0
+        self.multiplayer_status = ""
+        self.multiplayer_http = None
+        self.multiplayer_http_action = None
+        self.multiplayer_ws = None
+        self.multiplayer_socket_error = ""
+        self.multiplayer_socket_closed = False
+        self.multiplayer_inbox = []
+        self.multiplayer_player_id = ""
+        self.multiplayer_player_id_bytes = b""
+        self.multiplayer_target_lobby_id = ""
+        self.multiplayer_lobby_id = ""
+        self.multiplayer_connection_state = "idle"
+        self.multiplayer_exit_after_leave = False
+        self.multiplayer_exit_ready = False
+        self.multiplayer_leave_notice = ""
+        self.multiplayer_frame = 0
+        self.multiplayer_frames_since_send = 0
+        self.multiplayer_remote_players = {}
+
+    def _start_game(self):
+        """Create the city scene and engine after a game mode is selected."""
+        if self.engine is not None:
+            return True
+
+        from picoware.engine.camera import CAMERA_THIRD_PERSON, Camera
+        from picoware.engine.engine import GameEngine
+        from picoware.engine.game import Game
+        from picoware.engine.level import Level
 
         game = Game(
             "Pico City",
             self.draw.size,
             self.draw,
-            view_manager.input_manager,
+            self.view_manager.input_manager,
             self.COLOR_LINE,
             self.COLOR_SKY,
             Camera(
@@ -200,6 +357,632 @@ class _City:
         self._fill_city(self.anchor_x, self.anchor_z)
         game.level_add(self.level)
         self.engine = GameEngine(game, 30)
+        return self.engine is not None
+
+    def _multiplayer_menu_options(self):
+        if self.multiplayer_lobby_id:
+            return ("Leave lobby", "Close")
+        back_option = "Back" if self.multiplayer_menu_origin == "title" else "Close"
+        return ("Create lobby (4)", "Join lobby", back_option)
+
+    def handle_multiplayer_input(self, button):
+        """Handle multiplayer menu input without consuming gameplay controls."""
+        from picoware.system.buttons import (
+            BUTTON_BACK,
+            BUTTON_CENTER,
+            BUTTON_DOWN,
+            BUTTON_START,
+            BUTTON_UP,
+        )
+
+        if self.multiplayer_view is None:
+            if button != BUTTON_START:
+                return False
+            self.multiplayer_menu_origin = None
+            self.multiplayer_view = "menu"
+            self.multiplayer_selection = 0
+            return True
+
+        if self.multiplayer_view == "title":
+            if button == BUTTON_BACK:
+                self.multiplayer_exit_ready = True
+            elif button in (BUTTON_UP, BUTTON_DOWN):
+                direction = -1 if button == BUTTON_UP else 1
+                self.multiplayer_selection = (
+                    self.multiplayer_selection + direction
+                ) % 2
+            elif button == BUTTON_CENTER:
+                self.multiplayer_menu_origin = "title"
+                if not self._start_game():
+                    self._set_multiplayer_error("Unable to start Pico City")
+                elif self.multiplayer_selection == 0:
+                    self.multiplayer_view = None
+                    self.multiplayer_menu_origin = None
+                else:
+                    self.multiplayer_view = "menu"
+                    self.multiplayer_menu_origin = "title"
+                    self.multiplayer_selection = 0
+            return True
+
+        if self.multiplayer_view == "pending":
+            return True
+
+        if self.multiplayer_view == "error":
+            if button in (BUTTON_BACK, BUTTON_CENTER):
+                self.multiplayer_view = "menu"
+                self.multiplayer_selection = 0
+            return True
+
+        if self.multiplayer_view == "lobbies":
+            if button == BUTTON_BACK:
+                self.multiplayer_view = "menu"
+                self.multiplayer_selection = 1
+            elif button in (BUTTON_UP, BUTTON_DOWN) and self.multiplayer_lobbies:
+                direction = -1 if button == BUTTON_UP else 1
+                self.multiplayer_lobby_index = (
+                    self.multiplayer_lobby_index + direction
+                ) % len(self.multiplayer_lobbies)
+            elif button == BUTTON_CENTER and self.multiplayer_lobbies:
+                lobby = self.multiplayer_lobbies[self.multiplayer_lobby_index]
+                self._join_multiplayer_lobby(lobby["lobby_id"])
+            return True
+
+        if self.multiplayer_view == "menu":
+            if button in (BUTTON_BACK, BUTTON_START):
+                if self.multiplayer_menu_origin == "title":
+                    self.multiplayer_view = "title"
+                    self.multiplayer_selection = 1
+                    self.multiplayer_menu_origin = None
+                else:
+                    self.multiplayer_view = None
+                return True
+
+            options = self._multiplayer_menu_options()
+            if button in (BUTTON_UP, BUTTON_DOWN):
+                direction = -1 if button == BUTTON_UP else 1
+                self.multiplayer_selection = (
+                    self.multiplayer_selection + direction
+                ) % len(options)
+            elif button == BUTTON_CENTER:
+                if self.multiplayer_lobby_id:
+                    if self.multiplayer_selection == 0:
+                        self._leave_multiplayer(False)
+                    else:
+                        self.multiplayer_view = None
+                elif self.multiplayer_selection == 0:
+                    self._create_multiplayer_lobby()
+                elif self.multiplayer_selection == 1:
+                    self._fetch_multiplayer_lobbies()
+                elif self.multiplayer_menu_origin == "title":
+                    self.multiplayer_view = "title"
+                    self.multiplayer_selection = 1
+                    self.multiplayer_menu_origin = None
+                else:
+                    self.multiplayer_view = None
+            return True
+
+        return True
+
+    def _ensure_multiplayer_player_id(self):
+        if self.multiplayer_player_id:
+            return True
+
+        try:
+            from machine import unique_id
+            from time import ticks_ms
+            from ubinascii import hexlify
+        except ImportError as error:
+            self._set_multiplayer_error("Device ID unavailable")
+            self.view_manager.log(
+                "[PicoCity multiplayer] Device ID unavailable: %s" % error, 2
+            )
+            return False
+
+        device_id = unique_id()
+        if not device_id:
+            self._set_multiplayer_error("Device ID unavailable")
+            self.view_manager.log("[PicoCity multiplayer] Device ID unavailable", 2)
+            return False
+        timestamp = ticks_ms()
+        random_id = _next_random(0x7FFFFFFF)
+        device_id_hex = hexlify(device_id)
+        self.multiplayer_player_id = "%s-%x-%x" % (
+            _hex_bytes_to_text(device_id),
+            timestamp,
+            random_id,
+        )
+        self.multiplayer_player_id_bytes = (
+            device_id_hex
+            + b"-"
+            + _integer_to_ascii_bytes(timestamp, 16)
+            + b"-"
+            + _integer_to_ascii_bytes(random_id, 16)
+        )
+        return True
+
+    def _begin_multiplayer_request(self, action, payload=None):
+        from picoware.system.http import HTTP
+
+        if self.multiplayer_http is not None:
+            self._set_multiplayer_error("A request is already in progress")
+            return False
+
+        http = HTTP(thread_manager=self.view_manager.thread_manager)
+        self.multiplayer_http = http
+        self.multiplayer_http_action = action
+        headers = {
+            "Content-Type": "application/json",
+            "HTTP_USER_AGENT": "Pico",
+            "Setting": "X-Flipper-Redirect",
+            "User-Agent": "Raspberry Pi Pico W",
+        }
+        if action == "list":
+            url = "%slobbies/%d/%d/" % (
+                self.MULTIPLAYER_API,
+                self.MULTIPLAYER_MAX_PLAYERS,
+                self.MULTIPLAYER_MAX_LOBBIES,
+            )
+            started = http.get_async(url, headers=headers)
+            status = "Fetching lobbies..."
+        else:
+            paths = {
+                "create": "lobby/create/",
+                "join": "lobby/join/",
+                "remove": "lobby/remove/",
+            }
+            path = paths.get(action)
+            if path is None:
+                http.close()
+                self.multiplayer_http = None
+                self.multiplayer_http_action = None
+                self._set_multiplayer_error("Unsupported multiplayer request")
+                return False
+            started = http.post_async(
+                self.MULTIPLAYER_API + path, payload, headers=headers
+            )
+            statuses = {
+                "create": "Creating lobby...",
+                "join": "Joining lobby...",
+                "remove": "Leaving lobby...",
+            }
+            status = statuses[action]
+
+        if not started:
+            error = http.error or "Could not start the request"
+            http.close()
+            self.multiplayer_http = None
+            self.multiplayer_http_action = None
+            if action == "join":
+                self.multiplayer_target_lobby_id = ""
+            if action == "remove":
+                self._finish_multiplayer_leave(error)
+            else:
+                self._set_multiplayer_error(error)
+            return False
+
+        self.multiplayer_status = status
+        self.multiplayer_view = "pending"
+        return True
+
+    def _fetch_multiplayer_lobbies(self):
+        self.multiplayer_lobbies = []
+        self.multiplayer_lobby_index = 0
+        self._begin_multiplayer_request("list")
+
+    def _create_multiplayer_lobby(self):
+        if not self._ensure_multiplayer_player_id():
+            return
+        self.multiplayer_target_lobby_id = ""
+        self._begin_multiplayer_request(
+            "create",
+            {"max_players": self.MULTIPLAYER_MAX_PLAYERS, "data": {}},
+        )
+
+    def _join_multiplayer_lobby(self, lobby_id):
+        if not self._ensure_multiplayer_player_id():
+            return
+        self.multiplayer_target_lobby_id = lobby_id
+        self._begin_multiplayer_request(
+            "join",
+            {
+                "lobby_id": lobby_id,
+                "player_id": self.multiplayer_player_id,
+            },
+        )
+
+    def _set_multiplayer_error(self, message):
+        self.multiplayer_status = str(message)
+        self.multiplayer_view = "error"
+        if not self.multiplayer_lobby_id:
+            self.multiplayer_connection_state = "idle"
+        self.view_manager.log("[PicoCity multiplayer] %s" % self.multiplayer_status, 2)
+
+    def _multiplayer_response_data(self, text):
+        try:
+            data = json_loads(text)
+        except (TypeError, ValueError) as error:
+            self._set_multiplayer_error("Invalid server response")
+            self.view_manager.log(
+                "[PicoCity multiplayer] Invalid JSON response: %s" % error, 2
+            )
+            return None
+        if not isinstance(data, dict):
+            self._set_multiplayer_error("Unexpected server response")
+            return None
+        return data
+
+    def _poll_multiplayer_http(self):
+        http = self.multiplayer_http
+        if http is None or not http.is_request_complete():
+            return
+
+        action = self.multiplayer_http_action
+        error = http.error
+        response = http.response
+        status_code = response.status_code if response is not None else 0
+        response_text = response.text if response is not None else ""
+        http.close()
+        self.multiplayer_http = None
+        self.multiplayer_http_action = None
+
+        if action == "remove":
+            if error:
+                self._finish_multiplayer_leave(error)
+            elif response is None:
+                self._finish_multiplayer_leave("No HTTP response")
+            elif status_code not in (200, 204):
+                self._finish_multiplayer_leave("HTTP %d" % status_code)
+            else:
+                self._finish_multiplayer_leave()
+            return
+
+        if error:
+            if action == "join":
+                self.multiplayer_target_lobby_id = ""
+            self._set_multiplayer_error("Request failed: %s" % error)
+            return
+        if response is None:
+            if action == "join":
+                self.multiplayer_target_lobby_id = ""
+            self._set_multiplayer_error("No HTTP response")
+            return
+
+        if action == "list":
+            if status_code != 200:
+                self._set_multiplayer_error("Lobby list failed (HTTP %d)" % status_code)
+                return
+            data = self._multiplayer_response_data(response_text)
+            if data is None:
+                return
+            lobbies = data.get("lobbies")
+            if not isinstance(lobbies, list):
+                self._set_multiplayer_error("Invalid lobby list")
+                return
+            for lobby in lobbies[: self.MULTIPLAYER_MAX_LOBBIES]:
+                if not isinstance(lobby, dict):
+                    continue
+                lobby_id = lobby.get("lobby_id")
+                player_count = lobby.get("player_count")
+                max_players = lobby.get("max_players")
+                if (
+                    isinstance(lobby_id, str)
+                    and lobby_id
+                    and isinstance(player_count, int)
+                    and isinstance(max_players, int)
+                    and 0 <= player_count < max_players
+                    and max_players > 0
+                ):
+                    self.multiplayer_lobbies.append(
+                        {
+                            "lobby_id": lobby_id,
+                            "player_count": player_count,
+                            "max_players": max_players,
+                        }
+                    )
+            self.multiplayer_lobby_index = 0
+            self.multiplayer_view = "lobbies"
+            self.multiplayer_status = ""
+            return
+
+        if action == "create":
+            if status_code not in (200, 201):
+                self._set_multiplayer_error(
+                    "Lobby creation failed (HTTP %d)" % status_code
+                )
+                return
+            data = self._multiplayer_response_data(response_text)
+            if data is None:
+                return
+            lobby_id = data.get("lobby_id")
+            if not isinstance(lobby_id, str) or not lobby_id:
+                self._set_multiplayer_error("Server returned no lobby ID")
+                return
+            self.multiplayer_target_lobby_id = lobby_id
+            self._join_multiplayer_lobby(lobby_id)
+            return
+
+        if action == "join":
+            if status_code not in (200, 201):
+                self.multiplayer_target_lobby_id = ""
+                if status_code == 409:
+                    message = "Lobby is full"
+                elif status_code == 404:
+                    message = "Lobby not found"
+                else:
+                    message = "Join failed (HTTP %d)" % status_code
+                self._set_multiplayer_error(message)
+                return
+            self.multiplayer_lobby_id = self.multiplayer_target_lobby_id
+            self.multiplayer_target_lobby_id = ""
+            self._connect_multiplayer()
+            return
+
+        self._set_multiplayer_error("Unexpected multiplayer response")
+
+    def _connect_multiplayer(self):
+        from picoware.system.websocket import WebSocketAsync
+
+        self.multiplayer_inbox = []
+        self.multiplayer_socket_error = ""
+        self.multiplayer_socket_closed = False
+        self.multiplayer_connection_state = "connecting"
+        self.multiplayer_status = "Connecting..."
+        self.multiplayer_view = "pending"
+        self.multiplayer_ws = WebSocketAsync(
+            uri="%s%s/" % (self.MULTIPLAYER_WS, self.multiplayer_lobby_id),
+            callback=self._on_multiplayer_message,
+            thread_manager=self.view_manager.thread_manager,
+        )
+        if not self.multiplayer_ws.connect():
+            error = self.multiplayer_ws.error or "WebSocket could not start"
+            self._leave_multiplayer(False, "Connection failed: %s" % error)
+
+    def _on_multiplayer_message(self, data):
+        if self.multiplayer_connection_state not in ("connecting", "active"):
+            return
+        if data is None:
+            self.multiplayer_socket_closed = True
+        elif isinstance(data, Exception):
+            self.multiplayer_socket_error = str(data)
+        else:
+            if data == "PONG":
+                return
+            if not isinstance(data, bytes):
+                self.multiplayer_socket_error = "Expected a binary WebSocket message"
+                return
+            if len(self.multiplayer_inbox) >= self.MULTIPLAYER_INBOX_SIZE:
+                del self.multiplayer_inbox[0]
+            self.multiplayer_inbox.append(data)
+
+    def _poll_multiplayer_websocket(self):
+        websocket = self.multiplayer_ws
+        if self.multiplayer_connection_state == "connecting":
+            if self.multiplayer_socket_error:
+                self._leave_multiplayer(
+                    False,
+                    "Connection failed: %s" % self.multiplayer_socket_error,
+                )
+            elif websocket is not None and websocket.is_connected:
+                self.multiplayer_connection_state = "active"
+                self.multiplayer_status = "Connected"
+                self.multiplayer_view = "menu"
+                self.multiplayer_menu_origin = None
+                self.multiplayer_selection = 0
+                self.multiplayer_frames_since_send = self.MULTIPLAYER_SEND_INTERVAL
+        elif self.multiplayer_connection_state == "active":
+            if (
+                self.multiplayer_socket_error
+                or self.multiplayer_socket_closed
+                or websocket is None
+                or not websocket.is_connected
+            ):
+                reason = self.multiplayer_socket_error or "Connection lost"
+                self._leave_multiplayer(False, reason)
+
+    def _leave_multiplayer(self, exit_after, notice=""):
+        self.multiplayer_exit_after_leave = exit_after
+        self.multiplayer_leave_notice = notice
+        if (
+            self.multiplayer_ws is not None
+            and self.multiplayer_ws.is_connected
+            and self.multiplayer_lobby_id
+        ):
+            leave_message = _pack_multiplayer_message(
+                self.multiplayer_player_id_bytes, b"leave"
+            )
+            if not self.multiplayer_ws.send(leave_message):
+                self.view_manager.log(
+                    "[PicoCity multiplayer] Could not relay leave message", 2
+                )
+
+        self.multiplayer_connection_state = "leaving"
+        if not self.multiplayer_lobby_id:
+            self._finish_multiplayer_leave()
+            return
+        self._begin_multiplayer_request(
+            "remove",
+            {
+                "lobby_id": self.multiplayer_lobby_id,
+                "player_id": self.multiplayer_player_id,
+            },
+        )
+
+    def _finish_multiplayer_leave(self, error=None):
+        exit_after = self.multiplayer_exit_after_leave
+        notice = self.multiplayer_leave_notice
+        self.multiplayer_exit_after_leave = False
+        self.multiplayer_leave_notice = ""
+        self.multiplayer_connection_state = "error" if error else "idle"
+        if not error:
+            self.multiplayer_lobby_id = ""
+        self.multiplayer_target_lobby_id = ""
+        if self.multiplayer_ws is not None:
+            self.multiplayer_ws.close()
+            self.multiplayer_ws = None
+        self.multiplayer_socket_error = ""
+        self.multiplayer_socket_closed = False
+        self.multiplayer_inbox = []
+        self._remove_all_remote_players()
+
+        if error:
+            self.multiplayer_status = (
+                "%s; leave failed" % notice if notice else "Leave failed: %s" % error
+            )
+            self.multiplayer_view = "error"
+            self.view_manager.log("[PicoCity multiplayer] Leave failed: %s" % error, 2)
+        elif notice:
+            self.multiplayer_status = notice
+            self.multiplayer_view = "error"
+            self.view_manager.log("[PicoCity multiplayer] %s" % notice, 2)
+        else:
+            self.multiplayer_status = "Left lobby"
+            self.multiplayer_view = "menu"
+
+        if exit_after:
+            self.multiplayer_view = None
+            self.multiplayer_exit_ready = True
+
+    def _create_remote_player(self):
+        if len(self.multiplayer_remote_players) >= self.MULTIPLAYER_MAX_PLAYERS - 1:
+            return None
+
+        from picoware.engine.entity import (
+            ENTITY_TYPE_3D_SPRITE,
+            SPRITE_3D_HUMANOID,
+        )
+
+        index = len(self.multiplayer_remote_players)
+        color = self.CAR_COLORS[(index + 1) % len(self.CAR_COLORS)]
+        name = "Online %d" % (index + 1)
+        player = Entity(
+            name,
+            ENTITY_TYPE_3D_SPRITE,
+            Vector(0, 0),
+            Vector(0.6, 1.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            False,
+            SPRITE_3D_HUMANOID,
+            color,
+        )
+        self.level.entity_add(player)
+        car = self._mesh_entity(
+            name + " Car",
+            Vector(0, 0),
+            Vector(1.05, 1.85),
+            self._car_mesh(color),
+        )
+        car.is_visible = False
+        return {
+            "player": player,
+            "car": car,
+            "color": color,
+            "last_seen": self.multiplayer_frame,
+        }
+
+    def _remove_remote_player(self, player_id):
+        remote = self.multiplayer_remote_players.pop(player_id, None)
+        if remote is None:
+            return
+        car = remote["car"]
+        mesh = car.sprite_3d
+        if self.level is not None:
+            self.level.entity_remove(car)
+            self.level.entity_remove(remote["player"])
+        if mesh is not None and mesh in self.meshes:
+            self.meshes.remove(mesh)
+
+    def _remove_all_remote_players(self):
+        for player_id in list(self.multiplayer_remote_players.keys()):
+            self._remove_remote_player(player_id)
+
+    def _process_multiplayer_message(self, message):
+        packet = _parse_multiplayer_message(message)
+        if packet is None:
+            self.view_manager.log(
+                "[PicoCity multiplayer] Ignored invalid binary packet", 2
+            )
+            return
+
+        player_id, message_type, x, z, heading, in_car = packet
+        if player_id == self.multiplayer_player_id_bytes:
+            return
+        if message_type == b"leave":
+            self._remove_remote_player(player_id)
+            return
+        if message_type != b"state":
+            return
+
+        if (
+            not -self.WORLD_HALF <= x <= self.WORLD_HALF
+            or not -self.WORLD_HALF <= z <= self.WORLD_HALF
+            or not -1000.0 <= heading <= 1000.0
+        ):
+            return
+
+        remote = self.multiplayer_remote_players.get(player_id)
+        if remote is None:
+            remote = self._create_remote_player()
+            if remote is None:
+                return
+            self.multiplayer_remote_players[player_id] = remote
+
+        dx = cos(heading)
+        dz = sin(heading)
+        rotation = atan2(dz, dx) - pi * 0.5
+        remote["player"].position_set(x, z)
+        remote["player"].direction_set(dx, dz)
+        remote["player"].set_3d_sprite_rotation(rotation)
+        remote["player"].is_visible = not in_car
+        remote["car"].position_set(x, z)
+        remote["car"].direction_set(dx, dz)
+        remote["car"].set_3d_sprite_rotation(rotation)
+        remote["car"].is_visible = in_car
+        remote["last_seen"] = self.multiplayer_frame
+
+    def _process_multiplayer_inbox(self):
+        for _ in range(8):
+            if not self.multiplayer_inbox:
+                break
+            self._process_multiplayer_message(self.multiplayer_inbox.pop(0))
+
+        stale_players = []
+        for player_id, remote in self.multiplayer_remote_players.items():
+            if (
+                self.multiplayer_frame - remote["last_seen"]
+                > self.MULTIPLAYER_REMOTE_TIMEOUT
+            ):
+                stale_players.append(player_id)
+        for player_id in stale_players:
+            self._remove_remote_player(player_id)
+
+    def _send_multiplayer_state(self):
+        if (
+            self.multiplayer_connection_state != "active"
+            or self.multiplayer_ws is None
+            or not self.multiplayer_ws.is_connected
+        ):
+            return
+        self.multiplayer_frames_since_send += 1
+        if self.multiplayer_frames_since_send < self.MULTIPLAYER_SEND_INTERVAL:
+            return
+        self.multiplayer_frames_since_send = 0
+        state = _pack_multiplayer_message(
+            self.multiplayer_player_id_bytes,
+            b"state",
+            float(self.player.position.x),
+            float(self.player.position.y),
+            float(self.heading),
+            self.in_car,
+        )
+        if not self.multiplayer_ws.send(state):
+            self.multiplayer_socket_error = "WebSocket send failed"
 
     def _mesh_entity(
         self, name, position, size, mesh, update=None, render=None, collision=None
@@ -264,13 +1047,14 @@ class _City:
         cell_depth = depth / depth_steps
         start_x = x - width * 0.5
         start_z = z - depth * 0.5
+        _quad = self._quad
         for width_index in range(width_steps):
             cell_x = start_x + cell_width * (width_index + 0.5)
             for depth_index in range(depth_steps):
                 cell_z = start_z + cell_depth * (depth_index + 0.5)
                 half_width = cell_width * 0.5
                 half_depth = cell_depth * 0.5
-                self._quad(
+                _quad(
                     mesh,
                     (cell_x - half_width, height, cell_z - half_depth),
                     (cell_x + half_width, height, cell_z + half_depth),
@@ -279,7 +1063,9 @@ class _City:
                     color,
                 )
 
-    def _add_building(self, mesh, x, z, width, depth, height, wall_color, roof_color, building_type):
+    def _add_building(
+        self, mesh, x, z, width, depth, height, wall_color, roof_color, building_type
+    ):
         """Add one building and register its collision rectangle."""
         scene_z = z - self.SCENE_ANCHOR_Z
         is_house = building_type == 1
@@ -305,7 +1091,9 @@ class _City:
             if height > 4.5:
                 self._window(mesh, x, height * 0.58, front, half_width, window_height)
             if is_tower:
-                mesh.create_cube(x, height + 0.5, scene_z, 0.10, 1.0, 0.10, self.COLOR_ROOF)
+                mesh.create_cube(
+                    x, height + 0.5, scene_z, 0.10, 1.0, 0.10, self.COLOR_ROOF
+                )
         self.buildings.append((x, z, width * 0.5, depth * 0.5, is_house))
 
     def _window(self, mesh, x, y, z, half_width, half_height):
@@ -359,11 +1147,35 @@ class _City:
         z1 = scene_z + hd - 0.1
         door_half = self.GARAGE_DOOR_WIDTH * 0.5
         # Floor (both sides so it reads from inside and out).
-        self._squad(mesh, (x - hw, floor_y, z0), (x + hw, floor_y, z1), (x + hw, floor_y, z0), (x - hw, floor_y, z1), self.FLOOR_COLOR, True)
+        self._squad(
+            mesh,
+            (x - hw, floor_y, z0),
+            (x + hw, floor_y, z1),
+            (x + hw, floor_y, z0),
+            (x - hw, floor_y, z1),
+            self.FLOOR_COLOR,
+            True,
+        )
         # Ceiling, both sides.
-        self._squad(mesh, (x - hw, ceil_y, z0), (x + hw, ceil_y, z1), (x + hw, ceil_y, z0), (x - hw, ceil_y, z1), self.CEILING_COLOR, True)
+        self._squad(
+            mesh,
+            (x - hw, ceil_y, z0),
+            (x + hw, ceil_y, z1),
+            (x + hw, ceil_y, z0),
+            (x - hw, ceil_y, z1),
+            self.CEILING_COLOR,
+            True,
+        )
         # Back wall (north side), both sides.
-        self._squad(mesh, (x - hw, floor_y, z0), (x + hw, ceil_y, z0), (x + hw, floor_y, z0), (x - hw, ceil_y, z0), wall_color, True)
+        self._squad(
+            mesh,
+            (x - hw, floor_y, z0),
+            (x + hw, ceil_y, z0),
+            (x + hw, floor_y, z0),
+            (x - hw, ceil_y, z0),
+            wall_color,
+            True,
+        )
         # Front wall (south side) with a doorway: two slabs flanking the opening.
         if door_half < hw:
             self._squad(
@@ -413,7 +1225,9 @@ class _City:
         hw = width * 0.5
         hd = depth * 0.5
         # Roof slab.
-        mesh.create_cube(x, height - 0.05, scene_z, width + 0.10, 0.10, depth + 0.10, roof_color)
+        mesh.create_cube(
+            x, height - 0.05, scene_z, width + 0.10, 0.10, depth + 0.10, roof_color
+        )
         # Hollow interior with open front doorway.
         self._build_garage(mesh, x, z, width, depth, height, wall_color)
 
@@ -446,6 +1260,7 @@ class _City:
             Vector(self.SIDEWALK_OFFSET, -10.0),
             Vector(1.05, 1.85),
             self._car_mesh(0x07FF),
+            render=_player_render,
         )
         self.player_car.is_visible = False
 
@@ -590,7 +1405,7 @@ class _City:
             None,
             None,
             None,
-            None, # update
+            None,  # update
             _background_render,
             None,
             False,
@@ -629,7 +1444,15 @@ class _City:
         specs.sort(reverse=True)
         for spec in specs:
             self._add_building(
-                mesh, spec[1], spec[2], spec[3], spec[4], spec[5], spec[6], spec[7], spec[8]
+                mesh,
+                spec[1],
+                spec[2],
+                spec[3],
+                spec[4],
+                spec[5],
+                spec[6],
+                spec[7],
+                spec[8],
             )
         mesh.set_wireframe(False)
 
@@ -689,8 +1512,9 @@ class _City:
         """Add one road strip with sidewalks and lane dashes."""
         length = end - begin
         middle = (begin + end) * 0.5
+        _ground_rect = self._ground_rect
         if vertical:
-            self._ground_rect(
+            _ground_rect(
                 mesh,
                 line,
                 middle,
@@ -700,7 +1524,7 @@ class _City:
                 self.COLOR_ROAD,
                 self.ROAD_SEGMENT,
             )
-            self._ground_rect(
+            _ground_rect(
                 mesh,
                 line - self.SIDEWALK_OFFSET,
                 middle,
@@ -710,7 +1534,7 @@ class _City:
                 self.COLOR_SIDEWALK,
                 self.SIDEWALK_SEGMENT,
             )
-            self._ground_rect(
+            _ground_rect(
                 mesh,
                 line + self.SIDEWALK_OFFSET,
                 middle,
@@ -721,7 +1545,7 @@ class _City:
                 self.SIDEWALK_SEGMENT,
             )
         else:
-            self._ground_rect(
+            _ground_rect(
                 mesh,
                 middle,
                 line,
@@ -731,7 +1555,7 @@ class _City:
                 self.COLOR_ROAD,
                 self.ROAD_SEGMENT,
             )
-            self._ground_rect(
+            _ground_rect(
                 mesh,
                 middle,
                 line - self.SIDEWALK_OFFSET,
@@ -741,7 +1565,7 @@ class _City:
                 self.COLOR_SIDEWALK,
                 self.SIDEWALK_SEGMENT,
             )
-            self._ground_rect(
+            _ground_rect(
                 mesh,
                 middle,
                 line + self.SIDEWALK_OFFSET,
@@ -754,7 +1578,7 @@ class _City:
         position = begin + (self.MARK_OFFSET - begin) % self.MARK_SPACING
         while position <= end:
             if vertical:
-                self._ground_rect(
+                _ground_rect(
                     mesh,
                     line,
                     position,
@@ -765,7 +1589,7 @@ class _City:
                     self.MARK_LENGTH,
                 )
             else:
-                self._ground_rect(
+                _ground_rect(
                     mesh,
                     position,
                     line,
@@ -833,7 +1657,9 @@ class _City:
             elif building_type == 2:
                 height = 10.0 + (detail >> 10) % 6
             distance = (x - center_x) ** 2 + (z - center_z) ** 2
-            specs.append((distance, x, z, width, depth, height, wall, roof, building_type))
+            specs.append(
+                (distance, x, z, width, depth, height, wall, roof, building_type)
+            )
 
     def _blocked(self, x, z, is_car):
         """Return whether a position would hit a building or the world edge."""
@@ -890,6 +1716,8 @@ class _City:
         """Move the player on foot or in a car."""
         from picoware.system.buttons import BUTTON_CENTER
 
+        if self.multiplayer_view is not None:
+            return
         self._update_message()
         if game.input == BUTTON_CENTER:
             self._toggle_car(player)
@@ -901,7 +1729,12 @@ class _City:
 
     def _walk_player(self, player, game):
         """Walk the player on foot."""
-        from picoware.system.buttons import BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP
+        from picoware.system.buttons import (
+            BUTTON_DOWN,
+            BUTTON_LEFT,
+            BUTTON_RIGHT,
+            BUTTON_UP,
+        )
 
         button = game.input
         if button == BUTTON_UP:
@@ -922,12 +1755,18 @@ class _City:
         old_z = player.position.y
         next_x = old_x + dx * self.speed
         next_z = old_z + dz * self.speed
-        if not self._blocked(next_x, next_z, False) and not self._car_blocked(next_x, next_z, self.TRAFFIC_COUNT):
+        if not self._blocked(next_x, next_z, False) and not self._car_blocked(
+            next_x, next_z, self.TRAFFIC_COUNT
+        ):
             player.position_set(next_x, next_z)
         else:
-            if not self._blocked(next_x, old_z, False) and not self._car_blocked(next_x, old_z, self.TRAFFIC_COUNT):
+            if not self._blocked(next_x, old_z, False) and not self._car_blocked(
+                next_x, old_z, self.TRAFFIC_COUNT
+            ):
                 player.position_set(next_x, old_z)
-            elif not self._blocked(old_x, next_z, False) and not self._car_blocked(old_x, next_z, self.TRAFFIC_COUNT):
+            elif not self._blocked(old_x, next_z, False) and not self._car_blocked(
+                old_x, next_z, self.TRAFFIC_COUNT
+            ):
                 player.position_set(old_x, next_z)
             self.speed *= 0.25
 
@@ -937,7 +1776,12 @@ class _City:
 
     def _drive_car(self, player, game):
         """Drive the player car with building collision."""
-        from picoware.system.buttons import BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP
+        from picoware.system.buttons import (
+            BUTTON_DOWN,
+            BUTTON_LEFT,
+            BUTTON_RIGHT,
+            BUTTON_UP,
+        )
 
         button = game.input
         if button == BUTTON_UP:
@@ -970,12 +1814,18 @@ class _City:
         next_x = old_x + dx * self.speed
         next_z = old_z + dz * self.speed
 
-        if not self._blocked(next_x, next_z, True) and not self._car_blocked(next_x, next_z, self.TRAFFIC_COUNT):
+        if not self._blocked(next_x, next_z, True) and not self._car_blocked(
+            next_x, next_z, self.TRAFFIC_COUNT
+        ):
             player.position_set(next_x, next_z)
         else:
-            if not self._blocked(next_x, old_z, True) and not self._car_blocked(next_x, old_z, self.TRAFFIC_COUNT):
+            if not self._blocked(next_x, old_z, True) and not self._car_blocked(
+                next_x, old_z, self.TRAFFIC_COUNT
+            ):
                 player.position_set(next_x, old_z)
-            elif not self._blocked(old_x, next_z, True) and not self._car_blocked(old_x, next_z, self.TRAFFIC_COUNT):
+            elif not self._blocked(old_x, next_z, True) and not self._car_blocked(
+                old_x, next_z, self.TRAFFIC_COUNT
+            ):
                 player.position_set(old_x, next_z)
             self.speed *= 0.25
 
@@ -1050,7 +1900,9 @@ class _City:
         next_x = old_x + dx * speed
         next_z = old_z + dz * speed
 
-        if not self._blocked(next_x, next_z, True) and not self._car_blocked(next_x, next_z, index):
+        if not self._blocked(next_x, next_z, True) and not self._car_blocked(
+            next_x, next_z, index
+        ):
             car.position_set(next_x, next_z)
         else:
             direction = -direction
@@ -1148,7 +2000,7 @@ class _City:
         dz = z1 - z0
         begin = 0.0
         end = 1.0
-        if dx > -0.0001 and dx < 0.0001:
+        if -0.0001 < dx < 0.0001:
             if x0 < left or x0 > right:
                 return False
         else:
@@ -1185,21 +2037,25 @@ class _City:
 
     def draw_background(self, draw):
         """Draw the sky, horizon haze and distant ground."""
-        width = int(draw.size.x)
-        height = int(draw.size.y)
+        width = draw.size.x
+        height = draw.size.y
         horizon = int(height * 0.52)
         haze = draw.scale_y(18)
         draw._fill_rectangle(0, 0, width, horizon, self.COLOR_SKY)
         draw._fill_rectangle(0, horizon, width, haze, self.COLOR_HORIZON)
-        draw._fill_rectangle(0, horizon + haze, width, height - horizon - haze, self.COLOR_GROUND)
-        draw._fill_rectangle(0, horizon - draw.scale_y(2), width, draw.scale_y(2), self.COLOR_ROOF)
+        draw._fill_rectangle(
+            0, horizon + haze, width, height - horizon - haze, self.COLOR_GROUND
+        )
+        draw._fill_rectangle(
+            0, horizon - draw.scale_y(2), width, draw.scale_y(2), self.COLOR_ROOF
+        )
 
     def draw_hud(self, draw=None):
         """Draw the mode, speed and control hints."""
         if self.engine is None:
             return
         draw = self.draw if draw is None else draw
-        width = int(draw.size.x)
+        width = draw.size.x
         bar_height = draw.scale_y(16)
         draw._fill_rectangle(0, 0, width, bar_height, self.COLOR_BLACK)
 
@@ -1212,11 +2068,146 @@ class _City:
         if self.message_timer > 0:
             draw._text(
                 width // 2 - draw.scale_x(len(self.message) * 3),
-                int(draw.size.y) // 2 - draw.scale_y(4),
+                draw.size.y // 2 - draw.scale_y(4),
                 self.message,
                 self.COLOR_LINE,
             )
         self._draw_minimap(draw)
+        if self.multiplayer_connection_state == "active":
+            hint = "ONLINE %d" % (len(self.multiplayer_remote_players) + 1)
+        else:
+            hint = "START: MENU"
+        draw._text(draw.scale_x(3), draw.scale_y(19), hint, self.COLOR_LINE)
+
+    def _draw_fullscreen_options(self, options, selection, first_y, line_height):
+        draw = self.draw
+        width = draw.size.x
+        row_width = width * 3 // 4
+        row_x = (width - row_width) // 2
+        for index, option in enumerate(options):
+            row_y = first_y + index * line_height
+            if index == selection:
+                draw._fill_rectangle(
+                    row_x, row_y, row_width, line_height, self.COLOR_LINE
+                )
+                color = self.COLOR_BLACK
+            else:
+                color = self.COLOR_LINE
+            text_x = max(
+                row_x + draw.scale_x(2),
+                width // 2 - draw.scale_x(len(option) * 3),
+            )
+            draw._text(text_x, row_y, option, color)
+
+    def _draw_fullscreen_menu(self):
+        """Draw the title, lobby, and status menus without the game scene."""
+        draw = self.draw
+        width = draw.size.x
+        height = draw.size.y
+        line_height = draw.font_size.y + 1
+        footer_y = height - line_height - draw.scale_y(2)
+        draw.fill_screen(self.COLOR_BLACK)
+
+        if self.multiplayer_view == "title":
+            title = "PICO CITY"
+        elif self.multiplayer_view == "lobbies":
+            title = "OPEN LOBBIES"
+        elif self.multiplayer_view == "error":
+            title = "MULTIPLAYER ERROR"
+        else:
+            title = "MULTIPLAYER"
+        title_x = max(0, width // 2 - draw.scale_x(len(title) * 3))
+        draw._text(title_x, draw.scale_y(6), title, self.COLOR_LINE)
+
+        if self.multiplayer_view == "title":
+            options = ("Play solo", "Multiplayer")
+            first_y = height // 2 - line_height
+            self._draw_fullscreen_options(
+                options, self.multiplayer_selection, first_y, line_height
+            )
+            footer = "UP/DOWN OK  BACK"
+        elif self.multiplayer_view == "menu":
+            options = self._multiplayer_menu_options()
+            if self.multiplayer_lobby_id:
+                peers = "Online: %d peers" % len(self.multiplayer_remote_players)
+                draw._text(
+                    max(0, width // 2 - draw.scale_x(len(peers) * 3)),
+                    height // 3,
+                    peers,
+                    self.COLOR_LINE,
+                )
+                first_y = height // 2
+            else:
+                first_y = height // 2 - (len(options) * line_height) // 2
+            self._draw_fullscreen_options(
+                options, self.multiplayer_selection, first_y, line_height
+            )
+            footer = "UP/DOWN OK  BACK"
+        elif self.multiplayer_view == "lobbies":
+            if self.multiplayer_lobbies:
+                visible_count = 4
+                start = max(
+                    0,
+                    min(
+                        self.multiplayer_lobby_index - visible_count + 1,
+                        len(self.multiplayer_lobbies) - visible_count,
+                    ),
+                )
+                end = min(start + visible_count, len(self.multiplayer_lobbies))
+                options = []
+                for lobby in self.multiplayer_lobbies[start:end]:
+                    options.append(
+                        "%s %d/%d"
+                        % (
+                            lobby["lobby_id"][:8],
+                            lobby["player_count"],
+                            lobby["max_players"],
+                        )
+                    )
+                self._draw_fullscreen_options(
+                    options,
+                    self.multiplayer_lobby_index - start,
+                    height // 3,
+                    line_height,
+                )
+            else:
+                message = "No open lobbies"
+                draw._text(
+                    max(0, width // 2 - draw.scale_x(len(message) * 3)),
+                    height // 2,
+                    message,
+                    self.COLOR_LINE,
+                )
+            footer = "UP/DOWN OK  BACK"
+        elif self.multiplayer_view == "pending":
+            message = self.multiplayer_status
+            draw._text(
+                max(0, width // 2 - draw.scale_x(len(message[:22]) * 3)),
+                height // 2,
+                message[:22],
+                self.COLOR_LINE,
+            )
+            footer = ""
+        else:
+            message = self.multiplayer_status
+            draw._text(
+                max(0, width // 2 - draw.scale_x(len(message[:22]) * 3)),
+                height // 2 - line_height,
+                message[:22],
+                self.COLOR_LINE,
+            )
+            if len(message) > 22:
+                draw._text(
+                    max(0, width // 2 - draw.scale_x(len(message[22:44]) * 3)),
+                    height // 2,
+                    message[22:44],
+                    self.COLOR_LINE,
+                )
+            footer = "CENTER/BACK MENU"
+
+        if footer:
+            draw._text(draw.scale_x(2), footer_y, footer, self.COLOR_LINE)
+        draw.swap()
 
     def _draw_minimap(self, draw):
         """Draw the local street and building overview."""
@@ -1289,6 +2280,19 @@ class _City:
             dot,
             self.COLOR_PLAYER,
         )
+        remote_dot = max(draw.scale_y(2), 2)
+        for remote in self.multiplayer_remote_players.values():
+            remote_position = remote["player"].position
+            remote_x = middle_x + (remote_position.x - car.x) * step
+            remote_z = middle_z + (remote_position.y - car.y) * step
+            if left <= remote_x < left + size and top <= remote_z < top + size:
+                draw._fill_rectangle(
+                    int(remote_x) - remote_dot // 2,
+                    int(remote_z) - remote_dot // 2,
+                    remote_dot,
+                    remote_dot,
+                    remote["color"],
+                )
         draw._text(
             left,
             top + size + draw.scale_y(2),
@@ -1300,14 +2304,49 @@ class _City:
             self.COLOR_LINE,
         )
 
-    def run(self):
-        """Refill the local city and run one engine frame."""
+    def run(self, skip_engine=False):
+        """Poll multiplayer activity, draw menus or run one game frame."""
+        self.multiplayer_frame += 1
+        self._poll_multiplayer_http()
+        self._poll_multiplayer_websocket()
+        self._process_multiplayer_inbox()
+        if self.multiplayer_exit_ready:
+            self.multiplayer_exit_ready = False
+            self.view_manager.back()
+            return
+        if self.multiplayer_view is not None:
+            self._draw_fullscreen_menu()
+            return
+        if self.engine is None:
+            self.multiplayer_view = "title"
+            self.multiplayer_selection = 0
+            self._draw_fullscreen_menu()
+            return
+        if skip_engine:
+            return
         self._update_city()
-        if self.engine is not None:
-            self.engine.run_async(False)
+        self.engine.run_async(False)
+        self._send_multiplayer_state()
 
     def stop(self):
         """Stop the engine and release the city resources."""
+        if self.multiplayer_ws is not None:
+            if self.multiplayer_lobby_id and self.multiplayer_ws.is_connected:
+                leave_message = _pack_multiplayer_message(
+                    self.multiplayer_player_id_bytes, b"leave"
+                )
+                if not self.multiplayer_ws.send(leave_message):
+                    self.view_manager.log(
+                        "[PicoCity multiplayer] Could not relay leave message",
+                        2,
+                    )
+            self.multiplayer_connection_state = "idle"
+            self.multiplayer_ws.close()
+            self.multiplayer_ws = None
+        if self.multiplayer_http is not None:
+            self.multiplayer_http.close()
+            self.multiplayer_http = None
+        self._remove_all_remote_players()
         if self.engine is not None:
             self.engine.stop()
             self.engine = None
@@ -1333,16 +2372,30 @@ def start(view_manager) -> bool:
     global _city
 
     _city = _City(view_manager)
-    return _city.engine is not None
+    return _city is not None
 
 
 def run(view_manager) -> None:
     """Run one Pico City frame."""
-    from picoware.system.buttons import BUTTON_BACK
+    from picoware.system.buttons import BUTTON_BACK, BUTTON_NONE
 
     button = view_manager.button
-    if _city is None or button == BUTTON_BACK:
+    if _city is None:
         view_manager.back()
+        return
+
+    if _city.handle_multiplayer_input(button):
+        if button != BUTTON_NONE:
+            view_manager.input_manager.reset()
+        _city.run(skip_engine=True)
+        return
+    if button == BUTTON_BACK:
+        if _city.multiplayer_lobby_id:
+            _city._leave_multiplayer(True)
+            view_manager.input_manager.reset()
+            _city.run(skip_engine=True)
+        else:
+            view_manager.back()
         return
 
     _city.run()

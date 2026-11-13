@@ -1137,6 +1137,50 @@ The engine module provides classes and functions for managing 3D game logic, ren
 - Writable attributes: `x1`, `y1`, `z1`, `x2`, `y2`, `z2`, `x3`, `y3`, `z3`, `color`, and `wireframe`.
 - Methods: `get_center()` returns a `Vector`; `is_facing_camera(camera_pos)` checks orientation; `set_x1`, `set_y1`, `set_z1`, `set_x2`, `set_y2`, `set_z2`, `set_x3`, `set_y3`, `set_z3`, `set_color`, and `set_wireframe` update fields.
 
+## Multiplayer
+Picoware multiplayer service
+
+HTTP API base: /picoware/api/<game>/
+Each game name creates a separate lobby namespace.
+
+GET /<game>/lobbies/<max_players>/<max_lobbies>/
+  Lists open lobbies for that game. max_players must be positive; it filters to lobbies whose configured capacity is no greater than this value. Results are limited to max_lobbies; 0 returns an empty list.
+  Response: {"lobbies": [lobby, ...]}
+
+GET /<game>/lobby/get/<lobby_id>/
+  Gets one lobby for that game.
+  Returns 404 if it does not exist.
+
+POST /<game>/lobby/create/
+  JSON body: {"max_players": 2, "data": {}}
+  max_players is required and must be a positive integer. data is optional and must be a JSON object if supplied.
+  The service generates lobby_id. New lobbies start with no players; the creator must call join if they should count as a player.
+  Returns 201 and the lobby object.
+
+POST /<game>/lobby/join/
+  JSON body: {"lobby_id": "<id>", "player_id": "<player>"}
+  Both values must be non-empty strings (up to 100 characters).
+  Joining the same player twice is idempotent. Returns 409 if the lobby is full, or 404 if it does not exist.
+
+POST /<game>/lobby/remove/
+  JSON body: {"lobby_id": "<id>", "player_id": "<player>"}
+  Removes that player and returns the updated lobby. Removing an absent player is harmless. Empty lobbies remain available.
+
+Lobby object:
+  {
+    "lobby_id": "...",
+    "game": "...",
+    "max_players": 2,
+    "player_count": 1,
+    "player_list": ["player-1"],
+    "data": {}
+  }
+
+WebSocket relay:
+  Connect to /ws/picoware/<game>/<lobby_id>/
+  Clients with the same game and lobby_id share a room. Text and binary messages are forwarded unchanged to the other connections; the sender does not receive its own message. The relay does not interpret or persist messages, and it does not check whether an HTTP lobby exists.
+
+Lobbies and player lists are stored in the server-side database. There is no lobby expiration, delete, or lobby-data update endpoint.
                 
 # Brief Examples
 

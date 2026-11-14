@@ -509,9 +509,12 @@ class WebSocketAsync:
         uri: str,
         headers: dict = None,
         timeout: float = 10.0,
-        callback: callable = None,  # one-argument function (data: Any)
+        on_receive: callable = None,  # one-argument function (data: Any)
         thread_manager=None,
         stack_size: int = 32 * 1024,
+        on_start: callable = None,  # no-argument function called when WebSocket connects
+        on_tick: callable = None,  # one-argument function (websocket: WebSocketAsync) called periodically during WebSocket operation
+        on_close: callable = None,  # no-argument function called when WebSocket closes
     ):
         """Initialize the async WebSocket client.
 
@@ -519,16 +522,19 @@ class WebSocketAsync:
             uri (str): WebSocket URL (ws:// or wss://).
             headers (dict): Optional additional headers for the handshake. Defaults to None.
             timeout (float): Connection timeout in seconds. Defaults to 10.0.
-            callback (callable): Function called with received data. Defaults to None.
+            on_receive (callable): Function called with received data. Defaults to None.
             thread_manager (ThreadManager): Manager for threaded connections. Defaults to None.
             stack_size (int): Thread stack size in bytes. Defaults to 32768.
+            on_start (callable): Function called when WebSocket connects. Defaults to None.
+            on_tick (callable): Function called periodically during WebSocket operation. Defaults to None.
+            on_close (callable): Function called when WebSocket ConnectionClosed event occurs. Defaults to None.
         """
         import _thread
 
         self._uri: str = uri
         self._headers: dict = headers
         self._timeout: float = timeout
-        self._callback: callable = callback
+        self._on_receive: callable = on_receive
         self._running: bool = False
         self._ws: WebSocket = None
         self._thread = None
@@ -538,6 +544,9 @@ class WebSocketAsync:
         self._stack_size = stack_size
         self._last_received = None
         self._data = None
+        self._on_start: callable = on_start
+        self._on_tick: callable = on_tick
+        self._on_close: callable = on_close
 
     def __del__(self):
         """Destructor to clean up resources."""
@@ -611,23 +620,27 @@ class WebSocketAsync:
                     self._uri, headers=self._headers, timeout=self._timeout
                 )
                 self._running = True
+                if self._on_start:
+                    self._on_start()
                 while self._should_continue():
+                    if self._on_tick:
+                        self._on_tick(self)
                     try:
                         if self._data is not None:
                             self._ws.send(self._data)
                             self._data = None
                     except Exception as e:
-                        if self._callback:
-                            self._callback(e)
+                        if self._on_receive:
+                            self._on_receive(e)
                     try:
                         data = self._ws.recv()
                         if data is not None and data != "":
                             self._last_received = data
-                            if self._callback:
-                                self._callback(data)
+                            if self._on_receive:
+                                self._on_receive(data)
                     except ConnectionClosed:
-                        if self._callback:
-                            self._callback(None)
+                        if self._on_close:
+                            self._on_close()
                         self.close()
                         break
                     except NoDataException:
@@ -635,8 +648,8 @@ class WebSocketAsync:
                     except OSError:
                         pass
             except Exception as e:
-                if self._callback:
-                    self._callback(e)
+                if self._on_receive:
+                    self._on_receive(e)
             finally:
                 self._running = False
                 if self._ws:
@@ -663,8 +676,8 @@ class WebSocketAsync:
                 self._thread = _thread.start_new_thread(_thread_func, ())
         except Exception as e:
             self._running = False
-            if self._callback:
-                self._callback(e)
+            if self._on_receive:
+                self._on_receive(e)
             return False
 
         return True

@@ -626,26 +626,33 @@ Supported DuckyScript commands: `DELAY`, `DEFAULT_DELAY`, `STRING_DELAY`, `STRIN
 
 #### picoware-system-thread
 - `Thread` class: Wraps a single background thread using `_thread`.
-    - `__init__(function, args=())`: Stores the function and arguments.
-    - `error`: Property - error string from the last run, if any.
+    - `__init__(function, args=(), stack_size=0)`: Stores the function, arguments, and optional stack size in bytes.
+    - `error`: Property - the exception from the last run, if any.
     - `is_running`: Property - True if the thread is currently active.
     - `should_stop`: Property - True if `stop()` has been called.
     - `run()`: Starts the function in a new background thread. Returns True if started.
     - `stop()`: Requests the thread to stop by setting the stop flag.
 - `ThreadTask` class: A named task for use with `ThreadManager`.
-    - `__init__(name, function, args=(), timeout=0)`: Defines a task with optional timeout in milliseconds.
+    - `__init__(name, function, args=(), timeout=0, stack_size=0, passive=False, interval=0, delay=0, repeat=0, threaded=True)`: Defines a task. `timeout` is the timeout in milliseconds, `stack_size` is the thread stack in bytes, `passive` allows the task to run alongside other tasks, `interval` is the milliseconds between runs (0 means run once), `delay` is the milliseconds before the first run, `repeat` is the total number of runs for interval tasks (0 means unlimited), and `threaded` runs the task on a thread (True) or inline inside `ThreadManager.run()` (False).
     - `id`: Property (r/w) - unique integer task ID.
+    - `paused`: Property (r/w) - True while the task is paused.
     - `stop()`: Sets the `should_stop` flag for this task.
-    - Slots: `args`, `error`, `function`, `_id`, `name`, `result`, `should_stop`, `start_time`, `timeout`.
-- `ThreadManager` class: Manages a queue of `ThreadTask` objects, running them sequentially.
-    - `__init__()`: Initializes the task queue.
-    - `is_idle`: Property - True when no task is queued or active.
-    - `pending_count`: Property - number of queued tasks, excluding the active task.
+    - Slots: `args`, `delay`, `error`, `function`, `_id`, `interval`, `limited`, `name`, `next_run`, `passive`, `paused`, `remaining`, `result`, `run_count`, `should_stop`, `stack_size`, `start_time`, `threaded`, `timeout`.
+- `ThreadManager` class: Schedules and runs `ThreadTask` objects, executing one threaded task at a time.
+    - `__init__()`: Initializes the scheduler and task queue.
+    - `is_idle`: Property - True when no task is scheduled, queued, or active.
+    - `pending_count`: Property - number of scheduled or queued tasks, excluding the active task.
     - `task`: Property - the currently active `ThreadTask`.
-    - `thread`: Property - the underlying `Thread` object.
-    - `add_task(task)`: Add a `ThreadTask` to the queue and return its task ID.
-    - `remove_task(task_id)`: Cooperatively stop and remove a queued task by ID. Returns True when removed.
-    - `run()`: Process the task queue - starts the next queued task if no task is running. Returns a log string.
+    - `thread`: Property - the currently active `Thread` object.
+    - `once(name="", function=None, delay=0, args=(), task=None, **kwargs)`: Schedule a task to run once after `delay` milliseconds. Pass either `name`/`function` or an existing task via `task`. `kwargs` are extra `ThreadTask` options. Returns the task ID.
+    - `every(name, function, interval, args=(), run_immediately=False, repeat=0, **kwargs)`: Schedule a task to run repeatedly every `interval` milliseconds. `repeat` limits the total number of runs (0 means unlimited). `kwargs` are extra `ThreadTask` options. Returns the task ID.
+    - `add_task(task)`: Add a `ThreadTask` and run it as soon as the thread slot is free. Returns the task ID.
+    - `get_task(task_id)`: Get a scheduled, queued, or active task by ID. Returns the task, or None if not found.
+    - `has_task(task_id)`: Returns True if a task with this ID is scheduled, queued, or active.
+    - `pause_task(task_id)`: Pause a scheduled task so it stops becoming due. Returns True if paused.
+    - `resume_task(task_id)`: Resume a paused task. Its next run is one interval from now. Returns True if resumed.
+    - `remove_task(task_id)`: Stop and remove a scheduled or queued task by ID. Running tasks are not interrupted; for repeating tasks this prevents further runs. Returns True when removed.
+    - `run()`: Promote due scheduled tasks, then run queued tasks one at a time, waiting for each to complete. Returns a log string.
 
 #### picoware-system-time
 - `Time` class: Manages the device RTC and optional NTP time synchronization.

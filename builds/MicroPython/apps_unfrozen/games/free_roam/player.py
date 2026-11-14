@@ -257,6 +257,7 @@ class Player(Entity):
             return ""
         view_manager = self.free_roam_game.view_manager
         from picoware.system.settings import Settings
+
         settings = Settings(view_manager.storage)
         return settings.server_settings.get("password", "")
 
@@ -267,8 +268,9 @@ class Player(Entity):
             return self.loaded_username
         if not self.free_roam_game or not self.free_roam_game.view_manager:
             return ""
-    
+
         from picoware.system.settings import Settings
+
         settings = Settings(self.free_roam_game.view_manager.storage)
         return settings.server_settings.get("username", "")
 
@@ -414,7 +416,7 @@ class Player(Entity):
                                 self.ws = None
                             self.ws = WebSocketAsync(
                                 uri=ws_url,
-                                callback=_ws_callback,
+                                on_receive=_ws_callback,
                                 thread_manager=view_manager.thread_manager,
                                 headers={
                                     "Content-Type": "application/json",
@@ -586,7 +588,7 @@ class Player(Entity):
                 self.ws = None
             self.ws = WebSocketAsync(
                 uri=ws_url,
-                callback=_ws_callback,
+                on_receive=_ws_callback,
                 thread_manager=view_manager.thread_manager,
                 headers={
                     "Content-Type": "application/json",

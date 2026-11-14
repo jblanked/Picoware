@@ -123,6 +123,7 @@ _MM_PLAYER = const(0x1C9F)
 _MM_ENEMY = const(0xF800)
 _MM_BOSS = const(0xFD20)
 
+
 class LobbyInfo:
     """Structure to store lobby information."""
 
@@ -242,16 +243,16 @@ class Player(Entity):
         self._data_right = colorize(player_right_sword_15x11px, COL_PLAYER)
 
         self._MM_ICON = {
-            0: 0xB483,   # house
-            1: 0x0480,   # plant
-            2: 0x0480,   # tree
-            3: 0x9340,   # fence
-            4: 0xF81F,   # flower
-            5: 0x8410,   # rock_large
-            6: 0x8410,   # rock_medium
-            7: 0x8410,   # rock_small
-            8: 0x041F,   # water
-            9: 0xE77F,   # ice
+            0: 0xB483,  # house
+            1: 0x0480,  # plant
+            2: 0x0480,  # tree
+            3: 0x9340,  # fence
+            4: 0xF81F,  # flower
+            5: 0x8410,  # rock_large
+            6: 0x8410,  # rock_medium
+            7: 0x8410,  # rock_small
+            8: 0x041F,  # water
+            9: 0xE77F,  # ice
             10: 0x041F,  # lake_bottom
             11: 0x041F,  # lake_top
             12: 0x9340,  # fence_vertical_start
@@ -263,7 +264,6 @@ class Player(Entity):
         # both scaled in login_view
         self._MM_W = 64
         self._MM_H = 32
-
 
     def __del__(self):
         if self.loading:
@@ -304,6 +304,7 @@ class Player(Entity):
             return ""
         view_manager = self.flip_world_run.view_manager
         from picoware.system.settings import Settings
+
         settings = Settings(view_manager.storage)
         _loaded_password = settings.server_settings.get("password", "")
         if _loaded_password:
@@ -319,6 +320,7 @@ class Player(Entity):
             return ""
         view_manager = self.flip_world_run.view_manager
         from picoware.system.settings import Settings
+
         settings = Settings(view_manager.storage)
         s_loaded_username = settings.server_settings.get("username", "")
         if s_loaded_username:
@@ -450,7 +452,9 @@ class Player(Entity):
             return
 
         canvas.fill_screen(COLOR_WHITE)
-        canvas._text(canvas.scale_x(25), canvas.scale_y(32), "Starting Game...", COLOR_BLACK)
+        canvas._text(
+            canvas.scale_x(25), canvas.scale_y(32), "Starting Game...", COLOR_BLACK
+        )
         game_started = self.flip_world_run.start_game()
         if game_started and self.flip_world_run.engine:
             self.flip_world_run.engine.run_async(False)
@@ -536,9 +540,16 @@ class Player(Entity):
                     del self.http
                     self.http = None
         elif self.lobbies_status == LOBBIES_SUCCESS:
-            canvas._text(canvas.scale_x(5), canvas.scale_y(10), "Select a Lobby:", COLOR_BLACK)
+            canvas._text(
+                canvas.scale_x(5), canvas.scale_y(10), "Select a Lobby:", COLOR_BLACK
+            )
             if self.lobby_count == 0:
-                canvas._text(canvas.scale_x(5), canvas.scale_y(25), "No lobbies available", COLOR_BLACK)
+                canvas._text(
+                    canvas.scale_x(5),
+                    canvas.scale_y(25),
+                    "No lobbies available",
+                    COLOR_BLACK,
+                )
             else:
                 start_y = int(self.screen_size.y) // 5
                 item_height = int(self.screen_size.y) // 10
@@ -546,9 +557,9 @@ class Player(Entity):
                     y = start_y + i * item_height
                     if i == self.current_lobby_index:
                         canvas._fill_rectangle(
-                            canvas.scale_x(3), 
+                            canvas.scale_x(3),
                             canvas.scale_y(y - 2),
-                            self.screen_size.x - canvas.scale_x(6), 
+                            self.screen_size.x - canvas.scale_x(6),
                             canvas.scale_y(item_height),
                             COLOR_BLACK,
                         )
@@ -556,13 +567,30 @@ class Player(Entity):
                     else:
                         color = COLOR_BLACK
                     lobby_text = f"{self.lobbies[i].name} ({self.lobbies[i].player_count}/{self.lobbies[i].max_players})"
-                    canvas._text(canvas.scale_x(5), canvas.scale_y(y + 7), lobby_text[:canvas.scale_x(25)], color)
+                    canvas._text(
+                        canvas.scale_x(5),
+                        canvas.scale_y(y + 7),
+                        lobby_text[: canvas.scale_x(25)],
+                        color,
+                    )
         elif self.lobbies_status == LOBBIES_CREDENTIALS_MISSING:
-            canvas._text(canvas.scale_x(0), canvas.scale_y(10), "Missing credentials!", COLOR_BLACK)
+            canvas._text(
+                canvas.scale_x(0),
+                canvas.scale_y(10),
+                "Missing credentials!",
+                COLOR_BLACK,
+            )
         elif self.lobbies_status == LOBBIES_REQUEST_ERROR:
-            canvas._text(canvas.scale_x(0), canvas.scale_y(10), "Lobbies request failed!", COLOR_BLACK)
+            canvas._text(
+                canvas.scale_x(0),
+                canvas.scale_y(10),
+                "Lobbies request failed!",
+                COLOR_BLACK,
+            )
         else:
-            canvas._text(canvas.scale_x(0), canvas.scale_y(10), "Loading lobbies...", COLOR_BLACK)
+            canvas._text(
+                canvas.scale_x(0), canvas.scale_y(10), "Loading lobbies...", COLOR_BLACK
+            )
 
     def draw_login_view(self, canvas):
         """Draw the login view."""
@@ -717,20 +745,30 @@ class Player(Entity):
             content_start_y = int(self.screen_size.y * 0.25)
             line_height = int(self.screen_size.y * 0.109375)
 
+            canvas._text(content_x, content_start_y, self.name or "Player", COLOR_BLACK)
             canvas._text(
-                content_x, content_start_y, self.name or "Player", COLOR_BLACK
+                content_x,
+                content_start_y + line_height * 2,
+                f"Level   : {int(self.level)}",
+                COLOR_BLACK,
             )
             canvas._text(
-                content_x, content_start_y + line_height * 2, f"Level   : {int(self.level)}", COLOR_BLACK
+                content_x,
+                content_start_y + line_height * 3,
+                f"Health  : {int(self.health)}",
+                COLOR_BLACK,
             )
             canvas._text(
-                content_x, content_start_y + line_height * 3, f"Health  : {int(self.health)}", COLOR_BLACK
+                content_x,
+                content_start_y + line_height * 4,
+                f"XP      : {int(self.xp)}",
+                COLOR_BLACK,
             )
             canvas._text(
-                content_x, content_start_y + line_height * 4, f"XP      : {int(self.xp)}", COLOR_BLACK
-            )
-            canvas._text(
-                content_x, content_start_y + line_height * 5, f"Strength: {int(self.strength)}", COLOR_BLACK
+                content_x,
+                content_start_y + line_height * 5,
+                f"Strength: {int(self.strength)}",
+                COLOR_BLACK,
             )
 
         elif self.current_system_menu_index == MENU_INDEX_ABOUT:
@@ -740,10 +778,24 @@ class Player(Entity):
             line_height = int(self.screen_size.y * 0.109375)
 
             canvas._text(content_x, content_start_y, "FlipWorld v0.1", COLOR_BLACK)
-            canvas._text(content_x, content_start_y + line_height, "Developed by", COLOR_BLACK)
-            canvas._text(content_x, content_start_y + line_height * 2, "JBlanked and Derek", COLOR_BLACK)
-            canvas._text(content_x, content_start_y + line_height * 3, "Jamison. Graphics", COLOR_BLACK)
-            canvas._text(content_x, content_start_y + line_height * 4, "from Pr3!", COLOR_BLACK)
+            canvas._text(
+                content_x, content_start_y + line_height, "Developed by", COLOR_BLACK
+            )
+            canvas._text(
+                content_x,
+                content_start_y + line_height * 2,
+                "JBlanked and Derek",
+                COLOR_BLACK,
+            )
+            canvas._text(
+                content_x,
+                content_start_y + line_height * 3,
+                "Jamison. Graphics",
+                COLOR_BLACK,
+            )
+            canvas._text(
+                content_x, content_start_y + line_height * 4, "from Pr3!", COLOR_BLACK
+            )
 
         elif self.current_system_menu_index == MENU_INDEX_LEAVE_GAME:
             # Content positions using screen_size
@@ -752,14 +804,24 @@ class Player(Entity):
             line_height = int(self.screen_size.y * 0.109375)
 
             canvas._text(content_x, content_start_y, "Leave Game", COLOR_BLACK)
-            canvas._text(content_x, content_start_y + line_height * 2, "Are you sure you", COLOR_BLACK)
-            canvas._text(content_x, content_start_y + line_height * 3, "want to leave", COLOR_BLACK)
-            canvas._text(content_x, content_start_y + line_height * 4, "the game?", COLOR_BLACK)
+            canvas._text(
+                content_x,
+                content_start_y + line_height * 2,
+                "Are you sure you",
+                COLOR_BLACK,
+            )
+            canvas._text(
+                content_x,
+                content_start_y + line_height * 3,
+                "want to leave",
+                COLOR_BLACK,
+            )
+            canvas._text(
+                content_x, content_start_y + line_height * 4, "the game?", COLOR_BLACK
+            )
 
         # Draw menu box
-        canvas._rectangle(
-            menu_x, menu_y, menu_width, menu_height, COLOR_BLACK
-        )
+        canvas._rectangle(menu_x, menu_y, menu_width, menu_height, COLOR_BLACK)
 
         # Draw menu items with highlight rectangle around current selection
         menu_items = ["Info", "More", "Quit"]
@@ -772,8 +834,10 @@ class Player(Entity):
             # Draw highlight rectangle around current menu item
             if i == self.current_system_menu_index:
                 canvas._rectangle(
-                    menu_text_x - highlight_padding, item_y - highlight_padding,
-                    menu_width - 12, highlight_height,
+                    menu_text_x - highlight_padding,
+                    item_y - highlight_padding,
+                    menu_width - 12,
+                    highlight_height,
                     COLOR_BLACK,
                 )
 
@@ -795,27 +859,35 @@ class Player(Entity):
 
         if self.current_title_index == TITLE_INDEX_STORY:
             canvas._fill_rectangle(
-                button_x, button_y1,
-                button_width, button_height,
+                button_x,
+                button_y1,
+                button_width,
+                button_height,
                 COLOR_BLACK,
             )
             canvas._text(text_x, text_y1, "Story", COLOR_WHITE)
             canvas._fill_rectangle(
-                button_x, button_y2,
-                button_width, button_height,
+                button_x,
+                button_y2,
+                button_width,
+                button_height,
                 COLOR_WHITE,
             )
             canvas._text(text_x, text_y2, "PvE", COLOR_BLACK)
         else:
             canvas._fill_rectangle(
-                button_x, button_y1,
-                button_width, button_height,
+                button_x,
+                button_y1,
+                button_width,
+                button_height,
                 COLOR_WHITE,
             )
             canvas._text(text_x, text_y1, "Story", COLOR_BLACK)
             canvas._fill_rectangle(
-                button_x, button_y2,
-                button_width, button_height,
+                button_x,
+                button_y2,
+                button_width,
+                button_height,
                 COLOR_BLACK,
             )
             canvas._text(text_x, text_y2, "PvE", COLOR_WHITE)
@@ -829,12 +901,15 @@ class Player(Entity):
             locked = idx >= run.unlocked_count
             lx = int(self.screen_size.x * 0.08)
             canvas._text(
-                lx, int(self.screen_size.y * 0.80),
-                "Map %d/%d: %s%s" % (idx + 1, run.total_levels, name, " (Locked)" if locked else ""),
+                lx,
+                int(self.screen_size.y * 0.80),
+                "Map %d/%d: %s%s"
+                % (idx + 1, run.total_levels, name, " (Locked)" if locked else ""),
                 COLOR_BLACK,
             )
             canvas._text(
-                lx, int(self.screen_size.y * 0.88),
+                lx,
+                int(self.screen_size.y * 0.88),
                 "< > choose map" if not locked else "< > locked - play earlier maps",
                 COLOR_BLACK,
             )
@@ -929,8 +1004,10 @@ class Player(Entity):
 
         # Draw centered box
         game.draw._fill_rectangle(
-            box_x, box_y,
-            box_width, box_height,
+            box_x,
+            box_y,
+            box_width,
+            box_height,
             0xFFFF,  # white box (visible on the dark game background)
         )
 
@@ -1221,7 +1298,9 @@ class Player(Entity):
             ):
                 # Map picker: choose which map Story starts on (any of the maps).
                 run = self.flip_world_run
-                idx = run.start_level_index + (1 if current_input == INPUT_KEY_RIGHT else -1)
+                idx = run.start_level_index + (
+                    1 if current_input == INPUT_KEY_RIGHT else -1
+                )
                 run.start_level_index = max(0, min(idx, run.total_levels - 1))
 
             elif current_input == INPUT_KEY_OK:
@@ -1574,7 +1653,7 @@ class Player(Entity):
 
                 self.ws = WebSocketAsync(
                     f"ws://www.jblanked.com/ws/game/{self.lobbies[self.current_lobby_index].id}/",
-                    callback=self.__user_request_ws_callback,
+                    on_receive=self.__user_request_ws_callback,
                     thread_manager=view_manager.thread_manager,
                 )
                 if not self.ws or not self.ws.connect():

@@ -79,7 +79,7 @@ def _connect_websocket(view_manager) -> bool:
 
     try:
         _ws = WebSocketAsync(
-            url, callback=callback, thread_manager=view_manager.thread_manager
+            url, on_receive=callback, thread_manager=view_manager.thread_manager
         )
         if not _ws.connect():
             _current_state = STATE_ERROR

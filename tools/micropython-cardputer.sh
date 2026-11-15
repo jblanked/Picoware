@@ -19,7 +19,7 @@ picoware_dir="$(cd "$script_dir/.." && pwd)"
 # Override these with env vars if your setup uses different locations.
 micropython_dir="${MICROPYTHON_ESP32_PORT:-/Users/user/pico/micropython/ports/esp32}"
 micropython_root="${MICROPYTHON_ROOT:-/Users/user/pico/micropython}"
-esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.2/esp-idf}"
+esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.5/esp-idf}"
 idf_tools_dir="${IDF_TOOLS_PATH:-$HOME/.espressif}"
 
 cardputer_src_dir="$picoware_dir/src/MicroPython/Cardputer"
@@ -89,7 +89,7 @@ require_file "$cardputer_src_dir/mpconfigboard.h"
 require_file "$cardputer_src_dir/partitions.csv"
 require_file "$cardputer_src_dir/sdkconfig.defaults"
 
-# Some ESP-IDF 5.5.2 installations ship a port CMakeLists that references an
+# Some ESP-IDF 5.5.5 installations ship a port CMakeLists that references an
 # esp32s3 include directory that may be missing. Create it if absent.
 mspi_include_dir="$esp_idf_dir/components/esp_hw_support/mspi_timing_tuning/port/esp32s3/include"
 if [ ! -d "$mspi_include_dir" ]; then

@@ -2445,6 +2445,10 @@ static fat32_error_t fat32_dir_create_unlocked(fat32_file_t *dir, const char *pa
         return err; // Error creating directory
     }
 
+    // A newly allocated cluster can contain data from a deleted file. Clear
+    // every sector so growing past the first sector cannot expose stale entries.
+    RETURN_ON_ERROR(clear_cluster(file.start_cluster));
+
     // Initialize directory struct
     dir->is_open = true;
     dir->start_cluster = file.start_cluster;

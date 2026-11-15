@@ -1,7 +1,7 @@
 /*
-Author: Blair Leduc, JBlanked, Slasher006
+Authors: JBlanked, Slasher006
 License: MIT License, GPLv3
-Sources: https://github.com/BlairLeduc/picocalc-text-starter, https://github.com/jblanked/picoware
+Sources:https://github.com/jblanked/picoware
 */
 
 #pragma once

@@ -1,5 +1,5 @@
 /*
-Author: Blair Leduc, JBlanked
+Author: JBlanked
 License: MIT License, GPL 3.0
 Source: https://github.com/jblanked/Picoware/blob/dev/src/MicroPython/PicoCalc/picoware_lcd/lcd.h
 */
@@ -21,15 +21,15 @@ Source: https://github.com/jblanked/Picoware/blob/dev/src/MicroPython/PicoCalc/p
 #else
 #include "pico/stdlib.h"
 
-#define LCD_SPI (spi1) // SPI interface for the LCD display
+#define LCD_SPI (spi1)          // SPI interface for the LCD display
 
 // Raspberry Pi Pico board GPIO pins
-#define LCD_SCL (10) // serial clock (SCL)
-#define LCD_SDI (11) // serial data in (SDI)
-#define LCD_SDO (12) // serial data out (SDO)
-#define LCD_CSX (13) // chip select (CSX)
-#define LCD_DCX (14) // data/command (D/CX)
-#define LCD_RST (15) // reset (RESET)
+#define LCD_SCL (10)            // serial clock (SCL)
+#define LCD_SDI (11)            // serial data in (SDI)
+#define LCD_SDO (12)            // serial data out (SDO)
+#define LCD_CSX (13)            // chip select (CSX)
+#define LCD_DCX (14)            // data/command (D/CX)
+#define LCD_RST (15)            // reset (RESET)
 
 // LCD interface definitions
 // According to the ST7789P datasheet, the maximum SPI clock speed is 62.5 MHz.

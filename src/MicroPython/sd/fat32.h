@@ -1,6 +1,5 @@
 /*
-Authors: Blair Leduc, JBLanked
-Source: https://github.com/BlairLeduc/picocalc-text-starter
+Authors: JBLanked, Slasher006
 Source: https://github.com/jblanked/Picoware/blob/main/src/MicroPython/sd/fat32.h
 */
 

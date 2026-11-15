@@ -1,7 +1,7 @@
 /*
-Author: Blair Leduc
-License: MIT License
-Source: https://github.com/BlairLeduc/picocalc-text-starter
+Author: JBlanked
+License: MIT License, GPL 3.0
+Source: https://github.com/jblanked/Picoware/blob/dev/src/MicroPython/PicoCalc/picoware_keyboard/southbridge.h
 */
 
 #pragma once

@@ -641,7 +641,6 @@ class WebSocketAsync:
                     except ConnectionClosed:
                         if self._on_close:
                             self._on_close()
-                        self.close()
                         break
                     except NoDataException:
                         pass
@@ -651,11 +650,7 @@ class WebSocketAsync:
                 if self._on_receive:
                     self._on_receive(e)
             finally:
-                self._running = False
-                if self._ws:
-                    self._ws.close()
-                    del self._ws
-                    self._ws = None
+                self.close()
 
         try:
             if self._thread_manager:
@@ -667,6 +662,7 @@ class WebSocketAsync:
                     function=_thread_func,
                     args=(),
                     stack_size=self._stack_size,
+                    passive=True,
                 )
                 self._current_task = task
                 self._thread_manager.add_task(task)
@@ -678,6 +674,7 @@ class WebSocketAsync:
             self._running = False
             if self._on_receive:
                 self._on_receive(e)
+            self.close()
             return False
 
         return True

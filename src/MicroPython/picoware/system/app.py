@@ -55,7 +55,7 @@ class App:
         Returns:
             str: The application as "App(id=..., title='...', version='...')".
         """
-        return f"App(id={self._id}, title='{self._title}', version='{self._version}')"
+        return "App(id=%d, title='%s', version='%s')" % (self._id, self._title, self._version)
 
     @property
     def authors(self) -> list[str]:

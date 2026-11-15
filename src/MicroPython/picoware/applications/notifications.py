@@ -145,7 +145,7 @@ def __request_start(view_manager) -> bool:
                 return False
             return True
         except Exception as error:
-            __set_error(f"Email request failed: {error}")
+            __set_error("Email request failed: %s" % str(error))
             __close_imap()
             return False
 
@@ -163,7 +163,7 @@ def __request_start(view_manager) -> bool:
             password = server_settings.get("password", "")
             return _http.request_async(
                 "GET",
-                f"https://www.jblanked.com/flipper/api/user/notifications/{username}/",
+                "https://www.jblanked.com/flipper/api/user/notifications/%s/" % username,
                 headers={
                     "Content-Type": "application/json",
                     "User-Agent": "Raspberry Pi Pico W",
@@ -188,7 +188,7 @@ def __request_start(view_manager) -> bool:
                 storage=view_manager.storage
             )
     except Exception as error:
-        __set_error(f"Request failed: {error}")
+        __set_error("Request failed: %s" % str(error))
         __close_http()
         return False
 
@@ -211,7 +211,7 @@ def __request_process(view_manager) -> None:
             return
 
         if _http.state == 2: # HTTP_ISSUE
-            __set_error(f"Request failed: {_http.error}")
+            __set_error("Request failed: %s" % str(_http.error))
             __close_http()
             __advance_state()
             return
@@ -244,7 +244,7 @@ def __request_process(view_manager) -> None:
                     _cache["weather_temperature"] = values[1]
                     _cache["weather_humidity"] = values[2]
         except Exception as error:
-            __set_error(f"Response parse failed: {error}")
+            __set_error("Response parse failed: %s" % str(error))
 
         __close_http()
         __advance_state()
@@ -255,7 +255,7 @@ def __request_process(view_manager) -> None:
         if _imap is None or not _imap.is_finished:
             return
         if _imap.error:
-            __set_error(f"Email check failed: {_imap.error}")
+            __set_error("Email check failed: %s" % str(_imap.error))
         elif _imap.result is not None:
             _cache["unread_email_count"] = _imap.result
         __close_imap()
@@ -289,7 +289,7 @@ def __wrap_text(text: str, width: int) -> list:
                 word = word[width:]
             if not word:
                 continue
-            candidate = word if not line else f"{line} {word}"
+            candidate = word if not line else "%s %s" % (line, word)
             if len(candidate) > width:
                 lines.append(line)
                 line = word
@@ -315,7 +315,7 @@ def __fit_text(text: str, max_chars: int) -> str:
         return text
     if max_chars <= 3:
         return text[:max_chars]
-    return f"{text[:max_chars - 3]}..."
+    return "%s..." % text[:max_chars - 3]
 
 
 def __content_cards(view_manager) -> list:
@@ -339,7 +339,7 @@ def __content_cards(view_manager) -> list:
     latest_date = social.get("latest_feed_item_date", "")
     if latest_user or latest_date:
         social_details.append(
-            f"{latest_user} {latest_date}".strip()
+            "%s %s" % (latest_user, latest_date).strip()
         )
     latest_message = social.get("latest_feed_item_message", "")
     if latest_message:

@@ -66,7 +66,7 @@ def _urlparse(uri: str) -> tuple:
             if port is None:
                 port = 80
         else:
-            raise ValueError(f"Scheme {protocol} is invalid")
+            raise ValueError("Scheme %s is invalid" % protocol)
 
         return (protocol, host, int(port), path or "/")
     return None
@@ -185,7 +185,7 @@ class WebSocket:
         """
         parsed = _urlparse(uri)
         if not parsed:
-            raise ValueError(f"Invalid WebSocket URL: {uri}")
+            raise ValueError("Invalid WebSocket URL: %s" % uri)
 
         protocol, hostname, port, path = parsed
 
@@ -253,7 +253,7 @@ class WebSocket:
         # Read response
         header = sock.readline()[:-2]
         if not header.startswith(b"HTTP/1.1 101"):
-            raise WebSocketError(f"Handshake failed: {header}")
+            raise WebSocketError("Handshake failed: %s" % header)
 
         # Read remaining headers (we don't need them)
         while header:
@@ -351,7 +351,7 @@ class WebSocket:
                     continue
                 if opcode == WS_OP_CONT:
                     raise NotImplementedError("Continuation frames not supported")
-                raise ValueError(f"Unknown opcode: {opcode}")
+                raise ValueError("Unknown opcode: %s" % opcode)
         finally:
             # Restore blocking mode for writes
             try:
@@ -386,7 +386,7 @@ class WebSocket:
             return True
 
         except OSError as e:
-            self._error = f"OSError {e.args[0]}: {e}"
+            self._error = "OSError %s: %s" % (e.args[0], str(e))
             self._close()
             return False
         except Exception as e:
@@ -421,10 +421,13 @@ class WebSocket:
             if errno in (-110, 110, 11, -11, 35, -35, 116, -116, 113, -113):
                 raise NoDataException()
             # Other errors - connection might be closed
-            print(f"Socket error during read_frame: errno={errno}")
+            print("Socket error during read_frame: errno=%s" % str(errno))
             raise
         except Exception as e:
-            print(f"Unexpected error during read_frame: {type(e).__name__}: {e}")
+            print(
+                "Unexpected error during read_frame: %s: %s"
+                % (type(e).__name__, str(e))
+            )
             raise
 
         if not two_bytes:

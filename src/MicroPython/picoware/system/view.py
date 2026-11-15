@@ -1,5 +1,6 @@
 """View - Base class for managed views."""
 
+
 class View:
     """A view managed by the ViewManager.
 
@@ -40,8 +41,7 @@ class View:
 
         buf = io.StringIO()
         sys.print_exception(exception, buf)
-        traceback_str = buf.getvalue()
-        view_manager.alert(f"{traceback_str}", False) 
+        view_manager.alert(buf.getvalue(), False)
 
     def start(self, view_manager) -> bool:
         """Start the view and mark it active.
@@ -58,7 +58,7 @@ class View:
                     self.active = True
                     return True
             except Exception as e:
-                self.__alert(f"Error starting view: {e}", view_manager)
+                self.__alert("Error starting view: %s" % str(e), view_manager)
                 self.active = False
                 return False
         return False
@@ -73,7 +73,7 @@ class View:
             try:
                 self._stop(view_manager)
             except Exception as e:
-                self.__alert(f"Error stopping view: {e}", view_manager)
+                self.__alert("Error stopping view: %s" % str(e), view_manager)
         self.active = False
 
     def run(self, view_manager):
@@ -86,6 +86,6 @@ class View:
             try:
                 self._run(view_manager)
             except Exception as e:
-                self.__alert(f"Error running view: {e}", view_manager)
+                self.__alert("Error running view: %s" % str(e), view_manager)
                 self.active = False
                 view_manager.back()

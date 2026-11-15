@@ -541,7 +541,8 @@ class ThreadManager:
                     # Skip if still running
                     if task.threaded and self._in_flight(task):
                         self._emit(
-                            f"[ThreadManager] Task {task.id} ({task.name}) skipped, still running.\n"
+                            "[ThreadManager] Task %d (%s) skipped, still running.\n"
+                            % (task.id, task.name)
                         )
                         continue
 
@@ -582,7 +583,11 @@ class ThreadManager:
             bool: True if the task has finished, False if it is still running.
         """
         if not thread.is_running:
-            msg = f"[ThreadManager] Task {task.id} ({task.name}) finished after {ticks_diff(ticks_ms(), task.start_time)} ms."
+            msg = "[ThreadManager] Task %d (%s) finished after %d ms." % (
+                task.id,
+                task.name,
+                ticks_diff(ticks_ms(), task.start_time),
+            )
             # Capture error if any
             thread_error = thread.error
             if thread_error is not None:
@@ -645,7 +650,9 @@ class ThreadManager:
             thread = Thread(task.function, task.args, task.stack_size)
             if thread.run():
                 task.start_time = ticks_ms()
-                self._emit(f"[ThreadManager] Task {task.id} ({task.name}) started.")
+                self._emit(
+                    "[ThreadManager] Task %d (%s) started." % (task.id, task.name)
+                )
                 if task.passive:
                     self._passive.append((thread, task))
                 else:
@@ -654,6 +661,7 @@ class ThreadManager:
             else:
                 task.error = thread.error
                 self._emit(
-                    f'[ThreadManager] Failed to start task "{task.name}". Error: "{task.error}"'
+                    "[ThreadManager] Failed to start task %s. Error: %s"
+                    % (task.name, task.error)
                 )
         return self._outgoing

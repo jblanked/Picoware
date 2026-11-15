@@ -89,7 +89,7 @@ class Loading:
         self.text_vec = None
         self.text_vec_2 = None
         self.rad = 0.0
-    
+
     @property
     def text(self) -> str:
         """Get the current loading text."""
@@ -171,7 +171,10 @@ class Loading:
 
         if http is not None:
             # Draw download text below the main text
-            _download_text = f"{http.downloaded_bytes / 1024:.1f} KB downloaded at {http.download_speed / 1024:.1f} KB/s"
+            _download_text = "%.1f KB downloaded at %.1f KB/s" % (
+                http.downloaded_bytes / 1024,
+                http.download_speed / 1024,
+            )
             download_text_x = (screen_size.x - self.display.len(_download_text)) // 2
             self.display._text(
                 download_text_x,
@@ -185,9 +188,9 @@ class Loading:
         seconds = self.time_elapsed / 1000
         if seconds < 60:
             if seconds <= 1:
-                time_str = f"{int(seconds)} second"
+                time_str = "%s second" % int(seconds)
             else:
-                time_str = f"{int(seconds)} seconds"
+                time_str = "%s seconds" % int(seconds)
             self.text_vec_2.x = (screen_size.x - self.display.len(time_str)) // 2
             self.display._text(
                 self.text_vec_2.x, self.text_vec_2.y, time_str, self.spinner_color
@@ -195,7 +198,7 @@ class Loading:
         else:
             minutes = seconds / 60
             remaining_seconds = seconds % 60
-            time_str = f"{int(minutes)}:{int(remaining_seconds):02} minutes"
+            time_str = "%s:%02s minutes" % (int(minutes), int(remaining_seconds))
             self.text_vec_2.x = (screen_size.x - self.display.len(time_str)) // 2
             self.display._text(
                 self.text_vec_2.x, self.text_vec_2.y, time_str, self.spinner_color

@@ -293,7 +293,7 @@ class WiFi:
                 self.__close_thread()
                 return True
             except Exception as e:
-                self.error = f"Error: {e}"
+                self.error = "Error: %s" % str(e)
                 self.__close_thread()
                 return False
 
@@ -305,7 +305,7 @@ class WiFi:
             self.password = password
             return True
         except Exception as e:
-            self.error = f"Failed to set up Access Point: {e}"
+            self.error = "Failed to set up Access Point: %s" % str(e)
             return False
 
     def connect_async(
@@ -365,7 +365,7 @@ class WiFi:
             self._state = WIFI_STATE_ISSUE
             return False
         except Exception as e:
-            self.error = f"Failed to start WiFi connection thread: {e}"
+            self.error = "Failed to start WiFi connection thread: %s" % str(e)
             self._state = WIFI_STATE_ISSUE
             return False
 
@@ -617,7 +617,7 @@ class WiFiUART:
                 d = loads(_res)
                 return d["networks"]
             except Exception as e:
-                print(f"Failed to load response: {e}")
+                print("Failed to load response: %s" % str(e))
         return []
 
     def status(self) -> int:
@@ -833,7 +833,7 @@ class WiFiBLE:
                 d = loads(_res)
                 return d["networks"]
             except Exception as e:
-                print(f"Failed to load response: {e}")
+                print("Failed to load response: %s" % str(e))
         return []
 
     def status(self) -> int:

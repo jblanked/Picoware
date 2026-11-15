@@ -1,5 +1,6 @@
 """Image - RGB565 image data for the display."""
 
+
 class Image:
     """Represents an image with RGB565 pixel data for MicroPython.
 
@@ -36,7 +37,7 @@ class Image:
             self._load_bmp(path)
             return True
         except (OSError, ValueError) as e:
-            print(f"Error loading image: {e}")
+            print("Error loading image: %s" % str(e))
             return False
 
     def from_byte_array(self, data, size, is_8bit: bool = True) -> bool:
@@ -61,7 +62,7 @@ class Image:
         bytes_per_pixel = 1 if is_8bit else 2
         expected = size.x * size.y * bytes_per_pixel
         if len(data) != expected:
-            raise ValueError(f"Data length {len(data)} != expected {expected}")
+            raise ValueError("Data length %s != expected %s" % (len(data), expected))
 
         self.size.x = int(size.x)
         self.size.y = int(size.y)

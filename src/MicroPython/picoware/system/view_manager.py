@@ -1,5 +1,6 @@
 """ViewManager - Manage views and navigation."""
 
+
 class ViewManager:
     """Manage multiple views and provide navigation capabilities."""
 
@@ -54,7 +55,11 @@ class ViewManager:
         from picoware.system.log import Log, LOG_MODE_ALL, LOG_MODE_REPL
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
         from picoware.system.buttons import BUTTON_ESCAPE
-        from picoware.system.boards import BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM
+        from picoware.system.boards import (
+            BOARD_CARDPUTER,
+            BOARD_FLIPPER_ZERO,
+            BOARD_POOM,
+        )
         from picoware.system.app_loader import AppLoader
         from picoware.system.timer import Timer
 
@@ -91,7 +96,9 @@ class ViewManager:
             self._foreground_color = TFT_BLACK
 
         # Initialize drawing system
-        self._draw = Draw(self._foreground_color, self._background_color, lcd_mode=settings.lcd_mode)
+        self._draw = Draw(
+            self._foreground_color, self._background_color, lcd_mode=settings.lcd_mode
+        )
 
         # LVGL mode
         self._draw.use_lvgl = settings.lvgl_mode
@@ -143,7 +150,7 @@ class ViewManager:
             self._wifi = None
             self.log("LVGL mode enabled: WiFi disabled.", 2)
             self.freq(True)
-        
+
         # Initialize video stream on demand
         self._usb_video_stream = None
         if settings.usb_stream:
@@ -157,6 +164,7 @@ class ViewManager:
         if syst.board_id == BOARD_FLIPPER_ZERO:
             try:
                 from picoware.system.uart import UART
+
                 self._uart = UART()
             except ImportError:
                 self._uart = None
@@ -165,6 +173,7 @@ class ViewManager:
         self._wifi = None
         if syst is not None and syst.has_wifi:
             from picoware.system.wifi import WiFi
+
             self._wifi = WiFi(self)
 
         self._bluetooth = None
@@ -324,7 +333,7 @@ class ViewManager:
         from picoware.system.boards import BOARD_HAS_PICOCALC
 
         return BOARD_HAS_PICOCALC == 1
-    
+
     @property
     def has_psram(self):
         """Return whether the current board has PSRAM."""
@@ -346,12 +355,12 @@ class ViewManager:
 
         return BOARD_HAS_WIFI == 1
 
-
     @property
     def input_manager(self):
         """Return the Input manager instance."""
         if self._input_manager is None:
             from picoware.system.input import Input
+
             self._input_manager = Input(self._back_button)
         return self._input_manager
 
@@ -362,6 +371,7 @@ class ViewManager:
             from picoware.gui.keyboard import Keyboard
             from picoware.system.settings import Settings
             from picoware.system.boards import BOARD_HAS_KEYBOARD
+
             self._keyboard = Keyboard(
                 self._draw,
                 self._input_manager,
@@ -369,7 +379,9 @@ class ViewManager:
                 self._background_color,
                 self._selected_color,
             )
-            self._keyboard.show_keyboard = Settings.get(self._storage, "onscreen_keyboard", BOARD_HAS_KEYBOARD == 0)
+            self._keyboard.show_keyboard = Settings.get(
+                self._storage, "onscreen_keyboard", BOARD_HAS_KEYBOARD == 0
+            )
         return self._keyboard
 
     @property
@@ -418,9 +430,10 @@ class ViewManager:
         """Return the UART instance."""
         if self._uart is None:
             from picoware.system.uart import UART
+
             self._uart = UART()
         return self._uart
-    
+
     @property
     def usb_video_stream(self):
         """Return the USBVideoStream instance."""
@@ -452,7 +465,7 @@ class ViewManager:
     def __cleanup(self):
         """Clean up resources managed by the view manager."""
         from gc import collect
-        
+
         # Clean up views
         for i in range(self._view_count):
             self.views[i] = None
@@ -560,7 +573,7 @@ class ViewManager:
             self._background_color,
         )
         _alert.draw("Alert")
-        self.log(f"Alert: {message}", 2)
+        self.log("Alert: %s" % message, 2)
 
         _denied: bool = False
 
@@ -680,8 +693,9 @@ class ViewManager:
             BOARD_HAS_ESP32,
             BOARD_FLIPPER_ZERO,
             BOARD_WAVESHARE_C6_2_06,
-            BOARD_PICOCALC_ESP32_P4
+            BOARD_PICOCALC_ESP32_P4,
         )
+
         if self._current_board_id in (BOARD_FLIPPER_ZERO, BOARD_PICOCALC_ESP32_P4):
             return
 
@@ -720,7 +734,8 @@ class ViewManager:
                     return self.views[i]
             else:
                 self.log(
-                    f"ViewManager: View '{view_name}' found in views array but is None.",
+                    "ViewManager: View '%s' found in views array but is None."
+                    % view_name,
                     2,
                 )
         return None
@@ -744,6 +759,7 @@ class ViewManager:
             enable (bool): True to enter low power mode, False to exit. Defaults to True.
         """
         from gc import collect
+
         if enable:
             del self._wifi
             self._wifi = None
@@ -756,14 +772,15 @@ class ViewManager:
         else:
             if self.has_wifi and self._wifi is None:
                 from picoware.system.wifi import WiFi
+
                 self._wifi = WiFi(self)
             # bluetooth can start itself when needed
             from picoware.system.settings import Settings
+
             _settings = Settings(self._storage)
             self._draw.set_brightness(_settings.screen_brightness)
             self.freq(False)
         collect()
-
 
     def remove(self, view_name: str):
         """Remove a view by name.
@@ -811,7 +828,7 @@ class ViewManager:
                 else:
                     self.back(should_clear=False, should_start=False)
         elif button == 87:  # BUTTON_F1
-            self._draw.screenshot(f"screenshot{self._time.date}.bmp")
+            self._draw.screenshot("screenshot%s.bmp" % self._time.date)
 
         if self._thread_manager.run():
             self.log(self._thread_manager._outgoing)
@@ -853,7 +870,7 @@ class ViewManager:
         """
         view = self.get_view(view_name)
         if view is None:
-            self.log(f"ViewManager: View '{view_name}' not found or is None.", 2)
+            self.log("ViewManager: View '%s' not found or is None." % view_name, 2)
             return
 
         # Push current view to stack before switching

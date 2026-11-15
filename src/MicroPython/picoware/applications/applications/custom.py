@@ -1,9 +1,11 @@
 """Custom - External Picoware applications."""
+
 from picoware.system.decorator import storage_required
 
 _applications = None
 _applications_index = 0
 _app_loader = None
+
 
 @storage_required
 def start(view_manager) -> bool:
@@ -89,11 +91,11 @@ def run(view_manager) -> None:
             # Try to load the apps
             app_module = _app_loader.load_app(selected_app)
             if app_module is None:
-                view_manager.alert(f'Failed to load: {_app_loader.error}')
+                view_manager.alert("Failed to load: %s" % _app_loader.error)
                 _applications.draw()
                 return
             # Create a view for the app and switch to it
-            app_view_name = f"app_{selected_app}"
+            app_view_name = "app_%s" % selected_app
             from utime import ticks_ms
 
             start_time = ticks_ms()
@@ -104,13 +106,15 @@ def run(view_manager) -> None:
                     app_view_name, app_module.run, app_module.start, app_module.stop
                 )
                 view_manager.log(
-                    f"[Applications]: Created view for app {selected_app} after {ticks_ms() - start_time} ms"
+                    "[Applications]: Created view for app %s after %d ms"
+                    % (selected_app, ticks_ms() - start_time)
                 )
                 view_manager.add(app_view)
 
             view_manager.switch_to(app_view_name)
             view_manager.log(
-                f'[Applications]: Switched to view for app "{selected_app}" after {ticks_ms() - start_time} ms'
+                '[Applications]: Switched to view for app "%s" after %d ms'
+                % (selected_app, ticks_ms() - start_time)
             )
 
 

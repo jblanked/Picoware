@@ -21,7 +21,7 @@ def audio_required(func: callable) -> callable:
             Raises:
                 RuntimeError: If audio support is missing on the board.
             """
-            raise RuntimeError(f"{func.__name__} requires Audio, which is not available")
+            raise RuntimeError("%s requires Audio, which is not available" % func.__name__)
         return unavailable
     def wrapper(*args, **kwargs):
         """Call the wrapped function with the given arguments.
@@ -51,7 +51,7 @@ def psram_required(func: callable) -> callable:
             Raises:
                 RuntimeError: If PSRAM support is missing on the board.
             """
-            raise RuntimeError(f"{func.__name__} requires PSRAM, which is not available")
+            raise RuntimeError("%s requires PSRAM, which is not available" % func.__name__)
         return unavailable
     def wrapper(*args, **kwargs):
         """Call the wrapped function with the given arguments.
@@ -81,7 +81,7 @@ def server_settings_required(func: callable) -> callable:
             Raises:
                 RuntimeError: If server settings support is missing on the board.
             """
-            raise RuntimeError(f"{func.__name__} requires server settings but storage is not available")
+            raise RuntimeError("%s requires server settings but storage is not available" % func.__name__)
         return unavailable
     def wrapper(*args, **kwargs):
         """Call the wrapped function with the given arguments.
@@ -123,7 +123,7 @@ def storage_required(func: callable) -> callable:
             Raises:
                 RuntimeError: If SD storage support is missing on the board.
             """
-            raise RuntimeError(f"{func.__name__} requires SD storage, which is not available")
+            raise RuntimeError("%s requires SD storage, which is not available" % func.__name__)
         return unavailable
     def wrapper(*args, **kwargs):
         """Call the wrapped function with the given arguments.
@@ -153,7 +153,7 @@ def bluetooth_required(func: callable) -> callable:
             Raises:
                 RuntimeError: If Bluetooth support is missing on the board.
             """
-            raise RuntimeError(f"{func.__name__} requires Bluetooth, which is not available")
+            raise RuntimeError("%s requires Bluetooth, which is not available" % func.__name__)
         return unavailable
     def wrapper(*args, **kwargs):
         """Call the wrapped function with the given arguments.
@@ -183,7 +183,7 @@ def infrared_rx_required(func: callable) -> callable:
             Raises:
                 RuntimeError: If infrared reception support is missing on the board.
             """
-            raise RuntimeError(f"{func.__name__} requires infrared reception, which is not available")
+            raise RuntimeError("%s requires infrared reception, which is not available" % func.__name__)
         return unavailable
     def wrapper(*args, **kwargs):
         """Call the wrapped function with the given arguments.
@@ -213,7 +213,7 @@ def infrared_tx_required(func: callable) -> callable:
             Raises:
                 RuntimeError: If infrared transmission support is missing on the board.
             """
-            raise RuntimeError(f"{func.__name__} requires infrared transmission, which is not available")
+            raise RuntimeError("%s requires infrared transmission, which is not available" % func.__name__)
         return unavailable
     def wrapper(*args, **kwargs):
         """Call the wrapped function with the given arguments.
@@ -243,7 +243,7 @@ def keyboard_required(func: callable) -> callable:
             Raises:
                 RuntimeError: If keyboard support is missing on the board.
             """
-            raise RuntimeError(f"{func.__name__} requires keyboard, which is not available")
+            raise RuntimeError("%s requires keyboard, which is not available" % func.__name__)
         return unavailable
     def wrapper(*args, **kwargs):
         """Call the wrapped function with the given arguments.
@@ -273,7 +273,7 @@ def wifi_required(func: callable) -> callable:
             Raises:
                 RuntimeError: If WiFi support is missing on the board.
             """
-            raise RuntimeError(f"{func.__name__} requires WiFi, which is not available")
+            raise RuntimeError("%s requires WiFi, which is not available" % func.__name__)
         return unavailable
     def wrapper(*args, **kwargs):
         """Connect to saved WiFi and call the wrapped function.
@@ -291,7 +291,7 @@ def wifi_required(func: callable) -> callable:
         view_manager = args[0]
         wifi = view_manager.wifi
         if not wifi.is_connected():
-            raise RuntimeError(f"{func.__name__} requires WiFi, but it is not connected yet.")
+            raise RuntimeError("%s requires WiFi, but it is not connected yet." % func.__name__)
         from picoware.applications.wifi.utils import connect_to_saved_wifi
         connect_to_saved_wifi(args[0])
         return func(*args, **kwargs)

@@ -1,5 +1,6 @@
 """Time - Date and time handling."""
 
+
 class Time:
     """Handles time-related functions."""
 
@@ -24,6 +25,7 @@ class Time:
         self._lock = None
         try:
             from _thread import allocate_lock
+
             self._lock = allocate_lock()
         except ImportError:
             pass
@@ -61,7 +63,7 @@ class Time:
             return ""
         with self._lock:
             date = self._rtc.datetime()
-            return f"{date[1]}/{date[2]}/{date[0]}"
+            return "%s/%s/%s" % (date[1], date[2], date[0])
 
     @property
     def datetime(self) -> str:
@@ -70,7 +72,14 @@ class Time:
             return ""
         with self._lock:
             current_time = self._rtc.datetime()
-            return f"{current_time[0]:04d}-{current_time[1]:02d}-{current_time[2]:02d} {current_time[4]:02d}:{current_time[5]:02d}:{current_time[6]:02d}"
+            return "%04d-%02d-%02d %02d:%02d:%02d" % (
+                current_time[0],
+                current_time[1],
+                current_time[2],
+                current_time[4],
+                current_time[5],
+                current_time[6],
+            )
 
     @property
     def is_fetching(self) -> bool:
@@ -113,11 +122,11 @@ class Time:
             date = self._rtc.datetime()
             _seconds = date[6]
             if _seconds < 10:
-                _seconds = f"0{_seconds}"
+                _seconds = "0%s" % _seconds
             _minutes = date[5]
             if _minutes < 10:
-                _minutes = f"0{_minutes}"
-            return f"{date[4]}:{_minutes}:{_seconds}"
+                _minutes = "0%s" % _minutes
+            return "%s:%s:%s" % (date[4], _minutes, _seconds)
 
     def fetch(self, offset: int = 0) -> bool:
         """Fetch the current date and time from NTP.
@@ -132,7 +141,7 @@ class Time:
         """
         if self._lock is None:
             return False
-        
+
         try:
             with self._lock:
                 if self._requested or self._running:
@@ -216,7 +225,7 @@ class Time:
             self._thread_manager.add_task(task)
             return True
         except Exception as e:
-            print(f"Failed to fetch time: {e}")
+            print("Failed to fetch time: %s" % str(e))
             with self._lock:
                 self._running = False
                 self._is_set = False

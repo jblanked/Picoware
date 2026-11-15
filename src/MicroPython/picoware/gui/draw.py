@@ -44,7 +44,7 @@ class Draw(lcd.LCD):
         swap(): Update the display with the current framebuffer contents
         text(position, text, color=None, font_size=-1): Draw text on the display
         triangle(point1, point2, point3, color=None): Draw a triangle outline
-    
+
     Attributes:
         foreground (int): The current foreground color.
         background (int): The current background color.
@@ -326,7 +326,12 @@ class Draw(lcd.LCD):
         )
 
     def fill_triangle_alpha(
-        self, point1: Vector, point2: Vector, point3: Vector, color=None, alpha: int = 255
+        self,
+        point1: Vector,
+        point2: Vector,
+        point3: Vector,
+        color=None,
+        alpha: int = 255,
     ):
         """Draw a filled triangle with alpha blending.
 
@@ -384,7 +389,7 @@ class Draw(lcd.LCD):
         try:
             self._bmp(position.x, position.y, path)
         except Exception as e:
-            print(f"Error loading BMP: {e}")
+            print("Error loading BMP: %s" % str(e))
 
     def image_jpeg(self, position: Vector, path: str, storage=None, jpeg=None) -> bool:
         """Draw a JPEG image from a file path.
@@ -402,10 +407,13 @@ class Draw(lcd.LCD):
         try:
             if jpeg is None:
                 from picoware.gui.jpeg import JPEG
+
                 _jpeg = JPEG(screen_width=self._size.x, screen_height=self._size.y)
-            return _jpeg is not None and _jpeg.draw(position.x, position.y, path, storage)
+            return _jpeg is not None and _jpeg.draw(
+                position.x, position.y, path, storage
+            )
         except Exception as e:
-            print(f"Error loading JPEG: {e}")
+            print("Error loading JPEG: %s" % str(e))
             return False
 
     def image_jpeg_buffer(self, position: Vector, buf, jpeg=None) -> bool:
@@ -423,10 +431,11 @@ class Draw(lcd.LCD):
         try:
             if jpeg is None:
                 from picoware.gui.jpeg import JPEG
+
                 _jpeg = JPEG(screen_width=self._size.x, screen_height=self._size.y)
             return _jpeg is not None and _jpeg.draw_buffer(position.x, position.y, buf)
         except Exception as e:
-            print(f"Error loading JPEG from buffer: {e}")
+            print("Error loading JPEG from buffer: %s" % str(e))
             return False
 
     def image_bytearray(
@@ -442,7 +451,9 @@ class Draw(lcd.LCD):
         """
         self._bytearray(position.x, position.y, size.x, size.y, byte_data, invert)
 
-    def image_bytearray_1bit(self, position: Vector, size: Vector, byte_data, invert: bool = False) -> None:
+    def image_bytearray_1bit(
+        self, position: Vector, size: Vector, byte_data, invert: bool = False
+    ) -> None:
         """Draw a 1-bit bitmap from packed byte_data (8 pixels per byte, row-aligned).
 
         Args:
@@ -480,7 +491,7 @@ class Draw(lcd.LCD):
         chunk_size=0,
         invert=False,
         loop=False,
-        buffer:bytearray=None,
+        buffer: bytearray = None,
     ):
         """Draw an image from an 8-bit bytearray file stored on disk.
 
@@ -512,7 +523,7 @@ class Draw(lcd.LCD):
                 row = 0
                 byte_offset = 0
                 _bytearray = self._bytearray
-                while True: 
+                while True:
                     rows_left = height - row
                     if chunk_size <= 0:
                         block_bytes = rows_left * row_bytes
@@ -539,9 +550,7 @@ class Draw(lcd.LCD):
                             invert,
                         )
                     else:
-                        _count = storage.file_readinto(
-                            file, buffer
-                        )
+                        _count = storage.file_readinto(file, buffer)
                         if _count <= 0:
                             break
                         rows_in_block = _count // row_bytes
@@ -563,7 +572,7 @@ class Draw(lcd.LCD):
                         row = 0
                 storage.file_close(file)
         except Exception as e:
-            print(f"Error loading bytearray image: {e}")
+            print("Error loading bytearray image: %s" % str(e))
 
     def len(self, text: str, font_size: int = -1) -> int:
         """Calculate the pixel width of a text string for a given font size.

@@ -82,11 +82,11 @@ class AppLoader:
             collect()
 
             self.view_manager.log(
-                f"[AppLoader]: Cleaned up modules, free memory: {mem_free()} bytes"
+                "[AppLoader]: Cleaned up modules, free memory: %d bytes" % mem_free()
             )
 
         except Exception as e:
-            self.view_manager.log("Error cleaning up modules: {}".format(e), 2)
+            self.view_manager.log("Error cleaning up modules: %s" % str(e), 2)
 
     def cleanup_tasks(self):
         """Stop and clear all app tasks"""
@@ -109,7 +109,7 @@ class AppLoader:
             # no need to mount because we're using auto-mount
             apps_path = "/picoware/apps"
             if subdirectory:
-                apps_path = f"{apps_path}/{subdirectory}"
+                apps_path = "%s/%s" % (apps_path, subdirectory)
             file_list = storage.listdir(apps_path)
             _py_apps = []
             for f in file_list:
@@ -124,7 +124,7 @@ class AppLoader:
             return _py_apps
 
         except Exception as e:
-            self.view_manager.log(f"Error listing apps: {e}", 2)
+            self.view_manager.log("Error listing apps: %s" % str(e), 2)
             return []
 
     def list_loaded_apps(self) -> list:
@@ -158,19 +158,21 @@ class AppLoader:
                 )
                 return False
 
-            full_path = f"{storage.vfs_prefix}{module_path}"
+            full_path = "%s%s" % (storage.vfs_prefix, module_path)
 
             if full_path not in sys.path:
                 sys.path.append(full_path)
 
             self.view_manager.log(
-                f"[AppLoader]: Added {full_path} to sys.path, free memory: {mem_free()} bytes"
+                "[AppLoader]: Added %s to sys.path, free memory: %d bytes"
+                % (full_path, mem_free())
             )
             return True
 
         except Exception as e:
             self.view_manager.log(
-                f"[AppLoader]: Error adding path {module_path}: {type(e).__name__}: {e}",
+                "[AppLoader]: Error adding path %s: %s: %s"
+                % (module_path, type(e).__name__, e),
                 2,
             )
             return False
@@ -200,7 +202,7 @@ class AppLoader:
 
         start_time = ticks_ms()
         try:
-            cache_key = f"{subdirectory}/{app_name}" if subdirectory else app_name
+            cache_key = "%s/%s" % (subdirectory, app_name) if subdirectory else app_name
             if cache_key not in self.loaded_apps:
                 # Mount the SD card first
                 storage = self.view_manager.storage
@@ -212,7 +214,7 @@ class AppLoader:
                     raise RuntimeError("Storage VFS not mounted, cannot load apps.")
 
                 # Use the board-specific VFS prefix (/sdcard on Cardputer, /sd elsewhere)
-                base_apps_path = f"{storage.vfs_prefix}/picoware/apps"
+                base_apps_path = "%s/picoware/apps" % storage.vfs_prefix
 
                 # Always add the base apps directory to sys.path
                 if base_apps_path not in sys.path:
@@ -221,7 +223,7 @@ class AppLoader:
                 # Add subdirectory if specified
                 apps_path = base_apps_path
                 if subdirectory:
-                    apps_path = f"{apps_path}/{subdirectory}"
+                    apps_path = "%s/%s" % (apps_path, subdirectory)
                     if apps_path not in sys.path:
                         sys.path.append(apps_path)
 
@@ -233,21 +235,26 @@ class AppLoader:
                 )
 
                 self.view_manager.log(
-                    f"[AppLoader]: Imported {app_name} after {ticks_ms() - start_time} ms, free memory: {mem_free()} bytes"
+                    "[AppLoader]: Imported %s after %d ms, free memory: %d bytes"
+                    % (app_name, ticks_ms() - start_time, mem_free())
                 )
 
                 # Verify the app has required methods
                 required_methods = ["start", "run", "stop"]
                 for method in required_methods:
                     if not hasattr(app_module, method):
-                        self._error = f"App {app_name} missing {method} method"
-                        raise AttributeError(f"App {app_name} missing {method} method")
+                        self._error = "App %s missing %s method" % (app_name, method)
+                        raise AttributeError(
+                            "App %s missing %s method" % (app_name, method)
+                        )
                     if not callable(getattr(app_module, method)):
-                        self._error = (
-                            f"App {app_name} has {method} method but it is not callable"
+                        self._error = "App %s has %s method but it is not callable" % (
+                            app_name,
+                            method,
                         )
                         raise AttributeError(
-                            f"App {app_name} has {method} method but it is not callable"
+                            "App %s has %s method but it is not callable"
+                            % (app_name, method)
                         )
 
                 self.loaded_apps[cache_key] = app_module
@@ -255,13 +262,15 @@ class AppLoader:
             return self.loaded_apps[cache_key]
 
         except ImportError as e:
-            self._error = f"{e}"
-            self.view_manager.log(f"Could not import app {app_name}: {e}", 2)
+            _error = str(e)
+            self._error = _error
+            self.view_manager.log("Could not import app %s: %s" % (app_name, _error), 2)
             return None
         except Exception as e:
-            self._error = f"{e}"
+            _error = str(e)
+            self._error = _error
             self.view_manager.log(
-                f"Error loading app {app_name}: {type(e).__name__}: {e}", 2
+                "Error loading app %s: %s: %s" % (app_name, type(e).__name__, _error), 2
             )
             return None
 
@@ -293,7 +302,7 @@ class AppLoader:
         """
         app_module = self.load_app(app_name, subdir)
         if not app_module or self._lock is None:
-            self.view_manager.log(f"Failed to load app {app_name}", 2)
+            self.view_manager.log("Failed to load app %s" % app_name, 2)
             return False
 
         _task = None
@@ -304,7 +313,7 @@ class AppLoader:
             nonlocal _task, started, stopped
             if not started:
                 if not app_module.start(self.view_manager):
-                    self._error = f"App {app_name} failed to start"
+                    self._error = "App %s failed to start" % app_name
                     _task.stop()
                     return
                 started = True

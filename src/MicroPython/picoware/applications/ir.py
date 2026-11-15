@@ -921,7 +921,7 @@ def _run_receive(view_manager):
             _infrared.library.save_raw(_remote_file_path(), _button_name, data)
         except Exception as error:
             view_manager.log("Infrared save failed: " + str(error), 2)
-            _set_receive_state(view_manager, STATE_RECEIVE_ERROR, now, f"Save failed\n{error}")
+            _set_receive_state(view_manager, STATE_RECEIVE_ERROR, now, "Save failed\n%s" % str(error))
         else:
             _set_receive_state(view_manager, STATE_SAVED, now)
     elif ticks_diff(now, _receive_started) >= RECEIVE_TIMEOUT_MS:

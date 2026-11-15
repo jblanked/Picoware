@@ -108,7 +108,12 @@ class FileBrowser:
         """
         import json
         from picoware.system.vector import Vector
-        from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM
+        from picoware.system.boards import (
+            BOARD_ID,
+            BOARD_CARDPUTER,
+            BOARD_FLIPPER_ZERO,
+            BOARD_POOM,
+        )
 
         # Link to system managers
         self._vm = view_manager
@@ -163,7 +168,11 @@ class FileBrowser:
         self._screen_h = draw.size.y
         self._five = max(1, self._screen_h // 64)
 
-        self._add_info = BOARD_ID not in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM)
+        self._add_info = BOARD_ID not in (
+            BOARD_CARDPUTER,
+            BOARD_FLIPPER_ZERO,
+            BOARD_POOM,
+        )
 
         self._is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
@@ -198,7 +207,7 @@ class FileBrowser:
                 del loaded
             del data
         except Exception as e:
-            self._vm.log(f"Failed to load settings: {e}", 2)
+            self._vm.log("Failed to load settings: %s" % e, 2)
 
         self._app_state["left_path"] = _start
         self._app_state["right_path"] = _start
@@ -279,7 +288,7 @@ class FileBrowser:
             return p_dir
 
         fname = f_lst[idx]
-        _path = f"/{fname}" if p_dir == "/" else f"{p_dir}/{fname}"
+        _path = "/%s" % fname if p_dir == "/" else "%s/%s" % (p_dir, fname)
 
         if _path.startswith("/sd/"):
             _path = _path[3:]
@@ -396,14 +405,17 @@ class FileBrowser:
         """
         try:
             entries = []
+            _append = entries.append
             for entry in self._vm.storage.listzip(path):
-                entries.append(f"{entry['filename']}  {entry['size_uncompressed']} bytes")
+                _append(
+                    "%s  %d bytes" % (entry["filename"], entry["size_uncompressed"])
+                )
 
             self._info_data = "\n".join(entries) if entries else "Archive is empty."
             self._show_info = True
             self._needs_redraw = True
         except Exception as e:
-            self._vm.alert(f"Failed to list ZIP: {e}")
+            self._vm.alert("Failed to list ZIP: %s" % e)
             self._needs_redraw = True
 
     def __zip_unzip(self, path) -> None:
@@ -422,7 +434,7 @@ class FileBrowser:
             self.__loading_run("Unzipped", 1.0)
         except Exception as e:
             self.__loading_run("", 1.0)
-            self._vm.alert(f"Failed to unzip: {e}")
+            self._vm.alert("Failed to unzip: %s" % e)
             self._needs_redraw = True
 
     def __load_directory_contents(self, path):
@@ -451,7 +463,7 @@ class FileBrowser:
                     if ext not in self._allowed_extensions:
                         continue
 
-                fp = f"/{itm}" if path == "/" else f"{path}/{itm}"
+                fp = "/%s" % itm if path == "/" else "%s/%s" % (path, itm)
                 is_d = entry["is_directory"]
                 self._stat_cache[fp] = (is_d, -1)
                 temp_list.append((itm, is_d))
@@ -464,7 +476,7 @@ class FileBrowser:
             items = [x[0] for x in temp_list]
             del temp_list
         except Exception as e:
-            self._vm.log(f"Error loading directory contents: {e}", 2)
+            self._vm.log("Error loading directory contents: %s" % e, 2)
             items = ["<ERROR>"]
 
         return [".."] + items if path != "/" else items
@@ -562,7 +574,11 @@ class FileBrowser:
         char_w = max(1, draw.font_size.x)
         color_fg = self._vm.foreground_color
         color_bg = self._vm.background_color
-        color_sel = self._vm.selected_color if not self._is_flipper else self._vm.background_color
+        color_sel = (
+            self._vm.selected_color
+            if not self._is_flipper
+            else self._vm.background_color
+        )
 
         # 1. Image Viewer Overlay (State Machine for Loading Animation)
         if self._is_viewing_image:
@@ -618,7 +634,7 @@ class FileBrowser:
             viewer_bar_h = max(sy(20), self._five * 4)
             draw._fill_rectangle(0, 0, sw, viewer_bar_h, color_sel)
             draw._text(
-                sx(5), sy(4), f"View: {self._edit_file.split('/')[-1]}", color_fg
+                sx(5), sy(4), "View: %s" % self._edit_file.split("/")[-1], color_fg
             )
             draw._fill_rectangle(0, sh - viewer_bar_h, sw, viewer_bar_h, color_sel)
             draw._text(
@@ -793,9 +809,7 @@ class FileBrowser:
                 text_pad_x, text_line_y, f"File Browser [Dir:{dm}]{mk_str}", color_fg
             )
         else:
-            draw._text(
-                text_pad_x, text_line_y, "File Browser", color_fg
-            )
+            draw._text(text_pad_x, text_line_y, "File Browser", color_fg)
         draw._fill_rectangle(
             mx,
             top_bar_h,
@@ -878,9 +892,7 @@ class FileBrowser:
                 pl = max(0, c_lim - len(dn[:n_lim]) - len(szs))
                 tc = color_bg if (self._is_flipper and sel) else color_fg
                 if self._add_info:
-                    draw._text(
-                        xb + text_pad_x, yo, dn[:n_lim] + (" " * pl) + szs, tc
-                    )
+                    draw._text(xb + text_pad_x, yo, dn[:n_lim] + (" " * pl) + szs, tc)
                 else:
                     n_lim = min(c_lim, 14)
                     draw._text(xb + text_pad_x, yo, dn[:n_lim], tc)
@@ -1555,14 +1567,16 @@ class FileBrowser:
                     elif ac == "Run":
                         if self._context_target_path.endswith("js"):
                             from picoware.system.js import JS
+
                             mjs = JS()
                             result = mjs.exec(self._context_target_path)
                             if result:
-                                self._vm.log(f'JS Result: {result}', -1)
+                                self._vm.log(f"JS Result: {result}", -1)
                             del mjs
                             mjs = None
-                        elif self._context_target_path.endswith("bas"): # basic
+                        elif self._context_target_path.endswith("bas"):  # basic
                             from picoware.system.mmbasic import MMBasic
+
                             bs = MMBasic(self._vm)
                             bs.start(path=self._context_target_path)
                             inp = self._vm.input_manager
@@ -1571,12 +1585,13 @@ class FileBrowser:
                                 pass
                             del bs
                             bs = None
-                        elif self._context_target_path.endswith("c"): # C source
+                        elif self._context_target_path.endswith("c"):  # C source
                             from picoware.system.c import C
+
                             c = C()
                             result = c.exec(self._context_target_path)
                             if result:
-                                self._vm.log(f'C Compile Result: {result}', -1)
+                                self._vm.log(f"C Compile Result: {result}", -1)
                             del c
                             c = None
                     elif ac == "Delete":
@@ -1599,7 +1614,9 @@ class FileBrowser:
                     elif ac == "Watch Video":
                         self._pending_action = self.ACT_VIDEO
                         fn = self._context_target_path.split("/")[-1]
-                        self._confirm_menu = self.__menu_spawn("Watch Video?", ("No", "Yes"))
+                        self._confirm_menu = self.__menu_spawn(
+                            "Watch Video?", ("No", "Yes")
+                        )
                     elif ac == "Unzip":
                         self._pending_action = self.ACT_UNZIP
                         self._confirm_menu = self.__menu_spawn(
@@ -1836,7 +1853,9 @@ class FileBrowser:
                         if (
                             self._context_menu is not None
                             and not isd
-                            and not np.lower().endswith((".jpg", ".jpeg", ".bmp", ".uf2", ".wav", ".mp3", ".js"))
+                            and not np.lower().endswith(
+                                (".jpg", ".jpeg", ".bmp", ".uf2", ".wav", ".mp3", ".js")
+                            )
                             and "." in sf
                             and sf.split(".")[-1].lower()
                             in self.TEXT_EDITABLE_EXTENSIONS

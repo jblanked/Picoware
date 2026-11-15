@@ -65,6 +65,7 @@ _UART_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 _BONDING_FILE = "picoware/bluetooth/paired_devices.json"
 _SECRETS_FILE = "picoware/bluetooth/secrets.json"
 
+
 class Bluetooth:
     """A class to manage Bluetooth functionality as both central and peripheral device.
 
@@ -102,11 +103,8 @@ class Bluetooth:
             storage.mkdir("picoware/bluetooth")
 
         self._ble = BLE()
-        bonding_configured = self._configure_bonding()
-        print(
-            f"[BT] Security config: bond={bonding_configured}, "
-            "mitm=False, io=3, le_secure=False"
-        )
+        if not self._configure_bonding():
+            print("[BT] Failed to configure bonding")
         self._callback = None
         self._scanning = False
         self._scan_data = {}
@@ -275,12 +273,12 @@ class Bluetooth:
         except Exception as e:
             # Never let an exception escape: the BLE port permanently
             # disables the IRQ handler when one does, freezing the app.
-            print(f"[Bluetooth] IRQ handler error (event {event}): {e}")
+            print("[Bluetooth] IRQ handler error (event %s): %s" % (event, e))
         return None
 
     def __irq_impl(self, event, data):
         """Process a Bluetooth IRQ event (called by __irq).
-        
+
         Args:
             event (int): The IRQ event constant.
             data (tuple): Event-specific data.
@@ -341,7 +339,9 @@ class Bluetooth:
             if self._scan_callback:
                 if primary_type in (_ADV_IND, _ADV_DIRECT_IND):
                     name = self.decode_name(combined_data)
-                    self._scan_callback(addr_type, bytes(addr), name, rssi, combined_data)
+                    self._scan_callback(
+                        addr_type, bytes(addr), name, rssi, combined_data
+                    )
 
         elif event == _IRQ_SCAN_DONE:
             # Scan duration finished or manually stopped
@@ -357,7 +357,6 @@ class Bluetooth:
             self._connected_addr = ":".join("{:02X}".format(b) for b in addr)
             self._encrypted = False
             self._bonded = False
-            print(f"[BT] Connected to peripheral, handle {conn_handle}")
             _data = (conn_handle, addr_type, addr)
 
         elif event == _IRQ_PERIPHERAL_DISCONNECT:
@@ -393,10 +392,6 @@ class Bluetooth:
             # Service discovery complete (central mode)
             conn_handle, status = data
             self._services_discovering = False
-            print(
-                f"[BT] Service discovery done, status {status}, "
-                f"{len(self._services)} services"
-            )
             _data = (conn_handle, status)
 
         elif event == _IRQ_GATTC_CHARACTERISTIC_RESULT:
@@ -417,8 +412,8 @@ class Bluetooth:
             # Characteristic discovery complete (central mode)
             conn_handle, status = data
             print(
-                f"[BT] Characteristic discovery done, status {status}, "
-                f"{len(self._characteristics)} characteristics"
+                "[BT] Characteristic discovery done, status=%s, %d characteristics"
+                % (status, len(self._characteristics))
             )
             _data = (conn_handle, status)
 
@@ -442,10 +437,6 @@ class Bluetooth:
         elif event == _IRQ_ENCRYPTION_UPDATE:
             # Encryption/bonding state changed
             conn_handle, encrypted, authenticated, bonded, key_size = data
-            print(
-                f"[BT] Encryption update: encrypted={encrypted}, "
-                f"bonded={bonded}, key_size={key_size}"
-            )
             if self._conn_handle == conn_handle:
                 self._encrypted = bool(encrypted)
                 self._bonded = bool(bonded)
@@ -456,8 +447,8 @@ class Bluetooth:
             # Passkey action required during pairing
             conn_handle, action, passkey = data
             print(
-                f"[BT] Passkey action: handle={conn_handle}, "
-                f"action={action}, value={passkey}"
+                "[BT] Passkey action: handle=%s, action=%s, value=%s"
+                % (conn_handle, action, passkey)
             )
             self._passkey = passkey
             self._passkey_action = action
@@ -470,12 +461,6 @@ class Bluetooth:
 
         if self._callback:
             self._callback(event, _data)
-            if event == _IRQ_GATTC_SERVICE_DONE:
-                print("[BT] Service-done application callback returned")
-            elif event == _IRQ_GATTC_CHARACTERISTIC_DONE:
-                print("[BT] Characteristic-done application callback returned")
-            if event in (_IRQ_GATTC_SERVICE_DONE, _IRQ_GATTC_CHARACTERISTIC_DONE):
-                print(f"[BT] Application callback returned for GATT event {event}")
 
         if (
             event == _IRQ_GATTC_SERVICE_DONE
@@ -487,13 +472,9 @@ class Bluetooth:
             and self._start_handle is not None
             and self._end_handle is not None
         ):
-            if not self.discover_characteristics(
-                self._start_handle, self._end_handle
-            ):
+            if not self.discover_characteristics(self._start_handle, self._end_handle):
                 if self._callback:
-                    self._callback(
-                        _IRQ_GATTC_CHARACTERISTIC_DONE, (_data[0], -1)
-                    )
+                    self._callback(_IRQ_GATTC_CHARACTERISTIC_DONE, (_data[0], -1))
 
         if event == _IRQ_PERIPHERAL_CONNECT and self._auto_discover:
             self.discover_services()
@@ -528,7 +509,7 @@ class Bluetooth:
                     binascii.unhexlify(value_hex)
                 )
         except Exception as e:
-            print(f"[Bluetooth] Load BLE secrets error: {e}")
+            print("[Bluetooth] Load BLE secrets error: %s" % e)
 
     def _get_secret(self, data):
         """Retrieve a BLE secret based on the provided data.
@@ -596,7 +577,7 @@ class Bluetooth:
                 self._secrets_dirty = False
                 return False
         except Exception as e:
-            print(f"[Bluetooth] Save BLE secrets error: {e}")
+            print("[Bluetooth] Save BLE secrets error: %s" % e)
             self._secrets_dirty = False
             return False
 
@@ -608,7 +589,7 @@ class Bluetooth:
         try:
             self._ble.config(bond=True, mitm=False, io=3, le_secure=False)
         except Exception as e:
-            print(f"[Bluetooth] Bonding configuration error: {e}")
+            print("[Bluetooth] Bonding configuration error: %s" % e)
             return False
         return True
 
@@ -713,7 +694,7 @@ class Bluetooth:
             try:
                 self._ble.config(gap_name=gap_name)
             except Exception as e:
-                print(f"[Bluetooth] GAP name configuration error: {e}")
+                print("[Bluetooth] GAP name configuration error: %s" % e)
             self._configure_bonding()
             self._adv_payload = self._advertising_payload(name=name)
             self._scan_response = self._advertising_payload(
@@ -726,7 +707,7 @@ class Bluetooth:
             )
             return True
         except Exception as e:
-            print(f"[Bluetooth] Advertise error: {e}")
+            print("[Bluetooth] Advertise error: %s" % e)
             return False
 
     def connect(self, addr_type, addr, timeout_ms=10000, auto_discover=True):
@@ -758,7 +739,7 @@ class Bluetooth:
             self._ble.gap_connect(addr_type, addr, timeout_ms)
             return True
         except Exception as e:
-            print(f"[Bluetooth] Connect error: {e}")
+            print("[Bluetooth] Connect error: %s" % e)
             return False
 
     def decode_name(self, adv_data) -> str:
@@ -831,10 +812,6 @@ class Bluetooth:
         if not self._connected or self._conn_handle is None:
             return False
 
-        print(
-            f"[BT] Discovering characteristics {start_handle}-{end_handle} "
-            f"(handle {self._conn_handle})"
-        )
         self._characteristics = []
         try:
             self._ble.gattc_discover_characteristics(
@@ -842,7 +819,7 @@ class Bluetooth:
             )
             return True
         except Exception as e:
-            print(f"[Bluetooth] Characteristic discovery error: {e}")
+            print("[Bluetooth] Characteristic discovery error: %s" % e)
             return False
 
     def discover_services(self):
@@ -853,7 +830,6 @@ class Bluetooth:
         if not self._connected or self._conn_handle is None:
             return False
 
-        print(f"[BT] Discovering services (handle {self._conn_handle})")
         self._services = []
         self._services_discovering = True
         try:
@@ -861,7 +837,7 @@ class Bluetooth:
             return True
         except Exception as e:
             self._services_discovering = False
-            print(f"[Bluetooth] Service discovery error: {e}")
+            print("[Bluetooth] Service discovery error: %s" % e)
             return False
 
     def is_device_paired(self, addr: str) -> bool:
@@ -909,17 +885,12 @@ class Bluetooth:
             return False
 
         self._pairing = True
-        print(
-            f"[BT] Starting pairing (handle {self._conn_handle}, "
-            f"encrypted={self._encrypted}, bonded={self._bonded})"
-        )
         try:
             # Request pairing - this triggers _IRQ_ENCRYPTION_UPDATE or _IRQ_PASSKEY_ACTION
             self._ble.gap_pair(self._conn_handle)
-            print("[BT] Pairing request submitted to BLE stack")
             return True
         except Exception as e:
-            print(f"[Bluetooth] Pair error: {e}")
+            print("[Bluetooth] Pair error: %s" % e)
             self._pairing = False
             return False
 
@@ -944,7 +915,7 @@ class Bluetooth:
                     self._ble.gap_disconnect(conn_handle)
                     return True
                 except Exception as e:
-                    print(f"[Bluetooth] Passkey rejection error: {e}")
+                    print("[Bluetooth] Passkey rejection error: %s" % e)
                     return False
             if passkey is None:
                 return False
@@ -957,7 +928,7 @@ class Bluetooth:
                     self._ble.gap_disconnect(conn_handle)
                     return True
                 except Exception as e:
-                    print(f"[Bluetooth] Passkey rejection error: {e}")
+                    print("[Bluetooth] Passkey rejection error: %s" % e)
                     return False
             reply_passkey = self._passkey
         else:
@@ -967,7 +938,7 @@ class Bluetooth:
             self._ble.gap_passkey(conn_handle, action, reply_passkey)
             return True
         except Exception as e:
-            print(f"[Bluetooth] Passkey reply error: {e}")
+            print("[Bluetooth] Passkey reply error: %s" % e)
             return False
 
     def read(self, handle):
@@ -988,7 +959,7 @@ class Bluetooth:
             self._ble.gattc_read(self._conn_handle, handle)
             return True
         except Exception as e:
-            print(f"[Bluetooth] Read error: {e}")
+            print("[Bluetooth] Read error: %s" % e)
             return False
 
     def remove_paired_device(self, addr: str):
@@ -1009,7 +980,7 @@ class Bluetooth:
                 del devices[addr]
                 return self._storage.serialize(devices, _BONDING_FILE)
         except Exception as e:
-            print(f"[Bluetooth] Remove paired device error: {e}")
+            print("[Bluetooth] Remove paired device error: %s" % e)
         return False
 
     def save_paired_device(self, addr: str, name: str = ""):
@@ -1035,7 +1006,7 @@ class Bluetooth:
             # Save back to storage
             return self._storage.serialize(devices, _BONDING_FILE)
         except Exception as e:
-            print(f"[Bluetooth] Save paired device error: {e}")
+            print("[Bluetooth] Save paired device error: %s" % e)
             return False
 
     def scan(
@@ -1066,7 +1037,7 @@ class Bluetooth:
             self._ble.gap_scan(duration_ms, interval_us, window_us, active)
             return True
         except Exception as e:
-            print(f"[Bluetooth] Scan error: {e}")
+            print("[Bluetooth] Scan error: %s" % e)
             self._scanning = False
             return False
 
@@ -1118,7 +1089,7 @@ class Bluetooth:
             self._peripheral_registered = True
             return True
         except Exception as e:
-            print(f"[Bluetooth] Register error: {e}")
+            print("[Bluetooth] Register error: %s" % e)
             return False
 
     def start_peripheral(self, name="Picoware", interval_us=500000):
@@ -1169,7 +1140,7 @@ class Bluetooth:
                 self._ble.gatts_notify(conn_handle, self._tx_handle, data)
                 sent = True
             except Exception as e:
-                print(f"[Bluetooth] Send error: {e}")
+                print("[Bluetooth] Send error: %s" % e)
 
         return sent
 
@@ -1226,14 +1197,13 @@ class Bluetooth:
 
         # CCCD handle is typically value_handle + 1
         cccd_handle = handle + 1
-        print(f"[BT] Subscribing to TX handle {handle} (CCCD {cccd_handle})")
         value = b"\x01\x00" if notify else b"\x00\x00"
 
         try:
             self._ble.gattc_write(self._conn_handle, cccd_handle, value, 1)
             return True
         except Exception as e:
-            print(f"[Bluetooth] Subscribe error: {e}")
+            print("[Bluetooth] Subscribe error: %s" % e)
             return False
 
     def write(self, data, handle=None, response=False) -> bool:
@@ -1262,13 +1232,17 @@ class Bluetooth:
 
         try:
             while len(data) > 20:
-                self._ble.gattc_write(self._conn_handle, handle, data[:20], 1 if response else 0)
+                self._ble.gattc_write(
+                    self._conn_handle, handle, data[:20], 1 if response else 0
+                )
                 data = data[20:]
             if data:
-                self._ble.gattc_write(self._conn_handle, handle, data, 1 if response else 0)
+                self._ble.gattc_write(
+                    self._conn_handle, handle, data, 1 if response else 0
+                )
             return True
         except Exception as e:
-            print(f"[Bluetooth] Write error: {e}")
+            print("[Bluetooth] Write error: %s" % e)
             return False
 
     def is_uart_ready(self) -> bool:

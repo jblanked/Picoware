@@ -1093,7 +1093,11 @@ class Desktop:
             background_color (int): The background color. Defaults to 0x0000.
         """
         from picoware.system.system import System
-        from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_WAVESHARE_3_49_RP2350, BOARD_POOM
+        from picoware.system.boards import (
+            BOARD_FLIPPER_ZERO,
+            BOARD_WAVESHARE_3_49_RP2350,
+            BOARD_POOM,
+        )
 
         system = System()
         self.name = system.device_name
@@ -1153,7 +1157,7 @@ class Desktop:
             )
             # board name
             self.name_pos.x, self.name_pos.y = 2, _five_y
-            # bluetooth icon 
+            # bluetooth icon
             self.bluetooth_pos.x, self.bluetooth_pos.y = (
                 self.wifi_pos.x - _five_x - self.bluetooth_size.x,
                 2,
@@ -1209,7 +1213,9 @@ class Desktop:
         )
         self.display.swap()
 
-    def draw_header(self, wifi_is_connected: bool = True, bluetooth_is_connected: bool = True) -> None:
+    def draw_header(
+        self, wifi_is_connected: bool = True, bluetooth_is_connected: bool = True
+    ) -> None:
         """Draw the header with the board name and Wi-Fi status.
 
         Args:
@@ -1218,7 +1224,9 @@ class Desktop:
         """
         # draw board name
         if self.draw_name:
-            self.display._text(self.name_pos.x, self.name_pos.y, self.name, self.text_color)
+            self.display._text(
+                self.name_pos.x, self.name_pos.y, self.name, self.text_color
+            )
 
         # draw time if set
         if self.time_str:
@@ -1236,7 +1244,11 @@ class Desktop:
                 self.wifi_pos.y,
                 self.wifi_size.x,
                 self.wifi_size.y,
-                _WIFI_ON_BLACK if self.has_wifi and wifi_is_connected else _WIFI_OFF_BLACK,
+                (
+                    _WIFI_ON_BLACK
+                    if self.has_wifi and wifi_is_connected
+                    else _WIFI_OFF_BLACK
+                ),
                 not self.is_dark_mode,
             )
 
@@ -1246,7 +1258,11 @@ class Desktop:
                 self.bluetooth_pos.y,
                 self.bluetooth_size.x,
                 self.bluetooth_size.y,
-                (_BLUETOOTH_ON_BLACK if self.has_bluetooth and bluetooth_is_connected else _BLUETOOTH_OFF_BLACK),
+                (
+                    _BLUETOOTH_ON_BLACK
+                    if self.has_bluetooth and bluetooth_is_connected
+                    else _BLUETOOTH_OFF_BLACK
+                ),
                 not self.is_dark_mode,
             )
 
@@ -1264,7 +1280,7 @@ class Desktop:
         Args:
             battery_level (int): The battery level as a percentage.
         """
-        self.battery_level_str = f"{battery_level}%"
+        self.battery_level_str = "%s%%" % battery_level
 
         if self.is_circular:
             # Center the battery level below time
@@ -1278,11 +1294,15 @@ class Desktop:
             if self.draw_icons:
                 # battery left of bluetooth icon
                 battery_width = self.display.len(self.battery_level_str)
-                self.battery_pos.x = self.bluetooth_pos.x - self.display.scale_x(5) - battery_width
+                self.battery_pos.x = (
+                    self.bluetooth_pos.x - self.display.scale_x(5) - battery_width
+                )
                 self.battery_pos.y = self.time_pos.y
             else:
                 # right-edge of the screen
-                self.battery_pos.x = self.size.x - self.display.len(self.battery_level_str) - 1
+                self.battery_pos.x = (
+                    self.size.x - self.display.len(self.battery_level_str) - 1
+                )
                 self.battery_pos.y = self.display.scale_y(5)
 
     def set_time(self, time_str: str) -> None:
@@ -1296,9 +1316,9 @@ class Desktop:
         if self.is_circular:
             time_width = self.display.len(self.time_str)
             time_x = (self.size.x - time_width) // 2
-            self.time_pos.x, self.time_pos.y = time_x, int(self.size.y / 20) + self.display.scale_y(10)
+            self.time_pos.x, self.time_pos.y = time_x, int(
+                self.size.y / 20
+            ) + self.display.scale_y(10)
         else:
             time_width = self.display.len(self.time_str)
             self.time_pos.x = (self.size.x - time_width) // 2
-
-        

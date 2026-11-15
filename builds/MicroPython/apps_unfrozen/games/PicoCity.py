@@ -223,9 +223,8 @@ class _City:
     MULTIPLAYER_WS = "wss://www.jblanked.com/ws/picoware/picocity/"
     MULTIPLAYER_MAX_PLAYERS = 4
     MULTIPLAYER_MAX_LOBBIES = 4
-    MULTIPLAYER_SEND_INTERVAL = 6
-    MULTIPLAYER_REMOTE_TIMEOUT = 900
-    MULTIPLAYER_INBOX_SIZE = 24
+    MULTIPLAYER_SEND_INTERVAL_MS = 200
+    MULTIPLAYER_REMOTE_TIMEOUT_MS = 30000
 
     COLOR_BLACK = 0x0000
     COLOR_SKY = 0x5D9F
@@ -305,7 +304,6 @@ class _City:
         self.multiplayer_ws = None
         self.multiplayer_socket_error = ""
         self.multiplayer_socket_closed = False
-        self.multiplayer_inbox = []
         self.multiplayer_player_id = ""
         self.multiplayer_player_id_bytes = b""
         self.multiplayer_target_lobby_id = ""
@@ -314,8 +312,8 @@ class _City:
         self.multiplayer_exit_after_leave = False
         self.multiplayer_exit_ready = False
         self.multiplayer_leave_notice = ""
-        self.multiplayer_frame = 0
-        self.multiplayer_frames_since_send = 0
+        self.multiplayer_leave_pending = False
+        self.multiplayer_last_send = 0
         self.multiplayer_remote_players = {}
 
     def _start_game(self):
@@ -722,79 +720,113 @@ class _City:
     def _connect_multiplayer(self):
         from picoware.system.websocket import WebSocketAsync
 
-        self.multiplayer_inbox = []
         self.multiplayer_socket_error = ""
         self.multiplayer_socket_closed = False
         self.multiplayer_connection_state = "connecting"
         self.multiplayer_status = "Connecting..."
         self.multiplayer_view = "pending"
+        self.multiplayer_leave_pending = False
         self.multiplayer_ws = WebSocketAsync(
             uri="%s%s/" % (self.MULTIPLAYER_WS, self.multiplayer_lobby_id),
-            callback=self._on_multiplayer_message,
+            on_receive=self._on_multiplayer_message,
             thread_manager=self.view_manager.thread_manager,
+            on_start=self._on_multiplayer_start,
+            on_tick=self._on_multiplayer_tick,
+            on_close=self._on_multiplayer_close,
         )
         if not self.multiplayer_ws.connect():
             error = self.multiplayer_ws.error or "WebSocket could not start"
             self._leave_multiplayer(False, "Connection failed: %s" % error)
+
+    def _on_multiplayer_start(self):
+        if self.multiplayer_connection_state != "connecting":
+            return
+        self.multiplayer_connection_state = "active"
+        self.multiplayer_status = "Connected"
+        self.multiplayer_view = "menu"
+        self.multiplayer_menu_origin = None
+        self.multiplayer_selection = 0
+        from utime import ticks_ms
+
+        self.multiplayer_last_send = ticks_ms()
+
+    def _on_multiplayer_close(self):
+        self.multiplayer_socket_closed = True
+        if self.multiplayer_connection_state == "active":
+            self.multiplayer_connection_state = "lost"
+
+    def _on_multiplayer_tick(self, websocket):
+        from utime import ticks_diff, ticks_ms
+
+        if self.multiplayer_leave_pending:
+            self.multiplayer_leave_pending = False
+            if self.multiplayer_lobby_id:
+                leave_message = _pack_multiplayer_message(
+                    self.multiplayer_player_id_bytes, b"leave"
+                )
+                if not websocket.send(leave_message):
+                    self.view_manager.log(
+                        "[PicoCity multiplayer] Could not relay leave message", 2
+                    )
+
+        if self.multiplayer_connection_state != "active":
+            return
+
+        now = ticks_ms()
+        for player_id, remote in list(self.multiplayer_remote_players.items()):
+            if (
+                ticks_diff(now, remote["last_seen"])
+                > self.MULTIPLAYER_REMOTE_TIMEOUT_MS
+            ):
+                self._remove_remote_player(player_id)
+
+        if (
+            ticks_diff(now, self.multiplayer_last_send)
+            < self.MULTIPLAYER_SEND_INTERVAL_MS
+        ):
+            return
+        self.multiplayer_last_send = now
+        if self.player is None:
+            return
+        state = _pack_multiplayer_message(
+            self.multiplayer_player_id_bytes,
+            b"state",
+            float(self.player.position.x),
+            float(self.player.position.y),
+            float(self.heading),
+            self.in_car,
+        )
+        if not websocket.send(state):
+            self.multiplayer_socket_error = websocket.error or "WebSocket send failed"
+            self.multiplayer_connection_state = "lost"
 
     def _on_multiplayer_message(self, data):
         if self.multiplayer_connection_state not in ("connecting", "active"):
             return
         if data is None:
             self.multiplayer_socket_closed = True
+            if self.multiplayer_connection_state == "active":
+                self.multiplayer_connection_state = "lost"
         elif isinstance(data, Exception):
             self.multiplayer_socket_error = str(data)
+            self.multiplayer_connection_state = (
+                "connect_error"
+                if self.multiplayer_connection_state == "connecting"
+                else "lost"
+            )
         else:
             if data == "PONG":
                 return
             if not isinstance(data, bytes):
                 self.multiplayer_socket_error = "Expected a binary WebSocket message"
+                self.multiplayer_connection_state = "lost"
                 return
-            if len(self.multiplayer_inbox) >= self.MULTIPLAYER_INBOX_SIZE:
-                del self.multiplayer_inbox[0]
-            self.multiplayer_inbox.append(data)
-
-    def _poll_multiplayer_websocket(self):
-        websocket = self.multiplayer_ws
-        if self.multiplayer_connection_state == "connecting":
-            if self.multiplayer_socket_error:
-                self._leave_multiplayer(
-                    False,
-                    "Connection failed: %s" % self.multiplayer_socket_error,
-                )
-            elif websocket is not None and websocket.is_connected:
-                self.multiplayer_connection_state = "active"
-                self.multiplayer_status = "Connected"
-                self.multiplayer_view = "menu"
-                self.multiplayer_menu_origin = None
-                self.multiplayer_selection = 0
-                self.multiplayer_frames_since_send = self.MULTIPLAYER_SEND_INTERVAL
-        elif self.multiplayer_connection_state == "active":
-            if (
-                self.multiplayer_socket_error
-                or self.multiplayer_socket_closed
-                or websocket is None
-                or not websocket.is_connected
-            ):
-                reason = self.multiplayer_socket_error or "Connection lost"
-                self._leave_multiplayer(False, reason)
+            self._process_multiplayer_message(data)
 
     def _leave_multiplayer(self, exit_after, notice=""):
         self.multiplayer_exit_after_leave = exit_after
         self.multiplayer_leave_notice = notice
-        if (
-            self.multiplayer_ws is not None
-            and self.multiplayer_ws.is_connected
-            and self.multiplayer_lobby_id
-        ):
-            leave_message = _pack_multiplayer_message(
-                self.multiplayer_player_id_bytes, b"leave"
-            )
-            if not self.multiplayer_ws.send(leave_message):
-                self.view_manager.log(
-                    "[PicoCity multiplayer] Could not relay leave message", 2
-                )
-
+        self.multiplayer_leave_pending = self.multiplayer_ws is not None
         self.multiplayer_connection_state = "leaving"
         if not self.multiplayer_lobby_id:
             self._finish_multiplayer_leave()
@@ -821,7 +853,7 @@ class _City:
             self.multiplayer_ws = None
         self.multiplayer_socket_error = ""
         self.multiplayer_socket_closed = False
-        self.multiplayer_inbox = []
+        self.multiplayer_leave_pending = False
         self._remove_all_remote_players()
 
         if error:
@@ -846,6 +878,7 @@ class _City:
         if len(self.multiplayer_remote_players) >= self.MULTIPLAYER_MAX_PLAYERS - 1:
             return None
 
+        from utime import ticks_ms
         from picoware.engine.entity import (
             ENTITY_TYPE_3D_SPRITE,
             SPRITE_3D_HUMANOID,
@@ -883,7 +916,7 @@ class _City:
             "player": player,
             "car": car,
             "color": color,
-            "last_seen": self.multiplayer_frame,
+            "last_seen": ticks_ms(),
         }
 
     def _remove_remote_player(self, player_id):
@@ -903,6 +936,8 @@ class _City:
             self._remove_remote_player(player_id)
 
     def _process_multiplayer_message(self, message):
+        from utime import ticks_ms
+
         packet = _parse_multiplayer_message(message)
         if packet is None:
             self.view_manager.log(
@@ -944,45 +979,7 @@ class _City:
         remote["car"].direction_set(dx, dz)
         remote["car"].set_3d_sprite_rotation(rotation)
         remote["car"].is_visible = in_car
-        remote["last_seen"] = self.multiplayer_frame
-
-    def _process_multiplayer_inbox(self):
-        for _ in range(8):
-            if not self.multiplayer_inbox:
-                break
-            self._process_multiplayer_message(self.multiplayer_inbox.pop(0))
-
-        stale_players = []
-        for player_id, remote in self.multiplayer_remote_players.items():
-            if (
-                self.multiplayer_frame - remote["last_seen"]
-                > self.MULTIPLAYER_REMOTE_TIMEOUT
-            ):
-                stale_players.append(player_id)
-        for player_id in stale_players:
-            self._remove_remote_player(player_id)
-
-    def _send_multiplayer_state(self):
-        if (
-            self.multiplayer_connection_state != "active"
-            or self.multiplayer_ws is None
-            or not self.multiplayer_ws.is_connected
-        ):
-            return
-        self.multiplayer_frames_since_send += 1
-        if self.multiplayer_frames_since_send < self.MULTIPLAYER_SEND_INTERVAL:
-            return
-        self.multiplayer_frames_since_send = 0
-        state = _pack_multiplayer_message(
-            self.multiplayer_player_id_bytes,
-            b"state",
-            float(self.player.position.x),
-            float(self.player.position.y),
-            float(self.heading),
-            self.in_car,
-        )
-        if not self.multiplayer_ws.send(state):
-            self.multiplayer_socket_error = "WebSocket send failed"
+        remote["last_seen"] = ticks_ms()
 
     def _mesh_entity(
         self, name, position, size, mesh, update=None, render=None, collision=None
@@ -1610,6 +1607,7 @@ class _City:
         first_row = int((self.box_north - reach) // spacing)
         last_row = int((self.box_south + reach) // spacing)
         limit = self.GRID_LIMIT
+        _add_block = self._add_block
         for col in range(first, last + 1):
             if col < -limit or col >= limit:
                 continue
@@ -1617,7 +1615,7 @@ class _City:
             for row in range(first_row, last_row + 1):
                 if row < -limit or row >= limit:
                     continue
-                self._add_block(
+                _add_block(
                     mesh,
                     specs,
                     col,
@@ -1634,6 +1632,7 @@ class _City:
             self._add_tree(mesh, block_x, block_z)
             return
         reach = self.BUILDING_REACH
+        _specs_append = specs.append
         for index, slot in enumerate(self.BLOCK_SLOTS):
             detail = _cell_hash(col, row, index + 2)
             x = block_x + slot[0]
@@ -1657,7 +1656,7 @@ class _City:
             elif building_type == 2:
                 height = 10.0 + (detail >> 10) % 6
             distance = (x - center_x) ** 2 + (z - center_z) ** 2
-            specs.append(
+            _specs_append(
                 (distance, x, z, width, depth, height, wall, roof, building_type)
             )
 
@@ -2299,11 +2298,11 @@ class _City:
         )
 
     def run(self, skip_engine=False):
-        """Poll multiplayer activity, draw menus or run one game frame."""
-        self.multiplayer_frame += 1
+        """Draw menus or run one game frame."""
         self._poll_multiplayer_http()
-        self._poll_multiplayer_websocket()
-        self._process_multiplayer_inbox()
+        if self.multiplayer_connection_state in ("connect_error", "lost"):
+            reason = self.multiplayer_socket_error or "Connection lost"
+            self._leave_multiplayer(False, reason)
         if self.multiplayer_exit_ready:
             self.multiplayer_exit_ready = False
             self.view_manager.back()
@@ -2320,20 +2319,10 @@ class _City:
             return
         self._update_city()
         self.engine.run_async(False)
-        self._send_multiplayer_state()
 
     def stop(self):
         """Stop the engine and release the city resources."""
         if self.multiplayer_ws is not None:
-            if self.multiplayer_lobby_id and self.multiplayer_ws.is_connected:
-                leave_message = _pack_multiplayer_message(
-                    self.multiplayer_player_id_bytes, b"leave"
-                )
-                if not self.multiplayer_ws.send(leave_message):
-                    self.view_manager.log(
-                        "[PicoCity multiplayer] Could not relay leave message",
-                        2,
-                    )
             self.multiplayer_connection_state = "idle"
             self.multiplayer_ws.close()
             self.multiplayer_ws = None

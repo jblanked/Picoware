@@ -369,12 +369,12 @@ class _City:
             BUTTON_BACK,
             BUTTON_CENTER,
             BUTTON_DOWN,
-            BUTTON_START,
+            BUTTON_SPACE,
             BUTTON_UP,
         )
 
         if self.multiplayer_view is None:
-            if button != BUTTON_START:
+            if button != BUTTON_SPACE:
                 return False
             self.multiplayer_menu_origin = None
             self.multiplayer_view = "menu"
@@ -426,7 +426,7 @@ class _City:
             return True
 
         if self.multiplayer_view == "menu":
-            if button in (BUTTON_BACK, BUTTON_START):
+            if button in (BUTTON_BACK, BUTTON_SPACE):
                 if self.multiplayer_menu_origin == "title":
                     self.multiplayer_view = "title"
                     self.multiplayer_selection = 1

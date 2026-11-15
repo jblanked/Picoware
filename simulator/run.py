@@ -845,6 +845,11 @@ def _run_sim_check(opts):
     if board_name not in ("desktop", "unix"):
         _run_mjs_check(opts)
     _run_cleanup_parity_check(opts)
+    from task_checks import check_app_tasks, check_scheduler, check_websocket
+
+    check_scheduler()
+    check_app_tasks()
+    check_websocket()
     print("[sim-check:pass]")
 
 
@@ -863,10 +868,15 @@ def _run_cleanup_parity_check(opts):
         keyboard = manager.keyboard
         display = manager.draw
         for index in range(view_count):
-            assert manager.add(View("cleanup_probe_" + str(index), None, None, None))
+            name = "cleanup_probe_" + str(index)
+            assert manager.add(View(name, None, None, None))
+            manager.push_view(name)
+        assert manager._stack_depth == min(view_count, manager.MAX_STACK_SIZE)
         manager.__cleanup()
         assert len(manager.views) == manager.MAX_VIEWS
         assert all(view is None for view in manager.views)
+        assert manager._stack_depth == 0
+        assert all(view is None for view in manager.view_stack)
         for field in ("_keyboard", "_draw", "_input_manager", "_app_loader",
                       "_storage", "_wifi", "_time", "_timer", "_battery"):
             assert getattr(manager, field) is None, field
@@ -877,9 +887,11 @@ def _run_cleanup_parity_check(opts):
         manager.__cleanup()
         assert len(manager.views) == manager.MAX_VIEWS
         assert all(view is None for view in manager.views)
+        assert manager._stack_depth == 0
+        assert all(view is None for view in manager.view_stack)
         del keyboard, display, manager
         gc.collect()
-    print("[sim-check:ok] ViewManager cleanup for 0..MAX_VIEWS, repeated cleanup, and recreation")
+    print("[sim-check:ok] ViewManager cleanup for 0..MAX_VIEWS, navigation stack, repeated cleanup, and recreation")
 
 
 def _run_desktop_native_check(opts):
@@ -1245,7 +1257,9 @@ def _run_keyboard_background_check():
         received.append(picoware_keyboard.get_key_nonblocking())
 
     sim_runtime._keys = []
-    picoware_keyboard.init()
+    assert picoware_keyboard.init() is None
+    assert picoware_keyboard.poll() is None
+    assert picoware_keyboard.get_key_nonblocking() is None
     picoware_keyboard.set_key_available_callback(on_key)
     picoware_keyboard.set_background_poll(True)
     sim_runtime.push_key(ord("a"))
@@ -1264,8 +1278,37 @@ def _run_keyboard_background_check():
         raise RuntimeError("simulator background keyboard ignored disabled state")
     if sim_runtime.pop_key() != ord("c"):
         raise RuntimeError("simulator disabled background keyboard consumed a key")
+    # Teardown must discard unread keys and release the background callback.
+    picoware_keyboard.set_background_poll(True)
+    sim_runtime.push_key(ord("d"))
+    assert picoware_keyboard.deinit() is None
+    assert picoware_keyboard.deinit() is None
+    assert not sim_runtime._keys
+    assert sim_runtime._key_callback is None
+    assert not sim_runtime._background_key_poll
+    assert not picoware_keyboard.key_available()
+    assert picoware_keyboard.get_key_nonblocking() is None
+    assert picoware_keyboard.poll() is None
+    assert received == [ord("a"), ord("b")]
+
+    # Re-enabling polling cannot bypass the firmware initialization guard.
+    picoware_keyboard.set_key_available_callback(on_key)
+    picoware_keyboard.set_background_poll(True)
+    picoware_keyboard.set_background_poll(True)
+    sim_runtime.push_key(ord("e"))
+    sim_runtime.input_polled()
+    sim_runtime.input_polled()
+    assert received == [ord("a"), ord("b")]
+    assert sim_runtime._keys == [ord("e")]
+    assert not picoware_keyboard._initialized
+
+    assert picoware_keyboard.init() is None
+    sim_runtime.input_polled()
+    sim_runtime.input_polled()
+    assert received == [ord("a"), ord("b"), ord("e")]
+    assert picoware_keyboard.get_key_nonblocking() is None
     picoware_keyboard.deinit()
-    print("[sim-check:ok] picocalc background keyboard callbacks")
+    print("[sim-check:ok] picocalc keyboard callbacks, empty reads, teardown, and reinit")
 
 
 def _run_lcd_parity_check():

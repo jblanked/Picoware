@@ -140,7 +140,10 @@ class _Socket:
                 frames, consumed = _websocket_frames(self._request)
                 if consumed:
                     self._request = self._request[consumed:]
-                    self._response += frames
+                    # Keep unread frames, not the entire session history.
+                    # Multiplayer clients can exchange messages indefinitely.
+                    self._response = self._response[self._offset:] + frames
+                    self._offset = 0
                 return len(data)
             self._request += data
             if b"\r\n\r\n" in self._request and not self._response:
@@ -184,7 +187,7 @@ class _Socket:
 
     def readline(self):
         if self._fixture:
-            if not self._response:
+            if not self._response and not self._websocket:
                 self._response = _build_response(self._connected, self._request)
             if self._offset >= len(self._response):
                 return b""
@@ -210,7 +213,7 @@ class _Socket:
 
     def read(self, count=-1):
         if self._fixture:
-            if not self._response:
+            if not self._response and not self._websocket:
                 self._response = _build_response(self._connected, self._request)
             if self._offset >= len(self._response):
                 return b""

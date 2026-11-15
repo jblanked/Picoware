@@ -994,5 +994,13 @@
             "picoware/apps_unfrozen/games/valley-quest.py"
         ],
         "version": "1.0"
+    },
+    {
+        "title": "Valley Rider",
+        "description": "Valley Quest updated version, with multiplayer and new features",
+        "file_structure": [
+            "picoware/apps_unfrozen/games/valley-rider.py"
+        ],
+        "version": "1.0"
     }
 ]

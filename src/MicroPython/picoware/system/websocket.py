@@ -328,9 +328,9 @@ class WebSocket:
                     fin, opcode, data = self._read_frame()
                 except NoDataException:
                     return ""
-                except ValueError as e:
+                except ValueError:
                     self._close()
-                    raise ConnectionClosed() from e
+                    raise ConnectionClosed()
 
                 if not fin:
                     raise NotImplementedError("Fragmented frames not supported")
@@ -419,7 +419,7 @@ class WebSocket:
             # Timeout or connection error: ETIMEDOUT(110), EAGAIN(11), EWOULDBLOCK(11), EHOSTUNREACH(113), etc
             errno = e.args[0] if e.args else None
             if errno in (-110, 110, 11, -11, 35, -35, 116, -116, 113, -113):
-                raise NoDataException() from e
+                raise NoDataException()
             # Other errors - connection might be closed
             print(f"Socket error during read_frame: errno={errno}")
             raise

@@ -3,9 +3,10 @@
 import sys
 from gc import collect, mem_free
 
+
 class AppLoader:
     """Class to manage loading and running apps dynamically.
-    
+
     Attributes:
         view_manager (ViewManager): The view manager instance for display and storage access.
         loaded_apps (dict): Dictionary to cache loaded app modules, keyed by app name.
@@ -13,13 +14,15 @@ class AppLoader:
         _vfs_ready (bool): Flag indicating whether the VFS is ready for app loading.
     """
 
-    def __init__(self, view_manager, mount_vfs:bool=False):
+    def __init__(self, view_manager, mount_vfs: bool = False):
         """Initialize the AppLoader with a view manager.
 
         Args:
             view_manager (ViewManager): The view manager instance for display and storage access.
             mount_vfs (bool): Whether to mount the VFS for app loading. Defaults to False.
         """
+        from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+
         self.view_manager = view_manager
         self.loaded_apps = {}
         self.current_app = None
@@ -27,6 +30,15 @@ class AppLoader:
         if mount_vfs and view_manager.storage.mount_vfs("/sd"):
             self._vfs_ready = True
         self._error = None
+        self._lock = None
+        if BOARD_ID != BOARD_FLIPPER_ZERO:
+            try:
+                from _thread import allocate_lock
+
+                self._lock = allocate_lock()
+            except ImportError:
+                self._lock = None
+        self._app_tasks = []
 
     def __del__(self):
         """Cleanup loaded apps on deletion"""
@@ -41,6 +53,7 @@ class AppLoader:
         """Deinitialize the AppLoader and cleanup resources."""
         self.stop()
         self.cleanup_modules()
+        self.cleanup_tasks()
         if self._vfs_ready:
             self.view_manager.storage.unmount_vfs("/sd")
         self._vfs_ready = False
@@ -74,6 +87,13 @@ class AppLoader:
 
         except Exception as e:
             self.view_manager.log("Error cleaning up modules: {}".format(e), 2)
+
+    def cleanup_tasks(self):
+        """Stop and clear all app tasks"""
+        for task in self._app_tasks:
+            task.stop()
+        self._app_tasks.clear()
+        collect()
 
     def list_available_apps(self, subdirectory="") -> list[str]:
         """List available apps in the picoware/apps directory or subdirectory.
@@ -133,7 +153,9 @@ class AppLoader:
             storage.mount()
 
             if not storage.vfs_mounted:
-                self.view_manager.log("[AppLoader]: VFS not mounted, cannot add path", 2)
+                self.view_manager.log(
+                    "[AppLoader]: VFS not mounted, cannot add path", 2
+                )
                 return False
 
             full_path = f"{storage.vfs_prefix}{module_path}"
@@ -148,7 +170,8 @@ class AppLoader:
 
         except Exception as e:
             self.view_manager.log(
-                f"[AppLoader]: Error adding path {module_path}: {type(e).__name__}: {e}", 2
+                f"[AppLoader]: Error adding path {module_path}: {type(e).__name__}: {e}",
+                2,
             )
             return False
 
@@ -219,11 +242,13 @@ class AppLoader:
                     if not hasattr(app_module, method):
                         self._error = f"App {app_name} missing {method} method"
                         raise AttributeError(f"App {app_name} missing {method} method")
-                    if not callable(
-                        getattr(app_module, method)
-                    ):
-                        self._error = f"App {app_name} has {method} method but it is not callable"
-                        raise AttributeError(f"App {app_name} has {method} method but it is not callable")
+                    if not callable(getattr(app_module, method)):
+                        self._error = (
+                            f"App {app_name} has {method} method but it is not callable"
+                        )
+                        raise AttributeError(
+                            f"App {app_name} has {method} method but it is not callable"
+                        )
 
                 self.loaded_apps[cache_key] = app_module
 
@@ -244,6 +269,113 @@ class AppLoader:
         """Run the currently loaded app"""
         if self.current_app:
             self.current_app.run(self.view_manager)
+
+    def run_app_task(
+        self,
+        app_name: str,
+        subdir: str = "",
+        interval: int = 0,
+        delay: int = 0,
+        repeat: int = 0,
+        continuous: bool = True,
+    ) -> bool:
+        """Run a specific app in a ThreadTask. This is best for utility apps that do not need input, display rendering, etc.
+
+        Args:
+            app_name (str): Name of the app module to run.
+            subdir (str): Sub directory where the app module is located.
+            interval (int): Interval between app threads.
+            delay (int): Delay before starting the app.
+            repeat (int): Total number of runs for interval tasks.
+            continuous (bool): Run again as soon as the previous run finishes (back-to-back), ignoring interval. delay still applies to the first run, repeat still limits the total. Defaults to False.
+        Returns:
+            bool: True if the app task was successfully started, False otherwise.
+        """
+        app_module = self.load_app(app_name, subdir)
+        if not app_module or self._lock is None:
+            self.view_manager.log(f"Failed to load app {app_name}", 2)
+            return False
+
+        _task = None
+        started = False
+        stopped = False
+
+        def task():
+            nonlocal _task, started, stopped
+            if not started:
+                if not app_module.start(self.view_manager):
+                    self._error = f"App {app_name} failed to start"
+                    _task.stop()
+                    return
+                started = True
+            if _task.should_stop:
+                if not stopped:
+                    app_module.stop(self.view_manager)
+                    stopped = True
+                return
+            app_module.run(self.view_manager)
+
+        from picoware.system.thread import ThreadTask
+
+        _task = ThreadTask(
+            app_name,
+            task,
+            (),
+            0,
+            0,
+            False,
+            interval,
+            delay,
+            repeat,
+            True,
+            continuous=continuous,
+        )
+        self.view_manager.thread_manager.add_task(_task)
+        self._app_tasks.append(_task)
+        return True
+
+    def run_script_task(
+        self,
+        script_path: str = "",
+        passive: bool = False,
+        interval: int = 0,
+        delay: int = 0,
+        repeat: int = 0,
+        threaded: bool = True,
+        continuous: bool = False,
+    ) -> bool:
+        """Run a specific app in a ThreadTask. This is best for utility apps that do not need input, display rendering, etc.
+
+        Args:
+            script_path (str): Path to the script to run.
+            passive (bool): Whether the task is passive (can run simultaneously with other tasks). Defaults to False.
+            interval (int): Interval between app threads.
+            delay (int): Delay before starting the app.
+            repeat (int): Total number of runs for interval tasks.
+            threaded (bool): Whether to run the app in a separate thread.
+        Returns:
+            bool: True if the app task was successfully started, False otherwise.
+        """
+        script_content = self.view_manager.storage.read(script_path)
+        code = compile(script_content, script_path, "exec")
+        from picoware.system.thread import ThreadTask
+
+        _task = ThreadTask(
+            script_path,
+            exec,
+            (code, globals()),
+            0,
+            0,
+            passive,
+            interval,
+            delay,
+            repeat,
+            threaded,
+            continuous=continuous,
+        )
+        self.view_manager.thread_manager.add_task(_task)
+        self._app_tasks.append(_task)
+        return True
 
     def start(self, app_name) -> bool:
         """Start a specific app.

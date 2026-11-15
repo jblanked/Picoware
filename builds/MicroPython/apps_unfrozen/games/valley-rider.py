@@ -244,6 +244,10 @@ def _begin_multiplayer_request(view_manager, st, action, payload=None):
     if st.multiplayer_http is not None:
         _set_multiplayer_error(st, "A request is already in progress")
         return False
+    # wait until websocket is done
+    if st.multiplayer_ws and st.multiplayer_ws.is_connected:
+        while st.multiplayer_ws.is_running:
+            pass
     http = HTTP(thread_manager=view_manager.thread_manager)
     st.multiplayer_http = http
     st.multiplayer_http_action = action
@@ -598,6 +602,9 @@ def _leave_multiplayer(view_manager, st, exit_after, notice=""):
     if not st.multiplayer_lobby_id:
         _finish_multiplayer_leave(view_manager, st)
         return
+    if st.multiplayer_ws is not None:
+        st.multiplayer_ws.close()
+        st.multiplayer_ws = None
     st.multiplayer_status = notice or "Leaving lobby..."
     _begin_multiplayer_request(
         view_manager,

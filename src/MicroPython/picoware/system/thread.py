@@ -51,7 +51,11 @@ class Thread:
 
     @property
     def error(self):
-        """Get the error if any occurred during thread execution."""
+        """Get the error if any occurred during thread execution.
+
+        Returns:
+            Exception: The captured error, or None if none occurred.
+        """
         if not hasattr(self, "_lock") or self._lock is None:
             return None
 
@@ -60,7 +64,11 @@ class Thread:
 
     @property
     def is_running(self) -> bool:
-        """Check if the thread is running."""
+        """Check whether the thread is running.
+
+        Returns:
+            bool: True if the thread is running, False otherwise.
+        """
         if not hasattr(self, "_lock") or self._lock is None:
             return False
 
@@ -69,7 +77,11 @@ class Thread:
 
     @property
     def should_stop(self) -> bool:
-        """Check if stop was requested."""
+        """Check whether stop was requested.
+
+        Returns:
+            bool: True if stop was requested, False otherwise.
+        """
         if not hasattr(self, "_lock") or self._lock is None:
             return True
 
@@ -130,6 +142,7 @@ class ThreadTask:
 
     __slots__ = (
         "args",
+        "continuous",
         "delay",
         "error",
         "function",
@@ -162,6 +175,7 @@ class ThreadTask:
         delay: int = 0,
         repeat: int = 0,
         threaded: bool = True,
+        continuous: bool = False,
     ) -> None:
         """Initialize the task.
 
@@ -176,8 +190,10 @@ class ThreadTask:
             delay (int): Milliseconds before the first run. Defaults to 0.
             repeat (int): Total number of runs for interval tasks. 0 means unlimited. Defaults to 0.
             threaded (bool): Run on a thread (True) or inline inside ThreadManager.run (False). Defaults to True.
+            continuous (bool): Run again as soon as the previous run finishes (back-to-back), ignoring interval. delay still applies to the first run, repeat still limits the total. Defaults to False.
         """
         self.args = args
+        self.continuous = continuous
         self.delay = delay
         self.error = None
         self.function = function
@@ -198,7 +214,11 @@ class ThreadTask:
 
     @property
     def id(self) -> int:
-        """Get the task ID."""
+        """Get the task ID.
+
+        Returns:
+            int: The task ID.
+        """
         return self._id
 
     @id.setter
@@ -219,13 +239,16 @@ class ThreadManager:
     """Class to manage and schedule multiple threads.
 
     Call run() regularly from your main loop. It promotes scheduled tasks
-    that are due, then runs queued tasks one at a time.
+    that are due, then starts queued tasks. Normal tasks share one exclusive
+    thread slot and run one at a time. Passive tasks (passive=True) each get
+    their own thread and run alongside everything else.
     """
 
     __slots__ = (
         "_id",
         "_tasks",
         "_queue",
+        "_passive",
         "_active_thread",
         "_active_task",
         "_outgoing",
@@ -235,29 +258,51 @@ class ThreadManager:
         """Initialize the thread manager."""
         self._id = 0
         self._tasks: list[ThreadTask] = []  # scheduled, waiting to become due
-        self._queue: list[ThreadTask] = []  # due, waiting for the thread slot
+        self._queue: list[ThreadTask] = []  # due, waiting to start
+        self._passive: list[tuple] = []  # running passive (Thread, ThreadTask) pairs
         self._active_thread: Thread = None
         self._active_task: ThreadTask = None
         self._outgoing = ""
 
     @property
     def task(self) -> ThreadTask:
-        """Get the currently active task."""
+        """Get the currently active task.
+
+        Returns:
+            ThreadTask: The active task, or None if no task is running.
+        """
         return self._active_task
 
     @property
     def thread(self) -> Thread:
-        """Get the currently active thread."""
+        """Get the currently active thread.
+
+        Returns:
+            Thread: The active thread, or None if no thread is running.
+        """
         return self._active_thread
 
     @property
     def is_idle(self) -> bool:
-        """Return whether nothing is scheduled, queued or active."""
-        return self._active_thread is None and not self._queue and not self._tasks
+        """Return whether nothing is scheduled, queued or running.
+
+        Returns:
+            bool: True if the manager has no pending or running tasks.
+        """
+        return (
+            self._active_thread is None
+            and not self._passive
+            and not self._queue
+            and not self._tasks
+        )
 
     @property
     def pending_count(self) -> int:
-        """Return the number of scheduled or queued tasks, excluding the active task."""
+        """Return the number of scheduled or queued tasks, excluding the active task.
+
+        Returns:
+            int: The number of pending tasks.
+        """
         count = len(self._queue)
         for task in self._tasks:
             if task not in self._queue:
@@ -291,12 +336,14 @@ class ThreadManager:
         """Schedule a task to run once after a delay.
 
         Pass either name/function (a ThreadTask is built for you) or an
-        existing ThreadTask via ``task``.
+        existing ThreadTask via ``task``. An existing task keeps its own
+        interval, delay and repeat settings, so a ThreadTask created with
+        an interval repeats.
 
         Args:
             name (str): The task name.
             function (callable): The function to run.
-            delay (int): Milliseconds to wait before running. Defaults to 0.
+            delay (int): Milliseconds to wait before running (ignored when task is given). Defaults to 0.
             args (tuple): Arguments to pass to the function. Defaults to ().
             task (ThreadTask): An existing task to schedule instead. Defaults to None.
             **kwargs: Extra ThreadTask options (timeout, stack_size, passive, threaded).
@@ -305,9 +352,7 @@ class ThreadManager:
             int: The assigned task ID.
         """
         if task is None:
-            task = ThreadTask(name, function, args, **kwargs)
-        task.interval = 0
-        task.delay = delay
+            task = ThreadTask(name, function, args, delay=delay, **kwargs)
         return self._schedule(task)
 
     def every(
@@ -355,10 +400,10 @@ class ThreadManager:
         Returns:
             int: The assigned task ID.
         """
-        return self.once(task=task, delay=task.delay)
+        return self.once(task=task)
 
     def get_task(self, task_id: int) -> ThreadTask:
-        """Get a scheduled or queued task by ID.
+        """Get a scheduled, queued or running task by ID.
 
         Args:
             task_id (int): The task ID.
@@ -368,6 +413,9 @@ class ThreadManager:
         """
         if self._active_task is not None and self._active_task.id == task_id:
             return self._active_task
+        for _, task in self._passive:
+            if task.id == task_id:
+                return task
         for task in self._tasks:
             if task.id == task_id:
                 return task
@@ -421,66 +469,90 @@ class ThreadManager:
     def remove_task(self, task_id: int) -> bool:
         """Stop and remove a scheduled or queued task by ID.
 
-        The currently running task is not interrupted; for a repeating task
-        this prevents any further runs.
-
         Args:
             task_id (int): The ID of the task to remove.
 
         Returns:
             bool: True if the task was removed, False otherwise.
         """
-        found = False
+        removed = []
         for tasks in (self._tasks, self._queue):
             for index, task in enumerate(tasks):
                 if task.id == task_id:
                     task.stop()
                     tasks.pop(index)
-                    found = True
+                    removed.append(task)
                     break
-        return found
+        return len(removed) > 0
 
     def _in_flight(self, task: ThreadTask) -> bool:
-        """Return whether a task is queued or currently running."""
-        return self._active_task is task or task in self._queue
+        """Return whether a task is queued or currently running.
 
-    def _promote_due(self) -> str:
-        """Move due scheduled tasks to the queue (or run them inline).
+        Args:
+            task (ThreadTask): The task to check.
 
         Returns:
-            str: Any output messages from skipped or failed tasks.
+            bool: True if the task is queued, running, or active.
         """
-        out = ""
+        if self._active_task is task or task in self._queue:
+            return True
+        for _, running in self._passive:
+            if running is task:
+                return True
+        return False
+
+    def _emit(self, text: str) -> None:
+        """Append a message to the outgoing output, newline-separated."""
+        if self._outgoing and not self._outgoing.endswith("\n"):
+            self._outgoing += "\n"
+        self._outgoing += text
+
+    def _promote_due(self) -> None:
+        """Move due scheduled tasks to the queue (or run them inline)."""
         if not self._tasks:
-            return out
+            return
 
         now = ticks_ms()
-        # Iterate over a copy since finished tasks are removed
+        # Iterate a copy (removals below)
         for task in self._tasks[:]:
-            if task.paused or ticks_diff(now, task.next_run) < 0:
-                continue
-
-            # Stopped before it ever ran: cancel it
-            if task.run_count == 0 and task.should_stop:
+            # Drop cancelled tasks
+            if task.should_stop:
                 self._tasks.remove(task)
                 continue
-
-            if task.interval > 0:
-                # Fixed rate, but never burst to catch up after a stall
-                next_run = ticks_add(task.next_run, task.interval)
-                if ticks_diff(now, next_run) >= 0:
-                    next_run = ticks_add(now, task.interval)
-                task.next_run = next_run
-
-                # Skip this tick if the previous run hasn't finished
+            if task.paused:
+                continue
+            if task.continuous:
+                # No delay after first run
+                if task.run_count == 0 and ticks_diff(now, task.next_run) < 0:
+                    continue
                 if task.threaded and self._in_flight(task):
-                    out += f"[ThreadManager] Task {task.id} ({task.name}) skipped, still running.\n"
+                    continue
+            else:
+                if ticks_diff(now, task.next_run) < 0:
                     continue
 
-            # Clear leftovers from the previous run of a repeating task
+                if task.interval > 0:
+                    # Never burst after a stall
+                    next_run = ticks_add(task.next_run, task.interval)
+                    if ticks_diff(now, next_run) >= 0:
+                        next_run = ticks_add(now, task.interval)
+                    task.next_run = next_run
+
+                    # Skip if still running
+                    if task.threaded and self._in_flight(task):
+                        self._emit(
+                            f"[ThreadManager] Task {task.id} ({task.name}) skipped, still running.\n"
+                        )
+                        continue
+
+            # Clear previous run's error
             if task.run_count > 0:
-                task.should_stop = False
                 task.error = None
+
+            # Count before the call
+            task.run_count += 1
+            if task.limited:
+                task.remaining -= 1
 
             if task.threaded:
                 self._queue.append(task)
@@ -489,69 +561,99 @@ class ThreadManager:
                     task.function(*task.args)
                 except Exception as e:
                     task.error = e
-                    out += f'[ThreadManager] Task {task.id} ({task.name}) failed. Error: "{e}"\n'
+                    self._emit(
+                        f'[ThreadManager] Task {task.id} ({task.name}) failed. Error: "{e}"\n'
+                    )
 
-            task.run_count += 1
-            if task.limited:
-                task.remaining -= 1
-
-            # One-shot tasks and tasks out of runs are done
-            if task.interval == 0 or (task.limited and task.remaining <= 0):
+            # Drop finished tasks
+            if (not task.continuous and task.interval == 0) or (
+                task.limited and task.remaining <= 0
+            ):
                 self._tasks.remove(task)
-        return out
 
-    def run(self) -> str:
-        """Promote due scheduled tasks, then run queued tasks one-by-one,
-        waiting for each to complete before starting the next.
+    def _poll(self, thread: Thread, task: ThreadTask) -> bool:
+        """Check on a running task: finish, stop or time it out.
+
+        Args:
+            thread (Thread): The task's thread.
+            task (ThreadTask): The running task.
 
         Returns:
-            str: Any output messages from finished, skipped or failed tasks.
+            bool: True if the task has finished, False if it is still running.
         """
-        self._outgoing = self._promote_due()
-        # Check if active thread finished
+        if not thread.is_running:
+            msg = f"[ThreadManager] Task {task.id} ({task.name}) finished after {ticks_diff(ticks_ms(), task.start_time)} ms."
+            # Capture error if any
+            thread_error = thread.error
+            if thread_error is not None:
+                task.error = thread_error
+                msg += f' Error: "{thread_error}"'
+            self._emit(msg + "\n")
+            collect()
+            return True
+        if task.should_stop:
+            # Stop requested
+            thread.stop()
+            if task.error is None:
+                task.error = Exception("Thread task was stopped.")
+        elif (
+            task.timeout > 0 and ticks_diff(ticks_ms(), task.start_time) > task.timeout
+        ):
+            # Task timed out, stop it
+            task.stop()
+            thread.stop()
+            task.error = Exception("Thread task timed out.")
+        return False
+
+    def run(self) -> str:
+        """Check running tasks, promote due scheduled tasks, and start queued ones.
+
+        Normal tasks run one at a time in the exclusive slot. Passive tasks
+        start right away on their own threads. A task that finishes can be
+        re-queued and started again within the same call.
+
+        Returns:
+            str: Any output messages from started, finished, skipped or failed tasks.
+        """
+        self._outgoing = ""
+
+        # Check passive threads
+        for entry in self._passive[:]:
+            if self._poll(entry[0], entry[1]):
+                self._passive.remove(entry)
+
+        # Check the exclusive thread
         if self._active_thread is not None:
-            if not self._active_thread.is_running:
-                if self._active_task is not None:
-                    self._outgoing += f"[ThreadManager] Task {self._active_task.id} ({self._active_task.name}) finished after {ticks_diff(ticks_ms(), self._active_task.start_time)} ms.\n"
-                    # Task finished, capture error if any
-                    thread_error = self._active_thread.error
-                    if thread_error is not None:
-                        self._active_task.error = thread_error
-                    collect()
+            finished_task = self._active_task
+            if self._poll(self._active_thread, finished_task):
                 self._active_thread = None
                 self._active_task = None
-            elif self._active_task is not None and self._active_task.should_stop:
-                # Stop was requested, stop the thread
-                self._active_thread.stop()
-                if self._active_task.error is None:
-                    self._active_task.error = Exception("Thread task was stopped.")
-            elif (
-                self._active_task is not None
-                and self._active_task.timeout > 0
-                and ticks_diff(ticks_ms(), self._active_task.start_time)
-                > self._active_task.timeout
-            ):
-                # Task timed out, stop it
-                self._active_task.stop()
-                self._active_thread.stop()
-                self._active_task.error = Exception("Thread task timed out.")
-            return self._outgoing
 
-        # Start next task if no active thread
-        if self._queue:
-            task = self._queue.pop(0)
-            # Skip task if stop was requested
+        self._promote_due()
+
+        # Start queued tasks
+        slot_busy = self._active_thread is not None
+        for task in self._queue[:]:
+            if not task.passive:
+                if slot_busy:
+                    continue
+                slot_busy = True
+            self._queue.remove(task)
+            # Skip stopped tasks
             if task.should_stop:
-                return self._outgoing
+                continue
             thread = Thread(task.function, task.args, task.stack_size)
             if thread.run():
                 task.start_time = ticks_ms()
-                self._outgoing += (
-                    f"[ThreadManager] Task {task.id} ({task.name}) started."
-                )
-                self._active_thread = thread
-                self._active_task = task
+                self._emit(f"[ThreadManager] Task {task.id} ({task.name}) started.")
+                if task.passive:
+                    self._passive.append((thread, task))
+                else:
+                    self._active_thread = thread
+                    self._active_task = task
             else:
                 task.error = thread.error
-                self._outgoing += f'[ThreadManager] Failed to start task "{task.name}". Error: "{task.error}"'
+                self._emit(
+                    f'[ThreadManager] Failed to start task "{task.name}". Error: "{task.error}"'
+                )
         return self._outgoing

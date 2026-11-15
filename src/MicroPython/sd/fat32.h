@@ -126,7 +126,7 @@ extern "C"
 
         // FAT32 specific
         uint32_t fat_size_32;     // Size of **each** FAT in sectors (must be non-zero)
-        uint16_t ext_flags;       // Extended flags (ignored)
+        uint16_t ext_flags;       // FAT mirroring and active FAT selection
         uint16_t fat32_version;   // File system version (ignored)
         uint32_t root_cluster;    // First cluster of the root directory
         uint16_t fat32_info;      // FSInfo sector number (usually 1)

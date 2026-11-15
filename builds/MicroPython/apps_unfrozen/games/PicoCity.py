@@ -505,6 +505,11 @@ class _City:
             self._set_multiplayer_error("A request is already in progress")
             return False
 
+        # wait until websocket is done
+        if self.multiplayer_ws and self.multiplayer_ws.is_connected:
+            while self.multiplayer_ws.is_running:
+                pass
+
         http = HTTP(thread_manager=self.view_manager.thread_manager)
         self.multiplayer_http = http
         self.multiplayer_http_action = action
@@ -831,6 +836,9 @@ class _City:
         if not self.multiplayer_lobby_id:
             self._finish_multiplayer_leave()
             return
+        if self.multiplayer_ws is not None:
+            self.multiplayer_ws.close()
+            self.multiplayer_ws = None
         self._begin_multiplayer_request(
             "remove",
             {

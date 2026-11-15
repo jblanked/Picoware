@@ -1,4 +1,5 @@
 """Games - Collection of built-in games."""
+
 from picoware.system.decorator import storage_required
 
 _games = None
@@ -6,6 +7,7 @@ _games_index = 0
 _app_loader = None
 _ghouls_allowed = True
 _gameboy_allowed = False
+
 
 @storage_required
 def start(view_manager) -> bool:
@@ -18,7 +20,11 @@ def start(view_manager) -> bool:
         bool: True on success.
     """
     from picoware.gui.menu import Menu
-    from picoware.system.boards import BOARD_ID, BOARD_PICOCALC_PICOW, BOARD_HAS_PICOCALC
+    from picoware.system.boards import (
+        BOARD_ID,
+        BOARD_PICOCALC_PICOW,
+        BOARD_HAS_PICOCALC,
+    )
 
     # create games folder if it doesn't exist
     view_manager.storage.mkdir("picoware/apps/games")
@@ -131,35 +137,11 @@ def run(view_manager) -> None:
         # Get the selected game name
         selected_game = _games.current_item
 
-        if selected_game and _app_loader:
-            # Try to load the game
-            game_module = _app_loader.load_app(selected_game, "games")
-            if game_module is None:
-                view_manager.alert(f'Failed to load: {_app_loader.error}') 
-                return
-            # Create a view for the game and switch to it
-            game_view_name = f"game_{selected_game}"
-            from utime import ticks_ms
-
-            start_time = ticks_ms()
-
-            # Check if view already exists
-            if view_manager.get_view(game_view_name) is None:
-                game_view = View(
-                    game_view_name,
-                    game_module.run,
-                    game_module.start,
-                    game_module.stop,
-                )
-                view_manager.log(
-                    f"[Games]: Created view for app {selected_game} after {ticks_ms() - start_time} ms",
-                )
-                view_manager.add(game_view)
-
-            view_manager.switch_to(game_view_name)
-            view_manager.log(
-                f'[Games]: Switched to view for app "{selected_game}" after {ticks_ms() - start_time} ms',
-            )
+        if selected_game and not view_manager.create_view(
+            "picoware/apps/games/%s" % selected_game
+        ):
+            view_manager.alert("Failed to load: %s" % selected_game)
+            _games.draw()
 
 
 def stop(view_manager) -> None:

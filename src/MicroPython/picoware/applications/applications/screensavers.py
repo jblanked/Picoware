@@ -1,5 +1,7 @@
 """Screensavers - Collection of screensaver animations."""
+
 from picoware.system.decorator import storage_required
+
 _screensavers = None
 _screensavers_index = 0
 _app_loader = None
@@ -85,40 +87,11 @@ def run(view_manager) -> None:
         # Get the selected screensaver name
         selected_screensaver = _screensavers.current_item
 
-        if selected_screensaver and _app_loader:
-            # Try to load the screensaver
-            screensaver_module = _app_loader.load_app(
-                selected_screensaver, "screensavers"
-            )
-            if screensaver_module is None:
-                view_manager.alert(
-                    f'Could not load: {_app_loader.error}'
-                )
-                return
-            from utime import ticks_ms
-
-            start_time = ticks_ms()
-
-            # Create a view for the screensaver and switch to it
-            screensaver_view_name = f"screensaver_{selected_screensaver}"
-
-            # Check if view already exists
-            if view_manager.get_view(screensaver_view_name) is None:
-                screensaver_view = View(
-                    screensaver_view_name,
-                    screensaver_module.run,
-                    screensaver_module.start,
-                    screensaver_module.stop,
-                )
-                view_manager.log(
-                    f"[Screensavers]: Created view for app {selected_screensaver} after {ticks_ms() - start_time} ms",
-                )
-                view_manager.add(screensaver_view)
-
-            view_manager.switch_to(screensaver_view_name)
-            view_manager.log(
-                f'[Screensavers]: Switched to view for app "{selected_screensaver}" after {ticks_ms() - start_time} ms',
-            )
+        if selected_screensaver and not view_manager.create_view(
+            "picoware/apps/screensavers/%s" % selected_screensaver
+        ):
+            view_manager.alert("Failed to load: %s" % selected_screensaver)
+            _screensavers.draw()
 
 
 def stop(view_manager) -> None:

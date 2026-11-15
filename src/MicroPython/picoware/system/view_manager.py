@@ -675,6 +675,63 @@ class ViewManager:
             self.view_stack[i] = None
         self._stack_depth = 0
 
+    def create_view(
+        self,
+        file_path: str,
+        add_to_stack: bool = True,
+        switch_to: bool = True,
+        background_task: bool = False,
+    ):
+        """Create a new view with the given name.
+
+        Args:
+            file_path (str): The path of the file to create a view for.
+            add_to_stack (bool): Whether to add the view to the navigation stack. Defaults to True.
+            switch_to (bool): Whether to switch to the newly created view. Defaults to True.
+            background_task (bool): Whether to run the view as a background task. Defaults to False.
+
+        Returns:
+            bool: True if the view was successfully created, False otherwise.
+        """
+        if not file_path.startswith("picoware/apps"):
+            self.log(
+                "Invalid file path (%s), must start with 'picoware/apps'" % file_path, 2
+            )
+            return False
+        app_name = file_path.split("/")[-1]
+        subdir = "/".join(file_path.split("/")[2:-1])
+        if background_task:
+            self._app_loader.run_app_task(app_name, subdir)
+            return True
+        _view = self.get_view(app_name)
+        if _view is not None:
+            if switch_to:
+                self.switch_to(app_name)
+            return True
+        app_module = self._app_loader.load_app(app_name, subdir)
+        if not app_module:
+            self.log("Failed to load app %s" % app_name, 2)
+            return False
+
+        from picoware.system.view import View
+        from utime import ticks_ms
+
+        start_time = ticks_ms()
+        app_view = View(app_name, app_module.run, app_module.start, app_module.stop)
+        self.log(
+            "[ViewManager]: Created view for app %s after %d ms"
+            % (app_name, ticks_ms() - start_time)
+        )
+        if add_to_stack or switch_to:
+            self.add(app_view)
+        if switch_to:
+            self.switch_to(app_name)
+            self.log(
+                '[ViewManager]: Switched to view for app "%s" after %d ms'
+                % (app_name, ticks_ms() - start_time)
+            )
+        return True
+
     def freq(self, use_default: bool = False, frequency: int = None) -> int:
         """Set the CPU frequency.
 

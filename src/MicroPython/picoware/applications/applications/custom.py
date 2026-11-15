@@ -57,7 +57,6 @@ def run(view_manager) -> None:
     Args:
         view_manager (ViewManager): The view manager context.
     """
-    from picoware.system.view import View
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -87,35 +86,11 @@ def run(view_manager) -> None:
         # Get the selected app name
         selected_app = _applications.current_item
 
-        if selected_app and _app_loader:
-            # Try to load the apps
-            app_module = _app_loader.load_app(selected_app)
-            if app_module is None:
-                view_manager.alert("Failed to load: %s" % _app_loader.error)
-                _applications.draw()
-                return
-            # Create a view for the app and switch to it
-            app_view_name = "app_%s" % selected_app
-            from utime import ticks_ms
-
-            start_time = ticks_ms()
-
-            # Check if view already exists
-            if view_manager.get_view(app_view_name) is None:
-                app_view = View(
-                    app_view_name, app_module.run, app_module.start, app_module.stop
-                )
-                view_manager.log(
-                    "[Applications]: Created view for app %s after %d ms"
-                    % (selected_app, ticks_ms() - start_time)
-                )
-                view_manager.add(app_view)
-
-            view_manager.switch_to(app_view_name)
-            view_manager.log(
-                '[Applications]: Switched to view for app "%s" after %d ms'
-                % (selected_app, ticks_ms() - start_time)
-            )
+        if selected_app and not view_manager.create_view(
+            "picoware/apps/%s" % selected_app
+        ):
+            view_manager.alert("Failed to load: %s" % selected_app)
+            _applications.draw()
 
 
 def stop(view_manager) -> None:

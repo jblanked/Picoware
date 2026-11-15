@@ -1234,6 +1234,7 @@ class HTTP:
         storage=None,
         send_file=None,
         stack_size: int = 8 * 1024,
+        passive: bool = False,
     ) -> bool:
         """Handle async requests.
 
@@ -1246,6 +1247,8 @@ class HTTP:
             save_to_file (str): File path to save response data to (requires storage). Defaults to None.
             storage (Storage): Storage object for file operations. Defaults to None.
             send_file (str): File path to send as request payload (requires storage). Defaults to None.
+            stack_size (int): Stack size for the async request thread. Defaults to 8 * 1024.
+            passive (bool): Whether the request can run simultaneously with other background tasks. Defaults to False.
 
         Returns:
             bool: True if the request was started.
@@ -1287,6 +1290,7 @@ class HTTP:
                         if self._chunk_size < stack_size
                         else self._chunk_size 
                     ),
+                    passive=passive,
                 )
                 self._current_task = task
                 self._thread_manager.add_task(task)

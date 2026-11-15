@@ -838,6 +838,18 @@ Supported DuckyScript commands: `DELAY`, `DEFAULT_DELAY`, `STRING_DELAY`, `STRIN
     - `pong(data=b"")`: Send a WebSocket pong frame. Returns True on success.
     - `recv()`: Receive a message. Returns `str` (text), `bytes` (binary), `""` (no data available), or `None` (connection closed).
     - `send(data)`: Send a text or binary message. Returns True on success.
+- `WebSocketAsync` class: Threaded (async) WebSocket client running in a background thread.
+    - `__init__(uri, headers=None, timeout=10.0, on_receive=None, thread_manager=None, stack_size=32768, on_start=None, on_tick=None, on_close=None)`: Create an async WebSocket. `on_receive(data)` is called with each received message (and with exceptions); `on_start()` fires on connect, `on_tick(ws)` fires periodically during the receive loop, `on_close()` fires on `ConnectionClosed`. `thread_manager` is an optional `ThreadManager`; a raw `_thread` is used when omitted. `stack_size` is the thread stack in bytes (default 32768).
+    - `error`: Property (r/o) - last error string from the underlying `WebSocket`.
+    - `is_connected`: Property (r/o) - True if connected.
+    - `is_running`: Property (r/o) - True while the receive thread is running.
+    - `last_received`: Property (r/o) - last received message.
+    - `clear()`: Clear the last received message.
+    - `close()`: Close the connection and stop the receive thread.
+    - `connect()`: Start the connection in a background thread. Returns True if started.
+    - `ping(data=b"")`: Send a ping. Returns True on success.
+    - `pong(data=b"")`: Send a pong. Returns True on success.
+    - `send(data)`: Queue a text or binary message to send from the thread. Returns True if queued.
 
 ### GUI
 

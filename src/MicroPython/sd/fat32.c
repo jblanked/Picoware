@@ -210,6 +210,12 @@ static fat32_error_t is_valid_fat32_boot_sector(const fat32_boot_sector_t *bs)
         return FAT32_ERROR_INVALID_FORMAT;
     }
 
+    // With mirroring disabled, the selected FAT must exist.
+    if ((bs->ext_flags & 0x0080) && (bs->ext_flags & 0x000F) >= bs->num_fats)
+    {
+        return FAT32_ERROR_INVALID_FORMAT;
+    }
+
     // Check if we have valid reserved sectors
     if (bs->reserved_sectors == 0)
     {
@@ -236,6 +242,13 @@ static fat32_error_t update_fsinfo()
     return write_sector(boot_sector.fat32_info, (const uint8_t *)&fsinfo);
 }
 
+// Mirrored volumes read FAT1; otherwise BPB_ExtFlags selects the active FAT.
+static uint32_t active_fat_start(void)
+{
+    uint32_t index = (boot_sector.ext_flags & 0x0080) ? (boot_sector.ext_flags & 0x000F) : 0;
+    return boot_sector.reserved_sectors + index * boot_sector.fat_size_32;
+}
+
 static fat32_error_t read_cluster_fat_entry(uint32_t cluster, uint32_t *value)
 {
     // The first data cluster is 2, less than 2 is invalid
@@ -245,7 +258,7 @@ static fat32_error_t read_cluster_fat_entry(uint32_t cluster, uint32_t *value)
     }
 
     uint32_t fat_offset = cluster * 4; // 4 bytes per entry in FAT32
-    uint32_t fat_sector = boot_sector.reserved_sectors + (fat_offset / FAT32_SECTOR_SIZE);
+    uint32_t fat_sector = active_fat_start() + (fat_offset / FAT32_SECTOR_SIZE);
     uint32_t entry_offset = fat_offset % FAT32_SECTOR_SIZE;
 
     // Read the FAT sector
@@ -264,19 +277,23 @@ static fat32_error_t write_cluster_fat_entry(uint32_t cluster, uint32_t value)
         return FAT32_ERROR_INVALID_PARAMETER;
     }
 
-    uint32_t fat_offset = cluster * 4; // 4 bytes per entry in FAT32
-    uint32_t fat_sector = boot_sector.reserved_sectors + (fat_offset / FAT32_SECTOR_SIZE);
+    uint32_t fat_offset = cluster * 4;
     uint32_t entry_offset = fat_offset % FAT32_SECTOR_SIZE;
+    bool mirrored = !(boot_sector.ext_flags & 0x0080);
+    uint32_t first_fat = mirrored ? 0 : (boot_sector.ext_flags & 0x000F);
+    uint32_t end_fat = mirrored ? boot_sector.num_fats : first_fat + 1;
 
-    // Read the FAT sector
-    RETURN_ON_ERROR(read_sector(fat_sector, sector_buffer));
+    for (uint32_t index = first_fat; index < end_fat; index++)
+    {
+        uint32_t fat_sector = boot_sector.reserved_sectors + index * boot_sector.fat_size_32 +
+                              fat_offset / FAT32_SECTOR_SIZE;
+        RETURN_ON_ERROR(read_sector(fat_sector, sector_buffer));
 
-    // Write the FAT entry
-    *(uint32_t *)(sector_buffer + entry_offset) &= 0xF0000000;
-    *(uint32_t *)(sector_buffer + entry_offset) |= value & 0x0FFFFFFF;
-
-    // Write the modified sector back
-    RETURN_ON_ERROR(write_sector(fat_sector, sector_buffer));
+        // Preserve each copy's reserved high bits and unrelated entries.
+        uint32_t *entry = (uint32_t *)(sector_buffer + entry_offset);
+        *entry = (*entry & 0xF0000000) | (value & 0x0FFFFFFF);
+        RETURN_ON_ERROR(write_sector(fat_sector, sector_buffer));
+    }
 
     return FAT32_OK;
 }
@@ -290,7 +307,7 @@ static fat32_error_t get_next_free_cluster(uint32_t *cluster)
     }
 
     // Bulk-read FAT sectors
-    uint32_t fat_region_start = boot_sector.reserved_sectors;
+    uint32_t fat_region_start = active_fat_start();
 
     for (uint32_t pass = 0; pass < 2; pass++)
     {
@@ -605,7 +622,7 @@ fat32_error_t fat32_get_free_space(uint64_t *free_space)
         // If FSInfo is not valid, we will count free clusters manually
         for (uint32_t sector = 0; sector < boot_sector.fat_size_32 && err == FAT32_OK; sector++)
         {
-            err = read_sector(boot_sector.reserved_sectors + sector, sector_buffer);
+            err = read_sector(active_fat_start() + sector, sector_buffer);
             if (err != FAT32_OK)
             {
                 break;
@@ -1165,66 +1182,94 @@ static fat32_error_t find_entry(fat32_entry_t *dir_entry, const char *path)
     return FAT32_ERROR_FILE_NOT_FOUND; // Not found
 }
 
-static fat32_error_t unlink_entry(fat32_entry_t *entry)
+// Resolve a logical directory offset through the FAT chain, not by wrapping
+// within the cluster containing the first slot of a long filename.
+static fat32_error_t directory_slot(uint32_t start_cluster, uint32_t position,
+                                    uint32_t *sector, uint32_t *offset)
+{
+    uint32_t cluster;
+    RETURN_ON_ERROR(seek_to_cluster(start_cluster, position / bytes_per_cluster, &cluster));
+    *sector = cluster_to_sector(cluster) + (position % bytes_per_cluster) / FAT32_SECTOR_SIZE;
+    *offset = position % FAT32_SECTOR_SIZE;
+    return FAT32_OK;
+}
+
+static fat32_error_t unlink_entry(fat32_entry_t *entry, const char *path)
 {
     if (!entry || entry->start_cluster == 0)
     {
         return FAT32_ERROR_INVALID_PARAMETER;
     }
 
-    // Mark the 8.3 entry as deleted
+    // Recover the parent chain so LFN slots in the previous cluster can also
+    // be deleted. Adjacent clusters need not be adjacent on the card.
+    char parent_path[FAT32_MAX_PATH_LEN];
+    strncpy(parent_path, path, sizeof(parent_path) - 1);
+    parent_path[sizeof(parent_path) - 1] = '\0';
+    char *slash = strrchr(parent_path, '/');
+    if (slash)
+    {
+        if (slash == parent_path)
+            slash[1] = '\0';
+        else
+            *slash = '\0';
+    }
+    else
+        parent_path[0] = '\0';
+
+    fat32_file_t parent;
+    RETURN_ON_ERROR(fat32_open(&parent, parent_path));
+    uint32_t parent_cluster = parent.start_cluster;
+    fat32_close(&parent);
+    uint32_t cluster = parent_cluster;
+    uint32_t entry_position = 0;
+    for (uint32_t n = 0;; n++)
+    {
+        uint32_t first_sector = cluster_to_sector(cluster);
+        if (entry->sector >= first_sector &&
+            entry->sector - first_sector < boot_sector.sectors_per_cluster)
+        {
+            entry_position += (entry->sector - first_sector) * FAT32_SECTOR_SIZE + entry->offset;
+            break;
+        }
+        if (n >= cluster_count)
+            return FAT32_ERROR_INVALID_POSITION;
+        RETURN_ON_ERROR(read_cluster_fat_entry(cluster, &cluster));
+        if (cluster < 2 || cluster >= FAT32_FAT_ENTRY_EOC)
+            return FAT32_ERROR_INVALID_POSITION;
+        entry_position += bytes_per_cluster;
+    }
+
+    // Mark the 8.3 entry as deleted.
     RETURN_ON_ERROR(read_sector(entry->sector, sector_buffer));
     fat32_dir_entry_t *dir_entry = (fat32_dir_entry_t *)(sector_buffer + entry->offset);
+    uint8_t checksum = shortname_checksum(dir_entry->shortname);
     dir_entry->shortname[0] = FAT32_DIR_ENTRY_FREE;
     RETURN_ON_ERROR(write_sector(entry->sector, sector_buffer));
 
-    // Mark the LFN parts; they can span sector boundaries, so walk back
-    // slot by slot within the cluster holding the 8.3 entry
-    const uint64_t entry_byte = (uint64_t)entry->sector * FAT32_SECTOR_SIZE + entry->offset;
-    const uint32_t cluster_first_sector = first_data_sector +
-                                          ((entry->sector - first_data_sector) / boot_sector.sectors_per_cluster) *
-                                              boot_sector.sectors_per_cluster;
-    const uint64_t cluster_start_byte = (uint64_t)cluster_first_sector * FAT32_SECTOR_SIZE;
-
-    uint32_t cur_sector = 0xFFFFFFFF;
-    bool cur_dirty = false;
-
+    // Only remove the matching LFN sequence, never a neighboring stale entry.
     for (int i = 1; i <= MAX_LFN_PART; i++)
     {
-        if (entry_byte < (uint64_t)i * 32)
+        if (entry_position < (uint32_t)i * 32)
         {
             break;
         }
-        const uint64_t slot_byte = entry_byte - (uint64_t)i * 32;
-        if (slot_byte < cluster_start_byte)
+        uint32_t slot_sector, slot_offset;
+        RETURN_ON_ERROR(directory_slot(parent_cluster, entry_position - i * 32,
+                                       &slot_sector, &slot_offset));
+        RETURN_ON_ERROR(read_sector(slot_sector, sector_buffer));
+        fat32_lfn_entry_t *lfn_entry = (fat32_lfn_entry_t *)(sector_buffer + slot_offset);
+        if (lfn_entry->attr != FAT32_ATTR_LONG_NAME || lfn_entry->checksum != checksum ||
+            lfn_entry->type != 0 || lfn_entry->first_clus != 0 ||
+            (lfn_entry->seq != i && lfn_entry->seq != (i | 0x40)))
         {
             break;
         }
-        const uint32_t slot_sector = (uint32_t)(slot_byte / FAT32_SECTOR_SIZE);
-        const uint32_t slot_offset = (uint32_t)(slot_byte % FAT32_SECTOR_SIZE);
-
-        if (slot_sector != cur_sector)
-        {
-            if (cur_dirty)
-            {
-                RETURN_ON_ERROR(write_sector(cur_sector, sector_buffer));
-                cur_dirty = false;
-            }
-            RETURN_ON_ERROR(read_sector(slot_sector, sector_buffer));
-            cur_sector = slot_sector;
-        }
-
-        fat32_dir_entry_t *lfn_entry = (fat32_dir_entry_t *)(sector_buffer + slot_offset);
-        if (lfn_entry->attr != FAT32_ATTR_LONG_NAME)
-        {
+        bool last = (lfn_entry->seq & 0x40) != 0;
+        lfn_entry->seq = FAT32_DIR_ENTRY_FREE;
+        RETURN_ON_ERROR(write_sector(slot_sector, sector_buffer));
+        if (last)
             break;
-        }
-        lfn_entry->shortname[0] = FAT32_DIR_ENTRY_FREE;
-        cur_dirty = true;
-    }
-    if (cur_dirty)
-    {
-        RETURN_ON_ERROR(write_sector(cur_sector, sector_buffer));
     }
 
     return FAT32_OK;
@@ -1294,9 +1339,9 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
 
     // Find enough free directory entries (LFN + 8.3)
     uint32_t free_entry_pos = 0;
-    uint32_t free_entry_cluster = dir.current_cluster;
     size_t free_count = 0;
     bool found = false;
+    bool past_end = false;
     dir.position = 0;
     uint32_t entry_pos = 0;
     uint32_t cluster = dir.current_cluster;
@@ -1312,12 +1357,16 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
         {
             fat32_dir_entry_t *entry_ptr = (fat32_dir_entry_t *)(sector_buffer + i);
             const uint8_t slot_first = (uint8_t)entry_ptr->shortname[0];
-            if (slot_first == FAT32_DIR_ENTRY_FREE || slot_first == FAT32_DIR_ENTRY_END_MARKER)
+            // Everything after the first end marker is unused, even if it
+            // contains stale data. Lookup stops here, so creation must not
+            // skip this space and hide a new entry beyond the marker.
+            if (slot_first == FAT32_DIR_ENTRY_END_MARKER)
+                past_end = true;
+            if (slot_first == FAT32_DIR_ENTRY_FREE || past_end)
             {
                 if (free_count == 0)
                 {
                     free_entry_pos = entry_pos + i;
-                    free_entry_cluster = cluster;
                 }
                 free_count++;
                 if (free_count > needed_entries)
@@ -1366,26 +1415,9 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
 
         // Calculate position for this LFN entry
         uint32_t entry_offset = free_entry_pos + (i * 32);
-        uint32_t entry_cluster_offset = entry_offset % bytes_per_cluster;
-        uint32_t entry_sector_in_cluster = entry_cluster_offset / FAT32_SECTOR_SIZE;
-        uint32_t entry_byte_in_sector = entry_cluster_offset % FAT32_SECTOR_SIZE;
-        uint32_t current_cluster = free_entry_cluster;
-
-        // Check if we need to move to next cluster
-        while (entry_sector_in_cluster >= boot_sector.sectors_per_cluster)
-        {
-            uint32_t next_cluster;
-            result = read_cluster_fat_entry(current_cluster, &next_cluster);
-            if (result != FAT32_OK || next_cluster >= FAT32_FAT_ENTRY_EOC)
-            {
-                fat32_close(&dir);
-                return FAT32_ERROR_DISK_FULL;
-            }
-            current_cluster = next_cluster;
-            entry_sector_in_cluster -= boot_sector.sectors_per_cluster;
-        }
-
-        uint32_t entry_sector = cluster_to_sector(current_cluster) + entry_sector_in_cluster;
+        uint32_t entry_sector, entry_byte_in_sector;
+        CLOSE_AND_RETURN_ON_ERROR(directory_slot(dir.start_cluster, entry_offset,
+                                                &entry_sector, &entry_byte_in_sector));
 
         // Read the sector if needed
         CLOSE_AND_RETURN_ON_ERROR(read_sector(entry_sector, sector_buffer));
@@ -1443,11 +1475,30 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
     dir_entry.file_size = entry->size;
 
     uint32_t raw_offset = free_entry_pos + (needed_entries * 32);
-    entry->sector = cluster_to_sector(free_entry_cluster) + ((raw_offset % bytes_per_cluster) / FAT32_SECTOR_SIZE);
-    entry->offset = (raw_offset % FAT32_SECTOR_SIZE);
+    CLOSE_AND_RETURN_ON_ERROR(directory_slot(dir.start_cluster, raw_offset,
+                                            &entry->sector, &entry->offset));
     CLOSE_AND_RETURN_ON_ERROR(read_sector(entry->sector, sector_buffer));
     memcpy(sector_buffer + entry->offset, &dir_entry, sizeof(dir_entry));
     CLOSE_AND_RETURN_ON_ERROR(write_sector(entry->sector, sector_buffer));
+
+    // If we consumed the old end marker, terminate the directory immediately
+    // after the new entry. An exhausted FAT chain already marks its end.
+    if (past_end)
+    {
+        uint32_t end_sector, end_offset;
+        result = directory_slot(dir.start_cluster, raw_offset + 32, &end_sector, &end_offset);
+        if (result == FAT32_OK)
+        {
+            CLOSE_AND_RETURN_ON_ERROR(read_sector(end_sector, sector_buffer));
+            memset(sector_buffer + end_offset, 0, FAT32_DIR_ENTRY_SIZE);
+            CLOSE_AND_RETURN_ON_ERROR(write_sector(end_sector, sector_buffer));
+        }
+        else if (result != FAT32_ERROR_INVALID_POSITION)
+        {
+            fat32_close(&dir);
+            return result;
+        }
+    }
 
     fat32_close(&dir);
 
@@ -1505,7 +1556,7 @@ static fat32_error_t delete_entry(const char *path)
     }
 
     // Unlink the entry
-    RETURN_ON_ERROR(unlink_entry(&entry));
+    RETURN_ON_ERROR(unlink_entry(&entry, path));
 
     // Free the clusters used by the entry
     RETURN_ON_ERROR(release_cluster_chain(entry.start_cluster));
@@ -2112,7 +2163,7 @@ fat32_error_t fat32_rename(const char *old_path, const char *new_path)
             else
             {
                 // Rename by deleting the old entry and creating a new one with the same start cluster
-                err = unlink_entry(&entry);
+                err = unlink_entry(&entry, old_path);
                 if (err == FAT32_OK)
                 {
                     err = link_entry(&entry, new_path);
@@ -2444,6 +2495,10 @@ static fat32_error_t fat32_dir_create_unlocked(fat32_file_t *dir, const char *pa
     {
         return err; // Error creating directory
     }
+
+    // A newly allocated cluster can contain data from a deleted file. Clear
+    // every sector so growing past the first sector cannot expose stale entries.
+    RETURN_ON_ERROR(clear_cluster(file.start_cluster));
 
     // Initialize directory struct
     dir->is_open = true;

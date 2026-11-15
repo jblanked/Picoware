@@ -1,0 +1,34 @@
+[
+    {
+        "title": "Agent Creator Context",
+        "description": "Picoware API info",
+        "file_structure": [
+            "picoware/assets/agent/app_creator_context.md"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Infrared Receive Listening Image",
+        "description": "An infrared receive listening image",
+        "file_structure": [
+            "picoware/infrared/receive_listening.bin"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Infrared Receive No Signal Image",
+        "description": "An infrared receive no signal image",
+        "file_structure": [
+            "picoware/infrared/receive_no_signal.bin"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "Infrared Receive Saved Image",
+        "description": "An infrared receive saved image",
+        "file_structure": [
+            "picoware/infrared/receive_saved.bin"
+        ],
+        "version": "1.0"
+    }
+]

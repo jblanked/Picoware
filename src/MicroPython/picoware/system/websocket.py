@@ -585,7 +585,10 @@ class WebSocketAsync:
     @property
     def is_running(self) -> bool:
         """Check if the WebSocket thread is running."""
-        return self._running
+        if self._lock is None:
+            return False
+        with self._lock:
+            return self._running
 
     @property
     def last_received(self):
@@ -598,9 +601,8 @@ class WebSocketAsync:
 
     def close(self):
         """Close the WebSocket connection."""
-        self._running = False
-
         with self._lock:
+            self._running = False
             if self._ws is not None:
                 try:
                     self._ws.close()
@@ -611,7 +613,7 @@ class WebSocketAsync:
 
     def connect(self, passive: bool = False) -> bool:
         """Start the WebSocket connection in a separate thread.
-        
+
         Args:
             passive (bool): Whether the connection can run simultaneously with other background tasks. Defaults to False.
 

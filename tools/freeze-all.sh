@@ -45,6 +45,15 @@ done; then
     exit 1
 fi
 
+# rewrite manifest for frozen layout
+sed -i '' 's|picoware/apps_unfrozen/|picoware/apps/|g' apps/manifest.json
+while IFS= read -r entry; do
+    path="apps/${entry#picoware/apps/}"
+    if [ ! -f "$path" ] && [ -f "${path%.py}.mpy" ]; then
+        sed -i '' "s|\"${entry}\"|\"${entry%.py}.mpy\"|g" apps/manifest.json
+    fi
+done < <(grep -o '"picoware/apps/[^\"]*\.py"' apps/manifest.json | tr -d '"' | sort -u)
+
 echo "MicroPython compilation complete!"
 
 # ============================================
@@ -82,6 +91,15 @@ if ! find apps -type f -name "*.py" ! -name "__init__.py" | while read -r py_fil
 done; then
     exit 1
 fi
+
+# rewrite manifest for frozen layout
+sed -i '' 's|picoware/apps_unfrozen/|picoware/apps/|g' apps/manifest.json
+while IFS= read -r entry; do
+    path="apps/${entry#picoware/apps/}"
+    if [ ! -f "$path" ] && [ -f "${path%.py}.mpy" ]; then
+        sed -i '' "s|\"${entry}\"|\"${entry%.py}.mpy\"|g" apps/manifest.json
+    fi
+done < <(grep -o '"picoware/apps/[^\"]*\.py"' apps/manifest.json | tr -d '"' | sort -u)
 
 echo "CircuitPython compilation complete!"
 

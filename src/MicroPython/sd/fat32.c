@@ -210,6 +210,12 @@ static fat32_error_t is_valid_fat32_boot_sector(const fat32_boot_sector_t *bs)
         return FAT32_ERROR_INVALID_FORMAT;
     }
 
+    // With mirroring disabled, the selected FAT must exist.
+    if ((bs->ext_flags & 0x0080) && (bs->ext_flags & 0x000F) >= bs->num_fats)
+    {
+        return FAT32_ERROR_INVALID_FORMAT;
+    }
+
     // Check if we have valid reserved sectors
     if (bs->reserved_sectors == 0)
     {
@@ -236,6 +242,13 @@ static fat32_error_t update_fsinfo()
     return write_sector(boot_sector.fat32_info, (const uint8_t *)&fsinfo);
 }
 
+// Mirrored volumes read FAT1; otherwise BPB_ExtFlags selects the active FAT.
+static uint32_t active_fat_start(void)
+{
+    uint32_t index = (boot_sector.ext_flags & 0x0080) ? (boot_sector.ext_flags & 0x000F) : 0;
+    return boot_sector.reserved_sectors + index * boot_sector.fat_size_32;
+}
+
 static fat32_error_t read_cluster_fat_entry(uint32_t cluster, uint32_t *value)
 {
     // The first data cluster is 2, less than 2 is invalid
@@ -245,7 +258,7 @@ static fat32_error_t read_cluster_fat_entry(uint32_t cluster, uint32_t *value)
     }
 
     uint32_t fat_offset = cluster * 4; // 4 bytes per entry in FAT32
-    uint32_t fat_sector = boot_sector.reserved_sectors + (fat_offset / FAT32_SECTOR_SIZE);
+    uint32_t fat_sector = active_fat_start() + (fat_offset / FAT32_SECTOR_SIZE);
     uint32_t entry_offset = fat_offset % FAT32_SECTOR_SIZE;
 
     // Read the FAT sector
@@ -264,19 +277,23 @@ static fat32_error_t write_cluster_fat_entry(uint32_t cluster, uint32_t value)
         return FAT32_ERROR_INVALID_PARAMETER;
     }
 
-    uint32_t fat_offset = cluster * 4; // 4 bytes per entry in FAT32
-    uint32_t fat_sector = boot_sector.reserved_sectors + (fat_offset / FAT32_SECTOR_SIZE);
+    uint32_t fat_offset = cluster * 4;
     uint32_t entry_offset = fat_offset % FAT32_SECTOR_SIZE;
+    bool mirrored = !(boot_sector.ext_flags & 0x0080);
+    uint32_t first_fat = mirrored ? 0 : (boot_sector.ext_flags & 0x000F);
+    uint32_t end_fat = mirrored ? boot_sector.num_fats : first_fat + 1;
 
-    // Read the FAT sector
-    RETURN_ON_ERROR(read_sector(fat_sector, sector_buffer));
+    for (uint32_t index = first_fat; index < end_fat; index++)
+    {
+        uint32_t fat_sector = boot_sector.reserved_sectors + index * boot_sector.fat_size_32 +
+                              fat_offset / FAT32_SECTOR_SIZE;
+        RETURN_ON_ERROR(read_sector(fat_sector, sector_buffer));
 
-    // Write the FAT entry
-    *(uint32_t *)(sector_buffer + entry_offset) &= 0xF0000000;
-    *(uint32_t *)(sector_buffer + entry_offset) |= value & 0x0FFFFFFF;
-
-    // Write the modified sector back
-    RETURN_ON_ERROR(write_sector(fat_sector, sector_buffer));
+        // Preserve each copy's reserved high bits and unrelated entries.
+        uint32_t *entry = (uint32_t *)(sector_buffer + entry_offset);
+        *entry = (*entry & 0xF0000000) | (value & 0x0FFFFFFF);
+        RETURN_ON_ERROR(write_sector(fat_sector, sector_buffer));
+    }
 
     return FAT32_OK;
 }
@@ -290,7 +307,7 @@ static fat32_error_t get_next_free_cluster(uint32_t *cluster)
     }
 
     // Bulk-read FAT sectors
-    uint32_t fat_region_start = boot_sector.reserved_sectors;
+    uint32_t fat_region_start = active_fat_start();
 
     for (uint32_t pass = 0; pass < 2; pass++)
     {
@@ -605,7 +622,7 @@ fat32_error_t fat32_get_free_space(uint64_t *free_space)
         // If FSInfo is not valid, we will count free clusters manually
         for (uint32_t sector = 0; sector < boot_sector.fat_size_32 && err == FAT32_OK; sector++)
         {
-            err = read_sector(boot_sector.reserved_sectors + sector, sector_buffer);
+            err = read_sector(active_fat_start() + sector, sector_buffer);
             if (err != FAT32_OK)
             {
                 break;
@@ -2478,6 +2495,10 @@ static fat32_error_t fat32_dir_create_unlocked(fat32_file_t *dir, const char *pa
     {
         return err; // Error creating directory
     }
+
+    // A newly allocated cluster can contain data from a deleted file. Clear
+    // every sector so growing past the first sector cannot expose stale entries.
+    RETURN_ON_ERROR(clear_cluster(file.start_cluster));
 
     // Initialize directory struct
     dir->is_open = true;

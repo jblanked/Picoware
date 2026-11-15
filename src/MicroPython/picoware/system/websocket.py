@@ -609,8 +609,15 @@ class WebSocketAsync:
                 self._ws = None
             self.__close_thread()
 
-    def connect(self) -> bool:
-        """Start the WebSocket connection in a separate thread."""
+    def connect(self, passive: bool = False) -> bool:
+        """Start the WebSocket connection in a separate thread.
+        
+        Args:
+            passive (bool): Whether the connection can run simultaneously with other background tasks. Defaults to False.
+
+        Returns:
+            bool: True if the connection was successfully started, False otherwise.
+        """
         if self._running:
             return True  # Already running
 
@@ -665,7 +672,7 @@ class WebSocketAsync:
                     function=_thread_func,
                     args=(),
                     stack_size=self._stack_size,
-                    passive=True,
+                    passive=passive,
                 )
                 self._current_task = task
                 self._thread_manager.add_task(task)

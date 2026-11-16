@@ -2,6 +2,8 @@
 
 from gc import collect, mem_free
 from math import atan2, cos, pi, sin
+import ustruct as _struct
+from ujson import loads as json_loads
 from picoware.system.vector import Vector
 from picoware.engine.entity import (
     Entity,
@@ -27,6 +29,10 @@ from picoware.system.buttons import (
     BUTTON_3,
     BUTTON_4,
     BUTTON_5,
+    BUTTON_BACKSPACE,
+    BUTTON_DELETE,
+    BUTTON_ENTER,
+    BUTTON_ESCAPE,
     BUTTON_K,
     BUTTON_L,
     BUTTON_O,
@@ -42,6 +48,136 @@ from picoware.system.decorator import (
 
 _adv = None
 _seed = 0x51F0A3D
+_MULTIPLAYER_MAGIC = b"PGA1"
+_MULTIPLAYER_STATE = 1
+_MULTIPLAYER_CHAT = 2
+_MULTIPLAYER_LEAVE = 3
+
+
+def _multiplayer_ascii_bytes(value, limit):
+    """Encode printable ASCII for the binary multiplayer packets."""
+    result = bytearray()
+    for character in str(value):
+        code = ord(character)
+        if code < 32 or code > 126:
+            code = 63
+        result.append(code)
+        if len(result) >= limit:
+            break
+    return bytes(result)
+
+
+def _pack_multiplayer_state(player_id, name, class_name, x, z, heading):
+    """Pack a quantized player state into a binary WebSocket frame."""
+    player_id = bytes(player_id)
+    name = _multiplayer_ascii_bytes(name, 24)
+    class_name = _multiplayer_ascii_bytes(class_name, 16)
+    heading = atan2(sin(heading), cos(heading))
+    header = _MULTIPLAYER_MAGIC + bytes(
+        (_MULTIPLAYER_STATE, len(player_id), len(name), len(class_name))
+    )
+    position = _struct.pack(">iih", int(x * 100), int(z * 100), int(heading * 1000))
+    return header + position + player_id + name + class_name
+
+
+def _pack_multiplayer_chat(player_id, name, message):
+    """Pack a world-chat message into a binary WebSocket frame."""
+    player_id = bytes(player_id)
+    name = _multiplayer_ascii_bytes(name, 24)
+    message = _multiplayer_ascii_bytes(message, 64)
+    header = _MULTIPLAYER_MAGIC + bytes(
+        (_MULTIPLAYER_CHAT, len(player_id), len(name), len(message))
+    )
+    return header + player_id + name + message
+
+
+def _pack_multiplayer_leave(player_id):
+    """Pack a player-leave notification into a binary WebSocket frame."""
+    player_id = bytes(player_id)
+    return _MULTIPLAYER_MAGIC + bytes((_MULTIPLAYER_LEAVE, len(player_id))) + player_id
+
+
+def _decode_multiplayer_ascii(value):
+    for character in value:
+        if character < 32 or character > 126:
+            return None
+    return value.decode("ascii")
+
+
+def _parse_multiplayer_packet(data):
+    """Decode a versioned binary player-state, chat, or leave frame."""
+    if not isinstance(data, bytes) or len(data) > 256 or len(data) < 6:
+        return None
+    if data[:4] != _MULTIPLAYER_MAGIC:
+        return None
+
+    packet_type = data[4]
+    if packet_type == _MULTIPLAYER_LEAVE:
+        player_id_length = data[5]
+        if (
+            player_id_length == 0
+            or player_id_length > 64
+            or len(data) != 6 + player_id_length
+        ):
+            return None
+        player_id = data[6:]
+        if _decode_multiplayer_ascii(player_id) is None:
+            return None
+        return packet_type, player_id
+
+    if packet_type not in (_MULTIPLAYER_STATE, _MULTIPLAYER_CHAT) or len(data) < 8:
+        return None
+    player_id_length, name_length, value_length = data[5:8]
+    if player_id_length == 0 or player_id_length > 64 or name_length > 24:
+        return None
+
+    if packet_type == _MULTIPLAYER_STATE:
+        if (
+            value_length > 16
+            or len(data) != 18 + player_id_length + name_length + value_length
+        ):
+            return None
+        x, z, heading = _struct.unpack(">iih", data[8:18])
+        offset = 18
+        player_id = data[offset : offset + player_id_length]
+        offset += player_id_length
+        name = data[offset : offset + name_length]
+        offset += name_length
+        class_name = data[offset:]
+        if (
+            _decode_multiplayer_ascii(player_id) is None
+            or _decode_multiplayer_ascii(name) is None
+            or _decode_multiplayer_ascii(class_name) is None
+        ):
+            return None
+        return (
+            packet_type,
+            player_id,
+            name,
+            class_name,
+            x / 100.0,
+            z / 100.0,
+            heading / 1000.0,
+        )
+
+    if (
+        value_length == 0
+        or value_length > 64
+        or len(data) != 8 + player_id_length + name_length + value_length
+    ):
+        return None
+    offset = 8
+    player_id = data[offset : offset + player_id_length]
+    offset += player_id_length
+    name = data[offset : offset + name_length]
+    offset += name_length
+    message = data[offset:]
+    decoded_id = _decode_multiplayer_ascii(player_id)
+    decoded_name = _decode_multiplayer_ascii(name)
+    decoded_message = _decode_multiplayer_ascii(message)
+    if decoded_id is None or decoded_name is None or decoded_message is None:
+        return None
+    return packet_type, player_id, decoded_name, decoded_message
 
 
 def xp_for_level(level):
@@ -283,6 +419,17 @@ class _Adventure:
     CLOCK_START = 8 * 60  # 08:00
     TIME_STEP = 3  # frames per in-game minute
     MENU_ITEMS = ("Map", "Stats", "Camera", "Leave Game")
+    MULTIPLAYER_API = "https://www.jblanked.com/picoware/api/pgeadventure/"
+    MULTIPLAYER_WS = "wss://www.jblanked.com/ws/picoware/pgeadventure/"
+    MULTIPLAYER_MAX_PLAYERS = 4
+    MULTIPLAYER_MAX_LOBBIES = 4
+    MULTIPLAYER_SEND_INTERVAL_MS = 200
+    MULTIPLAYER_REMOTE_TIMEOUT_MS = 15000
+    MULTIPLAYER_RETRY_MS = 5000
+    MULTIPLAYER_CHAT_MAX = 64
+    MULTIPLAYER_CHAT_HISTORY = 4
+    MULTIPLAYER_INBOX_LIMIT = 16
+    MULTIPLAYER_OUTBOX_LIMIT = 4
 
     COLOR_BLACK = 0x0000
     COLOR_WHITE = 0xFFFF
@@ -337,6 +484,7 @@ class _Adventure:
     UI_NONE = 0  # playing
     UI_HELP = 1  # controls help
     UI_MENU = 2  # map/stats overlay
+    UI_CHAT = 3  # world chat composer
 
     CLASS_PATH = "picoware/apps/games/pge_adventure/classes.json"
     QUEST_PATH = "picoware/apps/games/pge_adventure/quests.json"
@@ -369,6 +517,26 @@ class _Adventure:
         "view_manager",
         "draw",
         "http",
+        "multiplayer_http",
+        "multiplayer_http_action",
+        "multiplayer_ws",
+        "multiplayer_player_id",
+        "multiplayer_player_id_bytes",
+        "multiplayer_lobby_id",
+        "multiplayer_target_lobby_id",
+        "multiplayer_connection_state",
+        "multiplayer_status",
+        "multiplayer_started",
+        "multiplayer_stopping",
+        "multiplayer_retry_at",
+        "multiplayer_last_send",
+        "multiplayer_remote_players",
+        "multiplayer_inbox",
+        "multiplayer_outbox",
+        "multiplayer_lock",
+        "multiplayer_chat_messages",
+        "multiplayer_chat_input",
+        "multiplayer_socket_error",
         "net_state",
         "net_pending",
         "net_dirty",
@@ -501,6 +669,28 @@ class _Adventure:
         self.view_manager = view_manager
         self.draw = view_manager.draw
         self.http = None
+        self.multiplayer_http = None
+        self.multiplayer_http_action = None
+        self.multiplayer_ws = None
+        self.multiplayer_player_id = ""
+        self.multiplayer_player_id_bytes = b""
+        self.multiplayer_lobby_id = ""
+        self.multiplayer_target_lobby_id = ""
+        self.multiplayer_connection_state = "idle"
+        self.multiplayer_status = "Connecting..."
+        self.multiplayer_started = False
+        self.multiplayer_stopping = False
+        self.multiplayer_retry_at = 0
+        self.multiplayer_last_send = 0
+        self.multiplayer_remote_players = {}
+        self.multiplayer_inbox = []
+        self.multiplayer_outbox = []
+        import _thread
+
+        self.multiplayer_lock = _thread.allocate_lock()
+        self.multiplayer_chat_messages = []
+        self.multiplayer_chat_input = ""
+        self.multiplayer_socket_error = ""
         self.net_state = self.NET_OFF
         self.net_dirty = False
         self.net_user = ""
@@ -2546,6 +2736,10 @@ class _Adventure:
             elif button in (4, 43) and self.menu_index == 3:
                 self.exit_requested = True
             return
+        if self.ui == self.UI_CHAT:
+            if button != -1:
+                self._handle_multiplayer_chat_input(button)
+            return
         if self.talking:
             if button in (4, 43):
                 self._wizard_accept()
@@ -2562,6 +2756,10 @@ class _Adventure:
                 self.ui = self.UI_MENU
                 self.menu_index = 0
                 self.prev_button = -1
+            return
+        elif button == BUTTON_SPACE:
+            self.multiplayer_chat_input = ""
+            self.ui = self.UI_CHAT
             return
         elif self.combo_timer > 0:
             if button == BUTTON_UP:
@@ -2725,7 +2923,7 @@ class _Adventure:
             self._use_skill(2)
         elif button in (BUTTON_4, BUTTON_P):
             self._use_skill(3)
-        elif button in (BUTTON_5, BUTTON_SPACE):
+        elif button == BUTTON_5:
             self._use_skill(4)
 
     def _move(self, player, game):
@@ -2878,6 +3076,7 @@ class _Adventure:
             )
 
         self._draw_minimap(draw)
+        self._draw_multiplayer_chat(draw)
 
     def _project(self, x, z, height, screen_w, screen_h):
         """Project a world point to the screen; -1 when behind."""
@@ -2958,6 +3157,8 @@ class _Adventure:
             "CENTER: talk / grab",
             "CENTER then DPAD: use skill",
             "CENTER then BACK: special",
+            "SPACE: world chat",
+            "BUTTON 5: fifth skill",
             "BACK: map and stats",
         )
         row = draw.scale_y(24)
@@ -2971,6 +3172,55 @@ class _Adventure:
             "CENTER to begin",
             self.COLOR_ACCENT,
         )
+
+    def _draw_multiplayer_chat(self, draw):
+        messages = self.multiplayer_chat_messages[-2:]
+        composing = self.ui == self.UI_CHAT
+        show_status = self.multiplayer_connection_state != "active"
+        if not messages and not composing and not show_status:
+            return
+
+        width = draw.size.x
+        height = draw.size.y
+        pad = draw.scale_x(3)
+        line_height = draw.font_size.y
+        panel_width = max(
+            draw.scale_x(72),
+            width - draw.scale_x(self.MINIMAP_W + 12),
+        )
+        max_chars = max(6, int((panel_width - pad * 2) // draw.font_size.x))
+        lines = []
+        if composing:
+            status = (
+                "ONLINE"
+                if self.multiplayer_connection_state == "active"
+                else "CONNECTING"
+            )
+            lines.append("CHAT %s" % status)
+        elif not messages:
+            lines.append(self.multiplayer_status or "Connecting...")
+        for name, message in messages:
+            line = "%s: %s" % (name[:6], message)
+            lines.append(line[:max_chars])
+        if composing:
+            typed = self.multiplayer_chat_input
+            if len(typed) + 2 > max_chars:
+                typed = typed[-(max_chars - 2) :]
+            lines.append("> " + typed)
+            lines.append("ENTER send  BACK cancel")
+        lines = [line[:max_chars] for line in lines]
+
+        panel_height = pad * 2 + len(lines) * line_height
+        left = draw.scale_x(4)
+        top = max(
+            draw.scale_y(20),
+            height - draw.scale_y(self.MINIMAP_H + 6) - panel_height,
+        )
+        draw._fill_rectangle(left, top, panel_width, panel_height, self.COLOR_BLACK)
+        draw._rectangle(left, top, panel_width, panel_height, self.COLOR_DIM)
+        for index, line in enumerate(lines):
+            color = self.COLOR_ACCENT if composing and index == 0 else self.COLOR_TEXT
+            draw._text(left + pad, top + pad + index * line_height, line, color)
 
     def _draw_view_list(self, draw, width):
         """Draw the side view list."""
@@ -3544,6 +3794,607 @@ class _Adventure:
         self.boot_state = self.BOOT_SCENE
         self.scene_open = True
         collect()
+        self._start_multiplayer()
+
+    def _start_multiplayer(self):
+        if self.multiplayer_started:
+            return
+        self.multiplayer_started = True
+        if not self._ensure_multiplayer_player_id():
+            return
+        self._begin_multiplayer_request("list")
+
+    def _ensure_multiplayer_player_id(self):
+        if self.multiplayer_player_id:
+            return True
+
+        try:
+            from machine import unique_id
+            from utime import ticks_ms
+        except ImportError as error:
+            self.multiplayer_status = "Multiplayer unavailable"
+            self.view_manager.log(
+                "[PGE multiplayer] Device ID unavailable: %s" % error, 2
+            )
+            return False
+
+        device_id = unique_id()
+        if not device_id:
+            self.multiplayer_status = "Multiplayer unavailable"
+            self.view_manager.log("[PGE multiplayer] Device ID unavailable", 2)
+            return False
+
+        device_id_hex = []
+        for value in device_id:
+            device_id_hex.append("%02x" % value)
+        self.multiplayer_player_id = "%s-%x" % (
+            "".join(device_id_hex),
+            ticks_ms(),
+        )
+        self.multiplayer_player_id_bytes = self.multiplayer_player_id.encode("ascii")
+        return True
+
+    def _begin_multiplayer_request(self, action, payload=None):
+        from picoware.system.http import HTTP
+
+        if self.multiplayer_http is not None:
+            return False
+
+        http = HTTP(thread_manager=self.view_manager.thread_manager)
+        self.multiplayer_http = http
+        self.multiplayer_http_action = action
+        headers = {
+            "Content-Type": "application/json",
+            "HTTP_USER_AGENT": "Pico",
+            "Setting": "X-Flipper-Redirect",
+            "User-Agent": "Raspberry Pi Pico W",
+        }
+        if action == "list":
+            url = "%slobbies/%d/%d/" % (
+                self.MULTIPLAYER_API,
+                self.MULTIPLAYER_MAX_PLAYERS,
+                self.MULTIPLAYER_MAX_LOBBIES,
+            )
+            started = http.get_async(url, headers=headers)
+            status = "Finding a lobby..."
+        else:
+            paths = {"create": "lobby/create/", "join": "lobby/join/"}
+            path = paths.get(action)
+            if path is None:
+                http.close()
+                self.multiplayer_http = None
+                self.multiplayer_http_action = None
+                self._schedule_multiplayer_retry("Unsupported lobby request")
+                return False
+            started = http.post_async(
+                self.MULTIPLAYER_API + path, payload, headers=headers
+            )
+            status = (
+                "Creating a lobby..." if action == "create" else "Joining a lobby..."
+            )
+
+        if not started:
+            error = http.error or "Could not start the request"
+            http.close()
+            self.multiplayer_http = None
+            self.multiplayer_http_action = None
+            self._schedule_multiplayer_retry("Lobby request failed: %s" % error)
+            return False
+
+        self.multiplayer_status = status
+        self.multiplayer_connection_state = "request"
+        return True
+
+    def _create_multiplayer_lobby(self):
+        self.multiplayer_target_lobby_id = ""
+        self._begin_multiplayer_request(
+            "create",
+            {"max_players": self.MULTIPLAYER_MAX_PLAYERS, "data": {}},
+        )
+
+    def _join_multiplayer_lobby(self, lobby_id):
+        self.multiplayer_target_lobby_id = lobby_id
+        self._begin_multiplayer_request(
+            "join",
+            {
+                "lobby_id": lobby_id,
+                "player_id": self.multiplayer_player_id,
+            },
+        )
+
+    def _poll_multiplayer_http(self):
+        http = self.multiplayer_http
+        if http is None or not http.is_request_complete():
+            return
+
+        action = self.multiplayer_http_action
+        error = http.error
+        response = http.response
+        status_code = response.status_code if response is not None else 0
+        response_text = response.text if response is not None else ""
+        http.close()
+        self.multiplayer_http = None
+        self.multiplayer_http_action = None
+
+        if error or response is None:
+            self._schedule_multiplayer_retry(
+                "Lobby request failed: %s" % (error or "No HTTP response")
+            )
+            return
+
+        if action == "list":
+            if status_code != 200:
+                self._schedule_multiplayer_retry(
+                    "Lobby search failed (HTTP %d)" % status_code
+                )
+                return
+            try:
+                data = json_loads(response_text)
+            except (TypeError, ValueError) as error:
+                self._schedule_multiplayer_retry("Invalid lobby response: %s" % error)
+                return
+            lobbies = data.get("lobbies") if isinstance(data, dict) else None
+            if not isinstance(lobbies, list):
+                self._schedule_multiplayer_retry("Invalid lobby list")
+                return
+
+            candidate = None
+            for lobby in lobbies[: self.MULTIPLAYER_MAX_LOBBIES]:
+                if not isinstance(lobby, dict):
+                    continue
+                lobby_id = lobby.get("lobby_id")
+                player_count = lobby.get("player_count")
+                max_players = lobby.get("max_players")
+                if (
+                    not isinstance(lobby_id, str)
+                    or not lobby_id
+                    or not isinstance(player_count, int)
+                    or not isinstance(max_players, int)
+                    or max_players <= 0
+                    or player_count < 0
+                    or player_count >= max_players
+                ):
+                    continue
+                if candidate is None or player_count < candidate[1]:
+                    candidate = (lobby_id, player_count)
+
+            if candidate is None:
+                self._create_multiplayer_lobby()
+            else:
+                self._join_multiplayer_lobby(candidate[0])
+            return
+
+        if action == "create":
+            if status_code not in (200, 201):
+                self._schedule_multiplayer_retry(
+                    "Lobby creation failed (HTTP %d)" % status_code
+                )
+                return
+            try:
+                data = json_loads(response_text)
+            except (TypeError, ValueError) as error:
+                self._schedule_multiplayer_retry("Invalid lobby response: %s" % error)
+                return
+            lobby_id = data.get("lobby_id") if isinstance(data, dict) else None
+            if not isinstance(lobby_id, str) or not lobby_id:
+                self._schedule_multiplayer_retry("Server returned no lobby ID")
+                return
+            self._join_multiplayer_lobby(lobby_id)
+            return
+
+        if action == "join":
+            if status_code not in (200, 201):
+                self.multiplayer_target_lobby_id = ""
+                self._schedule_multiplayer_retry(
+                    "Lobby join failed (HTTP %d)" % status_code
+                )
+                return
+            if not self.multiplayer_target_lobby_id:
+                self._schedule_multiplayer_retry("Server returned no lobby ID")
+                return
+            self.multiplayer_lobby_id = self.multiplayer_target_lobby_id
+            self.multiplayer_target_lobby_id = ""
+            self._connect_multiplayer()
+            return
+
+        self._schedule_multiplayer_retry("Unexpected lobby response")
+
+    def _schedule_multiplayer_retry(self, message):
+        from utime import ticks_add, ticks_ms
+
+        self.multiplayer_status = message
+        self.multiplayer_connection_state = "retry"
+        self.multiplayer_retry_at = ticks_add(ticks_ms(), self.MULTIPLAYER_RETRY_MS)
+        self.view_manager.log("[PGE multiplayer] %s" % message, 2)
+
+    def _connect_multiplayer(self):
+        from picoware.system.websocket import WebSocketAsync
+
+        self.multiplayer_socket_error = ""
+        self.multiplayer_connection_state = "connecting"
+        self.multiplayer_status = "Connecting..."
+        self.multiplayer_ws = WebSocketAsync(
+            uri="%s%s/" % (self.MULTIPLAYER_WS, self.multiplayer_lobby_id),
+            on_receive=self._on_multiplayer_message,
+            thread_manager=self.view_manager.thread_manager,
+            on_start=self._on_multiplayer_start,
+            on_tick=self._on_multiplayer_tick,
+            on_close=self._on_multiplayer_close,
+        )
+        if not self.multiplayer_ws.connect():
+            error = self.multiplayer_ws.error or "WebSocket could not start"
+            self.multiplayer_ws.close()
+            self.multiplayer_ws = None
+            self._schedule_multiplayer_retry("Connection failed: %s" % error)
+
+    def _on_multiplayer_start(self):
+        if self.multiplayer_stopping:
+            return
+        from utime import ticks_ms
+
+        self.multiplayer_connection_state = "active"
+        self.multiplayer_status = "Online"
+        self.multiplayer_socket_error = ""
+        self.multiplayer_retry_at = 0
+        self.multiplayer_last_send = ticks_ms()
+
+    def _on_multiplayer_close(self):
+        if not self.multiplayer_stopping:
+            self.multiplayer_connection_state = "lost"
+
+    def _on_multiplayer_tick(self, websocket):
+        if self.multiplayer_stopping or self.multiplayer_connection_state != "active":
+            return
+
+        packet = None
+        with self.multiplayer_lock:
+            if self.multiplayer_outbox:
+                packet = self.multiplayer_outbox.pop(0)
+        if packet is not None:
+            if not websocket.send(packet):
+                self.multiplayer_socket_error = (
+                    websocket.error or "WebSocket send failed"
+                )
+                self.multiplayer_connection_state = "lost"
+            return
+
+        if self.player is None or self.phase != 2:
+            return
+        from utime import ticks_diff, ticks_ms
+
+        now = ticks_ms()
+        if (
+            ticks_diff(now, self.multiplayer_last_send)
+            < self.MULTIPLAYER_SEND_INTERVAL_MS
+        ):
+            return
+        self.multiplayer_last_send = now
+        state = _pack_multiplayer_state(
+            self.multiplayer_player_id_bytes,
+            self._multiplayer_player_name(),
+            self.class_name,
+            float(self.player.position.x),
+            float(self.player.position.y),
+            float(self.heading),
+        )
+        if not websocket.send(state):
+            self.multiplayer_socket_error = websocket.error or "WebSocket send failed"
+            self.multiplayer_connection_state = "lost"
+
+    def _on_multiplayer_message(self, data):
+        if self.multiplayer_stopping:
+            return
+        if data is None:
+            self.multiplayer_connection_state = "lost"
+            return
+        if isinstance(data, Exception):
+            self.multiplayer_socket_error = str(data)
+            self.multiplayer_connection_state = "lost"
+            return
+        if data == "PONG":
+            return
+        if not isinstance(data, bytes):
+            self.multiplayer_socket_error = "Expected a binary WebSocket frame"
+            self.multiplayer_connection_state = "lost"
+            return
+        with self.multiplayer_lock:
+            if len(self.multiplayer_inbox) >= self.MULTIPLAYER_INBOX_LIMIT:
+                self.multiplayer_inbox.pop(0)
+            self.multiplayer_inbox.append(data)
+
+    def _multiplayer_pump(self):
+        if not self.multiplayer_started or self.multiplayer_stopping:
+            return
+
+        self._poll_multiplayer_http()
+        with self.multiplayer_lock:
+            inbox = self.multiplayer_inbox
+            self.multiplayer_inbox = []
+        for packet in inbox:
+            self._process_multiplayer_packet(packet)
+
+        if self.multiplayer_connection_state == "lost":
+            websocket = self.multiplayer_ws
+            self.multiplayer_ws = None
+            if websocket is not None:
+                websocket.close()
+            with self.multiplayer_lock:
+                self.multiplayer_outbox = []
+            self._remove_all_multiplayer_remotes()
+            self._schedule_multiplayer_retry(
+                self.multiplayer_socket_error or "Connection lost; retrying"
+            )
+
+        if self.multiplayer_connection_state == "active":
+            from utime import ticks_diff, ticks_ms
+
+            now = ticks_ms()
+            for player_id, remote in list(self.multiplayer_remote_players.items()):
+                if (
+                    ticks_diff(now, remote["last_seen"])
+                    > self.MULTIPLAYER_REMOTE_TIMEOUT_MS
+                ):
+                    self._remove_multiplayer_remote(player_id)
+            self._update_multiplayer_visibility()
+            return
+
+        if self.multiplayer_connection_state != "retry" or self.multiplayer_http:
+            return
+        from utime import ticks_diff, ticks_ms
+
+        if ticks_diff(ticks_ms(), self.multiplayer_retry_at) < 0:
+            return
+        if self.multiplayer_lobby_id:
+            self._connect_multiplayer()
+        else:
+            self._begin_multiplayer_request("list")
+
+    def _process_multiplayer_packet(self, data):
+        packet = _parse_multiplayer_packet(data)
+        if packet is None:
+            return
+
+        packet_type = packet[0]
+        if packet_type == _MULTIPLAYER_LEAVE:
+            self._remove_multiplayer_remote(packet[1])
+            return
+
+        if packet_type == _MULTIPLAYER_CHAT:
+            _, player_id, name, message = packet
+            if player_id == self.multiplayer_player_id_bytes:
+                return
+            if not name:
+                name = player_id[-4:].decode("ascii")
+            self._add_multiplayer_chat(name, message)
+            return
+
+        _, player_id, name_bytes, class_bytes, x, z, heading = packet
+        if player_id == self.multiplayer_player_id_bytes:
+            return
+        if (
+            not -self.WORLD_HALF_X <= x <= self.WORLD_HALF_X
+            or not -self.WORLD_HALF_Z <= z <= self.WORLD_HALF_Z
+            or not -pi - 0.1 <= heading <= pi + 0.1
+        ):
+            return
+
+        name = _decode_multiplayer_ascii(name_bytes) or "Traveler"
+        class_name = _decode_multiplayer_ascii(class_bytes) or ""
+        remote = self.multiplayer_remote_players.get(player_id)
+        if remote is None:
+            remote = self._create_multiplayer_remote(name, player_id)
+            if remote is None:
+                return
+            self.multiplayer_remote_players[player_id] = remote
+        entity = remote["entity"]
+        entity.name = name
+        entity.position_set(x, z)
+        entity.direction_set(cos(heading), sin(heading))
+        entity.set_3d_sprite_rotation(heading - pi * 0.5 + self.PLAYER_ANGLE)
+        remote["name"] = name
+        remote["class_name"] = class_name
+        remote["zone"] = zone_for(x, z)
+        from utime import ticks_ms
+
+        remote["last_seen"] = ticks_ms()
+
+    def _add_multiplayer_chat(self, name, message):
+        self.multiplayer_chat_messages.append((name, message))
+        if len(self.multiplayer_chat_messages) > self.MULTIPLAYER_CHAT_HISTORY:
+            del self.multiplayer_chat_messages[0]
+
+    def _create_multiplayer_remote(self, name, player_id):
+        if (
+            self.level is None
+            or len(self.multiplayer_remote_players) >= self.MULTIPLAYER_MAX_PLAYERS - 1
+        ):
+            return None
+
+        from utime import ticks_ms
+
+        colors = (
+            self.COLOR_ACCENT,
+            self.COLOR_DRAGON,
+            self.COLOR_GHOUL,
+            self.COLOR_GOBLIN,
+        )
+        color = colors[sum(player_id) % len(colors)]
+        entity = Entity(
+            name,
+            ENTITY_TYPE_3D_SPRITE,
+            Vector(0, 0),
+            Vector(0.7, 1.8),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            False,
+            SPRITE_3D_CUSTOM,
+            color,
+        )
+        sprite = Sprite3D()
+        sprite.create_humanoid(1.8, color)
+        entity.set_sprite3d(sprite)
+        entity.is_visible = False
+        self.level.entity_add(entity)
+        self.sprites.append(sprite)
+        return {
+            "entity": entity,
+            "sprite": sprite,
+            "name": name,
+            "class_name": "",
+            "zone": -1,
+            "last_seen": ticks_ms(),
+        }
+
+    def _remove_multiplayer_remote(self, player_id):
+        remote = self.multiplayer_remote_players.pop(player_id, None)
+        if remote is None:
+            return
+        if self.level is not None:
+            self.level.entity_remove(remote["entity"])
+        sprite = remote["sprite"]
+        if sprite in self.sprites:
+            self.sprites.remove(sprite)
+
+    def _remove_all_multiplayer_remotes(self):
+        for player_id in list(self.multiplayer_remote_players.keys()):
+            self._remove_multiplayer_remote(player_id)
+
+    def _update_multiplayer_visibility(self):
+        local_in_nolands = (
+            self.player is not None
+            and self.phase == 2
+            and zone_for(self.player.position.x, self.player.position.y) == 0
+        )
+        for remote in self.multiplayer_remote_players.values():
+            remote["entity"].is_visible = local_in_nolands and remote["zone"] == 0
+
+    def _multiplayer_player_name(self):
+        if self.net_user:
+            return self.net_user
+        return "Player %s" % self.multiplayer_player_id[-4:]
+
+    def _handle_multiplayer_chat_input(self, button):
+        if button in (BUTTON_BACK, BUTTON_ESCAPE):
+            self.multiplayer_chat_input = ""
+            self.ui = self.UI_NONE
+        elif button in (BUTTON_CENTER, BUTTON_ENTER):
+            self._send_multiplayer_chat()
+        elif button in (BUTTON_BACKSPACE, BUTTON_DELETE):
+            self.multiplayer_chat_input = self.multiplayer_chat_input[:-1]
+        else:
+            character = self.view_manager.input_manager.button_to_char(button)
+            if (
+                character
+                and len(self.multiplayer_chat_input) < self.MULTIPLAYER_CHAT_MAX
+            ):
+                for value in character:
+                    if " " <= value <= "~":
+                        self.multiplayer_chat_input += value
+                        if (
+                            len(self.multiplayer_chat_input)
+                            >= self.MULTIPLAYER_CHAT_MAX
+                        ):
+                            break
+
+    def _send_multiplayer_chat(self):
+        message = self.multiplayer_chat_input.strip()
+        if not message:
+            self.multiplayer_chat_input = ""
+            self.ui = self.UI_NONE
+            return
+
+        websocket = self.multiplayer_ws
+        if (
+            websocket is None
+            or self.multiplayer_connection_state != "active"
+            or not websocket.is_connected
+        ):
+            self.message = "Chat is reconnecting"
+            self.message_timer = 90
+            return
+
+        packet = _pack_multiplayer_chat(
+            self.multiplayer_player_id_bytes,
+            self._multiplayer_player_name(),
+            message,
+        )
+        with self.multiplayer_lock:
+            if len(self.multiplayer_outbox) >= self.MULTIPLAYER_OUTBOX_LIMIT:
+                self.message = "Chat queue is full"
+                self.message_timer = 90
+                return
+            self.multiplayer_outbox.append(packet)
+
+        self._add_multiplayer_chat(self._multiplayer_player_name(), message)
+        self.multiplayer_chat_input = ""
+        self.ui = self.UI_NONE
+
+    def _stop_multiplayer(self):
+        if self.multiplayer_stopping:
+            return
+        self.multiplayer_stopping = True
+
+        websocket = self.multiplayer_ws
+        self.multiplayer_ws = None
+        if websocket is not None:
+            if (
+                self.multiplayer_connection_state == "active"
+                and self.multiplayer_player_id_bytes
+            ):
+                if not websocket.send(
+                    _pack_multiplayer_leave(self.multiplayer_player_id_bytes)
+                ):
+                    self.view_manager.log(
+                        "[PGE multiplayer] Could not send leave notification", 2
+                    )
+            websocket.close()
+
+        pending_http = self.multiplayer_http
+        pending_action = self.multiplayer_http_action
+        self.multiplayer_http = None
+        self.multiplayer_http_action = None
+        if pending_http is not None:
+            pending_http.close()
+
+        lobby_id = self.multiplayer_lobby_id
+        if not lobby_id and pending_action == "join":
+            lobby_id = self.multiplayer_target_lobby_id
+        self.multiplayer_lobby_id = ""
+        self.multiplayer_target_lobby_id = ""
+        self._remove_all_multiplayer_remotes()
+        with self.multiplayer_lock:
+            self.multiplayer_inbox = []
+            self.multiplayer_outbox = []
+
+        if not lobby_id:
+            return
+        from picoware.system.http import HTTP
+
+        http = HTTP(thread_manager=self.view_manager.thread_manager)
+        headers = {
+            "Content-Type": "application/json",
+            "HTTP_USER_AGENT": "Pico",
+            "Setting": "X-Flipper-Redirect",
+            "User-Agent": "Raspberry Pi Pico W",
+        }
+        started = http.post_async(
+            self.MULTIPLAYER_API + "lobby/remove/",
+            {
+                "lobby_id": lobby_id,
+                "player_id": self.multiplayer_player_id,
+            },
+            headers=headers,
+        )
+        if not started:
+            error = http.error or "Could not start the leave request"
+            http.close()
+            self.view_manager.log("[PGE multiplayer] Leave failed: %s" % error, 2)
 
     def _build_world_content(self):
         """Build the enemy, effect and land pools around the player."""
@@ -3679,6 +4530,7 @@ class _Adventure:
 
     def run(self):
         """Stream terrain and run one engine frame."""
+        self._multiplayer_pump()
         self._update_world()
         if self.engine is not None:
             self.engine.run_async(False)
@@ -3688,6 +4540,7 @@ class _Adventure:
     def stop(self):
         """Stop the engine, save progress and free the world."""
         self._save_progress()
+        self._stop_multiplayer()
         if self.http is not None:
             self.http.close()
             del self.http

@@ -552,11 +552,12 @@ class ViewManager(view_manager.ViewManager):
 
         collect()
 
-    def add(self, view):
+    def add(self, view, switch_to: bool = False) -> bool:
         """Add a view to the manager.
 
         Args:
             view (View): The View object to add.
+            switch_to (bool): Whether to switch to the added view immediately. Defaults to False.
 
         Returns:
             bool: True if successfully added, False if max views reached.
@@ -566,6 +567,8 @@ class ViewManager(view_manager.ViewManager):
 
         self.views[self._view_count] = view
         self._view_count += 1
+        if switch_to:
+            self.switch_to(view.name)
         return True
 
     def alert(self, message: str, back: bool = False) -> bool:

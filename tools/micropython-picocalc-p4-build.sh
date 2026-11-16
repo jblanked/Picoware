@@ -36,6 +36,11 @@ require_file() {
     fi
 }
 
+is_rev3_sdkconfig() {
+    grep -Eq '^# CONFIG_ESP32P4_SELECTS_REV_LESS_V3 is not set$|^CONFIG_ESP32P4_SELECTS_REV_LESS_V3=n$' "$1" &&
+        grep -Eq '^CONFIG_ESP32P4_REV_MIN_30[01]=y$' "$1"
+}
+
 require_dir "$picoware_dir"
 require_dir "$micropython_root"
 require_dir "$micropython_dir"
@@ -172,11 +177,15 @@ export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DC
 # Avoid rebuilding mpy-cross with the ESP32 build's generated-header directory.
 export MICROPY_MPYCROSS="$mpy_cross"
 
+if [ -f "$build_dir/sdkconfig" ] && ! is_rev3_sdkconfig "$build_dir/sdkconfig"; then
+    echo "WARNING: Existing sdkconfig is not configured for ESP32-P4 revision 3 or newer; regenerating it from board defaults." >&2
+    rm -f "$build_dir/sdkconfig"
+fi
+
 make -j4 BOARD=PICOCALC_ESP32_P4 BOARD_VARIANT=C6_WIFI \
     BUILD="$build_dir" USER_C_MODULES="$board_src_dir/picoware_modules.cmake"
 
-if ! grep -Eq '^# CONFIG_ESP32P4_SELECTS_REV_LESS_V3 is not set$|^CONFIG_ESP32P4_SELECTS_REV_LESS_V3=n$' "$build_dir/sdkconfig" ||
-    ! grep -q '^CONFIG_ESP32P4_REV_MIN_300=y$' "$build_dir/sdkconfig"; then
+if ! is_rev3_sdkconfig "$build_dir/sdkconfig"; then
     echo "ERROR: Generated sdkconfig does not target ESP32-P4 revision 3 or newer." >&2
     echo "Refusing to publish firmware with the pre-rev3 clock/PMU configuration." >&2
     exit 1

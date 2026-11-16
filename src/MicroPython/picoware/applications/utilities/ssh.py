@@ -1762,7 +1762,7 @@ def run(view_manager) -> None:
             try:
                 port = int(ssh_port) if ssh_port else 22
                 view_manager.log(
-                    f"Connecting to {ssh_host}:{port} as {ssh_username}..."
+                    "Connecting to %s:%d as %s..." % (ssh_host, port, ssh_username)
                 )
                 success = _ssh_client.connect(
                     ssh_host, port, ssh_username, ssh_password
@@ -1777,13 +1777,13 @@ def run(view_manager) -> None:
                         _loading = None
                 else:
                     error = _ssh_client.error or "Connection failed"
-                    view_manager.log(f"[SSH]: {error}")
+                    view_manager.log("[SSH]: %s" % error)
                     view_manager.alert(error, False)
                     connection_state = STATE_DISCONNECTED
                     current_view = VIEW_MAIN_MENU
                     _menu_start(view_manager)
             except Exception as e:
-                view_manager.alert(f"Error: {str(e)[:20]}", False)
+                view_manager.alert("Error: %s" % str(e)[:20], False)
                 connection_state = STATE_DISCONNECTED
                 current_view = VIEW_MAIN_MENU
                 _menu_start(view_manager)

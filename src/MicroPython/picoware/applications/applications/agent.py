@@ -328,7 +328,7 @@ def _start_agent(view_manager, mode: int, mode_label: str,
         _conversation = session.conversation
         return True
     except Exception as exc:
-        view_manager.log(f"[Agent] Failed to initialize session: {exc}")
+        view_manager.log("[Agent] Failed to initialize session: %s" % str(exc))
         return False
 
 
@@ -364,7 +364,7 @@ def _start_sessions_menu(view_manager) -> None:
                     label = session_id + " - " + preview
                 break
         except Exception as e:
-            view_manager.log(f"[Agent] Failed to load session preview for {session_id}: {e}")
+            view_manager.log("[Agent] Failed to load session preview for %s: %s" % (session_id, str(e)))
         _session_labels.append(label)
 
     if _sessions_menu is not None:

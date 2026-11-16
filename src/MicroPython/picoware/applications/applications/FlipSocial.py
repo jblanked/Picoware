@@ -313,7 +313,7 @@ class FlipSocialRun:
                                             )
 
                                         # Draw comment counter
-                                        counter_text = f"{self.comments_index + 1}/{total_comments}"
+                                        counter_text = "%d/%d" % (self.comments_index + 1, total_comments)
                                         text_vec_x, text_vec_y = canvas.scale(112, 10)
                                         canvas._text(text_vec_x, text_vec_y, counter_text, TFT_WHITE)
                                     else:
@@ -327,7 +327,7 @@ class FlipSocialRun:
                                 canvas._text(0, canvas.scale_y(10), "No comments found for this post.", TFT_WHITE)
                                 canvas._text(0, canvas.scale_y(60), "Be the first, click DOWN", TFT_WHITE)
                     except Exception as e:
-                        self.view_manager.log(f"Error parsing comments: {e}")
+                        self.view_manager.log("Error parsing comments: %s" % str(e))
                         self.comments_status = COMMENTS_PARSE_ERROR
                 else:
                     canvas._text(0, canvas.scale_y(10), "No comments found for this post.", TFT_WHITE)
@@ -528,7 +528,7 @@ class FlipSocialRun:
             canvas._text(text_vec_x, text_vec_y, username, TFT_WHITE)
         self.draw_feed_message(canvas, message, 0, canvas.scale_y(40))
         flip_message = "flip" if flip_count == 1 else "flips"
-        canvas._text(0, bottom_y, f"{flip_count} {flip_message}", TFT_WHITE)
+        canvas._text(0, bottom_y, "%d %s" % (flip_count, flip_message), TFT_WHITE)
         flip_status = "Unflip" if is_flipped else "Flip"
         _x = canvas.scale_x(110 if is_flipped else 115)
         canvas._text(_x, bottom_y, flip_status, TFT_WHITE)
@@ -544,7 +544,7 @@ class FlipSocialRun:
             _x = canvas.scale_x(170)
             canvas._text(_x, bottom_y, "Comment", TFT_WHITE)
             _x = canvas.scale_x(245)
-            canvas._text(_x, bottom_y, f"({comments})", TFT_WHITE)
+            canvas._text(_x, bottom_y, "(%s)" % comments, TFT_WHITE)
 
         else:
             # draw in bottom-right corner for comments
@@ -627,7 +627,7 @@ class FlipSocialRun:
                             else:
                                 self.feed_status = FEED_PARSE_ERROR
                 except Exception as e:
-                    self.view_manager.log(f"Error parsing feed: {e}")
+                    self.view_manager.log("Error parsing feed: %s" % str(e))
                     self.feed_status = FEED_PARSE_ERROR
 
         elif self.feed_status == FEED_REQUEST_ERROR:
@@ -687,7 +687,7 @@ class FlipSocialRun:
                                         "picoware/flip_social/feed.json", updated_data
                                     )
                         except Exception as e:
-                            self.view_manager.log(f"Error updating flip status: {e}")
+                            self.view_manager.log("Error updating flip status: %s" % str(e))
 
                     self.feed_status = FEED_SUCCESS
                 else:
@@ -1038,7 +1038,7 @@ class FlipSocialRun:
                                 # Message counter
                                 total_messages = len(convos)
                                 message_counter = (
-                                    f"{self.messages_index + 1}/{total_messages}"
+                                    "%d/%d" % (self.messages_index + 1, total_messages)
                                 )
                                 counter_width = canvas.len(message_counter)
                                 counter_x = (SW - counter_width) // 2
@@ -1058,7 +1058,7 @@ class FlipSocialRun:
                                 canvas._text(reply_x, _y, reply_text, TFT_WHITE)
 
                 except Exception as e:
-                    self.view_manager.log(f"Error parsing messages: {e}")
+                    self.view_manager.log("Error parsing messages: %s" % str(e))
                     self.messages_status = MESSAGES_PARSE_ERROR
 
         elif self.messages_status == MESSAGES_REQUEST_ERROR:
@@ -1157,7 +1157,7 @@ class FlipSocialRun:
                         else:
                             canvas._text(0, canvas.scale_y(30), "No messages found.", TFT_WHITE)
                 except Exception as e:
-                    self.view_manager.log(f"Error parsing message users: {e}")
+                    self.view_manager.log("Error parsing message users: %s" % str(e))
                     self.message_users_status = MESSAGE_USERS_PARSE_ERROR
             else:
                 canvas._text(0, canvas.scale_y(30), "Failed to load messages.", TFT_WHITE)
@@ -1348,7 +1348,7 @@ class FlipSocialRun:
                 canvas._pixel(i, _decor_y, TFT_WHITE)
 
         except Exception as e:
-            self.view_manager.log(f"Error parsing profile: {e}")
+            self.view_manager.log("Error parsing profile: %s" % str(e))
             canvas._text(0, canvas.scale_y(30), "Incomplete profile data.", TFT_WHITE)
 
     def draw_registration_view(self, canvas) -> None:
@@ -1482,7 +1482,7 @@ class FlipSocialRun:
                 if 0 <= index < len(users):
                     return users[index]
         except Exception as e:
-            self.view_manager.log(f"Error parsing message user list: {e}")
+            self.view_manager.log("Error parsing message user list: %s" % str(e))
 
         return ""
 
@@ -1729,7 +1729,7 @@ class FlipSocialRun:
                 self.view_manager.log(self.http.error)
                 self.comments_status = COMMENTS_REQUEST_ERROR
         else:
-            self.view_manager.log(f"Unknown request type: {request_type}")
+            self.view_manager.log("Unknown request type: %s" % str(request_type))
             self.login_status = LOGIN_REQUEST_ERROR
             self.registration_status = REGISTRATION_REQUEST_ERROR
             self.user_info_status = USER_INFO_REQUEST_ERROR

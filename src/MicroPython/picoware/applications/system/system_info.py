@@ -34,10 +34,13 @@ def __set_text(view_manager):
         Battery Level: {view_manager.battery.percentage}%
         """
         if view_manager.battery.has_voltage:
-            info += f"Battery voltage: {view_manager.battery.voltage} mV\n"
+            info += "Battery voltage: %d mV\n" % view_manager.battery.voltage
         if view_manager.battery.time_remaining > 0:
-            info += f"Battery time remaining: {view_manager.battery.time_remaining} minutes\n"
-        
+            info += (
+                "Battery time remaining: %d minutes\n"
+                % view_manager.battery.time_remaining
+            )
+
         _system_info.set_text(info)
 
 

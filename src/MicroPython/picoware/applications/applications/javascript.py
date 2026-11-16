@@ -110,10 +110,10 @@ def run(view_manager) -> None:
             from utime import ticks_ms
 
             start_time = ticks_ms()
-            result = _js.exec(f'picoware/scripts/{selected_app}.js')
-            view_manager.log(f"\n[JS] {result}\n", -1)
+            result = _js.exec('picoware/scripts/%s.js' % selected_app)
+            view_manager.log("\n[JS] %s\n" % str(result), -1)
             view_manager.log(
-                f"[Script]: {selected_app} finished after {ticks_ms() - start_time} ms"
+                "[Script]: %s finished after %d ms" % (selected_app, ticks_ms() - start_time)
             )
             _scripts.draw()
             _js.reset()

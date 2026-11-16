@@ -111,9 +111,9 @@ def run(view_manager) -> None:
 
             start_time = ticks_ms()
             result = _c.exec(f'picoware/c/{selected_app}.c')
-            view_manager.log(f"\n[C] {result}\n", -1)
+            view_manager.log("\n[C] %s\n" % str(result), -1)
             view_manager.log(
-                f"[Script]: {selected_app} finished after {ticks_ms() - start_time} ms"
+                "[Script]: %s finished after %d ms" % (selected_app, ticks_ms() - start_time)
             )
             _programs.draw()
 

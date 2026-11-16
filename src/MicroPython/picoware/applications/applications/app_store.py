@@ -230,7 +230,7 @@ def __get_installed_apps(view_manager) -> list:
                 and "list" not in filename
             ):
                 try:
-                    file_path = f"picoware/cache/{filename}"
+                    file_path = "picoware/cache/%s" % filename
                     data = storage.read(file_path)
                     if data:
                         response = loads(data)
@@ -370,7 +370,7 @@ def __check_single_app_update(view_manager, app_id: int, current_version: str) -
         _http = HTTP(view_manager=view_manager)
 
     storage = view_manager.storage
-    url = f"https://www.jblanked.com/picoware/api/app/{app_id}/check_update/{current_version}/"
+    url = "https://www.jblanked.com/picoware/api/app/%d/check_update/%s/" % (app_id, current_version)
 
     return _http.get_async(
         url,
@@ -391,7 +391,7 @@ def __delete_app(view_manager, app_id: int) -> bool:
         bool: True on success.
     """
     storage = view_manager.storage
-    file_path = f"picoware/cache/app_{app_id}.json"
+    file_path = "picoware/cache/app_%d.json" % app_id
 
     try:
         data = storage.read(file_path)
@@ -401,12 +401,12 @@ def __delete_app(view_manager, app_id: int) -> bool:
                 app_data = response["app"]
                 for f in app_data.get("file_structure", []):
                     if not storage.remove(f):
-                        view_manager.log(f"Error deleting {f}", 2)
+                        view_manager.log("Error deleting %s" % f, 2)
         if not storage.remove(file_path):
-            view_manager.log(f"Error deleting cache: {file_path}", 2)
+            view_manager.log("Error deleting cache: %s" % file_path, 2)
         return True
     except Exception as e:
-        view_manager.log(f"Error deleting app: {e}", 2)
+        view_manager.log("Error deleting app: %s" % str(e), 2)
         return False
 
 

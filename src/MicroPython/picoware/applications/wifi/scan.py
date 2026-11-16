@@ -53,7 +53,7 @@ def __should_save_choice(view_manager) -> bool:
         view_manager.draw,
         Vector(0, 0),
         view_manager.draw.size,
-        f"Save '{_scan.current_item.split(' (')[0]}'?",
+        "Save '%s'?" % (_scan.current_item.split(" (")[0]),
         ["No", "Yes"],
         0,
         view_manager.foreground_color,
@@ -155,7 +155,7 @@ def start(view_manager) -> bool:
                 _ssid = "<hidden>"
             if _ssid not in ssids:
                 ssids.append(_ssid)
-                _scan.add_item(f"{_ssid} ({rssi}dB)")
+                _scan.add_item("%s (%sdB)" % (_ssid, str(rssi)))
 
         _scan.set_selected(0)
 

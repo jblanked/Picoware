@@ -90,7 +90,7 @@ class HTTP:
                 self._http_uart = HTTPUART() if view_manager is None else HTTPUART(view_manager.uart)
             except Exception as e:
                 self._http_uart = None
-                view_manager.log(f"Error initializing HTTPUART: {e}")
+                view_manager.log("Error initializing HTTPUART: %s" % str(e))
         
 
         self._async_request_complete = False
@@ -767,7 +767,7 @@ class HTTP:
             return b""
         
         if uart:
-            uart.write(f"[{method}/SUCCESS] {method} request successful.\n")
+            uart.write("[%s/SUCCESS] %s request successful.\n" % (method, method))
 
         body = b""
         file = None
@@ -1559,7 +1559,7 @@ class HTTPUART:
         _response_str = None
         if method == "GET":
             if headers is None:
-                _response_str = self.__send_and_wait(f"[GET]{url}")
+                _response_str = self.__send_and_wait("[GET]%s" % url)
             else:
                 _response_str = self.__send_and_wait("[GET/HTTP]{\"url\":\"%s\",\"headers\":%s}" % (url, headers))
         elif method == "POST":
@@ -1572,8 +1572,8 @@ class HTTPUART:
             if storage is not None and send_file is not None:
                 _path = send_file 
                 if not storage.exists(send_file):
-                    if storage.exists(f"/sd/{send_file}"):
-                        _path = f"/sd/{send_file}"
+                    if storage.exists("/sd/%s" % send_file):
+                        _path = "/sd/%s" % send_file
                     else:
                         print("File not found in storage")
                         return None
@@ -1648,8 +1648,8 @@ class HTTPUART:
         if storage is not None and save_to_file is not None:
             _path = save_to_file
             if not storage.exists(save_to_file):
-                if storage.exists(f"/sd/{save_to_file}"):
-                    _path = f"/sd/{save_to_file}"
+                if storage.exists("/sd/%s" % save_to_file):
+                    _path = "/sd/%s" % save_to_file
                 else:
                     print("File not found in storage")
                     return None
@@ -1851,7 +1851,7 @@ class HTTPBLE:
         _response_str = None
         if method == "GET":
             if headers is None:
-                _response_str = self.__send_and_wait(f"[GET]{url}")
+                _response_str = self.__send_and_wait("[GET]%s" % url)
             else:
                 _response_str = self.__send_and_wait("[GET/HTTP]{\"url\":\"%s\",\"headers\":%s}" % (url, headers))
         elif method == "POST":
@@ -1864,8 +1864,8 @@ class HTTPBLE:
             if storage is not None and send_file is not None:
                 _path = send_file 
                 if not storage.exists(send_file):
-                    if storage.exists(f"/sd/{send_file}"):
-                        _path = f"/sd/{send_file}"
+                    if storage.exists("/sd/%s" % send_file):
+                        _path = "/sd/%s" % send_file
                     else:
                         print("File not found in storage")
                         return None
@@ -1940,8 +1940,8 @@ class HTTPBLE:
         if storage is not None and save_to_file is not None:
             _path = save_to_file
             if not storage.exists(save_to_file):
-                if storage.exists(f"/sd/{save_to_file}"):
-                    _path = f"/sd/{save_to_file}"
+                if storage.exists("/sd/%s" % save_to_file):
+                    _path = "/sd/%s" % save_to_file
                 else:
                     print("File not found in storage")
                     return None

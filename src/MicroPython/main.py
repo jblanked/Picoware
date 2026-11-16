@@ -40,11 +40,11 @@ def main():
     except Exception as e:
         if vm:
             try:
-                vm.alert(f"Critical Error:\n{e}\nPlease restart.")
+                vm.alert("Critical Error:\n%s\nPlease restart." % str(e))
             except Exception:
                 pass
         else:
-            print(f"Error occurred: {e}")
+            print("Error occurred: %s" % str(e))
 
     finally:
         if vm:

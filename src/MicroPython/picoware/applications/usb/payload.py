@@ -35,7 +35,7 @@ def start(view_manager) -> bool:
         _state = STATE_BROWSER
         return _browser.run()
     except Exception as e:
-        view_manager.alert(f"Failed to initialize USB payload: {e}")
+        view_manager.alert("Failed to initialize USB payload: %s" % str(e))
         return False
 
 

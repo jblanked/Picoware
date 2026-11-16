@@ -25,7 +25,7 @@ def __uart_callback(uart_instance):
     message = ""
     if not _data:
         return
-    message = f"Friend: {_data.decode()}\n"
+    message = "Friend: %s\n" % _data.decode()
     _received = True
 
 
@@ -49,7 +49,7 @@ def __box_start(view_manager) -> None:
 
     top = int(height * 0.0625)
 
-    msg = f"Listening on GPIO{_uart.rx_pin}"
+    msg = "Listening on GPIO%s" % _uart.rx_pin
     display_x = int((size.x - len(msg) * draw.font_size.x) // 2)
     draw._text(
         display_x,
@@ -79,7 +79,7 @@ def __callback(result: str) -> None:
     """
     global state, _textbox
     _uart.println(result)
-    _text = _textbox.current_text + f"You: {result}\n"
+    _text = "%sYou: %s\n" % (_textbox.current_text, result)
     _textbox.set_text(_text)
     state = STATE_SENDING
 
@@ -155,8 +155,8 @@ def start(view_manager) -> bool:
     d._text(0, 0, "To connect to the device, use the following settings:", fg)
     d._text(0, sixteen, "Baudrate: 115200", fg)
     if not is_pico_calc:
-        d._text(0, sixteen * 2, f"TX Pin: GP{_uart.tx_pin if _uart else 'N/A'}", fg)
-        d._text(0, sixteen * 3, f"RX Pin: GP{_uart.rx_pin if _uart else 'N/A'}", fg)
+        d._text(0, sixteen * 2, "TX Pin: GP%s" % (_uart.tx_pin if _uart else 'N/A'), fg)
+        d._text(0, sixteen * 3, "RX Pin: GP%s" % (_uart.rx_pin if _uart else 'N/A'), fg)
     elif BOARD_ID == BOARD_PICOCALC_ESP32_P4:
         d._text(0, sixteen * 2, "TX Pin: GPIO29", fg)
         d._text(0, sixteen * 3, "RX Pin: GPIO28", fg)
@@ -222,7 +222,7 @@ def run(view_manager) -> None:
     elif state == STATE_VIEWING:
         global _received, message
         if _received:
-            _text = _textbox.current_text + f"{message}\n"
+            _text =  "%s%s\n" % (_textbox.current_text, message)
             _textbox.set_text(_text)
             _textbox.refresh()
             _received = False

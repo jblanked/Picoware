@@ -1381,7 +1381,7 @@ def _keyboard_run(view_manager) -> bool:
                     __await_send(view_manager)
                 except Exception as e:
                     print("Failed to send email:", e)
-                    view_manager.alert(f"Failed to send message: {e}", False)
+                    view_manager.alert("Failed to send message: %s" % str(e), False)
 
                 current_view = VIEW_MAIN_MENU
                 sending_index = SENDING_WAITING

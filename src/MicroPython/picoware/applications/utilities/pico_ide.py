@@ -133,10 +133,11 @@ def _run_file(view_manager, filename) -> bool:
     extension = filename.lower().rsplit(".", 1)[-1]
     if extension == "py":
         _data = view_manager.storage.read(filename)
-        if ("start(" in _data and "run(" in _data and "stop(" in _data):
+        if "start(" in _data and "run(" in _data and "stop(" in _data:
             # execute as picoware app
             from picoware.system.app_loader import AppLoader
             from picoware.system.view import View
+
             _loader = AppLoader(view_manager)
             _app_path = filename.replace("\\", "/")
             if _app_path.startswith("/sd/"):
@@ -145,25 +146,18 @@ def _run_file(view_manager, filename) -> bool:
                 _app_path = _app_path[1:]
             _apps_root = "picoware/apps/"
             if _app_path.startswith(_apps_root):
-                _app_path = _app_path[len(_apps_root):]
+                _app_path = _app_path[len(_apps_root) :]
             _subdirectory = "/".join(_app_path.split("/")[:-1])
             _file_without_extension = _app_path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
             _files = _loader.list_available_apps(_subdirectory)
             if _file_without_extension in _files:
-                _app = _loader.load_app(_file_without_extension, _subdirectory)
-                if _app is None:
-                    view_manager.alert(f'Failed to load: {_loader.error}')
+                if not view_manager.create_view(
+                    "picoware/apps/%s/%s" % (_subdirectory, _file_without_extension)
+                ):
+                    view_manager.alert("Failed to load app")
                     return False
-                app_view_name = f"{_file_without_extension}_view"
-                # Check if view already exists
-                if view_manager.get_view(app_view_name) is None:
-                    app_view = View(
-                        app_view_name, _app.run, _app.start, _app.stop
-                    )
-                    view_manager.add(app_view)
-                view_manager.switch_to(app_view_name)
             else:
-                view_manager.alert('Make sure the app is in picoware/apps/*')
+                view_manager.alert("Make sure the app is in picoware/apps/*")
         else:
             view_manager.storage.execute_script(filename)
     elif extension == "js":
@@ -223,7 +217,7 @@ def _start_editor(view_manager, filename=None, create_template=False):
                 if file_needs_template:
                     storage.write(filename, __template(filename))
             except Exception as e:
-                view_manager.log(f"[Editor]: Template creation error: {e}", 2)
+                view_manager.log("[Editor]: Template creation error: %s" % str(e), 2)
 
         # Start the pye editor with our terminal
         if filename and len(filename) > 0:
@@ -245,7 +239,7 @@ def _start_editor(view_manager, filename=None, create_template=False):
         # nothing to do here
         pass
     except (OSError, MemoryError, RuntimeError) as e:
-        view_manager.log(f"[Editor]: Editor error: {e}", 2)
+        view_manager.log("[Editor]: Editor error: %s" % str(e), 2)
     except Exception:
         view_manager.log("PicoIDE error", 2)
 
@@ -508,11 +502,13 @@ def run(view_manager) -> None:
             # Start editor with or without template
             if selected_index == 0:  # Python App
                 _filename = _ensure_extension(_filename, ".py")
-                true_path = f"picoware/apps/{_filename}" if _filename else None
+                true_path = "picoware/apps/%s" % _filename if _filename else None
                 _start_editor(
                     view_manager,
                     true_path,
-                    create_template=bool(true_path and true_path.lower().endswith(".py")),
+                    create_template=bool(
+                        true_path and true_path.lower().endswith(".py")
+                    ),
                 )
             else:
                 extensions = (".c", ".js", ".bas", ".txt")
@@ -520,11 +516,11 @@ def run(view_manager) -> None:
                 current_extension = extensions[selected_index - 1]
                 true_path = None
                 if current_extension == ".c":
-                    true_path = f"picoware/c/{_filename}" if _filename else None
+                    true_path = "picoware/c/%s" % _filename if _filename else None
                 elif current_extension == ".js":
-                    true_path = f"picoware/scripts/{_filename}" if _filename else None
+                    true_path = "picoware/scripts/%s" % _filename if _filename else None
                 elif current_extension == ".bas":
-                    true_path = f"picoware/mmbasic/{_filename}" if _filename else None
+                    true_path = "picoware/mmbasic/%s" % _filename if _filename else None
                 else:
                     true_path = _filename
                 _start_editor(

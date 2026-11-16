@@ -112,7 +112,7 @@ def run(view_manager) -> None:
             if width < 180:
                 color = TFT_WHITE
 
-            rssi_text = f"{rssi}dB"
+            rssi_text = "%ddB" % rssi
             suffix = f" {bar_sym} {rssi_text}"
             max_ssid_width = max(1, width - draw.len(suffix) - 2)
             max_ssid_chars = max(1, max_ssid_width // max(1, draw.font_size.x))

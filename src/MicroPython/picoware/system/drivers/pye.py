@@ -1395,9 +1395,9 @@ class Editor:
                     self.hash = self.hash_buffer()
                     self.changed = ""
                     self.is_dir = False
-                    self.message = f"File '{fname}' saved successfully"
+                    self.message = "File '%s' saved successfully" % fname
                 except Exception as e:
-                    self.message = f"Error saving file: {e}"
+                    self.message = "Error saving file: %s" % str(e)
         elif key == KEY_UNDO:
             self.undo_redo(self.undo, self.redo)
         elif key == KEY_REDO:
@@ -1491,10 +1491,10 @@ class Editor:
                             self.hash = self.hash_buffer()
                             self.changed = ""
                             self.is_dir = False
-                            self.message = f"File '{fname}' saved"
+                            self.message = "File '%s' saved" % fname
                         except Exception as e:
                             error_res = self.line_edit(
-                                f"Save failed: {e}. Quit anyway? (y/N): ", "N"
+                                "Save failed: %s. Quit anyway? (y/N): " % str(e), "N"
                             )
                             if not error_res or error_res[0].upper() != "Y":
                                 continue
@@ -1640,7 +1640,7 @@ class Editor:
                 success = self.storage.write(fname, file_content, "w")
 
                 if not success:
-                    raise OSError(f"Failed to write file {fname}")
+                    raise OSError("Failed to write file %s" % fname)
 
                 # Force sync/flush if storage has these methods
                 if hasattr(self.storage, "sync"):
@@ -1654,15 +1654,15 @@ class Editor:
                 try:
                     written_content = self.storage.read(fname, "r")
                     if not written_content:
-                        raise OSError(f"File {fname} appears empty after write")
+                        raise OSError("File %s appears empty after write" % fname)
                     if abs(len(written_content) - len(file_content)) > 10:
-                        raise OSError(f"File {fname} size mismatch after write")
+                        raise OSError("File %s size mismatch after write" % fname)
                 except Exception as e:
                     # If we can't verify, at least log the issue but don't fail
-                    print(f"Warning: Could not verify file write for {fname}: {e}")
+                    print("Warning: Could not verify file write for %s: %s" % (fname, str(e)))
 
             except Exception as e:
-                raise OSError(f"Error writing file {fname}: {e}")
+                raise OSError("Error writing file %s: %s" % (fname, str(e)))
         else:
             # Fallback to direct file operations if no storage
             tmpfile = fname + ".pyetmp"

@@ -60,7 +60,7 @@ def __parse(text: str) -> str:
             if _output:
                 result_str = "".join(_output).rstrip("\n")
     except Exception as e:
-        result_str = f"{type(e).__name__}: {e}"
+        result_str = "%s: %s" % (type(e).__name__, str(e))
 
     return result_str
 

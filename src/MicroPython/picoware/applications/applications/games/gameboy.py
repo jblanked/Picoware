@@ -99,12 +99,14 @@ def run(view_manager) -> None:
                 return
 
             _state = STATE_PLAYING
-            view_manager.alert(
-                f"Starting game: {selected_path}. Press BACK to start (this may take a moment)..."
-            )
-            view_manager.draw.erase()
-            view_manager.draw.swap()
-            gb.start(selected_path)
+            if view_manager.alert(
+                "Starting game: %s. Press BACK to cancel, otherwise wait (this may take a moment...)" % selected_path
+            ): 
+                view_manager.draw.erase()
+                view_manager.draw.swap()
+                gb.start(selected_path)
+            else:
+                view_manager.back()
         return
 
     # STATE_PLAYING

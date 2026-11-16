@@ -125,14 +125,12 @@ def run(view_manager) -> None:
         if selected_app:
             if not _set_mmbasic(view_manager):
                 view_manager.alert("\n[MMBasic] Failed to initialize MMBasic\n")
-                return False
+                return
             
             if not _mmbasic.start(source=view_manager.storage.read(f'picoware/mmbasic/{selected_app}.bas')):
-                view_manager.alert(f"\n[MMBasic] {selected_app} failed to start\n")
+                view_manager.alert("\n[MMBasic] %s failed to start\n" % selected_app)
                 return
             _state = STATE_RUNNING
-
-
 
 def stop(view_manager) -> None:
     """Stop the app.

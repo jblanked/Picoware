@@ -491,7 +491,7 @@ class Agent:
                 break
 
             if response is None:
-                return f"API error: No response from model API: {self.http.error}"
+                return "API error: No response from model API: %s" % self.http.error
 
             try:
                 data = response.json()
@@ -499,7 +499,7 @@ class Agent:
                 body = response.text.strip()
                 if len(body) > 500:
                     body = body[:500] + "..."
-                return f"API error: Invalid JSON response from model API: {body}"
+                return "API error: Invalid JSON response from model API: %s" % body
 
             if "choices" not in data:
                 error_detail = data.get("error", {})
@@ -509,7 +509,7 @@ class Agent:
                     error_msg = str(data)
                 if len(error_msg) > 500:
                     error_msg = error_msg[:500] + "..."
-                return f"API error: {error_msg}"
+                return "API error: %s" % error_msg
 
             message = data["choices"][0]["message"]
 
@@ -537,12 +537,12 @@ class Agent:
                 args = self._parse_tool_arguments(raw_args)
 
                 try:
-                    self.view_manager.log(f"[Agent] Executing {name} with args: {args}")
+                    self.view_manager.log("[Agent] Executing %s with args: %s" % (name, str(args)))
                     result = self._execute_tool(name, args)
-                    self.view_manager.log(f"[Agent] {name} returned: {result}")
+                    self.view_manager.log("[Agent] %s returned: %s" % (name, str(result)))
                 except (TypeError, ValueError, KeyError) as exc:
-                    result = f"Tool error in {name}: {exc}"
-                    self.view_manager.log(f"[Agent] {result}")
+                    result = "Tool error in %s: %s" % (name, str(exc))
+                    self.view_manager.log("[Agent] %s" % str(result))
 
                 # Store tool result
                 self._conv_append(
@@ -622,7 +622,7 @@ class Agent:
         
         s = self.view_manager.storage
         if context is not None:
-            s.write(self._mem_path, f"{context.strip()}\n", mode="a")
+            s.write(self._mem_path, "%s\n" % context.strip(), mode="a")
         else:
             if self.mode == MODE_APP_CREATOR:
                 if not s.exists("picoware/assets/agents/app_creator_context.md"):
@@ -669,7 +669,7 @@ class Agent:
                                     if not s.file_write(f, memoryview(temp_buffer)[:_count], mode="b"):
                                         break
                             except Exception as exc:
-                                self.view_manager.log(f"Error while writing app creator context: {exc}")
+                                self.view_manager.log("Error while writing app creator context: %s" % str(exc))
                             finally:
                                 s.file_close(_ctx_file)
                         s.file_write(f, b"\n", mode="b")
@@ -698,7 +698,7 @@ class Agent:
             self._store_response(result)
             return result
         except Exception as exc:
-            result = f"An error occurred during processing: {exc}"
+            result = "An error occurred during processing: %s" % str(exc)
             self._store_response(result)
             return result
 
@@ -768,7 +768,7 @@ class Agent:
         except Exception as exc:
             result = {
                 "status": "error",
-                "message": f"Failed to load session: {exc}",
+                "message": "Failed to load session: %s" % str(exc),
                 "conversation": [],
             }
             self._store_response(result, done=True)
@@ -819,7 +819,7 @@ class Agent:
             self.view_manager.thread_manager.add_task(task)
             return True
         except Exception as exc:
-            self.view_manager.log(f"Failed to start session async: {exc}")
+            self.view_manager.log("Failed to start session async: %s" % str(exc))
             self._running = False
             return False
     

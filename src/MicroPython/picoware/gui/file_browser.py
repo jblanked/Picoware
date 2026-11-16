@@ -1276,7 +1276,7 @@ class FileBrowser:
                 sf = fl[ix]
                 if sf != "..":
                     storage = self._vm.storage
-                    fp = f"/{sf}" if cp == "/" else f"{cp}/{sf}"
+                    fp = "/%s" % sf if cp == "/" else "%s/%s" % (cp, sf)
                     isd = False
                     fz = 0
                     if fp in self._stat_cache:
@@ -1287,9 +1287,9 @@ class FileBrowser:
                         fz = storage.size(fp)
 
                     self._info_data = (
-                        f"Name: {sf}\n"
-                        f"Type: {'Directory' if isd else 'File'}\n"
-                        f"Size: {fz} bytes"
+                        "Name: %s\n" % sf
+                        + "Type: %s\n" % ("Directory" if isd else "File")
+                        + "Size: %d bytes" % fz
                     )
                     self._show_info = True
                     self._needs_redraw = True
@@ -1306,7 +1306,7 @@ class FileBrowser:
                 if len(mk) > 0:
                     self._pending_action = self.ACT_DELETE
                     self._confirm_menu = self.__menu_spawn(
-                        f"Delete {len(mk)} items?", ("No", "Yes")
+                        "Delete %d items?" % len(mk), ("No", "Yes")
                     )
                 else:
                     ap = self._app_state["active_pane"]
@@ -1330,7 +1330,7 @@ class FileBrowser:
                         sf = fl[ix]
                         if sf != "..":
                             self._context_target_path = (
-                                f"/{sf}" if cp == "/" else f"{cp}/{sf}"
+                                "/%s" % sf if cp == "/" else "%s/%s" % (cp, sf)
                             )
                             self._pending_action = self.ACT_DELETE
                             self._confirm_menu = self.__menu_spawn(
@@ -1386,10 +1386,10 @@ class FileBrowser:
                         total = len(targets)
                         for i, t in enumerate(targets):
                             self.__loading_run(
-                                f"Deleting {int((i/total)*100)}%", i / total
+                                "Deleting %d%%" % int((i / total) * 100), i / total
                             )
                             if not storage.remove(t):
-                                self._vm.log(f"Delete Error on: {t}", 2)
+                                self._vm.log("Delete Error on: %s" % t, 2)
                         self.__loading_run("Deleted", 1.0)
 
                     elif self._pending_action in (self.ACT_COPY, self.ACT_MOVE):
@@ -1401,12 +1401,14 @@ class FileBrowser:
                         )
 
                         if total == 1:
-                            self.__loading_run(f"{act_name}...", 0.5)
+                            self.__loading_run("%s..." % act_name, 0.5)
 
                         for i, t in enumerate(targets):
                             if total > 1:
                                 self.__loading_run(
-                                    f"Batch {act_name} {int((i/total)*100)}%", i / total
+                                    "Batch %s %d%%"
+                                    % (act_name, int((i / total) * 100)),
+                                    i / total,
                                 )
 
                             dp = self._pending_dest_path
@@ -1419,10 +1421,10 @@ class FileBrowser:
 
                                 if self._pending_action == self.ACT_COPY:
                                     if not storage.copy(t, dp):
-                                        self._vm.log(f"Copy Error on: {t}", 2)
+                                        self._vm.log("Copy Error on: %s" % t, 2)
                                 else:
                                     if not storage.move(t, dp):
-                                        self._vm.log(f"Move Error on: {t}", 2)
+                                        self._vm.log("Move Error on: %s" % t, 2)
 
                         self.__loading_run("Done", 1.0)
 
@@ -1434,7 +1436,7 @@ class FileBrowser:
                             self._context_target_path, self._pending_dest_path
                         ):
                             self._vm.log(
-                                f"Rename Error on: {self._context_target_path}", 2
+                                "Rename Error on: %s" % self._context_target_path, 2
                             )
                         self.__loading_run("Renamed", 1.0)
 
@@ -1571,7 +1573,7 @@ class FileBrowser:
                             mjs = JS()
                             result = mjs.exec(self._context_target_path)
                             if result:
-                                self._vm.log(f"JS Result: {result}", -1)
+                                self._vm.log("JS Result: %s" % str(result), -1)
                             del mjs
                             mjs = None
                         elif self._context_target_path.endswith("bas"):  # basic
@@ -1591,14 +1593,14 @@ class FileBrowser:
                             c = C()
                             result = c.exec(self._context_target_path)
                             if result:
-                                self._vm.log(f"C Compile Result: {result}", -1)
+                                self._vm.log("C Compile Result: %s" % str(result), -1)
                             del c
                             c = None
                     elif ac == "Delete":
                         self._pending_action = self.ACT_DELETE
                         mk = self._app_state["marked"]
                         msg = (
-                            f"Delete {len(mk)} items?"
+                            "Delete %d items?" % len(mk)
                             if len(mk) > 0
                             else "Confirm Delete?"
                         )
@@ -1644,7 +1646,7 @@ class FileBrowser:
                             )
                             self._pending_dest_path = td
                             self._confirm_menu = self.__menu_spawn(
-                                f"Confirm {ac}?", ("No", "Yes")
+                                "Confirm %s?" % ac, ("No", "Yes")
                             )
                         else:
                             fn = self._context_target_path.split("/")[-1]
@@ -1671,7 +1673,7 @@ class FileBrowser:
                                 )
                                 self._pending_dest_path = dp
                                 ex = self._vm.storage.exists(dp)
-                                msg = "Overwrite?" if ex else f"Confirm {ac}?"
+                                msg = "Overwrite?" if ex else "Confirm %s?" % ac
                                 self._confirm_menu = self.__menu_spawn(
                                     msg, ("No", "Yes")
                                 )
@@ -1822,7 +1824,7 @@ class FileBrowser:
                             ["Copy", "Move", "Delete", "Clear Marks", "Cancel"]
                         )
                         self._context_menu = self.__menu_spawn(
-                            f"{len(mk)} Marked", items
+                            "%d Marked" % len(mk), items
                         )
                     else:
                         self._context_target_path = np

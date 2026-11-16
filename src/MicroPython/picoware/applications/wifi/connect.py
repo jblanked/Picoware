@@ -47,10 +47,10 @@ def _get_status_text(view_manager) -> str:
 
     wifi = view_manager.wifi
     if _is_flipper:
-        text = f"Network {_ssid}\n"
+        text = "Network %s\n" % _ssid
     else:
-        text = f"WiFi Setup{extension}"
-        text += "Network: " + _ssid + "\n"
+        text = "WiFi Setup%s" % extension
+        text += "Network: %s\n" % _ssid
 
 
     if wifi.is_connected():
@@ -73,18 +73,18 @@ def _get_status_text(view_manager) -> str:
         state = wifi.status()
 
         if state == WIFI_STATE_IDLE:
-            text += f"Ready to connect{extension}"
+            text += "Ready to connect%s" % extension
         elif state == WIFI_STATE_CONNECTING:
             start_time = wifi.connection_start_time
             if start_time is None:
-                text += f"Connecting...{extension}"
+                text += "Connecting...%s" % extension
             else:
                 elapsed = (ticks_ms() - start_time) // 1000
-                text += f"Connecting... ({elapsed}s){extension}"
+                text += "Connecting... (%d s)%s" % (elapsed, extension)
         elif state == WIFI_STATE_CONNECTED:
-            text += f"Connected!{extension}"
+            text += "Connected!%s" % extension
         elif state == WIFI_STATE_TIMEOUT:
-            text += f"Connection timeout{extension}"
+            text += "Connection timeout%s" % extension
 
     if not _is_flipper:
         text += "Press RIGHT to connect\n"

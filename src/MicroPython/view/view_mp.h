@@ -23,7 +23,7 @@ extern "C"
         mp_obj_t run;
         mp_obj_t stop;
         bool active;
-        const char *name;
+        char *name;
     } view_mp_obj_t;
 
     extern const mp_obj_type_t view_mp_type;

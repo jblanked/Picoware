@@ -1,7 +1,9 @@
 """ViewManager - Manage views and navigation."""
 
+import view_manager
 
-class ViewManager:
+
+class ViewManager(view_manager.ViewManager):
     """Manage multiple views and provide navigation capabilities."""
 
     MAX_VIEWS = 10
@@ -44,6 +46,8 @@ class ViewManager:
 
     def __init__(self):
         """Initialize the ViewManager with default settings."""
+        super().__init__()
+
         from picoware.gui.draw import Draw
         from picoware.system.input import Input
         from picoware.system.battery import Battery
@@ -63,11 +67,7 @@ class ViewManager:
         from picoware.system.app_loader import AppLoader
         from picoware.system.timer import Timer
 
-        self._active = True
-        self._current_view = None
-        self._view_count = 0
         self._selected_color = TFT_BLUE
-        self._stack_depth = 0
 
         syst = System()
         self._current_board_id = syst.board_id
@@ -129,10 +129,6 @@ class ViewManager:
         # Initialize time
         self._time = Time(self._thread_manager)
 
-        # Initialize arrays
-        self.views = [None] * self.MAX_VIEWS
-        self.view_stack = [None] * self.MAX_STACK_SIZE
-
         if self._storage.exists("picoware/log.txt"):
             if self._storage.exists("picoware/log_old.txt"):
                 self._storage.remove("picoware/log_old.txt")
@@ -190,6 +186,28 @@ class ViewManager:
     def __del__(self):
         """Destructor to clean up resources."""
         self.__cleanup()
+
+    def __setattr__(self, name, value):
+        """Route attribute assignment through the underlying setters.
+
+        Args:
+            name (str): The attribute name being set (``"_active"``, ``"_current_view"``, ``"_stack_depth"``, ``"_view_count"``, ``"_views"``, ``"_view_stack"``).
+            value (int or float): The new value for the attribute.
+        """
+        if name == "_active":
+            self.set_active(value)
+        elif name == "_current_view":
+            self.set_current_view(value)
+        elif name == "_stack_depth":
+            self.set_stack_depth(value)
+        elif name == "_view_count":
+            self.set_view_count(value)
+        elif name == "_views":
+            self.set_views(value)
+        elif name == "_view_stack":
+            self.set_view_stack(value)
+        else:
+            super().__setattr__(name, value)
 
     @property
     def active(self):
@@ -471,7 +489,6 @@ class ViewManager:
             self.views[i] = None
 
         if self._current_view is not None:
-            del self._current_view
             self._current_view = None
 
         self.clear_stack()

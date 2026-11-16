@@ -86,7 +86,8 @@ void view_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 mp_obj_t view_mp_set_active(mp_obj_t self_in, mp_obj_t active)
 {
     view_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    self->active = mp_obj_is_true(active);
+    if (self)
+        self->active = mp_obj_is_true(active);
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(view_mp_set_active_obj, view_mp_set_active);

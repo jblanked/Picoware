@@ -14,6 +14,8 @@ static mp_obj_t desktop_native_modules(void)
         MP_OBJ_NEW_QSTR(MP_QSTR_response),
         MP_OBJ_NEW_QSTR(MP_QSTR_sim_raster),
         MP_OBJ_NEW_QSTR(MP_QSTR_video),
+        MP_OBJ_NEW_QSTR(MP_QSTR_view),
+        MP_OBJ_NEW_QSTR(MP_QSTR_view_manager),
         MP_OBJ_NEW_QSTR(MP_QSTR_vector),
         MP_OBJ_NEW_QSTR(MP_QSTR_vt),
     };

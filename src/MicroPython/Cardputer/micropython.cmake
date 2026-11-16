@@ -39,6 +39,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/../usb_video/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../vector/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../video/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../view/micropython.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/../view_manager/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../vt/micropython.cmake)
 
 # Network modules (HTTP, WebSocket)

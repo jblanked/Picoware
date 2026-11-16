@@ -1,7 +1,9 @@
 """View - Base class for managed views."""
 
+import view
 
-class View:
+
+class View(view.View):
     """A view managed by the ViewManager.
 
     Attributes:
@@ -23,11 +25,10 @@ class View:
             start (callable): Function called when the view is created.
             stop (callable): Function called when the view is destroyed.
         """
-        self.name = name
         self._run = run
         self._start = start
         self._stop = stop
-        self.active = False
+        super().__init__(name, self.__start, self.__run, self.__stop)
 
     def __alert(self, exception, view_manager) -> None:
         """Display an alert message.
@@ -43,7 +44,7 @@ class View:
         sys.print_exception(exception, buf)
         view_manager.alert(buf.getvalue(), False)
 
-    def start(self, view_manager) -> bool:
+    def __start(self, view_manager) -> bool:
         """Start the view and mark it active.
 
         Args:
@@ -63,7 +64,7 @@ class View:
                 return False
         return False
 
-    def stop(self, view_manager):
+    def __stop(self, view_manager):
         """Stop the view and mark it inactive.
 
         Args:
@@ -76,7 +77,7 @@ class View:
                 self.__alert("Error stopping view: %s" % str(e), view_manager)
         self.active = False
 
-    def run(self, view_manager):
+    def __run(self, view_manager):
         """Run the view's per-frame callback.
 
         Args:

@@ -30,6 +30,18 @@ class View(view.View):
         self._stop = stop
         super().__init__(name, self.__start, self.__run, self.__stop)
 
+    def __setattr__(self, name, value):
+        """Route attribute assignment through the underlying setters.
+
+        Args:
+            name (str): The attribute name being set (``"active"``).
+            value (int or float): The new value for the attribute.
+        """
+        if name == "active":
+            self.set_active(value)
+        else:
+            super().__setattr__(name, value)
+
     def __alert(self, exception, view_manager) -> None:
         """Display an alert message.
 

@@ -83,13 +83,27 @@ void view_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     }
 }
 
+mp_obj_t view_mp_set_active(mp_obj_t self_in, mp_obj_t active)
+{
+    view_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    self->active = mp_obj_is_true(active);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(view_mp_set_active_obj, view_mp_set_active);
+
+static const mp_rom_map_elem_t view_mp_locals_dict_table[] = {
+    {MP_ROM_QSTR(MP_QSTR_set_active), MP_ROM_PTR(&view_mp_set_active_obj)},
+};
+static MP_DEFINE_CONST_DICT(view_mp_locals_dict, view_mp_locals_dict_table);
+
 MP_DEFINE_CONST_OBJ_TYPE(
     view_mp_type,
     MP_QSTR_View,
     MP_TYPE_FLAG_HAS_SPECIAL_ACCESSORS,
     print, view_mp_print,
     make_new, view_mp_make_new,
-    attr, view_mp_attr);
+    attr, view_mp_attr,
+    locals_dict, &view_mp_locals_dict);
 
 static const mp_rom_map_elem_t view_mp_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_view)},

@@ -74,9 +74,6 @@ class ViewManager:
 
         self.freq()
 
-        # Initialize ThreadManager
-        self._thread_manager = ThreadManager()
-
         # Initialize storage
         self._storage = Storage()
         self._storage.mkdir("picoware")
@@ -108,6 +105,9 @@ class ViewManager:
 
         # debug mode
         __debug = settings.debug
+
+        # Initialize ThreadManager
+        self._thread_manager = ThreadManager(__debug)
 
         # exit button
         self._back_button = settings.exit_button

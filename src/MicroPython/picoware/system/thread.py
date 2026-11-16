@@ -252,9 +252,10 @@ class ThreadManager:
         "_active_thread",
         "_active_task",
         "_outgoing",
+        "_log",
     )
 
-    def __init__(self) -> None:
+    def __init__(self, log: bool = True) -> None:
         """Initialize the thread manager."""
         self._id = 0
         self._tasks: list[ThreadTask] = []  # scheduled, waiting to become due
@@ -263,6 +264,7 @@ class ThreadManager:
         self._active_thread: Thread = None
         self._active_task: ThreadTask = None
         self._outgoing = ""
+        self._log = log
 
     @property
     def task(self) -> ThreadTask:
@@ -503,6 +505,8 @@ class ThreadManager:
 
     def _emit(self, text: str) -> None:
         """Append a message to the outgoing output, newline-separated."""
+        if not self._log:
+            return
         if self._outgoing and not self._outgoing.endswith("\n"):
             self._outgoing += "\n"
         self._outgoing += text

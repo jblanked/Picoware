@@ -701,6 +701,7 @@ class ViewManager(view_manager.ViewManager):
         add_to_stack: bool = True,
         switch_to: bool = True,
         background_task: bool = False,
+        log_transition: bool = True,
     ):
         """Create a new view with the given name.
 
@@ -709,6 +710,7 @@ class ViewManager(view_manager.ViewManager):
             add_to_stack (bool): Whether to add the view to the navigation stack. Defaults to True.
             switch_to (bool): Whether to switch to the newly created view. Defaults to True.
             background_task (bool): Whether to run the view as a background task. Defaults to False.
+            log_transition (bool): Whether to log the creation and switching of the view. Defaults to True.
 
         Returns:
             bool: True if the view was successfully created, False otherwise.
@@ -738,18 +740,20 @@ class ViewManager(view_manager.ViewManager):
 
         start_time = ticks_ms()
         app_view = View(app_name, app_module.run, app_module.start, app_module.stop)
-        self.log(
-            "[ViewManager]: Created view for app %s after %d ms"
-            % (app_name, ticks_ms() - start_time)
-        )
+        if log_transition:
+            self.log(
+                "[ViewManager]: Created view for app %s after %d ms"
+                % (app_name, ticks_ms() - start_time)
+            )
         if add_to_stack or switch_to:
             self.add(app_view)
         if switch_to:
             self.switch_to(app_name)
-            self.log(
-                '[ViewManager]: Switched to view for app "%s" after %d ms'
-                % (app_name, ticks_ms() - start_time)
-            )
+            if log_transition:
+                self.log(
+                    '[ViewManager]: Switched to view for app "%s" after %d ms'
+                    % (app_name, ticks_ms() - start_time)
+                )
         return True
 
     def freq(self, use_default: bool = False, frequency: int = None) -> int:

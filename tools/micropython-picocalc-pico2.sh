@@ -96,6 +96,12 @@ rm -rf "$micropython_dir"/modules/mmbasic
 # remove C module if it exists
 rm -rf "$micropython_dir"/modules/c
 
+# remove view module if it exists
+rm -rf "$micropython_dir"/modules/view
+
+# remove view_manager module if it exists
+rm -rf "$micropython_dir"/modules/view_manager
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -152,6 +158,12 @@ cp -r "$picoware_dir"/src/MicroPython/engine "$micropython_dir"/modules/engine
 
 # copy log module
 cp -r "$picoware_dir"/src/MicroPython/log "$micropython_dir"/modules/log
+
+# copy view module
+cp -r "$picoware_dir"/src/MicroPython/view "$micropython_dir"/modules/view
+
+# copy view_manager module
+cp -r "$picoware_dir"/src/MicroPython/view_manager "$micropython_dir"/modules/view_manager
 
 # copy textbox module
 cp -r "$picoware_dir"/src/MicroPython/textbox "$micropython_dir"/modules/textbox

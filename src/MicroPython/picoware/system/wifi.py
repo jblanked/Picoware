@@ -108,7 +108,6 @@ class WiFi:
             self.wlan = None
         self.reset()
         self.callback_connect = None
-        self.__close_thread()
 
     def _should_continue(self) -> bool:
         """Check if the operation should continue running."""
@@ -459,7 +458,11 @@ class WiFi:
         if self._thread_lock is None or self.wlan is None:
             return
         with self._thread_lock:
-            self.wlan.active(False)
+            if self.wlan:
+                try:
+                    self.wlan.active(False)
+                except Exception:
+                    pass
             self.ssid = ""
             self.password = ""
             self._state = WIFI_STATE_IDLE

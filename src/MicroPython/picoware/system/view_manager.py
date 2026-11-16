@@ -842,7 +842,9 @@ class ViewManager(view_manager.ViewManager):
         from gc import collect
 
         if enable:
-            del self._wifi
+            if self._wifi is not None:
+                self._wifi.__deinit()
+                del self._wifi
             self._wifi = None
             if self._bluetooth is not None:
                 self._bluetooth.__deinit()

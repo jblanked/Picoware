@@ -62,5 +62,6 @@ try:
     while True:
         vm.run()
 finally:
+    vm.__cleanup()
     del vm
     vm = None

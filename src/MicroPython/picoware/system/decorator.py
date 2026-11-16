@@ -254,6 +254,26 @@ def keyboard_required(func: callable) -> callable:
         return func(*args, **kwargs)
     return wrapper
 
+def timed_function(func: callable, *args, **kwargs):
+    """Decorator to measure the execution time of a function in milliseconds: https://docs.micropython.org/en/latest/reference/speed_python.html#id10
+    
+    Args:
+        func (callable): The function to decorate.
+        *args: Positional arguments passed to the function.
+        **kwargs: Keyword arguments passed to the function.
+    Returns:
+        callable: The wrapped function that measures execution time.
+    """
+    import time
+    myname = str(func).split(' ')[1]
+    def new_func(*args, **kwargs):
+        t = time.ticks_us()
+        result = func(*args, **kwargs)
+        delta = time.ticks_diff(time.ticks_us(), t)
+        print('Function %s Time = %6.3fms' % (myname, delta/1000))
+        return result
+    return new_func
+
 def wifi_required(func: callable) -> callable:
     """Decorator to check if WiFi is available.
 

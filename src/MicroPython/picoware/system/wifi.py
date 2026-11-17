@@ -388,7 +388,7 @@ class WiFi:
         if self._is_flipper or self.wlan is None:
             self.error = "CSI not supported on this device."
             return False
-        if not self.is_connected():
+        if enable and not self.is_connected():
             self.error = "CSI can only be enabled when connected to a Wi-Fi network."
             return False
 

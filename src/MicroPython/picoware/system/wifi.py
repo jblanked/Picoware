@@ -375,6 +375,8 @@ class WiFi:
 
         If the Wi-Fi driver does not support CSI, this returns False and records that reason in self.error.
 
+        https://docs.micropython.org/en/v1.29.0/library/network.WLAN.html#csi-methods-esp32-only
+
         Args:
             enable (bool): True to enable CSI, False to disable.
             buffer_size (int, optional): Size of the buffer for CSI data. Defaults to 32.
@@ -403,18 +405,13 @@ class WiFi:
 
                     def csi_callback():
                         csi_buffer = []
-                        csi_returned = []
+                        wlan = self.wlan
                         while self._thread_running:
-                            if self.wlan.csi_available():
-                                if not csi_buffer:
-                                    csi_returned = self.wlan.csi_read(csi_buffer)
-                                    if csi_returned:
-                                        callback(csi_returned, self.wlan.csi_dropped())
-                                        csi_buffer = csi_returned
-                                else:
-                                    self.wlan.csi_read(csi_buffer)
-                                    if csi_buffer:
-                                        callback(csi_buffer, self.wlan.csi_dropped())
+                            csi_buffer = wlan.csi_read(csi_buffer)
+                            if csi_buffer:
+                                callback(
+                                    csi_buffer, wlan.csi_available(), wlan.csi_dropped()
+                                )
 
                     task = ThreadTask(
                         "CSI",

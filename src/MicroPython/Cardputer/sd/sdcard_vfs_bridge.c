@@ -173,10 +173,16 @@ static int alloc_slot(mp_obj_t file_obj, const char *abs_path)
     {
         if (!s_file_slots[i].used)
         {
+            size_t path_len = strlen(abs_path);
+            if (path_len >= sizeof(s_file_slots[i].path))
+            {
+                errno = ENAMETOOLONG;
+                return -1;
+            }
+
             s_file_slots[i].used = true;
             BRIDGE_FILE_OBJ(i) = file_obj;
-            strncpy(s_file_slots[i].path, abs_path, sizeof(s_file_slots[i].path) - 1);
-            s_file_slots[i].path[sizeof(s_file_slots[i].path) - 1] = '\0';
+            memcpy(s_file_slots[i].path, abs_path, path_len + 1);
             return i;
         }
     }

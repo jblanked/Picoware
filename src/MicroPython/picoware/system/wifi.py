@@ -373,6 +373,8 @@ class WiFi:
     ) -> bool:
         """Enable or disable Channel State Information (CSI), which provides per-packet physical layer channel data derived from received Wi-Fi frames
 
+        If the Wi-Fi driver does not support CSI, this returns False and records that reason in self.error.
+
         Args:
             enable (bool): True to enable CSI, False to disable.
             buffer_size (int, optional): Size of the buffer for CSI data. Defaults to 32.
@@ -431,7 +433,12 @@ class WiFi:
                 self._thread_running = False
             return True
         except Exception as e:
-            self.error = "Failed to configure CSI: %s" % str(e)
+            error_message = str(e)
+            # ESP_ERR_NOT_SUPPORTED falls through MicroPython's generic Wi-Fi error formatter.
+            if error_message == "Wifi Unknown Error 0x0106":
+                self.error = "CSI is not supported by this Wi-Fi driver."
+            else:
+                self.error = "Failed to configure CSI: %s" % error_message
             return False
 
     def disconnect(self):

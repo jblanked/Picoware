@@ -632,6 +632,9 @@ def _run_coverage(opts):
     if not entries:
         rows.append(("coverage", mode, "skipped", "no entries found", ""))
     for kind, name in entries:
+        view_name = name
+        if kind == "game" and name == "Ghouls":
+            view_name = "game_ghouls"
         safe = (kind + "-" + name).replace("/", "_").replace(" ", "_")
         log_path = report_dir + "/" + safe + ".log"
         cmd = (
@@ -646,7 +649,7 @@ def _run_coverage(opts):
             + (" --app " if kind == "app" else " --game ")
             + _quote(name)
             + " --wait-view "
-            + _quote(("app_" if kind == "app" else "game_") + name)
+            + _quote(view_name)
             + " >"
             + _quote(log_path)
             + " 2>&1"
@@ -702,7 +705,7 @@ def _run_sim_check(opts):
         _interpreter_command()
         + " "
         + _quote(THIS_DIR + "/run.py")
-        + " --headless --app fuel_log --wait-view app_fuel_log --frames 220 --audio silent --network offline --sd "
+        + " --headless --app fuel_log --wait-view fuel_log --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"])
@@ -710,7 +713,7 @@ def _run_sim_check(opts):
         _interpreter_command()
         + " "
         + _quote(THIS_DIR + "/run.py")
-        + " --headless --app Calculator --wait-view app_Calculator --frames 160 --audio silent --network offline --sd "
+        + " --headless --app Calculator --wait-view Calculator --frames 160 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"])
@@ -744,7 +747,7 @@ def _run_sim_check(opts):
         _interpreter_command()
         + " "
         + _quote(THIS_DIR + "/run.py")
-        + " --headless --app Forecast --wait-view app_Forecast --frames 220 --audio silent --network offline --sd "
+        + " --headless --app Forecast --wait-view Forecast --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"])
@@ -752,7 +755,7 @@ def _run_sim_check(opts):
         _interpreter_command()
         + " "
         + _quote(THIS_DIR + "/run.py")
-        + " --headless --app MicroBrowser --wait-view app_MicroBrowser --frames 220 --audio silent --network offline --sd "
+        + " --headless --app MicroBrowser --wait-view MicroBrowser --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"])
@@ -760,7 +763,7 @@ def _run_sim_check(opts):
         _interpreter_command()
         + " "
         + _quote(THIS_DIR + "/run.py")
-        + " --headless --board pancake --app keyboard-simple --frames 40 --wait-view app_keyboard-simple --audio silent --network offline --sd "
+        + " --headless --board pancake --app keyboard-simple --frames 40 --wait-view keyboard-simple --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
@@ -809,7 +812,7 @@ def _run_sim_check(opts):
         _interpreter_command()
         + " "
         + _quote(THIS_DIR + "/run.py")
-        + " --headless --board flipper-zero --app Calculator --frames 40 --wait-view app_Calculator --audio silent --network offline --sd "
+        + " --headless --board flipper-zero --app Calculator --frames 40 --wait-view Calculator --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
@@ -917,11 +920,16 @@ def _run_desktop_native_check(opts):
         "response",
         "sim_raster",
         "video",
+        "view",
+        "view_manager",
         "vector",
         "vt",
     )
     if picoware_desktop.native_modules() != expected_modules:
         raise RuntimeError("Desktop interpreter native module set mismatch")
+
+    for name in expected_modules:
+        __import__(name)
 
     import auto_complete
     import font

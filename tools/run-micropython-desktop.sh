@@ -15,7 +15,7 @@ native_sources_newer() {
         -newer "$binary" -print -quit)" ]
 }
 
-if [ ! -x "$binary" ] || native_sources_newer || ! "$binary" -c 'import engine, ghouls, mjs, vector
+if [ ! -x "$binary" ] || native_sources_newer || ! "$binary" -c 'import engine, ghouls, mjs, vector, view, view_manager
 from micropython import alloc_emergency_exception_buf
 alloc_emergency_exception_buf(100)
 assert hasattr(engine, "Billboard")

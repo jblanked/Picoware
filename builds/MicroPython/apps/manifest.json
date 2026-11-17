@@ -994,5 +994,21 @@
             "picoware/apps/games/valley-quest.py"
         ],
         "version": "1.0"
+    },
+    {
+        "title": "Valley Rider",
+        "description": "Valley Quest updated version, with multiplayer and new features",
+        "file_structure": [
+            "picoware/apps/games/valley-rider.py"
+        ],
+        "version": "1.0"
+    },
+    {
+        "title": "CSI Radar",
+        "description": "A Wi-Fi CSI amplitude radar. Uses 12 subcarrier amplitudes, a 7-sample Hampel filter, and a 100-sample variance calibration to estimate motion and spatial changes.",
+        "file_structure": [
+            "picoware/apps/CSIRadar.mpy"
+        ],
+        "version": "1.0"
     }
 ]

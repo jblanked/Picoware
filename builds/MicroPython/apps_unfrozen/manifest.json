@@ -1002,5 +1002,13 @@
             "picoware/apps_unfrozen/games/valley-rider.py"
         ],
         "version": "1.0"
+    },
+    {
+        "title": "CSI Radar",
+        "description": "A Wi-Fi CSI amplitude radar. Uses 12 subcarrier amplitudes, a 7-sample Hampel filter, and a 100-sample variance calibration to estimate motion and spatial changes.",
+        "file_structure": [
+            "picoware/apps_unfrozen/CSIRadar.py"
+        ],
+        "version": "1.0"
     }
 ]

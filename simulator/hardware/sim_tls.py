@@ -1,5 +1,10 @@
+import sys
+
 try:
-    import ssl as _ssl
+    if sys.implementation.name == "micropython":
+        import tls as _ssl
+    else:
+        import ssl as _ssl
 except ImportError:
     _ssl = None
 
@@ -21,7 +26,7 @@ except Exception:
 
 class SSLContext:
     def __init__(self, protocol=PROTOCOL_TLS_CLIENT):
-        """Wrap a CPython SSLContext for the simulator."""
+        """Wrap the host TLS context for the simulator."""
         self.protocol = protocol
         self.verify_mode = CERT_REQUIRED
         self._context = None
@@ -50,7 +55,7 @@ class SSLContext:
                 return _wrap_compat(_ssl.wrap_socket(sock, server_hostname=server_hostname))
             except TypeError:
                 return _wrap_compat(_ssl.wrap_socket(sock))
-        return sock
+        raise OSError("TLS backend unavailable")
 
 
 class _CompatSocket:
@@ -138,5 +143,9 @@ def wrap_socket(sock, *args, **kwargs):
     if hasattr(sock, "_sim_real_socket"):
         sock = sock._sim_real_socket()
     if _ssl is None:
-        return sock
+        raise OSError("TLS backend unavailable")
+    if not hasattr(_ssl, "wrap_socket"):
+        context = SSLContext()
+        context.verify_mode = CERT_NONE
+        return context.wrap_socket(sock, *args, **kwargs)
     return _wrap_compat(_ssl.wrap_socket(sock, *args, **kwargs))

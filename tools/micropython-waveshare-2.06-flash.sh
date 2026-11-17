@@ -39,7 +39,7 @@ require_file() {
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 picoware_dir="$(cd "$script_dir/.." && pwd)"
-esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.2/esp-idf}"
+esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.5/esp-idf}"
 build_dir="${WATCH_BUILD_DIR:-$picoware_dir/builds/MicroPython}"
 watch_variant="${WATCH_VARIANT:-s3}"
 case "$watch_variant" in

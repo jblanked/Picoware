@@ -10,7 +10,7 @@ picoware_dir="$(cd "$script_dir/.." && pwd)"
 # runs them without env vars. Override them if your setup differs.
 micropython_root="${MICROPYTHON_ROOT:-$HOME/pico/micropython}"
 micropython_dir="${MICROPYTHON_ESP32_PORT:-$micropython_root/ports/esp32}"
-esp_idf_dir="${ESP_IDF_DIR:-$HOME/.espressif/v5.5.2/esp-idf}"
+esp_idf_dir="${ESP_IDF_DIR:-$HOME/.espressif/v5.5.5/esp-idf}"
 idf_tools_dir="${IDF_TOOLS_PATH:-$HOME/.espressif}"
 
 board_src_dir="$picoware_dir/src/MicroPython/Waveshare/ESP32C5-Touch-LCD-3.5"
@@ -91,7 +91,7 @@ if [ ! -d "$board_dir" ]; then
     exit 1
 fi
 
-# Some ESP-IDF 5.5.2 installations reference this port include directory even
+# Some ESP-IDF 5.5.5 installations reference this port include directory even
 # when the package does not provide it. Create it if absent.
 mspi_include_dir="$esp_idf_dir/components/esp_hw_support/mspi_timing_tuning/port/esp32c5/include"
 if [ ! -d "$mspi_include_dir" ]; then

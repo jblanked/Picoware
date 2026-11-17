@@ -1,5 +1,5 @@
 # CrowPanel ESP32-P4-WIFI6 SDK Config Defaults
-# This file contains critical configuration overrides for ESP-IDF 5.5.2 compatibility
+# This file contains critical configuration overrides for ESP-IDF 5.5.5 compatibility
 # ESP-Hosted WiFi/Bluetooth via external ESP32-C6
 
 # =============================================

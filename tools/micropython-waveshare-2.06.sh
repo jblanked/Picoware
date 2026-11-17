@@ -19,7 +19,7 @@ picoware_dir="$(cd "$script_dir/.." && pwd)"
 # Override these with env vars if your setup uses different locations.
 micropython_dir="${MICROPYTHON_ESP32_PORT:-/Users/user/pico/micropython/ports/esp32}"
 micropython_root="${MICROPYTHON_ROOT:-/Users/user/pico/micropython}"
-esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.2/esp-idf}"
+esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.5/esp-idf}"
 idf_tools_dir="${IDF_TOOLS_PATH:-$HOME/.espressif}"
 
 watch_common_src_dir="$picoware_dir/src/MicroPython/Waveshare/ESP32S3-Touch-LCD-2.06"

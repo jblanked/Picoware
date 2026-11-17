@@ -7,7 +7,7 @@ picoware_dir="$(cd "$script_dir/.." && pwd)"
 
 micropython_dir="${MICROPYTHON_ESP32_PORT:-/Users/user/pico/micropython/ports/esp32}"
 micropython_root="${MICROPYTHON_ROOT:-/Users/user/pico/micropython}"
-esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.2/esp-idf}"
+esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.5/esp-idf}"
 
 board_name="PICOWARE_CROWPANEL_WATCH_2_01"
 board_src="$picoware_dir/src/MicroPython/CrowPanel/ESP32S3-Watch-2.01"

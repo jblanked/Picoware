@@ -13,7 +13,7 @@
 // WiFi and Bluetooth are provided via ESP-Hosted with external ESP32-C6
 // These are enabled by the C6_WIFI variant via mpconfigboard.cmake
 
-// Disable I2C target/slave - ESP-IDF 5.5.2 API incompatible with MicroPython
+// Disable I2C target/slave - ESP-IDF 5.5.5 API incompatible with MicroPython
 #define MICROPY_PY_MACHINE_I2C_TARGET (0)
 
 #define MICROPY_PY_BLUETOOTH_USE_SYNC_EVENTS (1)

@@ -19,7 +19,7 @@ picoware_dir="$(cd "$script_dir/.." && pwd)"
 # Override these with env vars if your setup uses different locations.
 micropython_dir="${MICROPYTHON_ESP32_PORT:-/Users/user/pico/micropython/ports/esp32}"
 micropython_root="${MICROPYTHON_ROOT:-/Users/user/pico/micropython}"
-esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.2/esp-idf}"
+esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.5/esp-idf}"
 
 crowpanel_src_dir="$picoware_dir/src/MicroPython/CrowPanel"
 output_dir="$picoware_dir/builds/MicroPython"
@@ -138,7 +138,7 @@ source "$esp_idf_dir/export.sh"
 echo "Starting CrowPanel firmware build..."
 cd "$micropython_dir"
 
-# Keep ESP-IDF 5.5.2 warnings from failing the build and keep legacy I2C API enabled.
+# Keep ESP-IDF 5.5.5 warnings from failing the build and keep legacy I2C API enabled.
 export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1"
 
 make BOARD=ESP32_GENERIC_P4 BOARD_VARIANT=C6_WIFI \

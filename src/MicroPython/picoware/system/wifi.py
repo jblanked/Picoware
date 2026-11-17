@@ -368,6 +368,72 @@ class WiFi:
             self._state = WIFI_STATE_ISSUE
             return False
 
+    def csi(
+        self, enable: bool, buffer_size: int = 32, callback: callable = None
+    ) -> bool:
+        """Enable or disable Channel State Information (CSI), which provides per-packet physical layer channel data derived from received Wi-Fi frames
+
+        Args:
+            enable (bool): True to enable CSI, False to disable.
+            buffer_size (int, optional): Size of the buffer for CSI data. Defaults to 32.
+            callback (callable, optional): Function to call with CSI data. It should accept two arguments: the CSI buffer and the number of dropped CSI packets. (disable and re-enable with higher buffer size if frequent drops occur)
+
+        Returns:
+            bool: True if the operation was successful.
+        """
+        if self._is_flipper or self.wlan is None:
+            self.error = "CSI not supported on this device."
+            return False
+        if not self.is_connected():
+            self.error = "CSI can only be enabled when connected to a Wi-Fi network."
+            return False
+
+        try:
+            if enable:
+                self.wlan.csi_enable(buffer_size=buffer_size)
+                if callback:
+                    if self._thread_lock is None:
+                        self.error = "Threading not available for CSI callback."
+                        return False
+                    from picoware.system.thread import ThreadTask
+
+                    self._thread_running = True
+
+                    def csi_callback():
+                        csi_buffer = []
+                        csi_returned = []
+                        while self._thread_running:
+                            if self.wlan.csi_available():
+                                if not csi_buffer:
+                                    csi_returned = self.wlan.csi_read(csi_buffer)
+                                    if csi_returned:
+                                        callback(csi_returned, self.wlan.csi_dropped())
+                                        csi_buffer = csi_returned
+                                else:
+                                    self.wlan.csi_read(csi_buffer)
+                                    if csi_buffer:
+                                        callback(csi_buffer, self.wlan.csi_dropped())
+
+                    task = ThreadTask(
+                        "CSI",
+                        function=csi_callback,
+                        args=(),
+                    )
+                    self._current_task = task
+                    self._thread_manager.add_task(task)
+                    return True
+
+            else:
+                self.wlan.csi_disable()
+                if self._current_task:
+                    self._current_task.stop()
+                    self._current_task = None
+                self._thread_running = False
+            return True
+        except Exception as e:
+            self.error = "Failed to configure CSI: %s" % str(e)
+            return False
+
     def disconnect(self):
         """Disconnect from the Wi-Fi network."""
         if self._is_flipper:

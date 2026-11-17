@@ -436,8 +436,9 @@ void Image::renderMasked(Draw *draw, int16_t x, int16_t y, uint16_t dst_width, u
 
     if (psram_address != 0xFFFFFFFFu && psram_mask_address != 0xFFFFFFFFu)
     {
+        const size_t mask_size = getMaskSize();
         uint8_t *data_buffer = static_cast<uint8_t *>(ENGINE_MEM_MALLOC(data_size));
-        uint8_t *mask_buffer = static_cast<uint8_t *>(ENGINE_MEM_MALLOC(data_size));
+        uint8_t *mask_buffer = static_cast<uint8_t *>(ENGINE_MEM_MALLOC(mask_size));
         if (!data_buffer || !mask_buffer)
         {
             ENGINE_MEM_FREE(data_buffer);
@@ -445,11 +446,11 @@ void Image::renderMasked(Draw *draw, int16_t x, int16_t y, uint16_t dst_width, u
             ENGINE_LOG_INFO("Image::renderMasked failed to allocate memory for PSRAM image data\n");
             return;
         }
-        if (!getData(data_buffer, data_size) || !getMask(mask_buffer, data_size))
+        if (!getData(data_buffer, data_size) || !getMask(mask_buffer, mask_size))
         {
             ENGINE_MEM_FREE(data_buffer);
             ENGINE_MEM_FREE(mask_buffer);
-            ENGINE_LOG_INFO("Image::renderMasked failed to get PSRAM image data\n");
+            ENGINE_LOG_INFO("Image::renderMasked failed to get PSRAM image or mask data\n");
             return;
         }
         draw->imageMasked(x, y, dst_width, dst_height, size.x, size.y, data_buffer, mask_buffer);

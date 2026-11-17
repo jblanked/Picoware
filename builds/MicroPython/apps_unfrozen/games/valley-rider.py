@@ -846,6 +846,7 @@ class _State:
         self.lvl = 1
         self.quest = 0
         self.map_open = False
+        self.hud = None
         self.mode = 0
         self.enemy = None
         self.msg = ("Welcome to the valley.", "Talk to the elder in Oakhaven.")
@@ -1338,33 +1339,37 @@ def _draw_quest_indicator(draw, st):
     if target is None:
         return
     width = st.vw - 13 * st.mmt - 9
-    height = max(19, st.fh + 4)
+    height = 26 if st.hud else max(19, st.fh + 4)
     if width < 19 or st.y0 + 3 + height > st.vb:
         return
     label = target[2][:max(0, (width - 23) // st.fw)]
     fill = draw._fill_rectangle
     left = 3
     top = st.y0 + 3
-    fill(left, top, min(width, 23 + len(label) * st.fw), height, _BAR)
-    draw._text(left + 23, top + (height - st.fh) // 2, label, _GOLD)
+    color = _rgb(54,29,15) if st.hud else _GOLD
+    if st.hud:
+        _hud_asset(draw, st, 'quest', left, top)
+    else:
+        fill(left, top, min(width, 23 + len(label) * st.fw), height, _BAR)
+    draw._text(left + 23, top + (height - st.fh) // 2, label, color)
     cx = left + 9
     cy = top + height // 2
     tx = target[0] + 0.5 - st.px
     ty = target[1] + 0.5 - st.py
     distance = (tx * tx + ty * ty) ** 0.5
     if distance < 0.25:
-        fill(cx - 2, cy - 2, 5, 5, _GOLD)
+        fill(cx - 2, cy - 2, 5, 5, color)
         return
     # Project the objective onto camera-right and camera-forward axes.
     dx = (-sin(st.pa) * tx + cos(st.pa) * ty) / distance
     dy = -(cos(st.pa) * tx + sin(st.pa) * ty) / distance
     for forward in range(-5, 8):
         fill(cx + int(round(forward * dx)),
-             cy + int(round(forward * dy)), 1, 1, _GOLD)
+             cy + int(round(forward * dy)), 1, 1, color)
     for back in range(1, 5):
         for side in (-back, back):
             fill(cx + int(round((7 - back) * dx - side * dy)),
-                 cy + int(round((7 - back) * dy + side * dx)), 1, 1, _GOLD)
+                 cy + int(round((7 - back) * dy + side * dx)), 1, 1, color)
 
 
 def _hud(view_manager, st):
@@ -1471,13 +1476,14 @@ def _minimap(draw, st):
     n = r * 2 + 1
     ts = st.mmt
     size = n * ts
-    ox = st.vw - size - 3
-    oy = st.y0 + 3
+    ox = 257 if st.hud else st.vw - size - 3
+    oy = 57 if st.hud else st.y0 + 3
     cx = int(st.px) - r
     cy = int(st.py) - r
     tiles = st.tiles
     fill = draw._fill_rectangle
-    fill(ox - 1, oy - 1, size + 2, size + 2, _WHITE)
+    if not st.hud:
+        fill(ox - 1, oy - 1, size + 2, size + 2, _WHITE)
     for j in range(n):
         ty = cy + j
         row = ty * _W
@@ -1513,6 +1519,8 @@ def _minimap(draw, st):
 
 def _draw_world_map(view_manager, st):
     """Fit the whole north-up valley on screen without a second tile buffer."""
+    if st.hud:
+        return _draw_medieval_map(view_manager, st)
     draw = view_manager.draw
     fill = draw._fill_rectangle
     draw.fill_screen(_BAR)
@@ -1738,10 +1746,13 @@ def _render(view_manager, st):
             fill(sx, buf[o], cw, buf[o + 1], buf[o + 2])
             o += 3
     _draw_npcs(draw, st, dx, dy, eye64 / 64)
-    _minimap(draw, st)
-    _draw_quest_indicator(draw, st)
-    draw._text(3, st.vb - st.fh - 2, "M: Map", _WHITE)
-    _hud(view_manager, st)
+    if st.hud:
+        _medieval_hud(view_manager, st)
+    else:
+        _minimap(draw, st)
+        _draw_quest_indicator(draw, st)
+        draw._text(3, st.vb - st.fh - 2, "M: Map", _WHITE)
+        _hud(view_manager, st)
     draw.swap()
 
 
@@ -1760,8 +1771,10 @@ def start(view_manager):
     st.vh = int(size.y)
     st.fw = max(1, int(draw.font_size.x))
     st.fh = max(1, int(draw.font_size.y))
-    st.y0 = st.fh + 4
-    st.vb = st.vh - (st.fh * 2 + 8)
+    if st.vw == 320 and st.vh == 320 and st.fw <= 6 and st.fh <= 8:
+        st.hud = _load_hud(view_manager)
+    st.y0 = 46 if st.hud else st.fh + 4
+    st.vb = 256 if st.hud else st.vh - (st.fh * 2 + 8)
     st.hor = st.y0 + (st.vb - st.y0) * 45 // 100
     st.cw = max(3, st.vw // 64)
     cols = st.vw // st.cw
@@ -1877,6 +1890,8 @@ def stop(view_manager):
     global _st
     st = _st
     if st is not None:
+        _release_hud(st.hud)
+        st.hud = None
         if st.multiplayer_ws is not None:
             st.multiplayer_connection_state = "idle"
             st.multiplayer_ws.close()
@@ -1886,3 +1901,232 @@ def stop(view_manager):
             st.multiplayer_http = None
     _st = None
     collect()
+
+
+_HUD_SPECS = (('status', 320, 46), ('dialogue', 320, 64),
+              ('minimap', 68, 68), ('quest', 128, 26))
+_HUD_ROOT = 'picoware/assets/valley-rider/'
+
+
+def _load_hud(view_manager):
+    """Load SD RGB565 art once; retain the classic layout if unavailable."""
+    assets = {}
+    native_framebuffer = getattr(view_manager.draw, '_framebuffer', None)
+    psram = None
+    try:
+        if native_framebuffer is not None:
+            import framebuf
+        else:
+            from picoware.system.boards import BOARD_HAS_PICOCALC, BOARD_HAS_PSRAM
+            if BOARD_HAS_PICOCALC and BOARD_HAS_PSRAM:
+                from picoware.system.psram import PSRAM
+                # Native methods use shared PSRAM state. Creating a temporary
+                # manager would deinitialize it when its finalizer runs.
+                if PSRAM.is_ready(None):
+                    psram = PSRAM
+        for name, w, h in _HUD_SPECS:
+            pixels = bytearray(w * h * 2)
+            if view_manager.storage.readinto(_HUD_ROOT + name + '.bin', pixels) != len(pixels):
+                raise ValueError('Incomplete HUD pixels: ' + name)
+            stride = (w + 7) // 8
+            mask = view_manager.storage.read(_HUD_ROOT + name + '.mask.bin', 'rb')
+            if len(mask) != stride * h:
+                raise ValueError('Incomplete HUD mask: ' + name)
+            if native_framebuffer is not None:
+                # Reserved transparent key; opaque artwork must not use it.
+                key = 0xf81f
+                for y in range(h):
+                    for x in range(w):
+                        p = (y * w + x) * 2
+                        if mask[y * stride + x // 8] & (128 >> (x % 8)):
+                            if (pixels[p] | (pixels[p + 1] << 8)) == key:
+                                raise ValueError('HUD transparency key collision')
+                        else:
+                            pixels[p], pixels[p + 1] = key & 255, key >> 8
+                sprite = framebuf.FrameBuffer(pixels, w, h, framebuf.RGB565)
+                assets[name] = (sprite, pixels, key)
+            else:
+                # Firmware _bytearray accepts RGB565. Precompute opaque row
+                # spans, merging adjacent full-width rows into one native blit.
+                spans = array('H')
+                for y in range(h):
+                    x = 0
+                    while x < w:
+                        if not mask[y * stride + x // 8] & (128 >> (x % 8)):
+                            x += 1
+                            continue
+                        left = x
+                        x += 1
+                        while x < w and mask[y * stride + x // 8] & (128 >> (x % 8)):
+                            x += 1
+                        if (left == 0 and x == w and len(spans) >= 4
+                                and spans[-4] == 0 and spans[-2] == w
+                                and spans[-3] + spans[-1] == y):
+                            spans[-1] += 1
+                        else:
+                            spans.extend((left, y, x - left, 1))
+                if psram is not None:
+                    # An owned allocation prevents framebuffer overlap and is
+                    # reclaimed with the game state on exit.
+                    owner = psram.alloc_object(None, pixels)
+                    assets[name] = (w, owner, spans, True)
+                else:
+                    assets[name] = (w, memoryview(pixels), spans, False)
+                pixels = None
+    except (OSError, ValueError, MemoryError) as error:
+        _release_hud(assets)
+        assets.clear()
+        print('Valley Rider: using classic HUD:', error)
+        return None
+    return assets
+
+
+def _release_hud(assets):
+    """Release owned PSRAM buffers deterministically on exit or load failure."""
+    if assets:
+        # Reverse allocation order also reclaims the native allocator tail.
+        for name, _, _ in reversed(_HUD_SPECS):
+            asset = assets.get(name)
+            if asset is not None and len(asset) == 4 and asset[3]:
+                asset[1].__del__()
+
+
+def _hud_asset(draw, st, name, ox, oy):
+    """Draw cached artwork through a native RGB565 buffer path."""
+    asset = st.hud[name]
+    framebuffer = getattr(draw, '_framebuffer', None)
+    if framebuffer is not None:
+        framebuffer.blit(asset[0], ox, oy, asset[2])
+        return
+    width, pixels, spans, in_psram = asset
+    blit = draw._psram if in_psram else draw._bytearray
+    address = pixels.addr() if in_psram else 0
+    for i in range(0, len(spans), 4):
+        x, y, w, h = spans[i], spans[i + 1], spans[i + 2], spans[i + 3]
+        offset = (y * width + x) * 2
+        if in_psram:
+            blit(ox + x, oy + y, w, h, address + offset)
+        else:
+            blit(ox + x, oy + y, w, h, pixels[offset:offset + w * h * 2])
+
+def _medieval_hud(vm,st):
+    d=vm.draw
+    t=d._text
+    fill=d._fill_rectangle
+    ink=_rgb(54,29,15)
+    cream=_rgb(255,232,180)
+    fill(0,0,320,46,_rgb(30,18,12))
+    fill(0,256,320,64,_rgb(30,18,12))
+    _hud_asset(d,st,'status',0,0)
+    t(36,10,('HP %d/%d'%(st.hp,st.mhp))[:16],cream)
+    fill(36,27,80,7,_rgb(37,13,10))
+    amount=80*max(0,min(st.hp,st.mhp))//max(1,st.mhp)
+    if amount:
+        fill(36,28,amount,5,_rgb(190,43,38))
+        fill(36,28,amount,1,_rgb(245,105,65))
+    t(151,19,('Lv %d'%st.lvl)[:12],cream)
+    t(253,19,str(st.gold)[:10],cream)
+    _hud_asset(d,st,'minimap',249,49)
+    _minimap(d,st)
+    _draw_quest_indicator(d,st)
+    _hud_asset(d,st,'dialogue',0,256)
+    heading=_DIRS[int(round(st.pa/(pi/4)))%8]
+    status='Mounted' if st.mounted else 'On foot'
+    if st.multiplayer_connection_state=='active':
+        status+=' / Online'
+    right=308-len(status)*st.fw
+    t(12,265,(heading+' / '+_where(st))[:max(0,(right-20)//st.fw)],ink)
+    t(right,265,status,ink)
+    mc=296//st.fw
+    t(12,280,st.msg[0][:mc],ink)
+    t(12,291,st.msg[1][:mc],ink)
+    t(12,304,'M Map',ink)
+    t(246,304,'OK Interact',ink)
+
+def _draw_medieval_map(view_manager, st):
+    """Fit the whole north-up valley on screen without a second tile buffer."""
+    draw = view_manager.draw
+    fill = draw._fill_rectangle
+    draw.fill_screen(_rgb(48,28,17))
+    _hud_asset(draw,st,'dialogue',0,0)
+    _hud_asset(draw,st,'dialogue',0,256)
+    brass=_rgb(182,127,49)
+    ink=_rgb(56,37,20)
+    paper=_rgb(229,204,151)
+    for x in (4,314):
+        fill(x,57,2,199,brass)
+        for y in (88,160,232):
+            fill(x-1,y,4,4,_rgb(223,173,76))
+    fill(23,27,274,274,brass)
+    fill(25,29,270,270,ink)
+    size = 268
+    ox = (st.vw - size) // 2
+    oy = 30
+    draw._text(16,12,"THE VALLEY",ink)
+    draw._text(270,12,"N ^",ink)
+    for y in range(_H):
+        top = oy + y * size // _H
+        bottom = oy + (y + 1) * size // _H
+        x = 0
+        while x < _W:
+            color = _CHART_COLORS[st.tiles[y * _W + x]]
+            end = x + 1
+            while end < _W and _CHART_COLORS[st.tiles[y * _W + end]] == color:
+                end += 1
+            left = ox + x * size // _W
+            right = ox + end * size // _W
+            if right > left and bottom > top:
+                fill(left, top, right - left, bottom - top, color)
+            x = end
+    for x, y, label in _TOWNS + (
+        (_SHRINE_POS[0], _SHRINE_POS[1], "Shrine"),
+        (_WAYSTONE_POS[0], _WAYSTONE_POS[1], "Waystone"),
+    ):
+        mx = ox + x * size // _W
+        my = oy + y * size // _H
+        fill(mx-1,my-1,3,3,ink)
+        tx = max(ox+2, min(ox+size-len(label)*st.fw-2, mx+4))
+        ty = max(oy, my - st.fh - 2)
+        fill(tx-1,ty-1,len(label)*st.fw+2,st.fh+2,paper)
+        draw._text(tx,ty,label,ink)
+    for remote in st.remote_players.values():
+        mx = ox + int(remote["x"] * size / _W)
+        my = oy + int(remote["y"] * size / _H)
+        if ox <= mx < ox + size and oy <= my < oy + size:
+            fill(mx - 1, my - 1, 3, 3, remote["color"])
+    mx = ox + int(st.px * size / _W)
+    my = oy + int(st.py * size / _H)
+    fill(mx - 2, my - 2, 5, 5, _rgb(255, 60, 60))
+    # Rotate a shaft and two arrowhead wings; shift the whole arrow at edges
+    # so its shape and heading remain visible without unsigned-coordinate wrap.
+    dx = cos(st.pa)
+    dy = sin(st.pa)
+    points = []
+    for forward in range(3, 10):
+        points.append((int(round(forward * dx)), int(round(forward * dy))))
+    for back in range(1, 5):
+        for side in (-back, back):
+            points.append((int(round((9 - back) * dx - side * dy)),
+                           int(round((9 - back) * dy + side * dx))))
+    min_x = min(point[0] for point in points)
+    max_x = max(point[0] for point in points)
+    min_y = min(point[1] for point in points)
+    max_y = max(point[1] for point in points)
+    ax = max(ox - min_x, min(ox + size - 1 - max_x, mx))
+    ay = max(oy - min_y, min(oy + size - 1 - max_y, my))
+    for x, y in points:
+        x += ax
+        y += ay
+        if ox <= x < ox + size and oy <= y < oy + size:
+            fill(x,y,1,1,_rgb(255,239,186))
+    draw._text(14,303,"M/Back Close",ink)
+    draw._text(222,303,"Red: You",ink)
+    draw.swap()
+
+
+# Restrained cartographic colors; unchanged tile meanings and live markers.
+_CHART_COLORS = tuple(_rgb(*c) for c in (
+    (184,186,124), (113,153,164), (105,130,85), (157,142,116),
+    (229,220,187), (126,83,49), (214,178,105), (154,111,65),
+    (214,178,105), (164,118,146), (147,98,52), (98,153,137),
+))

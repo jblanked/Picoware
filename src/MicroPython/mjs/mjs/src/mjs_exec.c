@@ -693,6 +693,73 @@ static int getprop_builtin(struct mjs *mjs, mjs_val_t val, mjs_val_t name,
   return handled;
 }
 
+/* Fuse a fast-local integer comparison with its conditional branch. */
+static int mjs_try_fast_local_compare_branch(struct mjs *mjs,
+                                             const uint8_t *code,
+                                             size_t code_len, size_t pc,
+                                             mjs_val_t left,
+                                             size_t *next_pc)
+{
+  int llen, comparison, condition;
+  int64_t right;
+  double left_number, right_number;
+
+  if (pc + 1 >= code_len || code[pc] != OP_PUSH_INT)
+  {
+    return 0;
+  }
+  right = cs_varint_decode_unsafe(&code[pc + 1], &llen);
+  pc += (size_t)llen + 1;
+
+  if (pc + 1 >= code_len || code[pc] != OP_EXPR)
+  {
+    return 0;
+  }
+  comparison = code[pc + 1];
+  if (comparison != TOK_LT && comparison != TOK_LE &&
+      comparison != TOK_GT && comparison != TOK_GE)
+  {
+    return 0;
+  }
+  pc += 2;
+
+  if (pc + 1 >= code_len || code[pc] != OP_JMP_FALSE ||
+      !mjs_is_number(left))
+  {
+    return 0;
+  }
+
+  {
+    int jump = cs_varint_decode_unsafe(&code[pc + 1], &llen);
+    pc += (size_t)llen + 1;
+    left_number = mjs_get_double(mjs, left);
+    right_number = (double)right;
+    switch (comparison)
+    {
+    case TOK_LT:
+      condition = left_number < right_number;
+      break;
+    case TOK_LE:
+      condition = left_number <= right_number;
+      break;
+    case TOK_GT:
+      condition = left_number > right_number;
+      break;
+    default:
+      condition = left_number >= right_number;
+      break;
+    }
+    if (!condition)
+    {
+      mjs_push(mjs, MJS_UNDEFINED);
+      pc += (size_t)jump;
+    }
+  }
+
+  *next_pc = pc;
+  return 1;
+}
+
 MJS_PRIVATE mjs_err_t mjs_execute(struct mjs *mjs, size_t off, mjs_val_t *res)
 {
   size_t i;
@@ -1214,6 +1281,14 @@ MJS_PRIVATE mjs_err_t mjs_execute(struct mjs *mjs, size_t off, mjs_val_t *res)
     mjs_val_t *locals = (mjs_val_t *)mjs->fast_locals.buf;
     if ((size_t)idx < mjs->fast_locals.len / sizeof(mjs_val_t))
     {
+      size_t next_pc;
+      if (mjs_try_fast_local_compare_branch(
+              mjs, code, bp.data.len, i + (size_t)llen + 1, locals[idx],
+              &next_pc))
+      {
+        i = next_pc;
+        CG_DISPATCH_ERR();
+      }
       mjs_push(mjs, locals[idx]);
     }
     else
@@ -1243,6 +1318,8 @@ MJS_PRIVATE mjs_err_t mjs_execute(struct mjs *mjs, size_t off, mjs_val_t *res)
   op_INC_FAST:
   {
     int llen, idx = cs_varint_decode_unsafe(&code[i + 1], &llen);
+    size_t next = i + (size_t)llen + 1;
+    int drop_result = next < bp.data.len && code[next] == OP_DROP;
     mjs_val_t *locals = (mjs_val_t *)mjs->fast_locals.buf;
     mjs_val_t old = MJS_UNDEFINED;
     if ((size_t)idx < mjs->fast_locals.len / sizeof(mjs_val_t))
@@ -1258,14 +1335,19 @@ MJS_PRIVATE mjs_err_t mjs_execute(struct mjs *mjs, size_t off, mjs_val_t *res)
       mjs->fast_locals.len = needed;
     }
     ((mjs_val_t *)mjs->fast_locals.buf)[idx] = new_val;
-    mjs_push(mjs, old); /* postfix: push OLD value */
-    i += llen + 1;
+    if (!drop_result)
+    {
+      mjs_push(mjs, old); /* postfix: push OLD value */
+    }
+    i = next + drop_result;
     CG_DISPATCH_ERR();
   }
   /* OP_DEC_FAST <idx> */
   op_DEC_FAST:
   {
     int llen, idx = cs_varint_decode_unsafe(&code[i + 1], &llen);
+    size_t next = i + (size_t)llen + 1;
+    int drop_result = next < bp.data.len && code[next] == OP_DROP;
     mjs_val_t *locals = (mjs_val_t *)mjs->fast_locals.buf;
     mjs_val_t old = MJS_UNDEFINED;
     if ((size_t)idx < mjs->fast_locals.len / sizeof(mjs_val_t))
@@ -1281,10 +1363,12 @@ MJS_PRIVATE mjs_err_t mjs_execute(struct mjs *mjs, size_t off, mjs_val_t *res)
       mjs->fast_locals.len = needed;
     }
     ((mjs_val_t *)mjs->fast_locals.buf)[idx] = new_val;
-    mjs_push(mjs, old); /* postfix: push OLD value */
-    i += llen + 1;
+    if (!drop_result)
+    {
+      mjs_push(mjs, old); /* postfix: push OLD value */
+    }
+    i = next + drop_result;
     CG_DISPATCH_ERR();
-  }
   }
 
 cg_unknown_opcode:
@@ -1740,6 +1824,14 @@ cg_clean:;
       mjs_val_t *locals = (mjs_val_t *)mjs->fast_locals.buf;
       if ((size_t)idx < mjs->fast_locals.len / sizeof(mjs_val_t))
       {
+        size_t next_pc;
+        if (mjs_try_fast_local_compare_branch(
+                mjs, code, bp.data.len, i + (size_t)llen + 1, locals[idx],
+                &next_pc))
+        {
+          i = next_pc - 1;
+          break;
+        }
         mjs_push(mjs, locals[idx]);
       }
       else
@@ -1767,6 +1859,8 @@ cg_clean:;
     case OP_INC_FAST:
     {
       int llen, idx = cs_varint_decode_unsafe(&code[i + 1], &llen);
+      size_t next = i + (size_t)llen + 1;
+      int drop_result = next < bp.data.len && code[next] == OP_DROP;
       mjs_val_t *locals = (mjs_val_t *)mjs->fast_locals.buf;
       mjs_val_t old = MJS_UNDEFINED;
       if ((size_t)idx < mjs->fast_locals.len / sizeof(mjs_val_t))
@@ -1782,13 +1876,18 @@ cg_clean:;
         mjs->fast_locals.len = needed;
       }
       ((mjs_val_t *)mjs->fast_locals.buf)[idx] = new_val;
-      mjs_push(mjs, old); /* postfix: push OLD value */
-      i += llen;
+      if (!drop_result)
+      {
+        mjs_push(mjs, old); /* postfix: push OLD value */
+      }
+      i += llen + drop_result;
       break;
     }
     case OP_DEC_FAST:
     {
       int llen, idx = cs_varint_decode_unsafe(&code[i + 1], &llen);
+      size_t next = i + (size_t)llen + 1;
+      int drop_result = next < bp.data.len && code[next] == OP_DROP;
       mjs_val_t *locals = (mjs_val_t *)mjs->fast_locals.buf;
       mjs_val_t old = MJS_UNDEFINED;
       if ((size_t)idx < mjs->fast_locals.len / sizeof(mjs_val_t))
@@ -1804,8 +1903,11 @@ cg_clean:;
         mjs->fast_locals.len = needed;
       }
       ((mjs_val_t *)mjs->fast_locals.buf)[idx] = new_val;
-      mjs_push(mjs, old); /* postfix: push OLD value */
-      i += llen;
+      if (!drop_result)
+      {
+        mjs_push(mjs, old); /* postfix: push OLD value */
+      }
+      i += llen + drop_result;
       break;
     }
     default:

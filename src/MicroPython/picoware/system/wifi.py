@@ -436,6 +436,7 @@ class WiFi:
                 self.error = "CSI is not supported by this Wi-Fi driver."
             else:
                 self.error = "Failed to configure CSI: %s" % error_message
+            self._thread_running = False
             return False
 
     def disconnect(self):

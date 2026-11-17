@@ -42,8 +42,9 @@
             "picoware/assets/valley-rider/quest.bin",
             "picoware/assets/valley-rider/quest.mask.bin",
             "picoware/assets/valley-rider/status.bin",
-            "picoware/assets/valley-rider/status.mask.bin"
+            "picoware/assets/valley-rider/status.mask.bin",
+            "picoware/assets/valley-rider/artwork.json"
         ],
-        "version": "1.0"
+        "version": "1.1"
     }
 ]

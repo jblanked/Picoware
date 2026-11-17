@@ -847,6 +847,8 @@ class _State:
         self.quest = 0
         self.map_open = False
         self.hud = None
+        self.hud_layout = None
+        self.chart_colors = None
         self.mode = 0
         self.enemy = None
         self.msg = ("Welcome to the valley.", "Talk to the elder in Oakhaven.")
@@ -1339,9 +1341,11 @@ def _draw_quest_indicator(draw, st):
     if target is None:
         return
     width = st.vw - 13 * st.mmt - 9
-    height = 26 if st.hud else max(19, st.fh + 4)
+    height = st.hud_layout['quest'][1] if st.hud else max(19, st.fh + 4)
     if width < 19 or st.y0 + 3 + height > st.vb:
         return
+    if st.hud:
+        width = min(width, st.hud_layout['quest'][0])
     label = target[2][:max(0, (width - 23) // st.fw)]
     fill = draw._fill_rectangle
     left = 3
@@ -1380,9 +1384,10 @@ def _hud(view_manager, st):
     draw._fill_rectangle(0, st.vb, w, st.vh - st.vb, _BAR)
     left = f"HP {st.hp}/{st.mhp}  Lv {st.lvl}  G {st.gold}"
     right = f"{_DIRS[int(round(st.pa / (pi / 4))) % 8]} {_where(st)}"
-    draw._text(3, 2, left, _WHITE)
-    draw._text(w - len(right) * st.fw - 3, 2, right, _WHITE)
-    mc = w // st.fw
+    mc = max(0, (w - 6) // st.fw)
+    draw._text(3, 2, left[:mc], _WHITE)
+    if len(left) + len(right) + 1 <= mc:
+        draw._text(w - len(right) * st.fw - 3, 2, right, _WHITE)
     draw._text(3, st.vb + 3, st.msg[0][:mc], _WHITE)
     draw._text(3, st.vb + 4 + st.fh, st.msg[1][:mc], _GOLD)
     if st.multiplayer_connection_state == "active":
@@ -1476,8 +1481,10 @@ def _minimap(draw, st):
     n = r * 2 + 1
     ts = st.mmt
     size = n * ts
-    ox = 257 if st.hud else st.vw - size - 3
-    oy = 57 if st.hud else st.y0 + 3
+    margin = st.hud_layout['padding'] if st.hud else 3
+    border = st.hud_layout['border'] if st.hud else 0
+    ox = st.vw - size - margin - border
+    oy = st.y0 + margin + border
     cx = int(st.px) - r
     cy = int(st.py) - r
     tiles = st.tiles
@@ -1519,23 +1526,34 @@ def _minimap(draw, st):
 
 def _draw_world_map(view_manager, st):
     """Fit the whole north-up valley on screen without a second tile buffer."""
-    if st.hud:
-        return _draw_medieval_map(view_manager, st)
     draw = view_manager.draw
     fill = draw._fill_rectangle
-    draw.fill_screen(_BAR)
-    size = max(1, min(st.vw - 4, st.vh - 2 * st.fh - 10))
+    margin = max(2, min(st.vw, st.vh) // 80)
+    ink = _rgb(56, 37, 20) if st.hud else _WHITE
+    paper = _rgb(229, 204, 151) if st.hud else _BAR
+    colors = st.chart_colors if st.hud else _MMC
+    draw.fill_screen(_rgb(48, 28, 17) if st.hud else _BAR)
+    if st.hud:
+        _hud_asset(draw, st, 'dialogue', 0, 0)
+        _hud_asset(draw, st, 'dialogue', 0, st.vh - st.hud_layout['dialogue'][1])
+    band = max(st.fh + 2 * margin, st.hud_layout['dialogue'][1] // 2) if st.hud else st.fh + 2 * margin
+    size = max(1, min(st.vw - 2 * margin, st.vh - 2 * band))
     ox = (st.vw - size) // 2
-    oy = st.fh + 5
-    draw._text(3, 1, "VALLEY MAP  N ^", _GOLD)
+    oy = (st.vh - size) // 2
+    fill(ox - 1, oy - 1, size + 2, size + 2, _GOLD)
+    title = 'THE VALLEY' if st.hud else 'VALLEY MAP'
+    text_left = max(margin, st.vw // 20)
+    title_y = (band - st.fh) // 2
+    draw._text(text_left, title_y, title[:max(0, (st.vw - 2 * text_left) // st.fw - 4)], ink)
+    draw._text(st.vw - 3 * st.fw - text_left, title_y, 'N ^', ink)
     for y in range(_H):
         top = oy + y * size // _H
         bottom = oy + (y + 1) * size // _H
         x = 0
         while x < _W:
-            color = _MMC[st.tiles[y * _W + x]]
+            color = colors[st.tiles[y * _W + x]]
             end = x + 1
-            while end < _W and _MMC[st.tiles[y * _W + end]] == color:
+            while end < _W and colors[st.tiles[y * _W + end]] == color:
                 end += 1
             left = ox + x * size // _W
             right = ox + end * size // _W
@@ -1548,18 +1566,26 @@ def _draw_world_map(view_manager, st):
     ):
         mx = ox + x * size // _W
         my = oy + y * size // _H
-        fill(mx - 1, my - 1, 3, 3, _WHITE)
-        tx = max(0, min(st.vw - len(label) * st.fw, mx + 4))
-        ty = max(oy, my - st.fh - 2)
-        fill(tx, ty, len(label) * st.fw, st.fh, _BAR)
-        draw._text(tx, ty, label, _WHITE)
+        mx = max(ox + 1, min(ox + size - 2, mx))
+        my = max(oy + 1, min(oy + size - 2, my))
+        fill(mx - 1, my - 1, 3, 3, ink)
+        label = label[:max(0, (size - 2) // st.fw)]
+        tx = max(ox + 1, min(ox + size - len(label) * st.fw - 1, mx + 4))
+        ty = max(oy + 1, min(oy + size - st.fh - 1, my - st.fh - 2))
+        if label:
+            fill(tx, ty, len(label) * st.fw, st.fh, paper)
+            draw._text(tx, ty, label, ink)
     for remote in st.remote_players.values():
         mx = ox + int(remote["x"] * size / _W)
         my = oy + int(remote["y"] * size / _H)
         if ox <= mx < ox + size and oy <= my < oy + size:
+            mx = max(ox + 1, min(ox + size - 2, mx))
+            my = max(oy + 1, min(oy + size - 2, my))
             fill(mx - 1, my - 1, 3, 3, remote["color"])
     mx = ox + int(st.px * size / _W)
     my = oy + int(st.py * size / _H)
+    mx = max(ox + 2, min(ox + size - 3, mx))
+    my = max(oy + 2, min(oy + size - 3, my))
     fill(mx - 2, my - 2, 5, 5, _rgb(255, 60, 60))
     # Rotate a shaft and two arrowhead wings; shift the whole arrow at edges
     # so its shape and heading remain visible without unsigned-coordinate wrap.
@@ -1583,7 +1609,9 @@ def _draw_world_map(view_manager, st):
         y += ay
         if ox <= x < ox + size and oy <= y < oy + size:
             fill(x, y, 1, 1, _WHITE)
-    draw._text(3, st.vh - st.fh - 2, "M/Back: close", _GOLD)
+    draw._text(text_left, st.vh - band + title_y, "M/Back: close", ink)
+    if st.vw >= 24 * st.fw + 2 * text_left:
+        draw._text(st.vw - 8 * st.fw - text_left, st.vh - band + title_y, "Red: You", ink)
     draw.swap()
 
 
@@ -1771,10 +1799,16 @@ def start(view_manager):
     st.vh = int(size.y)
     st.fw = max(1, int(draw.font_size.x))
     st.fh = max(1, int(draw.font_size.y))
-    if st.vw == 320 and st.vh == 320 and st.fw <= 6 and st.fh <= 8:
-        st.hud = _load_hud(view_manager)
-    st.y0 = 46 if st.hud else st.fh + 4
-    st.vb = 256 if st.hud else st.vh - (st.fh * 2 + 8)
+    st.hud_layout = _hud_layout(st)
+    st.hud = _load_hud(view_manager, st.hud_layout)
+    st.y0 = st.hud_layout['status'][1] if st.hud else st.fh + 4
+    st.vb = st.vh - (st.hud_layout['dialogue'][1] if st.hud else st.fh * 2 + 8)
+    if st.hud:
+        st.chart_colors = tuple(_rgb(*c) for c in (
+            (184, 186, 124), (113, 153, 164), (105, 130, 85), (157, 142, 116),
+            (229, 220, 187), (126, 83, 49), (214, 178, 105), (154, 111, 65),
+            (214, 178, 105), (164, 118, 146), (147, 98, 52), (98, 153, 137),
+        ))
     st.hor = st.y0 + (st.vb - st.y0) * 45 // 100
     st.cw = max(3, st.vw // 64)
     cols = st.vw // st.cw
@@ -1783,7 +1817,7 @@ def start(view_manager):
     st.fog = _fog_table()
     _build_world(st)
     _prep(st)
-    st.mmt = 4 if st.vw >= 240 else 3
+    st.mmt = st.hud_layout['tile'] if st.hud else max(1, min(st.vw // 60, (st.vb - st.y0 - 6) // 13))
     st.fm = _foe_models()
     nm = _npc_models()
     st.remote_model = _humanoid((50, 180, 230))
@@ -1903,102 +1937,108 @@ def stop(view_manager):
     collect()
 
 
-_HUD_SPECS = (('status', 320, 46), ('dialogue', 320, 64),
-              ('minimap', 68, 68), ('quest', 128, 26))
-_HUD_ROOT = 'picoware/assets/valley-rider/'
+
+def _hud_layout(st):
+    """Size artwork and its content from the display and the active font."""
+    padding = max(1, min(st.vw, st.vh) // 100)
+    compact = st.vh < st.fh * 16
+    status = st.fh + 2 * padding if compact else max(st.fh * 2 + 3 * padding, st.vh * 14 // 100)
+    dialogue = st.fh * 2 + 4 * padding if compact else max(st.fh * 4 + 5 * padding, st.vh // 5)
+    available = st.vh - status - dialogue
+    border = max(1, min(st.vw, available) // 26)
+    tile = max(1, min(st.vw // 60, (available - 2 * (padding + border)) // 13))
+    minimap = 13 * tile + 2 * border
+    quest_width = max(1, min(st.vw * 2 // 5, st.vw - minimap - 3 * padding))
+    quest_height = min(max(19, st.fh + 6 * padding), available - 2 * padding)
+    return {
+        'padding': padding, 'border': border, 'tile': tile,
+        'status': (st.vw, status), 'dialogue': (st.vw, dialogue),
+        'minimap': (minimap, minimap), 'quest': (quest_width, quest_height),
+    }
 
 
-def _load_hud(view_manager):
-    """Load SD RGB565 art once; retain the classic layout if unavailable."""
+def _load_hud(view_manager, layout):
+    """Cache scaled RGB565 artwork using the same image API on every board."""
+    root = 'picoware/assets/valley-rider/'
     assets = {}
-    native_framebuffer = getattr(view_manager.draw, '_framebuffer', None)
     psram = None
     try:
-        if native_framebuffer is not None:
-            import framebuf
-        else:
-            from picoware.system.boards import BOARD_HAS_PICOCALC, BOARD_HAS_PSRAM
-            if BOARD_HAS_PICOCALC and BOARD_HAS_PSRAM:
-                from picoware.system.psram import PSRAM
-                # Native methods use shared PSRAM state. Creating a temporary
-                # manager would deinitialize it when its finalizer runs.
-                if PSRAM.is_ready(None):
-                    psram = PSRAM
-        for name, w, h in _HUD_SPECS:
-            pixels = bytearray(w * h * 2)
-            if view_manager.storage.readinto(_HUD_ROOT + name + '.bin', pixels) != len(pixels):
+        from sys import platform
+        from picoware.system.boards import (
+            BOARD_HAS_PICOCALC, BOARD_HAS_PSRAM, BOARD_ID, BOARD_FLIPPER_ZERO,
+        )
+        if BOARD_ID == BOARD_FLIPPER_ZERO:
+            return None
+        # Host simulations keep image bytes in heap memory. External RAM is
+        # an optimization for physical PicoCalc firmware.
+        if platform in ('rp2', 'esp32') and BOARD_HAS_PICOCALC and BOARD_HAS_PSRAM:
+            from picoware.system.psram import PSRAM
+            # Use shared PSRAM without a temporary manager that deinitializes it.
+            if PSRAM.is_ready(None):
+                psram = PSRAM
+        specs = json_loads(view_manager.storage.read(root + 'artwork.json'))
+        for name in ('status', 'dialogue', 'minimap', 'quest'):
+            sw, sh = specs[name]
+            w, h = layout[name]
+            if sw <= 0 or sh <= 0 or w <= 0 or h <= 0:
+                raise ValueError('Invalid HUD dimensions')
+            source = bytearray(sw * sh * 2)
+            if view_manager.storage.readinto(root + name + '.bin', source) != len(source):
                 raise ValueError('Incomplete HUD pixels: ' + name)
-            stride = (w + 7) // 8
-            mask = view_manager.storage.read(_HUD_ROOT + name + '.mask.bin', 'rb')
-            if len(mask) != stride * h:
+            stride = (sw + 7) // 8
+            mask = view_manager.storage.read(root + name + '.mask.bin', 'rb')
+            if len(mask) != stride * sh:
                 raise ValueError('Incomplete HUD mask: ' + name)
-            if native_framebuffer is not None:
-                # Reserved transparent key; opaque artwork must not use it.
-                key = 0xf81f
-                for y in range(h):
-                    for x in range(w):
-                        p = (y * w + x) * 2
-                        if mask[y * stride + x // 8] & (128 >> (x % 8)):
-                            if (pixels[p] | (pixels[p + 1] << 8)) == key:
-                                raise ValueError('HUD transparency key collision')
-                        else:
-                            pixels[p], pixels[p + 1] = key & 255, key >> 8
-                sprite = framebuf.FrameBuffer(pixels, w, h, framebuf.RGB565)
-                assets[name] = (sprite, pixels, key)
-            else:
-                # Firmware _bytearray accepts RGB565. Precompute opaque row
-                # spans, merging adjacent full-width rows into one native blit.
-                spans = array('H')
-                for y in range(h):
-                    x = 0
-                    while x < w:
-                        if not mask[y * stride + x // 8] & (128 >> (x % 8)):
-                            x += 1
-                            continue
+            pixels = source if (w, h) == (sw, sh) else bytearray(w * h * 2)
+            spans = array('H')
+            for y in range(h):
+                sy = y * sh // h
+                left = -1
+                for x in range(w):
+                    sx = x * sw // w
+                    if pixels is not source:
+                        src = (sy * sw + sx) * 2
+                        dst = (y * w + x) * 2
+                        pixels[dst] = source[src]
+                        pixels[dst + 1] = source[src + 1]
+                    opaque = mask[sy * stride + sx // 8] & (128 >> (sx % 8))
+                    if opaque and left < 0:
                         left = x
-                        x += 1
-                        while x < w and mask[y * stride + x // 8] & (128 >> (x % 8)):
-                            x += 1
-                        if (left == 0 and x == w and len(spans) >= 4
+                    if left >= 0 and (not opaque or x == w - 1):
+                        right = x + 1 if opaque else x
+                        if (left == 0 and right == w and len(spans) >= 4
                                 and spans[-4] == 0 and spans[-2] == w
                                 and spans[-3] + spans[-1] == y):
                             spans[-1] += 1
                         else:
-                            spans.extend((left, y, x - left, 1))
-                if psram is not None:
-                    # An owned allocation prevents framebuffer overlap and is
-                    # reclaimed with the game state on exit.
-                    owner = psram.alloc_object(None, pixels)
-                    assets[name] = (w, owner, spans, True)
-                else:
-                    assets[name] = (w, memoryview(pixels), spans, False)
-                pixels = None
-    except (OSError, ValueError, MemoryError) as error:
+                            spans.extend((left, y, right - left, 1))
+                        left = -1
+            if psram is not None:
+                owner = psram.alloc_object(None, pixels)
+                assets[name] = (w, owner, spans, True)
+            else:
+                assets[name] = (w, memoryview(pixels), spans, False)
+            source = pixels = mask = None
+    except (OSError, ValueError, MemoryError, KeyError, TypeError) as error:
         _release_hud(assets)
-        assets.clear()
         print('Valley Rider: using classic HUD:', error)
         return None
     return assets
 
 
 def _release_hud(assets):
-    """Release owned PSRAM buffers deterministically on exit or load failure."""
+    """Release the state's owned buffers in reverse allocation order."""
     if assets:
-        # Reverse allocation order also reclaims the native allocator tail.
-        for name, _, _ in reversed(_HUD_SPECS):
+        for name in ('quest', 'minimap', 'dialogue', 'status'):
             asset = assets.get(name)
-            if asset is not None and len(asset) == 4 and asset[3]:
+            if asset is not None and asset[3]:
                 asset[1].__del__()
+        assets.clear()
 
 
 def _hud_asset(draw, st, name, ox, oy):
-    """Draw cached artwork through a native RGB565 buffer path."""
-    asset = st.hud[name]
-    framebuffer = getattr(draw, '_framebuffer', None)
-    if framebuffer is not None:
-        framebuffer.blit(asset[0], ox, oy, asset[2])
-        return
-    width, pixels, spans, in_psram = asset
+    """Blit opaque spans through the supported LCD image primitives."""
+    width, pixels, spans, in_psram = st.hud[name]
     blit = draw._psram if in_psram else draw._bytearray
     address = pixels.addr() if in_psram else 0
     for i in range(0, len(spans), 4):
@@ -2009,124 +2049,65 @@ def _hud_asset(draw, st, name, ox, oy):
         else:
             blit(ox + x, oy + y, w, h, pixels[offset:offset + w * h * 2])
 
-def _medieval_hud(vm,st):
-    d=vm.draw
-    t=d._text
-    fill=d._fill_rectangle
-    ink=_rgb(54,29,15)
-    cream=_rgb(255,232,180)
-    fill(0,0,320,46,_rgb(30,18,12))
-    fill(0,256,320,64,_rgb(30,18,12))
-    _hud_asset(d,st,'status',0,0)
-    t(36,10,('HP %d/%d'%(st.hp,st.mhp))[:16],cream)
-    fill(36,27,80,7,_rgb(37,13,10))
-    amount=80*max(0,min(st.hp,st.mhp))//max(1,st.mhp)
-    if amount:
-        fill(36,28,amount,5,_rgb(190,43,38))
-        fill(36,28,amount,1,_rgb(245,105,65))
-    t(151,19,('Lv %d'%st.lvl)[:12],cream)
-    t(253,19,str(st.gold)[:10],cream)
-    _hud_asset(d,st,'minimap',249,49)
-    _minimap(d,st)
-    _draw_quest_indicator(d,st)
-    _hud_asset(d,st,'dialogue',0,256)
-    heading=_DIRS[int(round(st.pa/(pi/4)))%8]
-    status='Mounted' if st.mounted else 'On foot'
-    if st.multiplayer_connection_state=='active':
-        status+=' / Online'
-    right=308-len(status)*st.fw
-    t(12,265,(heading+' / '+_where(st))[:max(0,(right-20)//st.fw)],ink)
-    t(right,265,status,ink)
-    mc=296//st.fw
-    t(12,280,st.msg[0][:mc],ink)
-    t(12,291,st.msg[1][:mc],ink)
-    t(12,304,'M Map',ink)
-    t(246,304,'OK Interact',ink)
 
-def _draw_medieval_map(view_manager, st):
-    """Fit the whole north-up valley on screen without a second tile buffer."""
+def _medieval_hud(view_manager, st):
+    """Lay out live statistics and dialogue inside the scaled artwork."""
     draw = view_manager.draw
+    text = draw._text
     fill = draw._fill_rectangle
-    draw.fill_screen(_rgb(48,28,17))
-    _hud_asset(draw,st,'dialogue',0,0)
-    _hud_asset(draw,st,'dialogue',0,256)
-    brass=_rgb(182,127,49)
-    ink=_rgb(56,37,20)
-    paper=_rgb(229,204,151)
-    for x in (4,314):
-        fill(x,57,2,199,brass)
-        for y in (88,160,232):
-            fill(x-1,y,4,4,_rgb(223,173,76))
-    fill(23,27,274,274,brass)
-    fill(25,29,270,270,ink)
-    size = 268
-    ox = (st.vw - size) // 2
-    oy = 30
-    draw._text(16,12,"THE VALLEY",ink)
-    draw._text(270,12,"N ^",ink)
-    for y in range(_H):
-        top = oy + y * size // _H
-        bottom = oy + (y + 1) * size // _H
-        x = 0
-        while x < _W:
-            color = _CHART_COLORS[st.tiles[y * _W + x]]
-            end = x + 1
-            while end < _W and _CHART_COLORS[st.tiles[y * _W + end]] == color:
-                end += 1
-            left = ox + x * size // _W
-            right = ox + end * size // _W
-            if right > left and bottom > top:
-                fill(left, top, right - left, bottom - top, color)
-            x = end
-    for x, y, label in _TOWNS + (
-        (_SHRINE_POS[0], _SHRINE_POS[1], "Shrine"),
-        (_WAYSTONE_POS[0], _WAYSTONE_POS[1], "Waystone"),
-    ):
-        mx = ox + x * size // _W
-        my = oy + y * size // _H
-        fill(mx-1,my-1,3,3,ink)
-        tx = max(ox+2, min(ox+size-len(label)*st.fw-2, mx+4))
-        ty = max(oy, my - st.fh - 2)
-        fill(tx-1,ty-1,len(label)*st.fw+2,st.fh+2,paper)
-        draw._text(tx,ty,label,ink)
-    for remote in st.remote_players.values():
-        mx = ox + int(remote["x"] * size / _W)
-        my = oy + int(remote["y"] * size / _H)
-        if ox <= mx < ox + size and oy <= my < oy + size:
-            fill(mx - 1, my - 1, 3, 3, remote["color"])
-    mx = ox + int(st.px * size / _W)
-    my = oy + int(st.py * size / _H)
-    fill(mx - 2, my - 2, 5, 5, _rgb(255, 60, 60))
-    # Rotate a shaft and two arrowhead wings; shift the whole arrow at edges
-    # so its shape and heading remain visible without unsigned-coordinate wrap.
-    dx = cos(st.pa)
-    dy = sin(st.pa)
-    points = []
-    for forward in range(3, 10):
-        points.append((int(round(forward * dx)), int(round(forward * dy))))
-    for back in range(1, 5):
-        for side in (-back, back):
-            points.append((int(round((9 - back) * dx - side * dy)),
-                           int(round((9 - back) * dy + side * dx))))
-    min_x = min(point[0] for point in points)
-    max_x = max(point[0] for point in points)
-    min_y = min(point[1] for point in points)
-    max_y = max(point[1] for point in points)
-    ax = max(ox - min_x, min(ox + size - 1 - max_x, mx))
-    ay = max(oy - min_y, min(oy + size - 1 - max_y, my))
-    for x, y in points:
-        x += ax
-        y += ay
-        if ox <= x < ox + size and oy <= y < oy + size:
-            fill(x,y,1,1,_rgb(255,239,186))
-    draw._text(14,303,"M/Back Close",ink)
-    draw._text(222,303,"Red: You",ink)
-    draw.swap()
-
-
-# Restrained cartographic colors; unchanged tile meanings and live markers.
-_CHART_COLORS = tuple(_rgb(*c) for c in (
-    (184,186,124), (113,153,164), (105,130,85), (157,142,116),
-    (229,220,187), (126,83,49), (214,178,105), (154,111,65),
-    (214,178,105), (164,118,146), (147,98,52), (98,153,137),
-))
+    padding = st.hud_layout['padding']
+    ink = _rgb(54, 29, 15)
+    cream = _rgb(255, 232, 180)
+    fill(0, 0, st.vw, st.y0, _rgb(30, 18, 12))
+    fill(0, st.vb, st.vw, st.vh - st.vb, _rgb(30, 18, 12))
+    _hud_asset(draw, st, 'status', 0, 0)
+    compact = st.y0 < 2 * st.fh + 3 * padding
+    hp = '%d/%d' % (st.hp, st.mhp)
+    level = 'L%d' % st.lvl
+    if not compact:
+        hp = 'HP ' + hp
+        level = 'Lv %d' % st.lvl
+    left = st.vw * 11 // 100
+    level_x = st.vw * 47 // 100
+    gold_x = st.vw * 79 // 100
+    y = (st.y0 - st.fh) // 2 if compact else st.y0 // 4
+    text(left, y, hp[:max(0, (level_x - left - padding) // st.fw)], cream)
+    text(level_x, (st.y0 - st.fh) // 2, level[:max(0, (gold_x - level_x - padding) // st.fw)], cream)
+    text(gold_x, (st.y0 - st.fh) // 2, str(st.gold)[:max(0, (st.vw - gold_x - padding) // st.fw)], cream)
+    if not compact:
+        bar_width = st.vw // 4
+        bar_height = max(1, st.y0 // 8)
+        bar_y = st.y0 * 3 // 5
+        fill(left, bar_y, bar_width, bar_height, _rgb(37, 13, 10))
+        amount = bar_width * max(0, min(st.hp, st.mhp)) // max(1, st.mhp)
+        if amount:
+            fill(left, bar_y, amount, bar_height, _rgb(190, 43, 38))
+            fill(left, bar_y, amount, 1, _rgb(245, 105, 65))
+    map_size = st.hud_layout['minimap'][0]
+    _hud_asset(draw, st, 'minimap', st.vw - map_size - padding, st.y0 + padding)
+    _minimap(draw, st)
+    _draw_quest_indicator(draw, st)
+    _hud_asset(draw, st, 'dialogue', 0, st.vb)
+    left = max(padding, st.vw // 25)
+    width = st.vw - 2 * left
+    rows = 4 if st.vh - st.vb >= 4 * st.fh + 7 * padding else (2 if compact else 3)
+    inset = 2 * padding if compact else 3 * padding
+    line_step = (st.vh - st.vb - 2 * inset) // rows
+    y = st.vb + inset
+    if rows == 4:
+        heading = _DIRS[int(round(st.pa / (pi / 4))) % 8]
+        status = 'Mounted' if st.mounted else 'On foot'
+        if st.multiplayer_connection_state == 'active':
+            status += ' / Online'
+        right = st.vw - left - min(len(status), width // st.fw) * st.fw
+        text(left, y, (heading + ' / ' + _where(st))[:max(0, (right - left - padding) // st.fw)], ink)
+        text(right, y, status[:width // st.fw], ink)
+        y += line_step
+    for message in st.msg:
+        text(left, y, message[:width // st.fw], ink)
+        y += line_step
+    if rows > 2:
+        text(left, y, 'M Map', ink)
+        hint = 'OK Interact'
+        if width >= (len(hint) + 6) * st.fw:
+            text(st.vw - left - len(hint) * st.fw, y, hint, ink)

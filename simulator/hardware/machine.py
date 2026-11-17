@@ -3,6 +3,15 @@ import time
 _frequency = 200000000
 
 
+def unique_id():
+    """Return a stable device ID for this simulated board and SD root."""
+    from hashlib import sha256
+    import sim_runtime
+
+    identity = sim_runtime.sd_root + ":" + sim_runtime.board
+    return sha256(identity.encode()).digest()[:8]
+
+
 def freq(value=None):
     global _frequency
     if value is not None:

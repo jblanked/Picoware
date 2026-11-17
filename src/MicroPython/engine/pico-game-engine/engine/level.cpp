@@ -104,6 +104,8 @@ void Level::drawProjectedTriangle(Draw *draw, const Vector vertices[3], const Ve
 {
     Vector polygon[ENGINE_MAX_PROJECTION_VERTICES];
     const int count = projectionProject(vertices, screen.x, screen.y, clamp, polygon);
+    if (count < 3)
+        return;
     uint16_t x[ENGINE_MAX_PROJECTION_VERTICES], y[ENGINE_MAX_PROJECTION_VERTICES];
     for (int i = 0; i < count; ++i)
     {
@@ -340,9 +342,9 @@ int Level::projectionProject(const Vector triangle[3], float width, float height
         return 0;
     for (int i = 0; i < 3; ++i)
     {
+        output[i] = triangle[i];
         if (!isfinite(triangle[i].x) || !isfinite(triangle[i].y) || !isfinite(triangle[i].z))
             return 0;
-        output[i] = triangle[i];
     }
 
     Vector scratch[ENGINE_MAX_PROJECTION_VERTICES];
@@ -374,6 +376,17 @@ int Level::projectionProject(const Vector triangle[3], float width, float height
             normal = Vector(0, height, height - 1 - half_height);
             break;
         }
+
+        // all inside: clip is a no-op; all outside: clip is empty
+        int inside = 0;
+        for (int i = 0; i < count; ++i)
+            if (projectionDistance(input[i], normal, offset) >= 0)
+                ++inside;
+        if (inside == count)
+            continue;
+        if (inside == 0)
+            return 0;
+
         count = projectionClip(input, count, target, normal, offset);
         if (count < 3)
             return 0;

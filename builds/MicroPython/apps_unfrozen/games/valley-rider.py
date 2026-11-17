@@ -8,6 +8,7 @@ from picoware.system.buttons import (
     BUTTON_BACK,
     BUTTON_NONE,
     BUTTON_SPACE,
+    BUTTON_M,
     BUTTON_UP,
     BUTTON_DOWN,
     BUTTON_LEFT,
@@ -385,11 +386,20 @@ def _poll_multiplayer_http(view_manager, st):
     st.multiplayer_http = None
     st.multiplayer_http_action = None
     if action == "remove":
+        # Closing the WebSocket can remove the last player's lobby before
+        # this cleanup request arrives. Only that specific 404 is success.
+        lobby_gone = False
+        if status_code == 404:
+            try:
+                body = json_loads(response_text)
+                lobby_gone = isinstance(body, dict) and body.get("error") == "Lobby not found"
+            except (TypeError, ValueError):
+                pass
         if error:
             _finish_multiplayer_leave(view_manager, st, error)
         elif response is None:
             _finish_multiplayer_leave(view_manager, st, "No HTTP response")
-        elif status_code not in (200, 204):
+        elif status_code not in (200, 204) and not lobby_gone:
             _finish_multiplayer_leave(view_manager, st, "HTTP %d" % status_code)
         else:
             _finish_multiplayer_leave(view_manager, st)
@@ -835,6 +845,7 @@ class _State:
         self.xp = 0
         self.lvl = 1
         self.quest = 0
+        self.map_open = False
         self.mode = 0
         self.enemy = None
         self.msg = ("Welcome to the valley.", "Talk to the elder in Oakhaven.")
@@ -1306,6 +1317,56 @@ def _draw_battle(view_manager, st):
     draw.swap()
 
 
+def _quest_target(st):
+    """Return the current objective's tile and label, or None after completion."""
+    if st.quest in (0, 2, 5, 7):
+        return _TOWNS[0][0], _TOWNS[0][1], "Elder"
+    if st.quest == 1:
+        return _SHRINE_POS[0], _SHRINE_POS[1], "Shrine"
+    if st.quest == 3:
+        return _TOWNS[1][0], _TOWNS[1][1], "Merchant"
+    if st.quest == 4:
+        return _TOWNS[2][0], _TOWNS[2][1], "Innkeeper"
+    if st.quest == 6:
+        return _WAYSTONE_POS[0], _WAYSTONE_POS[1], "Waystone"
+    return None
+
+
+def _draw_quest_indicator(draw, st):
+    """Show a camera-relative bearing: up ahead, right right, down behind."""
+    target = _quest_target(st)
+    if target is None:
+        return
+    width = st.vw - 13 * st.mmt - 9
+    height = max(19, st.fh + 4)
+    if width < 19 or st.y0 + 3 + height > st.vb:
+        return
+    label = target[2][:max(0, (width - 23) // st.fw)]
+    fill = draw._fill_rectangle
+    left = 3
+    top = st.y0 + 3
+    fill(left, top, min(width, 23 + len(label) * st.fw), height, _BAR)
+    draw._text(left + 23, top + (height - st.fh) // 2, label, _GOLD)
+    cx = left + 9
+    cy = top + height // 2
+    tx = target[0] + 0.5 - st.px
+    ty = target[1] + 0.5 - st.py
+    distance = (tx * tx + ty * ty) ** 0.5
+    if distance < 0.25:
+        fill(cx - 2, cy - 2, 5, 5, _GOLD)
+        return
+    # Project the objective onto camera-right and camera-forward axes.
+    dx = (-sin(st.pa) * tx + cos(st.pa) * ty) / distance
+    dy = -(cos(st.pa) * tx + sin(st.pa) * ty) / distance
+    for forward in range(-5, 8):
+        fill(cx + int(round(forward * dx)),
+             cy + int(round(forward * dy)), 1, 1, _GOLD)
+    for back in range(1, 5):
+        for side in (-back, back):
+            fill(cx + int(round((7 - back) * dx - side * dy)),
+                 cy + int(round((7 - back) * dy + side * dx)), 1, 1, _GOLD)
+
+
 def _hud(view_manager, st):
     """Draw the status bars with stats, heading, location, and messages."""
     draw = view_manager.draw
@@ -1448,6 +1509,74 @@ def _minimap(draw, st):
         ry = oy + int((remote["y"] - cy) * ts)
         if ox <= rx < ox + size and oy <= ry < oy + size:
             fill(rx - 1, ry - 1, 3, 3, remote["color"])
+
+
+def _draw_world_map(view_manager, st):
+    """Fit the whole north-up valley on screen without a second tile buffer."""
+    draw = view_manager.draw
+    fill = draw._fill_rectangle
+    draw.fill_screen(_BAR)
+    size = max(1, min(st.vw - 4, st.vh - 2 * st.fh - 10))
+    ox = (st.vw - size) // 2
+    oy = st.fh + 5
+    draw._text(3, 1, "VALLEY MAP  N ^", _GOLD)
+    for y in range(_H):
+        top = oy + y * size // _H
+        bottom = oy + (y + 1) * size // _H
+        x = 0
+        while x < _W:
+            color = _MMC[st.tiles[y * _W + x]]
+            end = x + 1
+            while end < _W and _MMC[st.tiles[y * _W + end]] == color:
+                end += 1
+            left = ox + x * size // _W
+            right = ox + end * size // _W
+            if right > left and bottom > top:
+                fill(left, top, right - left, bottom - top, color)
+            x = end
+    for x, y, label in _TOWNS + (
+        (_SHRINE_POS[0], _SHRINE_POS[1], "Shrine"),
+        (_WAYSTONE_POS[0], _WAYSTONE_POS[1], "Waystone"),
+    ):
+        mx = ox + x * size // _W
+        my = oy + y * size // _H
+        fill(mx - 1, my - 1, 3, 3, _WHITE)
+        tx = max(0, min(st.vw - len(label) * st.fw, mx + 4))
+        ty = max(oy, my - st.fh - 2)
+        fill(tx, ty, len(label) * st.fw, st.fh, _BAR)
+        draw._text(tx, ty, label, _WHITE)
+    for remote in st.remote_players.values():
+        mx = ox + int(remote["x"] * size / _W)
+        my = oy + int(remote["y"] * size / _H)
+        if ox <= mx < ox + size and oy <= my < oy + size:
+            fill(mx - 1, my - 1, 3, 3, remote["color"])
+    mx = ox + int(st.px * size / _W)
+    my = oy + int(st.py * size / _H)
+    fill(mx - 2, my - 2, 5, 5, _rgb(255, 60, 60))
+    # Rotate a shaft and two arrowhead wings; shift the whole arrow at edges
+    # so its shape and heading remain visible without unsigned-coordinate wrap.
+    dx = cos(st.pa)
+    dy = sin(st.pa)
+    points = []
+    for forward in range(3, 10):
+        points.append((int(round(forward * dx)), int(round(forward * dy))))
+    for back in range(1, 5):
+        for side in (-back, back):
+            points.append((int(round((9 - back) * dx - side * dy)),
+                           int(round((9 - back) * dy + side * dx))))
+    min_x = min(point[0] for point in points)
+    max_x = max(point[0] for point in points)
+    min_y = min(point[1] for point in points)
+    max_y = max(point[1] for point in points)
+    ax = max(ox - min_x, min(ox + size - 1 - max_x, mx))
+    ay = max(oy - min_y, min(oy + size - 1 - max_y, my))
+    for x, y in points:
+        x += ax
+        y += ay
+        if ox <= x < ox + size and oy <= y < oy + size:
+            fill(x, y, 1, 1, _WHITE)
+    draw._text(3, st.vh - st.fh - 2, "M/Back: close", _GOLD)
+    draw.swap()
 
 
 def _draw_multiplayer_menu(view_manager, st):
@@ -1610,6 +1739,8 @@ def _render(view_manager, st):
             o += 3
     _draw_npcs(draw, st, dx, dy, eye64 / 64)
     _minimap(draw, st)
+    _draw_quest_indicator(draw, st)
+    draw._text(3, st.vb - st.fh - 2, "M: Map", _WHITE)
     _hud(view_manager, st)
     draw.swap()
 
@@ -1672,6 +1803,21 @@ def run(view_manager):
     if st.multiplayer_exit_ready:
         st.multiplayer_exit_ready = False
         view_manager.back()
+        return
+    if st.multiplayer_view is None and (st.map_open or button == BUTTON_M):
+        if button == BUTTON_M or (st.map_open and button == BUTTON_BACK):
+            st.map_open = not st.map_open
+            st.dirty = True
+        if button != BUTTON_NONE:
+            view_manager.input_manager.reset()
+        if st.dirty:
+            st.dirty = False
+            if st.map_open:
+                _draw_world_map(view_manager, st)
+            elif st.mode == 1:
+                _draw_battle(view_manager, st)
+            else:
+                _render(view_manager, st)
         return
     if _multiplayer_input(view_manager, st, button):
         if button != BUTTON_NONE:

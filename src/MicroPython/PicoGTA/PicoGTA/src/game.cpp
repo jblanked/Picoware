@@ -794,6 +794,9 @@ void PicoGTA::updateDraw()
     engine->runAsync();
     updateMultiplayer();
     inputPressed = false;
+    resetInput();
+    if (game)
+        game->input = -1;
 }
 
 void PicoGTA::backgroundRender(Entity *entity, Draw *canvas, Game *game, void *context)

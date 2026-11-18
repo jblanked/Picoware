@@ -1,5 +1,6 @@
 #pragma once
 #include "building.hpp"
+#include "general.hpp"
 #include "map.hpp"
 #include "pico-game-engine/engine/entity.hpp"
 #include "pico-game-engine/engine/level.hpp"

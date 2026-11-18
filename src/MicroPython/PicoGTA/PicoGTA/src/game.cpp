@@ -2132,7 +2132,7 @@ void PicoGTA::finishMultiplayerLeave(const char *error)
     if (error)
     {
         if (notice[0])
-            snprintf(multiplayerStatus, sizeof(multiplayerStatus), "%s; leave failed", notice);
+            snprintf(multiplayerStatus, sizeof(multiplayerStatus), "%.81s; leave failed", notice);
         else
             snprintf(multiplayerStatus, sizeof(multiplayerStatus), "Leave failed: %s", error);
         multiplayerView = VIEW_ERROR;

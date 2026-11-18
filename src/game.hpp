@@ -11,6 +11,8 @@
 #include "time.hpp"
 #include "vehicle.hpp"
 
+using namespace picogta;
+
 class PicoGTA
 {
 public:

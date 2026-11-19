@@ -38,22 +38,24 @@ Vehicle::Vehicle(PicoGTA *city, const char *vehicleName, Vector position, uint16
     mesh->setPosition(position);
     sprite_3d = mesh;
     sprite_3d_type = SPRITE_3D_CUSTOM;
-    direction = Vector(0.0f, 1.0f);
-    plane = Vector(-0.72f, 0.0f);
+    direction.x = 0.0f;
+    direction.y = 1.0f;
+    plane.x = -0.72f;
+    plane.y = 0.0f;
 }
 
 void Vehicle::render(Draw *draw, Game *game)
 {
+    (void)game;
     if (role == VEHICLE_PLAYER_CAR && city)
         city->drawHud(draw);
-    Entity::render(draw, game);
 }
 
 void Vehicle::update(Game *game)
 {
+    (void)game;
     if (role == VEHICLE_TRAFFIC && city)
         city->updateTraffic(this);
-    Entity::update(game);
 }
 
 void Vehicle::setTrafficState(int index, int axis, int line, int direction, float trafficSpeed)

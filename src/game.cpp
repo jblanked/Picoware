@@ -608,9 +608,12 @@ bool PicoGTA::startGame()
     }
 
     player->setCity(this);
-    player->position_set(Landscape::SIDEWALK_OFFSET, -10.0f);
-    player->direction = Vector(0.0f, 1.0f);
-    player->plane = Vector(-0.72f, 0.0f);
+    player->position.x = Landscape::SIDEWALK_OFFSET;
+    player->position.y = -10.0f;
+    player->direction.x = 0.0f;
+    player->direction.y = 1.0f;
+    player->plane.x = -0.72f;
+    player->plane.y = 0.0f;
     player->set3DSpriteRotation(0.0f);
     player->is_visible = true;
     const int oldPlayerCount = level->getEntityCount();
@@ -967,7 +970,8 @@ void PicoGTA::walkPlayer(Player *activePlayer, Game *game)
         speed *= 0.25f;
     }
 
-    activePlayer->direction = Vector(dx, dz);
+    activePlayer->direction.x = dx;
+    activePlayer->direction.y = dz;
     activePlayer->set3DSpriteRotation(atan2f(dz, dx) - cityPi * 0.5f);
     updateCameraDistance();
 }
@@ -1021,8 +1025,10 @@ void PicoGTA::driveCar(Player *activePlayer, Game *game)
         speed *= 0.25f;
     }
 
-    activePlayer->direction = Vector(dx, dz);
-    activePlayer->plane = Vector(-0.72f, 0.0f);
+    activePlayer->direction.x = dx;
+    activePlayer->direction.y = dz;
+    activePlayer->plane.x = -0.72f;
+    activePlayer->plane.y = 0.0f;
     activePlayer->set3DSpriteRotation(atan2f(dz, dx) - cityPi * 0.5f);
     syncPlayerCar(activePlayer);
     updateCameraDistance();
@@ -1058,9 +1064,12 @@ void PicoGTA::syncPlayerCar(Player *activePlayer)
         return;
     const float dx = cosf(heading);
     const float dz = sinf(heading);
-    playerCar->position_set(activePlayer->position);
-    playerCar->direction = Vector(dx, dz);
-    playerCar->plane = Vector(-0.72f, 0.0f);
+    playerCar->position.x = activePlayer->position.x;
+    playerCar->position.y = activePlayer->position.y;
+    playerCar->direction.x = dx;
+    playerCar->direction.y = dz;
+    playerCar->plane.x = -0.72f;
+    playerCar->plane.y = 0.0f;
     playerCar->set3DSpriteRotation(atan2f(dz, dx) - cityPi * 0.5f);
 }
 
@@ -1116,8 +1125,10 @@ void PicoGTA::updateTraffic(Vehicle *car)
     }
 
     car->setTrafficState(index, axis, car->getTrafficLine(), direction, trafficSpeed);
-    car->direction = Vector(dx, dz);
-    car->plane = Vector(-0.72f, 0.0f);
+    car->direction.x = dx;
+    car->direction.y = dz;
+    car->plane.x = -0.72f;
+    car->plane.y = 0.0f;
     car->set3DSpriteRotation(atan2f(dz, dx) - cityPi * 0.5f);
 
     const float offsetX = absoluteFloat(car->position.x - player->position.x);
@@ -2082,12 +2093,16 @@ void PicoGTA::processMultiplayerMessage(const char *messageText)
     const float dx = cosf(parsed.heading);
     const float dz = sinf(parsed.heading);
     const float rotation = atan2f(dz, dx) - cityPi * 0.5f;
-    remote->player->position_set(parsed.x, parsed.z);
-    remote->player->direction = Vector(dx, dz);
+    remote->player->position.x = parsed.x;
+    remote->player->position.y = parsed.z;
+    remote->player->direction.x = dx;
+    remote->player->direction.y = dz;
     remote->player->set3DSpriteRotation(rotation);
     remote->player->is_visible = !parsed.inCar;
-    remote->car->position_set(parsed.x, parsed.z);
-    remote->car->direction = Vector(dx, dz);
+    remote->car->position.x = parsed.x;
+    remote->car->position.y = parsed.z;
+    remote->car->direction.x = dx;
+    remote->car->direction.y = dz;
     remote->car->set3DSpriteRotation(rotation);
     remote->car->is_visible = parsed.inCar;
     remote->lastSeenFrame = frameClock;

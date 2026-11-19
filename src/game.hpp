@@ -183,7 +183,7 @@ private:
     const uint16_t carColors[6] = {0xF800, 0xFD20, 0x001F, 0x07FF, 0xF81F, 0x001F};
     const float carFriction = 0.012f;
     const float carMaxReverse = -0.35f;
-    const float carMaxSpeed = 1.0f;
+    const float carMaxSpeed = 2.0f;
     const float carSteer = 0.16f;
     Map cityMap;
     const float cityPi = 3.14159265358979323846f;
@@ -248,6 +248,6 @@ private:
         "Traffic 1", "Traffic 2", "Traffic 3", "Traffic 4", "Traffic 5", "Traffic 6"};
     const float trafficOffset = 1.2f;
     const float trafficSpeed = 0.45f;
-    const float walkSpeed = 0.36f;
+    const float walkSpeed = 0.48f;
     const float walkTurn = 0.25f;
 };

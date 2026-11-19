@@ -17,9 +17,9 @@ Pedestrian::Pedestrian(PicoGTA *city, int index, const char *personName, Vector 
 
 void Pedestrian::update(Game *game)
 {
+    (void)game;
     if (city)
         city->updatePerson(this);
-    Entity::update(game);
 }
 
 void Pedestrian::setDirection(float x, float z)

@@ -794,7 +794,7 @@ void PicoGTA::updateDraw()
     Game *game = engine->getGame();
     if (game)
         game->input = lastInput;
-    engine->runAsync();
+    engine->runAsync(false);
     updateMultiplayer();
     inputPressed = false;
     resetInput();

@@ -46,7 +46,7 @@ function tick(button) {
         player.set('position', p);
         player.updatePosition();
     }
-    engine.runAsync(true);
+    engine.runAsync(false);
 }
 
 while (true) {

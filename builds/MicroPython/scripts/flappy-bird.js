@@ -234,7 +234,7 @@ function tick(button) {
     }
     player.updatePosition();
 
-    engine.runAsync(true);
+    engine.runAsync(false);
     draw_overlay();
     if (SWAP) { draw.swap(); }
 }

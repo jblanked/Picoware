@@ -116,7 +116,7 @@ mp_obj_t engine_mp_run_async(size_t n_args, const mp_obj_t *args)
     if (self->freed)
         return mp_const_none;
     GameEngine *ctx = engine_get_context(self);
-    bool should_delay = n_args > 1 ? mp_obj_is_true(args[1]) : true;
+    bool should_delay = n_args > 1 ? mp_obj_is_true(args[1]) : false;
     ctx->runAsync(should_delay);
     return mp_const_none;
 }

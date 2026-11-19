@@ -59,6 +59,5 @@ namespace picogta
         }
         if (city)
             city->updatePlayer(this, game);
-        Entity::update(game);
     }
 } // namespace picogta

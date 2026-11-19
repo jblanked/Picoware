@@ -59,6 +59,7 @@ public:
     bool addTriangle(const Triangle3D &triangle);
     bool addTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, uint16_t color = 0x0000, bool wireframe = true);
     bool bakeTransform();
+    void clear();
     void clearTriangles();
     bool createHumanoid(float height = 1.8f, uint16_t color = 0x0000, bool wireframe = true);
     bool createTree(float height = 2.0f, uint16_t color = 0x0000, bool wireframe = true);

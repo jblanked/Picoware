@@ -100,6 +100,11 @@ bool Sprite3D::bakeTransform()
     return true;
 }
 
+void Sprite3D::clear()
+{
+    triangle_count = 0;
+}
+
 void Sprite3D::clearTriangles()
 {
 #ifdef ENGINE_USE_PSRAM

@@ -30,21 +30,5 @@
             "picoware/infrared/receive_saved.bin"
         ],
         "version": "1.0"
-    },
-    {
-        "title": "Valley Rider Medieval HUD",
-        "description": "RGB565 artwork and transparency masks for Valley Rider",
-        "file_structure": [
-            "picoware/assets/valley-rider/dialogue.bin",
-            "picoware/assets/valley-rider/dialogue.mask.bin",
-            "picoware/assets/valley-rider/minimap.bin",
-            "picoware/assets/valley-rider/minimap.mask.bin",
-            "picoware/assets/valley-rider/quest.bin",
-            "picoware/assets/valley-rider/quest.mask.bin",
-            "picoware/assets/valley-rider/status.bin",
-            "picoware/assets/valley-rider/status.mask.bin",
-            "picoware/assets/valley-rider/artwork.json"
-        ],
-        "version": "1.1"
     }
 ]

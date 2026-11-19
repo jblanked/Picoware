@@ -1959,7 +1959,7 @@ def _hud_layout(st):
 
 def _load_hud(view_manager, layout):
     """Cache scaled RGB565 artwork using the same image API on every board."""
-    root = 'picoware/assets/valley-rider/'
+    root = 'picoware/apps/games/valleyrider/'
     assets = {}
     psram = None
     try:

@@ -999,9 +999,18 @@
         "title": "Valley Rider",
         "description": "Valley Quest updated version, with multiplayer and new features",
         "file_structure": [
-            "picoware/apps/games/valley-rider.py"
+            "picoware/apps/games/valley-rider.py",
+            "picoware/apps/games/valleyrider/dialogue.bin",
+            "picoware/apps/games/valleyrider/dialogue.mask.bin",
+            "picoware/apps/games/valleyrider/minimap.bin",
+            "picoware/apps/games/valleyrider/minimap.mask.bin",
+            "picoware/apps/games/valleyrider/quest.bin",
+            "picoware/apps/games/valleyrider/quest.mask.bin",
+            "picoware/apps/games/valleyrider/status.bin",
+            "picoware/apps/games/valleyrider/status.mask.bin",
+            "picoware/apps/games/valleyrider/artwork.json"
         ],
-        "version": "1.0"
+        "version": "1.1"
     },
     {
         "title": "CSI Radar",

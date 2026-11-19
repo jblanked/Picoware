@@ -24,30 +24,22 @@ def main():
     try:
         vm: ViewManager = ViewManager()
 
-        # Add views to the view manager
-        vm.add(View("desktop_view", desktop.run, desktop.start, desktop.stop))
-
-        # Switch views
-        vm.switch_to("desktop_view")
+        vm.add(View("desktop_view", desktop.run, desktop.start, desktop.stop), True)
 
         collect()
         threshold(mem_free() // 4 + mem_alloc())
-
-        # Main loop
+        
         while vm.run():
             pass
 
     except Exception as e:
-        if vm:
-            try:
-                vm.alert("Critical Error:\n%s\nPlease restart." % str(e))
-            except Exception:
-                pass
+        if vm is not None:
+            vm.alert("Critical Error:\n%s\nPlease restart." % str(e))
         else:
             print("Error occurred: %s" % str(e))
 
     finally:
-        if vm:
+        if vm is not None:
             vm.__cleanup()
             del vm
         vm = None

@@ -37,7 +37,7 @@ public:
         this->stop();
     }
 
-    inline void runAsync(bool shouldDelay = true)
+    inline void runAsync(bool shouldDelay = false)
     {
         // Initialize the game if not already active.
         if (!game->is_active)

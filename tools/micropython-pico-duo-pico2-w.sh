@@ -87,6 +87,15 @@ rm -rf "$micropython_dir"/modules/mmbasic
 # remove C module if it exists
 rm -rf "$micropython_dir"/modules/c
 
+# remove view module if it exists
+rm -rf "$micropython_dir"/modules/view
+
+# remove view_manager module if it exists
+rm -rf "$micropython_dir"/modules/view_manager
+
+# remove PicoGTA module if it exists
+rm -rf "$micropython_dir"/modules/PicoGTA
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -170,6 +179,15 @@ cp -r "$picoware_dir"/src/MicroPython/mmbasic "$micropython_dir"/modules/mmbasic
 
 # copy pshell C module
 cp -r "$picoware_dir"/src/MicroPython/c "$micropython_dir"/modules/c
+
+# copy view module
+cp -r "$picoware_dir"/src/MicroPython/view "$micropython_dir"/modules/view
+
+# copy view_manager module
+cp -r "$picoware_dir"/src/MicroPython/view_manager "$micropython_dir"/modules/view_manager
+
+# copy PicoGTA module
+cp -r "$picoware_dir"/src/MicroPython/PicoGTA "$micropython_dir"/modules/PicoGTA
 
 echo "Starting PicoDuo build process..."
 

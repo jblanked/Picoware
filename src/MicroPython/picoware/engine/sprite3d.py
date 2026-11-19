@@ -34,6 +34,7 @@ class Sprite3D(engine.Sprite3D):
         - add_triangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, color=0x0000, wireframe=True): Add a triangle to the sprite.
         - get_triangle(index): Return a Triangle3D object.
         - update_triangle(index, x1, y1, z1, x2, y2, z2, x3, y3, z3, color=0x0000, wireframe=True): Replace one triangle. Returns True on success.
+        - clear(): Reset triangle count to zero.
         - clear_triangles(): Remove all triangles from the sprite.
         - create_humanoid(height=1.8, color=0x0000): Create a humanoid mesh. Returns True on success.
         - create_tree(height=2.0, color=0x0000): Create a tree mesh. Returns True on success.

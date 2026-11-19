@@ -1,0 +1,83 @@
+#pragma once
+#include <stdint.h>
+#include <string.h>
+#include "engine_config.hpp"
+
+#include ENGINE_MEM_INCLUDE
+
+#ifdef ENGINE_LOG_INCLUDE
+#include ENGINE_LOG_INCLUDE
+#endif
+
+#define ASSETS_FOLDER "picoware/apps/games/pico_gta/assets/"
+
+#define GROUND_ROWS 160
+#define SKY_HORIZON_ROWS 160
+#define WIREFRAME_ENABLED false
+
+#define TICKS_PER_DAY 900
+#define PLAYER_SPEED_VERTICAL SPEED_SCALE(0.4f)
+#define PLAYER_SPEED_HORIZONTAL SPEED_SCALE(0.03f)
+
+#define FIELD_OF_VIEW 40
+#define FIELD_OF_VIEW_SQUARED 1600
+
+#define ENEMY_SPAWN_MAX 25
+
+// time
+#if defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(WAVESHARE_C5_3_5) || defined(V8) || defined(POOM) || defined(WAVESHARE_C6_2_06) || defined(PICOCALC_ESP32_P4)
+#include "esp_timer.h"
+#define TIME_INCLUDE "esp_timer.h"
+#define TIME_MILLIS esp_timer_get_time() / 1000
+#elif defined(DESKTOP)
+extern "C"
+{
+#include "py/mphal.h"
+}
+#define TIME_INCLUDE "py/mphal.h"
+#define TIME_MILLIS mp_hal_ticks_ms()
+#else
+#include "pico/time.h"
+#define TIME_INCLUDE "pico/time.h"
+#define TIME_MILLIS to_ms_since_boot(get_absolute_time())
+#endif
+
+// buttons
+#define INPUT_KEY_UP 0
+#define INPUT_KEY_DOWN 1
+#define INPUT_KEY_RIGHT 2
+#define INPUT_KEY_LEFT 3
+#define INPUT_KEY_CENTER 4
+#define INPUT_KEY_BACK 5
+
+// http
+#define HTTP_INACTIVE -1
+#define HTTP_IDLE 0
+#define HTTP_RECEIVING 1
+#define HTTP_SENDING 2
+#define HTTP_ISSUE 3
+#define HTTP_INCLUDE "../../http_config.hpp"
+#define HTTP_REQUEST_IS_FINISHED http_is_finished               // () -> bool
+#define HTTP_SEND_REQUEST http_send_request                     // (const char *url, const char *method, const char *headers, const char *payload) -> bool
+#define HTTP_WEBSOCKET_IS_CONNECTED http_websocket_is_connected // () -> bool
+#define HTTP_WEBSOCKET_SEND http_websocket_send                 // (const char *message) -> bool
+#define HTTP_WEBSOCKET_START http_websocket_start               // (const char *url, uint16_t port) -> bool
+#define HTTP_WEBSOCKET_STOP http_websocket_stop                 // () -> bool
+#define HTTP_GET_RESPONSE http_get_http_response                // (char *buffer, size_t buffer_size) -> bool
+#define HTTP_GET_WEBSOCKET_RESPONSE http_get_websocket_response // (char *buffer, size_t buffer_size) -> bool
+#define HTTP_FILE_DOWNLOAD http_file_download                   // (const char *url, const char *destination_path) -> bool
+
+// json
+#define JSON_INCLUDE "../../../jsmn/jsmn.h"
+#define JSON_GET_VALUE get_json_value             // (const char *key, const char *json_str) -> char* (caller must free)
+#define JSON_GET_ARRAY_VALUE get_json_array_value // (const char *key, int index, const char *json_str) -> char* (caller must free)
+
+// sound (disabled on Cardputer — no audio hardware abstraction)
+#if !defined(CARDPUTER) && !defined(CROWPANEL_WATCH_2_01) && !defined(WAVESHARE_2_06) && !defined(PANCAKE) && !defined(WAVESHARE_C5_3_5) && !defined(V8) && !defined(PICO_DUO) && !defined(POOM) && !defined(WAVESHARE_C6_2_06)
+#define SOUND_INCLUDE "../../../audio/audio.h"
+// #define SOUND_PLAY_MONO_FREQUENCY sound_play_mono_frequency     // (int frequency, int duration_ms)
+#define SOUND_PLAY_STEREO_FREQUENCY audio_play_sound_blocking // (int left_freq, int right_freq, int duration_ms)
+#define SOUND_PLAY_PCM audio_push_samples                     // (const int16_t *samples, int count)
+#define SOUND_PLAY_WAV audio_play_wav                         // (const char *path)
+#define SOUND_STOP audio_stop                                 // () -> void
+#endif

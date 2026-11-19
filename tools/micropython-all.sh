@@ -102,6 +102,9 @@ rm -rf "$micropython_dir"/modules/view
 # remove view_manager module if it exists
 rm -rf "$micropython_dir"/modules/view_manager
 
+# remove PicoGTA module if it exists
+rm -rf "$micropython_dir"/modules/PicoGTA
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -210,6 +213,9 @@ cp -r "$picoware_dir"/src/MicroPython/view "$micropython_dir"/modules/view
 # copy view_manager module
 cp -r "$picoware_dir"/src/MicroPython/view_manager "$micropython_dir"/modules/view_manager
 
+# copy PicoGTA module
+cp -r "$picoware_dir"/src/MicroPython/PicoGTA "$micropython_dir"/modules/PicoGTA
+
 echo "Starting PicoCalc build process..."
 
 # move to the micropython rp2 port directory
@@ -235,7 +241,7 @@ CMAKE_ARGS="-DPICOWARE_ENABLE_GHOULS=ON"
 export CMAKE_ARGS
 
 # PicoCalc - Pico 2W 
-make -j BOARD=RPI_PICO2_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=2048000 CFLAGS_EXTRA="-DPICOCALC -DPBUF_POOL_SIZE=10 -DMICROPY_PY_BLUETOOTH_USE_SYNC_EVENTS=1 -DMICROPY_PY_BLUETOOTH_ENABLE_PAIRING_BONDING=1"
+make -j BOARD=RPI_PICO2_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=2043904 CFLAGS_EXTRA="-DPICOCALC -DPBUF_POOL_SIZE=10 -DMICROPY_PY_BLUETOOTH_USE_SYNC_EVENTS=1 -DMICROPY_PY_BLUETOOTH_ENABLE_PAIRING_BONDING=1"
 cp "$micropython_dir"/build-RPI_PICO2_W/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoCalcPico2W.uf2
 echo "PicoCalc - Pico 2W build complete."
 

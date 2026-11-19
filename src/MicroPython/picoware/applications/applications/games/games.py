@@ -60,6 +60,7 @@ def start(view_manager) -> bool:
 
     if _ghouls_allowed:
         _games.add_item("Ghouls")  # Add Ghouls as a built-in game
+        _games.add_item("PicoGTA")
 
     for game in _app_loader.list_available_apps("games"):
         _games.add_item(game)
@@ -103,21 +104,6 @@ def run(view_manager) -> None:
     elif button == BUTTON_CENTER:
         _games_index = _games.selected_index
 
-        if _ghouls_allowed and _games.current_item == "Ghouls":
-            # Start Ghouls
-            from picoware.applications.applications.games import ghouls
-
-            ghouls_view_name = "game_ghouls"
-            if view_manager.get_view(ghouls_view_name) is None:
-                ghouls_view = View(
-                    ghouls_view_name,
-                    ghouls.run,
-                    ghouls.start,
-                    ghouls.stop,
-                )
-                view_manager.add(ghouls_view)
-            view_manager.switch_to(ghouls_view_name)
-            return
         if _gameboy_allowed and _games.current_item == "GameBoy Emulator":
             # Start GameBoy Emulator
             from picoware.applications.applications.games import gameboy
@@ -130,8 +116,35 @@ def run(view_manager) -> None:
                     gameboy.start,
                     gameboy.stop,
                 )
-                view_manager.add(gameboy_view)
-            view_manager.switch_to(gameboy_view_name)
+                view_manager.add(gameboy_view, True)
+            return
+        if _ghouls_allowed and _games.current_item == "Ghouls":
+            # Start Ghouls
+            from picoware.applications.applications.games import ghouls
+
+            ghouls_view_name = "game_ghouls"
+            if view_manager.get_view(ghouls_view_name) is None:
+                ghouls_view = View(
+                    ghouls_view_name,
+                    ghouls.run,
+                    ghouls.start,
+                    ghouls.stop,
+                )
+                view_manager.add(ghouls_view, True)
+            return
+        if _ghouls_allowed and _games.current_item == "PicoGTA":
+            # Start PicoGTA
+            from picoware.applications.applications.games import PicoGTA
+
+            pico_gta_view_name = "game_pico_gta"
+            if view_manager.get_view(pico_gta_view_name) is None:
+                pico_gta_view = View(
+                    pico_gta_view_name,
+                    PicoGTA.run,
+                    PicoGTA.start,
+                    PicoGTA.stop,
+                )
+                view_manager.add(pico_gta_view, True)
             return
 
         # Get the selected game name

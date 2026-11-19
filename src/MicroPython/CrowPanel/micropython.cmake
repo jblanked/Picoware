@@ -9,6 +9,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/lcd/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/touch/micropython.cmake)
 
 # Include Picoware core modules that are portable to ESP32.
+include(${CMAKE_CURRENT_LIST_DIR}/../PicoGTA/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../picoware_boards/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../vector/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../view/micropython.cmake)

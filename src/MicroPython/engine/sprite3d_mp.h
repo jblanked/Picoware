@@ -37,6 +37,7 @@ extern "C"
     mp_obj_t sprite3d_mp_add_triangle(size_t n_args, const mp_obj_t *args);
     mp_obj_t sprite3d_mp_get_triangle(mp_obj_t self_in, mp_obj_t index_obj);
     mp_obj_t sprite3d_mp_update_triangle(size_t n_args, const mp_obj_t *args);
+    mp_obj_t sprite3d_mp_clear(mp_obj_t self_in);
     mp_obj_t sprite3d_mp_clear_triangles(mp_obj_t self_in);
     mp_obj_t sprite3d_mp_create_humanoid(size_t n_args, const mp_obj_t *args);
     mp_obj_t sprite3d_mp_create_tree(size_t n_args, const mp_obj_t *args);

@@ -192,6 +192,16 @@ mp_obj_t sprite3d_mp_update_triangle(size_t n_args, const mp_obj_t *args)
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_update_triangle_obj, 11, 13, sprite3d_mp_update_triangle);
 
+mp_obj_t sprite3d_mp_clear(mp_obj_t self_in)
+{
+    // Arguments: self
+    sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Sprite3D *ctx = sprite3d_get_context(self);
+    ctx->clear();
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(sprite3d_mp_clear_obj, sprite3d_mp_clear);
+
 mp_obj_t sprite3d_mp_clear_triangles(mp_obj_t self_in)
 {
     // Arguments: self
@@ -490,6 +500,7 @@ static const mp_rom_map_elem_t sprite3d_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_add_triangle), MP_ROM_PTR(&sprite3d_mp_add_triangle_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_triangle), MP_ROM_PTR(&sprite3d_mp_get_triangle_obj)},
     {MP_ROM_QSTR(MP_QSTR_update_triangle), MP_ROM_PTR(&sprite3d_mp_update_triangle_obj)},
+    {MP_ROM_QSTR(MP_QSTR_clear), MP_ROM_PTR(&sprite3d_mp_clear_obj)},
     {MP_ROM_QSTR(MP_QSTR_clear_triangles), MP_ROM_PTR(&sprite3d_mp_clear_triangles_obj)},
     {MP_ROM_QSTR(MP_QSTR_create_humanoid), MP_ROM_PTR(&sprite3d_mp_create_humanoid_obj)},
     {MP_ROM_QSTR(MP_QSTR_create_tree), MP_ROM_PTR(&sprite3d_mp_create_tree_obj)},

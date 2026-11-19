@@ -32,6 +32,11 @@ extern "C"
 #include <cstddef>
 #include <cstdlib>
 
+// new/delete pair is matched at runtime by mp_allocator_ready();
+// GCC cannot see that, so silence the false positive
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmismatched-new-delete"
+
 inline void *operator new(std::size_t size)
 {
     if (mp_allocator_ready())
@@ -109,4 +114,5 @@ inline void operator delete[](void *p, std::size_t) noexcept
         }
     }
 }
+#pragma GCC diagnostic pop
 #endif

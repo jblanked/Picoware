@@ -13,7 +13,7 @@ def callback(result: list, available: int, dropped: int):
     print("%d/%d frames/dropped" % (available, dropped))
     results = result
 
-while not w.connect(s.wifi_settings["ssid"], s.wifi_settings["password"],):
+while not w.connect(s.wifi_settings["ssid"], s.wifi_settings["password"]):
     pass
 
 print("wifi connected")

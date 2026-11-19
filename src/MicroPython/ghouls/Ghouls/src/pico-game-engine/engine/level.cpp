@@ -104,6 +104,8 @@ void Level::drawProjectedTriangle(Draw *draw, const Vector vertices[3], const Ve
 {
     Vector polygon[ENGINE_MAX_PROJECTION_VERTICES];
     const int count = projectionProject(vertices, screen.x, screen.y, clamp, polygon);
+    if (count < 3)
+        return;
     uint16_t x[ENGINE_MAX_PROJECTION_VERTICES], y[ENGINE_MAX_PROJECTION_VERTICES];
     for (int i = 0; i < count; ++i)
     {
@@ -340,9 +342,9 @@ int Level::projectionProject(const Vector triangle[3], float width, float height
         return 0;
     for (int i = 0; i < 3; ++i)
     {
+        output[i] = triangle[i];
         if (!isfinite(triangle[i].x) || !isfinite(triangle[i].y) || !isfinite(triangle[i].z))
             return 0;
-        output[i] = triangle[i];
     }
 
     Vector scratch[ENGINE_MAX_PROJECTION_VERTICES];
@@ -374,6 +376,17 @@ int Level::projectionProject(const Vector triangle[3], float width, float height
             normal = Vector(0, height, height - 1 - half_height);
             break;
         }
+
+        // all inside: clip is a no-op; all outside: clip is empty
+        int inside = 0;
+        for (int i = 0; i < count; ++i)
+            if (projectionDistance(input[i], normal, offset) >= 0)
+                ++inside;
+        if (inside == count)
+            continue;
+        if (inside == 0)
+            return 0;
+
         count = projectionClip(input, count, target, normal, offset);
         if (count < 3)
             return 0;
@@ -403,13 +416,18 @@ void Level::render(Game *game, bool clamp)
 
     Camera *gameCamera = game->getCamera();
     Entity *player = nullptr;
+    bool hasBillboards = false;
     for (int i = 0; i < entity_count; i++)
     {
-        if (entities[i] != nullptr && entities[i]->is_player)
-        {
-            player = entities[i];
+        Entity *e = entities[i];
+        if (e == nullptr)
+            continue;
+        if (player == nullptr && e->is_player)
+            player = e;
+        if (!hasBillboards && e->billboard != nullptr)
+            hasBillboards = true;
+        if (player != nullptr && hasBillboards)
             break;
-        }
     }
 
     // If using third person perspective, calculate camera from player
@@ -444,24 +462,17 @@ void Level::render(Game *game, bool clamp)
         return; // Nothing to render
     }
 
-    bool hasBillboards = false;
-    for (int i = 0; i < entity_count; ++i)
-        if (entities[i] && entities[i]->billboard)
-        {
-            hasBillboards = true;
-            break;
-        }
     if (hasBillboards)
         cam_last_valid = false;
-    Camera sortCamera = *gameCamera;
-    if (gameCamera->perspective == CAMERA_FIRST_PERSON && player)
-    {
-        sortCamera.position = player->position;
-        sortCamera.direction = player->direction;
-    }
     const bool use_depth_order = hasBillboards || gameCamera->perspective == CAMERA_THIRD_PERSON;
     if (use_depth_order && renderOrder != nullptr && (hasBillboards || sortOrderChanged(*gameCamera)))
     {
+        Camera sortCamera = *gameCamera;
+        if (gameCamera->perspective == CAMERA_FIRST_PERSON && player)
+        {
+            sortCamera.position = player->position;
+            sortCamera.direction = player->direction;
+        }
         for (int i = 0; i < entity_count; i++)
             renderOrder[i] = i;
         // Insertion sort: furthest entities first so closer ones overdraw them
@@ -508,6 +519,12 @@ void Level::render(Game *game, bool clamp)
 
     const Vector screenSize = game->draw->getDisplaySize();
     const bool drawShadow = shadowColor != 0 && lightDirection.y > 0.01f;
+    Camera entityCamera = *gameCamera;
+    if (gameCamera->perspective == CAMERA_FIRST_PERSON && player != nullptr)
+    {
+        entityCamera.position = player->position;
+        entityCamera.direction = player->direction;
+    }
     for (int i = 0; i < entity_count; i++)
     {
         Entity *ent = entities[use_depth_order && renderOrder ? renderOrder[i] : i];
@@ -519,12 +536,6 @@ void Level::render(Game *game, bool clamp)
         if (ent->aabb_dirty)
             ent->updateAABB();
 
-        Camera entityCamera = *gameCamera;
-        if (gameCamera->perspective == CAMERA_FIRST_PERSON && player != nullptr)
-        {
-            entityCamera.position = ent->is_player ? ent->position : player->position;
-            entityCamera.direction = ent->is_player ? ent->direction : player->direction;
-        }
         if (!ent->billboard && ent->type != ENTITY_3D_SPRITE && !isOnScreen(ent, entityCamera, screenSize, game->pos))
             continue;
 

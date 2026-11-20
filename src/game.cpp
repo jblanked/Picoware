@@ -114,21 +114,18 @@ bool PicoGTA::getJsonString(const char *key, const char *json, char *output,
     return copied;
 }
 
-bool PicoGTA::getServerError(const char *json, char *error, size_t capacity) const
+void PicoGTA::getServerError(const char *json, char *error, size_t capacity)
 {
     char value[96];
     if (getJsonString("error", json, value, sizeof(value)) &&
         value[0] && strcmp(value, "false") != 0 && strcmp(value, "null") != 0)
     {
         copyText(error, capacity, value);
-        return true;
     }
-    if (getJsonString("detail", json, value, sizeof(value)) && value[0])
+    else if (getJsonString("detail", json, value, sizeof(value)) && value[0])
     {
         copyText(error, capacity, value);
-        return true;
     }
-    return false;
 }
 
 bool PicoGTA::hasJsonObjectShape(const char *text) const
@@ -1847,21 +1844,17 @@ void PicoGTA::pollMultiplayerHttp()
 
     char serverError[96];
     serverError[0] = '\0';
-    if (hasResponse && getServerError(response, serverError, sizeof(serverError)))
-    {
-        if (action == REQUEST_REMOVE)
-            finishMultiplayerLeave(serverError);
-        else
-        {
-            if (action == REQUEST_JOIN)
-                multiplayerTargetLobbyId[0] = '\0';
-            setMultiplayerError(serverError);
-        }
-        return;
-    }
+    getServerError(response, serverError, sizeof(serverError));
+    if (hasResponse)
+        printf("Server response: %s\n", response);
 
     if (action == REQUEST_REMOVE)
     {
+        if (serverError[0])
+        {
+            finishMultiplayerLeave(serverError);
+            return;
+        }
         if (!hasResponse || !response[0])
         {
             finishMultiplayerLeave(
@@ -1882,6 +1875,14 @@ void PicoGTA::pollMultiplayerHttp()
         if (action == REQUEST_JOIN)
             multiplayerTargetLobbyId[0] = '\0';
         setMultiplayerError("No HTTP response body");
+        return;
+    }
+
+    if (serverError[0])
+    {
+        if (action == REQUEST_JOIN)
+            multiplayerTargetLobbyId[0] = '\0';
+        setMultiplayerError(serverError);
         return;
     }
 

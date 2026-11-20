@@ -88,10 +88,23 @@ private:
         float z;
     };
 
+    struct RenderChunk
+    {
+        Sprite3D *mesh = nullptr;
+        Vector bounds_min;
+        Vector bounds_max;
+        bool bounds_valid = false;
+    };
+
     void addBlock(int col, int row, float blockX, float blockZ,
                   float centerX, float centerZ);
     void addBlocks(float centerX, float centerZ);
     void addBuilding(const BuildingSpec &spec);
+    static void renderCallback(Entity *entity, Draw *draw, Game *game, void *context);
+    void renderCity(Draw *draw, Game *game);
+    bool boundsMayBeVisible(const Vector &minimum, const Vector &maximum,
+                            const Vector &cameraPosition, const Vector &cameraDirection,
+                            float cameraHeight, const Vector &screen, bool drawShadow) const;
     void addCarToMesh(float x, float sceneZ, uint16_t color);
     bool addCube(float x, float y, float z, float width, float height, float depth,
                  uint16_t color);
@@ -106,6 +119,7 @@ private:
     void addStreets();
     bool addTriangle(float x1, float y1, float z1, float x2, float y2, float z2,
                      float x3, float y3, float z3, uint16_t color);
+    void includeActivePoint(float x, float y, float z);
     void addTree(float x, float z);
     void addWindow(float x, float y, float z, float halfWidth, float halfHeight);
     void buildGarage(float x, float z, float width, float depth, float height,
@@ -143,6 +157,14 @@ private:
     Building buildings[MAX_BUILDINGS];
     int buildingSpecCount;
     BuildingSpec buildingSpecs[MAX_BUILDING_SPECS];
+    RenderChunk roadChunk;
+    RenderChunk buildingChunks[MAX_BUILDINGS];
+    int buildingChunkCount;
+    Sprite3D *activeMesh;
+    bool activeBoundsActive;
+    bool activeBoundsValid;
+    Vector activeBoundsMin;
+    Vector activeBoundsMax;
     Entity *city;
     bool geometryError;
     Level *level;

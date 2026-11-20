@@ -326,15 +326,15 @@ bool PicoGTA::formatFloatAscii(char *output, size_t capacity, float value) const
 int PicoGTA::scaleX(Draw *canvas, float value) const
 {
     if (!canvas)
-        return 0;
-    return (int)(value * canvas->getDisplaySize().x / 320.0f + 0.5f);
+        return (int)value;
+    return (int)(value * canvas->getDisplaySize().x / 320.0f);
 }
 
 int PicoGTA::scaleY(Draw *canvas, float value) const
 {
     if (!canvas)
-        return 0;
-    return (int)(value * canvas->getDisplaySize().y / 240.0f + 0.5f);
+        return (int)value;
+    return (int)(value * canvas->getDisplaySize().y / 320.0f);
 }
 
 int PicoGTA::textWidth(Draw *canvas, const char *text) const

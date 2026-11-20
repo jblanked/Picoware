@@ -58,6 +58,11 @@ namespace picogta
             return;
         }
         if (city)
-            city->updatePlayer(this, game);
+        {
+            city->update();
+            if (city->isActive())
+                city->updatePlayer(this, game);
+            city->resetInput();
+        }
     }
 } // namespace picogta

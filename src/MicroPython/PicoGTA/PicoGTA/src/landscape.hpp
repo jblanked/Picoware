@@ -58,7 +58,8 @@ public:
         MAX_BUILDING_SPECS = 128,
         MAX_BUILDINGS = 128,
         MAX_BUILDING_CHUNKS = 32,
-        MAX_BUILDING_TRIANGLES = 64
+        MAX_BUILDING_TRIANGLES = 64,
+        MAX_ROAD_TRIANGLES = 1024
     };
 
     Landscape();
@@ -175,6 +176,7 @@ private:
     Sprite3D *activeMesh;
     uint16_t activeTriangleCapacity;
     uint16_t buildingTriangleCapacity;
+    uint16_t roadTriangleCapacity;
     bool activeBoundsActive;
     bool activeBoundsValid;
     Vector activeBoundsMin;

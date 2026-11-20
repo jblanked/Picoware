@@ -58,7 +58,7 @@ bool Landscape::create(Level *level)
         return false;
     }
 
-    roadChunk.mesh = ENGINE_MEM_NEW Sprite3D();
+    roadChunk.mesh = ENGINE_MEM_NEW Sprite3D(false);
     if (!roadChunk.mesh)
     {
         ENGINE_LOG_INFO("[Landscape:create] Failed to create road mesh\n");
@@ -86,7 +86,7 @@ bool Landscape::create(Level *level)
     for (int i = 0; i < MAX_BUILDING_CHUNKS; ++i)
     {
         RenderChunk &chunk = buildingChunks[i];
-        chunk.mesh = ENGINE_MEM_NEW Sprite3D();
+        chunk.mesh = ENGINE_MEM_NEW Sprite3D(false);
         if (!chunk.mesh || !chunk.mesh->reserveTriangles(buildingTriangleCapacity))
         {
             if (chunk.mesh)

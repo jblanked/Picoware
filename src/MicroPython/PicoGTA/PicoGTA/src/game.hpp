@@ -206,7 +206,7 @@ private:
     const float minimapRange = 44.0f;
     const float minimapSize = 60.0f;
     const char *const multiplayerApi =
-        "https://www.jblanked.com/picoware/api/picocity/";
+        "https://www.jblanked.com/picoware/api/picogta/";
     MultiplayerConnectionState multiplayerConnectionState;
     bool multiplayerExitAfterLeave;
     bool multiplayerExitReady;
@@ -227,7 +227,7 @@ private:
     char multiplayerTargetLobbyId[MAX_LOBBY_ID_LENGTH + 1];
     MultiplayerView multiplayerView;
     const char *const multiplayerWebSocket =
-        "wss://www.jblanked.com/ws/picoware/picocity/";
+        "wss://www.jblanked.com/ws/picoware/picogta/";
     Pedestrian *people[PERSON_COUNT];
     float peopleSpeeds[PERSON_COUNT];
     const uint16_t personColors[6] = {0x001F, 0xF800, 0x07E0, 0xFD20, 0xF81F, 0x001F};

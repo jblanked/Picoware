@@ -538,6 +538,13 @@ bool PicoGTA::initDraw()
     return true;
 }
 
+void PicoGTA::resetInput()
+{
+    lastInput = -1;
+    if (engine)
+        engine->updateGameInput(-1);
+}
+
 bool PicoGTA::startGame()
 {
     if (engine)
@@ -733,9 +740,7 @@ void PicoGTA::updateInput(int key, bool held)
 
     lastInput = key;
     inputPressed = !held;
-    Game *game = getGame();
-    if (game)
-        game->input = key;
+    engine->updateGameInput(key);
 }
 
 void PicoGTA::updateDraw()
@@ -788,15 +793,10 @@ void PicoGTA::updateDraw()
         return;
     }
 
-    Game *game = engine->getGame();
-    if (game)
-        game->input = lastInput;
     engine->runAsync(false);
     updateMultiplayer();
     inputPressed = false;
     resetInput();
-    if (game)
-        game->input = -1;
 }
 
 void PicoGTA::backgroundRender(Entity *entity, Draw *canvas, Game *game, void *context)

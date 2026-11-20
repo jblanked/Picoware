@@ -31,7 +31,7 @@ public:
     bool initDraw();
     bool isActive() const { return shouldExit == false; }
     bool isRunning() const { return isGameRunning; }
-    void resetInput() { lastInput = -1; }
+    void resetInput();
     void updateDraw();
     void updateInput(int key, bool held);
     void updatePerson(Pedestrian *person);

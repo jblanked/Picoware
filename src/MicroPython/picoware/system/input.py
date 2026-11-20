@@ -20,7 +20,7 @@ from picoware.system.boards import (
     BOARD_HAS_TOUCH,
     BOARD_FLIPPER_ZERO,
     BOARD_PICO_DUO,
-    BOARD_POOM
+    BOARD_POOM,
 )
 
 
@@ -61,6 +61,7 @@ class Input:
             back_button (int): The button code used as back. Defaults to buttons.BUTTON_BACK.
         """
         from picoware_boards import get_display_size
+
         self._current_board_id = BOARD_ID
         self.pin = None
         self._last_point = (0, 0)
@@ -118,7 +119,9 @@ class Input:
             self.pin = Pin(21, Pin.IN, Pin.PULL_UP)
             self._touch_read_data_fast = read_data
 
-            self.pin.irq(handler=self._touch_read_data_fast, trigger=Pin.IRQ_FALLING, hard=True)
+            self.pin.irq(
+                handler=self._touch_read_data_fast, trigger=Pin.IRQ_FALLING, hard=True
+            )
 
             self._last_point = (0, 0)
         elif self._current_board_id == BOARD_WAVESHARE_3_49_RP2350:
@@ -189,13 +192,13 @@ class Input:
         else:
             from picoware_keyboard import (
                 init,
-                set_background_poll,
-                set_key_available_callback,
+                # set_background_poll,
+                # set_key_available_callback,
             )
 
             init()
-            set_key_available_callback(self.on_key_callback)
-            set_background_poll(True)
+            # set_key_available_callback(self.on_key_callback)
+            # set_background_poll(True)
 
         self._elapsed_time = 0
         self._elapsed_touch_start = 0
@@ -339,16 +342,16 @@ class Input:
             self._button_map.update(ansi_button_map)
         elif self._current_board_id == BOARD_PICO_DUO:
             self._button_map = {
-                b'\x04': buttons.BUTTON_UP, # 4
-                b'\x07': buttons.BUTTON_DOWN, # 7
-                b'\x08': buttons.BUTTON_LEFT, # 8
-                b'\x02': buttons.BUTTON_RIGHT, # 2
-                b'\x11': buttons.BUTTON_UP, # 17
-                b'\x12': buttons.BUTTON_DOWN, # 18
-                b'\x10': buttons.BUTTON_LEFT, # 16
-                b'\x0f': buttons.BUTTON_RIGHT, # 15
-                b'\x0d': buttons.BUTTON_CENTER, # 13
-                b'\x0c': buttons.BUTTON_BACK, # 12
+                b"\x04": buttons.BUTTON_UP,  # 4
+                b"\x07": buttons.BUTTON_DOWN,  # 7
+                b"\x08": buttons.BUTTON_LEFT,  # 8
+                b"\x02": buttons.BUTTON_RIGHT,  # 2
+                b"\x11": buttons.BUTTON_UP,  # 17
+                b"\x12": buttons.BUTTON_DOWN,  # 18
+                b"\x10": buttons.BUTTON_LEFT,  # 16
+                b"\x0f": buttons.BUTTON_RIGHT,  # 15
+                b"\x0d": buttons.BUTTON_CENTER,  # 13
+                b"\x0c": buttons.BUTTON_BACK,  # 12
             }
         else:
             self._button_map = {
@@ -503,6 +506,12 @@ class Input:
             poll()
             if key_available():
                 self.on_key_callback()
+        else:
+            from picoware_keyboard import key_available, poll
+
+            poll()
+            if key_available():
+                self.on_key_callback()
         return self._last_button
 
     @property
@@ -549,9 +558,11 @@ class Input:
             deinit()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
             from flipper_input import deinit
+
             deinit()
         elif self._current_board_id == BOARD_POOM:
             from poom_input import deinit
+
             deinit()
 
         elif self._current_board_id not in (
@@ -627,6 +638,7 @@ class Input:
             return self._last_point != (0, 0) or self._poll_watch_power_button()
         if self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
             from gpio_buttons import key_available
+
             self._poll_touch()
             return (self._last_point != (0, 0)) | key_available()
         if self._current_board_id == BOARD_CARDPUTER:
@@ -808,24 +820,41 @@ class Input:
 
         _button = buttons.BUTTON_NONE
 
-        if 0 <= x <= self._screen_size[0] * 0.15 and 0 <= y <= self._screen_size[1] * 0.12:
+        if (
+            0 <= x <= self._screen_size[0] * 0.15
+            and 0 <= y <= self._screen_size[1] * 0.12
+        ):
             _button = buttons.BUTTON_BACK
-        elif self._screen_size[0] * 0.85 <= x <= self._screen_size[0] and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7:
+        elif (
+            self._screen_size[0] * 0.85 <= x <= self._screen_size[0]
+            and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7
+        ):
             _button = buttons.BUTTON_RIGHT
-        elif 0 <= x <= self._screen_size[0] * 0.15 and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7:
+        elif (
+            0 <= x <= self._screen_size[0] * 0.15
+            and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7
+        ):
             _button = buttons.BUTTON_LEFT
-        elif self._screen_size[0] * 0.2 <= x <= self._screen_size[0] * 0.8 and 0 <= y <= self._screen_size[1] * 0.2:
+        elif (
+            self._screen_size[0] * 0.2 <= x <= self._screen_size[0] * 0.8
+            and 0 <= y <= self._screen_size[1] * 0.2
+        ):
             _button = buttons.BUTTON_UP
-        elif self._screen_size[0] * 0.2 <= x <= self._screen_size[0] * 0.8 and self._screen_size[1] * 0.8 <= y <= self._screen_size[1]:
+        elif (
+            self._screen_size[0] * 0.2 <= x <= self._screen_size[0] * 0.8
+            and self._screen_size[1] * 0.8 <= y <= self._screen_size[1]
+        ):
             _button = buttons.BUTTON_DOWN
-        elif self._screen_size[0] * 0.4 <= x <= self._screen_size[0] * 0.6 and self._screen_size[1] * 0.4 <= y <= self._screen_size[1] * 0.6:
+        elif (
+            self._screen_size[0] * 0.4 <= x <= self._screen_size[0] * 0.6
+            and self._screen_size[1] * 0.4 <= y <= self._screen_size[1] * 0.6
+        ):
             _button = buttons.BUTTON_CENTER
 
         return _button
 
     def _poll_touch_1_69(self):
-        """Poll the touch data and map it to a button event.
-        """
+        """Poll the touch data and map it to a button event."""
         from waveshare_touch import get_cached_point, reset_state
 
         point = get_cached_point()

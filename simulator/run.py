@@ -408,25 +408,32 @@ def _install_view_tracking():
 
     def tracked_input_button(self):
         from picoware.system.boards import (
-            BOARD_CARDPUTER,
-            BOARD_CROWPANEL_10_1,
-            BOARD_FLIPPER_ZERO,
-            BOARD_PANCAKE,
-            BOARD_WAVESHARE_2_06,
-            BOARD_WAVESHARE_C5_3_5,
-            BOARD_WAVESHARE_C6_2_06,
+            BOARD_CARDPUTER, BOARD_CROWPANEL_10_1, BOARD_CROWPANEL_WATCH_2_01,
+            BOARD_FLIPPER_ZERO, BOARD_PANCAKE, BOARD_V8, BOARD_POOM,
+            BOARD_WAVESHARE_1_69_RP2350, BOARD_WAVESHARE_2_06,
+            BOARD_WAVESHARE_C5_3_5, BOARD_WAVESHARE_C6_2_06,
         )
-
         sim_runtime.input_polled()
-        if self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
+        if self._current_board_id == BOARD_CROWPANEL_WATCH_2_01:
+            self._poll_touch()
+            if self._poll_watch_power_button():
+                self.on_key_callback()
+        elif self._current_board_id in (
+            BOARD_CROWPANEL_10_1,
+            BOARD_PANCAKE,
+            BOARD_WAVESHARE_C5_3_5,
+            BOARD_V8,
+        ):
+            self._poll_touch()
+        elif self._current_board_id == BOARD_WAVESHARE_1_69_RP2350:
+            self._poll_touch_1_69()
+        elif self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
             from gpio_buttons import key_available
 
             if key_available():
                 self.on_key_callback()
             else:
                 self._poll_touch()
-        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_PANCAKE, BOARD_WAVESHARE_C5_3_5):
-            self._poll_touch()
         elif self._current_board_id == BOARD_CARDPUTER:
             from cardputer_keyboard import key_available, poll
 
@@ -435,6 +442,18 @@ def _install_view_tracking():
                 self.on_key_callback()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
             from flipper_input import key_available, poll
+
+            poll()
+            if key_available():
+                self.on_key_callback()
+        elif self._current_board_id == BOARD_POOM:
+            from poom_input import key_available, poll
+
+            poll()
+            if key_available():
+                self.on_key_callback()
+        else:
+            from picoware_keyboard import key_available, poll
 
             poll()
             if key_available():
@@ -627,6 +646,7 @@ def _run_coverage(opts):
     if mode in ("games", "all"):
         if _board_supports_ghouls(opts["board"]):
             entries.append(("game", "Ghouls"))
+            entries.append(("game", "PicoGTA"))
         for name in _list_py_entries(opts["apps_source"] + "/games"):
             entries.append(("game", name))
     if not entries:
@@ -635,6 +655,8 @@ def _run_coverage(opts):
         view_name = name
         if kind == "game" and name == "Ghouls":
             view_name = "game_ghouls"
+        elif kind == "game" and name == "PicoGTA":
+            view_name = "game_pico_gta"
         safe = (kind + "-" + name).replace("/", "_").replace(" ", "_")
         log_path = report_dir + "/" + safe + ".log"
         cmd = (
@@ -917,6 +939,7 @@ def _run_desktop_native_check(opts):
         "ghouls",
         "mjs",
         "mmbasic",
+        "pico_gta",
         "response",
         "sim_raster",
         "video",
@@ -994,13 +1017,35 @@ def _run_desktop_native_check(opts):
         if engine.tick(5) != (1, "", 0):
             raise RuntimeError("native MMBasic input completion mismatch")
         engine.render(True)
+
+        # Exercise native method lookup, city rendering, and repeated teardown.
+        from pico_gta import PicoGTA
+        from picoware.system.buttons import BUTTON_CENTER, BUTTON_UP
+
+        for _ in range(2):
+            city = PicoGTA("simulator", "offline-test")
+            try:
+                assert city.is_active
+                city.update_draw()
+                title = bytes(sim_runtime.get_lcd()._buffer)
+                city.update_input(BUTTON_CENTER)
+                city.update_draw()
+                city.update_input(BUTTON_UP)
+                city.update_draw()
+                assert bytes(sim_runtime.get_lcd()._buffer) != title
+            finally:
+                city.__del__()
+                city.__del__()
+                assert not city.is_active
+            del city
+            gc.collect()
     finally:
         sd_mp.remove(path)
         sim_runtime.set_lcd(original_lcd)
         sim_runtime.sd_root = original_sd_root
         sim_runtime.headless = original_headless
         gc.collect()
-    print("[sim-check:ok] Desktop native logic and MMBasic hardware bridge")
+    print("[sim-check:ok] Desktop native logic, MMBasic bridge, and PicoGTA render/recreation")
 
 
 def _run_c_parity_check(opts):
@@ -1957,7 +2002,7 @@ def _run_scripts_fixture_check(opts):
         with open(path, "r") as handle:
             contents = handle.read()
         if ("draw.size.width" not in contents
-                or "engine.runAsync(true)" not in contents
+                or "engine.runAsync(false)" not in contents
                 or "game.levelAdd(level)" not in contents):
             raise RuntimeError("bundled JS game fixture is missing: " + name)
     print("[sim-check:ok] bundled JavaScript scripts fixture")

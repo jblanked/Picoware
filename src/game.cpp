@@ -1976,7 +1976,7 @@ void PicoGTA::connectMultiplayer()
     multiplayerConnectionState = CONNECTION_IDLE;
     copyText(multiplayerStatus, sizeof(multiplayerStatus), "Connecting...");
     multiplayerView = VIEW_PENDING;
-    if (!HTTP_WEBSOCKET_START(url, 443))
+    if (!HTTP_WEBSOCKET_START(url, 80))
     {
         leaveMultiplayer(false, "Connection failed: WebSocket could not start");
         return;

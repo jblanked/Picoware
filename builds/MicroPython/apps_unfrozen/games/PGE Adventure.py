@@ -1016,7 +1016,7 @@ class _Adventure:
 
     def _build_world(self):
         """Create the streamed terrain mesh entity."""
-        mesh = Sprite3D()
+        mesh = Sprite3D(False)
         self.world_mesh = mesh
         self._mesh_entity(
             "Terrain",

@@ -58,6 +58,7 @@ All platform wiring is done via `#define` macros in `engine_config.hpp`. No engi
 |----------|------------|
 | Memory   | `ENGINE_MEM_MALLOC`, `ENGINE_MEM_FREE`, `ENGINE_MEM_NEW`, `ENGINE_MEM_DELETE` |
 | Delay    | `ENGINE_DELAY_INCLUDE`, `ENGINE_DELAY_MS(ms)` (required) |
+| Input    | `ENGINE_INPUT_INCLUDE`, `ENGINE_INPUT_READ` |
 | Font     | `ENGINE_FONT_INCLUDE`, `ENGINE_FONT_SIZE`, `ENGINE_FONT_DEFAULT` |
 | LCD      | `ENGINE_LCD_INIT`, `ENGINE_LCD_CLEAR`, `ENGINE_LCD_PIXEL`, `ENGINE_LCD_LINE`, `ENGINE_LCD_TRIANGLE`, `ENGINE_LCD_FILL_TRIANGLE`, `ENGINE_LCD_BLIT`, `ENGINE_LCD_BLIT_16BIT`, `ENGINE_LCD_TEXT`, `ENGINE_LCD_SWAP`, and more |
 | Storage  | `ENGINE_STORAGE_INCLUDE`, `ENGINE_STORAGE_READ` (optional, for file-backed images) |
@@ -74,7 +75,8 @@ The top-level runner. Accepts a `Game*` and a target FPS.
 | Method | Description |
 |--------|-------------|
 | `run()` | Blocking game loop: start, update, render, delay, stop |
-| `runAsync(shouldDelay)` | Single tick for use with RTOS or cooperative schedulers |
+| `runAsync(shouldDelay, shouldRender)` | Single update tick; rendering can be deferred |
+| `render()` | Renders the current game using the configured clamp setting |
 | `updateGameInput(uint8_t)` | Injects button state into the game |
 | `stop()` | Stops the game, clears the screen, frees memory |
 

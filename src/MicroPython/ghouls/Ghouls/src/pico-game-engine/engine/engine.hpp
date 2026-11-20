@@ -1,7 +1,9 @@
 #pragma once
 #include "game.hpp"
 #include ENGINE_DELAY_INCLUDE
-
+#ifdef ENGINE_INPUT_INCLUDE
+#include ENGINE_INPUT_INCLUDE
+#endif
 class GameEngine
 {
 private:
@@ -45,6 +47,10 @@ public:
             game->start();
         }
 
+#ifdef ENGINE_INPUT_READ
+        updateGameInput(ENGINE_INPUT_READ());
+#endif
+
         // Update the game
         game->update();
 
@@ -75,7 +81,7 @@ public:
         game = nullptr;
     }
 
-    inline void updateGameInput(uint8_t input)
+    inline void updateGameInput(int input)
     {
         if (game && game->is_active)
         {

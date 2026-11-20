@@ -54,3 +54,16 @@
 // #define ENGINE_STORAGE_INCLUDE "example/storage.h"
 // #define ENGINE_STORAGE_READ storage_read // (const char *file_path, void *buffer, size_t buffer_size) -> size_t
 // #define ENGINE_STORAGE_WRITE storage_write // (const char *file_path, void *buffer, size_t buffer_size) -> bool
+
+// input
+// #define ENGINE_INPUT_INCLUDE
+// #define ENGINE_INPUT_READ input_read // (void) -> int
+/*
+- None: -1
+- Up: 0
+- Down: 1
+- Right: 2
+- Left: 3
+- Center/Ok: 4
+- Back: 4
+*/

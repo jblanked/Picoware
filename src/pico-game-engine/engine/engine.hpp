@@ -39,7 +39,7 @@ public:
         this->stop();
     }
 
-    inline void runAsync(bool shouldDelay = false)
+    inline void runAsync(bool shouldDelay = false, bool shouldRender = true)
     {
         // Initialize the game if not already active.
         if (!game->is_active)
@@ -54,8 +54,10 @@ public:
         // Update the game
         game->update();
 
-        // Render the game
-        game->render(clamp);
+        if (shouldRender)
+        {
+            render();
+        }
 
         if (shouldDelay)
         {
@@ -67,6 +69,14 @@ public:
     inline void setClamp(bool clamp)
     {
         this->clamp = clamp;
+    }
+
+    inline void render()
+    {
+        if (game)
+        {
+            game->render(clamp);
+        }
     }
 
     inline void stop()

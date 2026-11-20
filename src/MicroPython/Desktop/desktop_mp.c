@@ -11,6 +11,7 @@ static mp_obj_t desktop_native_modules(void)
         MP_OBJ_NEW_QSTR(MP_QSTR_ghouls),
         MP_OBJ_NEW_QSTR(MP_QSTR_mjs),
         MP_OBJ_NEW_QSTR(MP_QSTR_mmbasic),
+        MP_OBJ_NEW_QSTR(MP_QSTR_pico_gta),
         MP_OBJ_NEW_QSTR(MP_QSTR_response),
         MP_OBJ_NEW_QSTR(MP_QSTR_sim_raster),
         MP_OBJ_NEW_QSTR(MP_QSTR_video),

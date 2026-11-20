@@ -43,6 +43,8 @@ static MP_DEFINE_CONST_FUN_OBJ_1(view_manager_mp_del_obj, view_manager_mp_del);
 void view_manager_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     view_manager_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self)
+        return;
     if (destination[0] == MP_OBJ_NULL)
     {
         switch (attribute)

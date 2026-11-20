@@ -51,7 +51,7 @@ static MP_DEFINE_CONST_FUN_OBJ_1(pico_gta_mp_del_obj, pico_gta_mp_del);
 void pico_gta_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     pico_gta_mp_obj_t *self = static_cast<pico_gta_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    if (self->freed)
+    if (!self || self->freed)
     {
         return;
     }
@@ -73,7 +73,7 @@ void pico_gta_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 mp_obj_t pico_gta_mp_update_draw(mp_obj_t self_in)
 {
     pico_gta_mp_obj_t *self = static_cast<pico_gta_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    if (self->freed)
+    if (!self || self->freed)
     {
         return mp_const_none;
     }
@@ -87,7 +87,7 @@ static MP_DEFINE_CONST_FUN_OBJ_1(pico_gta_mp_update_draw_obj, pico_gta_mp_update
 mp_obj_t pico_gta_mp_update_input(mp_obj_t self_in, mp_obj_t button_pressed_obj)
 {
     pico_gta_mp_obj_t *self = static_cast<pico_gta_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    if (self->freed)
+    if (!self || self->freed)
     {
         return mp_const_none;
     }

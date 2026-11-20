@@ -19,6 +19,9 @@ Landscape::Landscape()
       activeMesh(nullptr),
       activeTriangleCapacity(0),
       buildingTriangleCapacity(0),
+    roadTriangleCapacity(ENGINE_MAX_TRIANGLES_PER_SPRITE < MAX_ROAD_TRIANGLES
+                     ? ENGINE_MAX_TRIANGLES_PER_SPRITE
+                     : MAX_ROAD_TRIANGLES),
       activeBoundsActive(false),
       activeBoundsValid(false),
       activeBoundsMin(),
@@ -66,7 +69,7 @@ bool Landscape::create(Level *level)
         release();
         return false;
     }
-    if (!roadChunk.mesh->reserveTriangles(ENGINE_MAX_TRIANGLES_PER_SPRITE))
+    if (!roadChunk.mesh->reserveTriangles(roadTriangleCapacity))
     {
         ENGINE_LOG_INFO("[Landscape:create] Failed to reserve road mesh\n");
         ENGINE_MEM_DELETE roadChunk.mesh;
@@ -78,7 +81,7 @@ bool Landscape::create(Level *level)
     roadChunk.mesh->setWireframe(false);
     roadChunk.mesh->setPosition(entity->position);
     activeMesh = roadChunk.mesh;
-    activeTriangleCapacity = ENGINE_MAX_TRIANGLES_PER_SPRITE;
+    activeTriangleCapacity = roadTriangleCapacity;
 
     buildingTriangleCapacity = ENGINE_MAX_TRIANGLES_PER_SPRITE < MAX_BUILDING_TRIANGLES
                                    ? ENGINE_MAX_TRIANGLES_PER_SPRITE
@@ -670,7 +673,7 @@ void Landscape::fillCity(float centerX, float centerZ)
     roadChunk.mesh->clear();
     roadChunk.bounds_valid = false;
     activeMesh = roadChunk.mesh;
-    activeTriangleCapacity = ENGINE_MAX_TRIANGLES_PER_SPRITE;
+    activeTriangleCapacity = roadTriangleCapacity;
     activeBoundsActive = true;
     activeBoundsValid = false;
     city->is_visible = false;

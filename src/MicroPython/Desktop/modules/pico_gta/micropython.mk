@@ -1,0 +1,13 @@
+DESKTOP_PICO_GTA_MOD_DIR := $(USERMOD_DIR)
+USERMOD_DIR := $(DESKTOP_PICO_GTA_MOD_DIR)/../../../PicoGTA
+include $(USERMOD_DIR)/micropython.mk
+USERMOD_DIR := $(DESKTOP_PICO_GTA_MOD_DIR)
+
+SRC_USERMOD_CXX := $(filter-out $(PICO_GTA_MOD_DIR)/pico_gta_mp.cpp,$(SRC_USERMOD_CXX))
+SRC_USERMOD_CXX += $(DESKTOP_PICO_GTA_MOD_DIR)/binding.cpp
+CXXFLAGS_USERMOD += -I$(DESKTOP_PICO_GTA_MOD_DIR)
+
+# Reuse shared engine, HTTP/WebSocket, JSON, and host audio services.
+DESKTOP_PICO_GTA_SOURCES := $(filter $(PICO_GTA_MOD_DIR)/PicoGTA/src/%.cpp,$(SRC_USERMOD_LIB_CXX))
+DESKTOP_PICO_GTA_OBJECTS := $(addprefix $(BUILD)/,$(patsubst $(USER_C_MODULES)/%.cpp,%.o,$(DESKTOP_PICO_GTA_SOURCES)))
+$(DESKTOP_PICO_GTA_OBJECTS): CXXFLAGS += -include $(DESKTOP_PICO_GTA_MOD_DIR)/compat.hpp

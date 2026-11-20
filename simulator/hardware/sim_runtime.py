@@ -1200,6 +1200,7 @@ def request_game(name):
             and picoware_boards.BOARD_ID != picoware_boards.BOARD_PICOCALC_PICOW
         ):
             games.append("Ghouls")
+            games.append("PicoGTA")
     except ImportError:
         pass
     games.extend(_list_menu_apps(sd_root + "/picoware/apps/games"))

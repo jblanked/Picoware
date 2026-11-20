@@ -75,7 +75,7 @@ public:
         game = nullptr;
     }
 
-    inline void updateGameInput(uint8_t input)
+    inline void updateGameInput(int input)
     {
         if (game && game->is_active)
         {

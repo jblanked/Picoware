@@ -17,6 +17,8 @@ Landscape::Landscape()
       buildingSpecCount(0),
       buildingChunkCount(0),
       activeMesh(nullptr),
+      activeTriangleCapacity(0),
+      buildingTriangleCapacity(0),
       activeBoundsActive(false),
       activeBoundsValid(false),
       activeBoundsMin(),
@@ -76,15 +78,34 @@ bool Landscape::create(Level *level)
     roadChunk.mesh->setWireframe(false);
     roadChunk.mesh->setPosition(entity->position);
     activeMesh = roadChunk.mesh;
+    activeTriangleCapacity = ENGINE_MAX_TRIANGLES_PER_SPRITE;
+
+    buildingTriangleCapacity = ENGINE_MAX_TRIANGLES_PER_SPRITE < MAX_BUILDING_TRIANGLES
+                                   ? ENGINE_MAX_TRIANGLES_PER_SPRITE
+                                   : MAX_BUILDING_TRIANGLES;
+    for (int i = 0; i < MAX_BUILDING_CHUNKS; ++i)
+    {
+        RenderChunk &chunk = buildingChunks[i];
+        chunk.mesh = ENGINE_MEM_NEW Sprite3D();
+        if (!chunk.mesh || !chunk.mesh->reserveTriangles(buildingTriangleCapacity))
+        {
+            if (chunk.mesh)
+                ENGINE_MEM_DELETE chunk.mesh;
+            chunk = RenderChunk();
+            ENGINE_MEM_DELETE entity;
+            ENGINE_LOG_INFO("[Landscape:create] Failed to reserve building mesh pool\n");
+            release();
+            return false;
+        }
+        chunk.mesh->setWireframe(false);
+        chunk.mesh->setPosition(entity->position);
+    }
     entity->is_visible = false;
 
     const int oldCount = level->getEntityCount();
     level->entity_add(entity);
     if (level->getEntityCount() != oldCount + 1)
     {
-        ENGINE_MEM_DELETE roadChunk.mesh;
-        roadChunk = RenderChunk();
-        activeMesh = nullptr;
         ENGINE_MEM_DELETE entity;
         ENGINE_LOG_INFO("[Landscape:create] Failed to add city mesh to level\n");
         release();
@@ -144,7 +165,7 @@ void Landscape::renderCity(Draw *draw, Game *game)
 
     for (int i = 0; i < buildingChunkCount; ++i)
     {
-        const RenderChunk &chunk = buildingChunks[i];
+        const RenderChunk &chunk = buildingChunks[activeBuildingChunkIndices[i]];
         if (!chunk.mesh || !chunk.bounds_valid || chunk.mesh->getTriangleCount() == 0 ||
             !boundsMayBeVisible(chunk.bounds_min, chunk.bounds_max, cameraPosition,
                                 cameraDirection, camera->height, screen, drawShadow))
@@ -223,7 +244,7 @@ bool Landscape::boundsMayBeVisible(const Vector &minimum, const Vector &maximum,
 
 void Landscape::release()
 {
-    for (int i = 0; i < buildingChunkCount; ++i)
+    for (int i = 0; i < MAX_BUILDING_CHUNKS; ++i)
     {
         if (buildingChunks[i].mesh)
             ENGINE_MEM_DELETE buildingChunks[i].mesh;
@@ -234,6 +255,8 @@ void Landscape::release()
         ENGINE_MEM_DELETE roadChunk.mesh;
     roadChunk = RenderChunk();
     activeMesh = nullptr;
+    activeTriangleCapacity = 0;
+    buildingTriangleCapacity = 0;
     activeBoundsActive = false;
     activeBoundsValid = false;
     level = nullptr;
@@ -313,7 +336,7 @@ const Building *Landscape::getBuilding(int index) const
 bool Landscape::addSpace(uint16_t triangles)
 {
     if (!activeMesh ||
-        (uint32_t)activeMesh->getTriangleCount() + triangles > ENGINE_MAX_TRIANGLES_PER_SPRITE)
+        (uint32_t)activeMesh->getTriangleCount() + triangles > activeTriangleCapacity)
     {
         geometryError = true;
         return false;
@@ -544,73 +567,86 @@ void Landscape::buildHouse(float x, float z, float width, float depth,
     buildGarage(x, z, width, depth, height, wallColor);
 }
 
-void Landscape::addBuilding(const BuildingSpec &spec)
+void Landscape::addBuilding(const BuildingSpec &spec, int chunkIndex, bool rebuildMesh)
 {
-    if (buildingCount >= MAX_BUILDINGS || buildingChunkCount >= MAX_BUILDINGS)
+    if (buildingCount >= MAX_BUILDINGS || buildingChunkCount >= MAX_BUILDING_CHUNKS ||
+        chunkIndex < 0 || chunkIndex >= MAX_BUILDING_CHUNKS)
     {
         geometryError = true;
         return;
     }
 
-    Sprite3D *mesh = ENGINE_MEM_NEW Sprite3D();
+    RenderChunk &chunk = buildingChunks[chunkIndex];
+    Sprite3D *mesh = chunk.mesh;
     if (!mesh)
     {
         geometryError = true;
+        chunk.active = false;
         return;
     }
-    const uint16_t meshCapacity = ENGINE_MAX_TRIANGLES_PER_SPRITE < 64
-                                      ? ENGINE_MAX_TRIANGLES_PER_SPRITE
-                                      : 64;
-    if (!mesh->reserveTriangles(meshCapacity))
-    {
-        ENGINE_MEM_DELETE mesh;
-        geometryError = true;
-        return;
-    }
-    mesh->setWireframe(false);
-    mesh->setPosition(city->position);
-
-    Sprite3D *previousMesh = activeMesh;
-    activeMesh = mesh;
-    activeBoundsActive = true;
-    activeBoundsValid = false;
-    const float sceneZ = spec.z - SCENE_ANCHOR_Z;
     const bool isHouse = spec.type == 1;
     const bool isTower = spec.type == 2;
-    if (isHouse)
+    if (rebuildMesh)
     {
-        buildHouse(spec.x, spec.z, spec.width, spec.depth, spec.height,
-                   spec.wallColor, spec.roofColor);
-    }
-    else
-    {
-        addCube(spec.x, spec.height * 0.5f, sceneZ,
-                spec.width, spec.height, spec.depth, spec.wallColor);
-        addCube(spec.x, spec.height + 0.10f, sceneZ,
-                spec.width + 0.12f, 0.20f, spec.depth + 0.12f, spec.roofColor);
-        const float windowHeight = minFloat(0.14f, spec.height * 0.07f);
-        const float windowY = minFloat(spec.height - 0.35f, 1.2f);
-        const float front = sceneZ + spec.depth * 0.5f + 0.02f;
-        const float halfWidth = spec.width * 0.275f;
-        addWindow(spec.x, windowY, front, halfWidth, windowHeight);
-        if (spec.height > 4.5f)
-            addWindow(spec.x, spec.height * 0.58f, front, halfWidth, windowHeight);
-        if (isTower)
-            addCube(spec.x, spec.height + 0.5f, sceneZ, 0.10f, 1.0f, 0.10f, COLOR_ROOF);
+        mesh->clear();
+        chunk.cache_valid = false;
+        chunk.bounds_valid = false;
+        mesh->setWireframe(false);
+        mesh->setPosition(city->position);
+
+        Sprite3D *previousMesh = activeMesh;
+        const uint16_t previousCapacity = activeTriangleCapacity;
+        activeMesh = mesh;
+        activeTriangleCapacity = buildingTriangleCapacity;
+        activeBoundsActive = true;
+        activeBoundsValid = false;
+        const float sceneZ = spec.z - SCENE_ANCHOR_Z;
+        if (isHouse)
+        {
+            buildHouse(spec.x, spec.z, spec.width, spec.depth, spec.height,
+                       spec.wallColor, spec.roofColor);
+        }
+        else
+        {
+            addCube(spec.x, spec.height * 0.5f, sceneZ,
+                    spec.width, spec.height, spec.depth, spec.wallColor);
+            addCube(spec.x, spec.height + 0.10f, sceneZ,
+                    spec.width + 0.12f, 0.20f, spec.depth + 0.12f, spec.roofColor);
+            const float windowHeight = minFloat(0.14f, spec.height * 0.07f);
+            const float windowY = minFloat(spec.height - 0.35f, 1.2f);
+            const float front = sceneZ + spec.depth * 0.5f + 0.02f;
+            const float halfWidth = spec.width * 0.275f;
+            addWindow(spec.x, windowY, front, halfWidth, windowHeight);
+            if (spec.height > 4.5f)
+                addWindow(spec.x, spec.height * 0.58f, front, halfWidth, windowHeight);
+            if (isTower)
+                addCube(spec.x, spec.height + 0.5f, sceneZ, 0.10f, 1.0f, 0.10f, COLOR_ROOF);
+        }
+
+        activeBoundsActive = false;
+        activeMesh = previousMesh;
+        activeTriangleCapacity = previousCapacity;
+        if (activeBoundsValid && mesh->getTriangleCount() > 0)
+        {
+            chunk.bounds_min = activeBoundsMin;
+            chunk.bounds_max = activeBoundsMax;
+            chunk.bounds_valid = true;
+            chunk.col = spec.col;
+            chunk.row = spec.row;
+            chunk.slot = spec.slot;
+            chunk.cache_valid = true;
+        }
+        else
+        {
+            mesh->clear();
+            chunk.active = false;
+        }
     }
 
-    activeBoundsActive = false;
-    activeMesh = previousMesh;
-    if (activeBoundsValid && mesh->getTriangleCount() > 0)
-    {
-        RenderChunk &chunk = buildingChunks[buildingChunkCount++];
-        chunk.mesh = mesh;
-        chunk.bounds_min = activeBoundsMin;
-        chunk.bounds_max = activeBoundsMax;
-        chunk.bounds_valid = true;
-    }
+    if (chunk.bounds_valid && mesh->getTriangleCount() > 0)
+        activeBuildingChunkIndices[buildingChunkCount++] = chunkIndex;
     else
-        ENGINE_MEM_DELETE mesh;
+        chunk.active = false;
 
     if (buildingCount < MAX_BUILDINGS)
         buildings[buildingCount++] = Building(spec.x, spec.z, spec.width, spec.depth, isHouse);
@@ -626,18 +662,15 @@ void Landscape::fillCity(float centerX, float centerZ)
     geometryError = false;
     buildingCount = 0;
     buildingSpecCount = 0;
-    for (int i = 0; i < buildingChunkCount; ++i)
-    {
-        if (buildingChunks[i].mesh)
-            ENGINE_MEM_DELETE buildingChunks[i].mesh;
-        buildingChunks[i] = RenderChunk();
-    }
     buildingChunkCount = 0;
+    for (int i = 0; i < MAX_BUILDING_CHUNKS; ++i)
+        buildingChunks[i].active = false;
     if (!roadChunk.mesh)
         return;
     roadChunk.mesh->clear();
     roadChunk.bounds_valid = false;
     activeMesh = roadChunk.mesh;
+    activeTriangleCapacity = ENGINE_MAX_TRIANGLES_PER_SPRITE;
     activeBoundsActive = true;
     activeBoundsValid = false;
     city->is_visible = false;
@@ -669,8 +702,47 @@ void Landscape::fillCity(float centerX, float centerZ)
         buildingSpecs[j + 1] = key;
     }
 
-    for (int i = 0; i < buildingSpecCount; ++i)
-        addBuilding(buildingSpecs[i]);
+    for (int specIndex = 0; specIndex < buildingSpecCount; ++specIndex)
+    {
+        BuildingSpec &spec = buildingSpecs[specIndex];
+        for (int chunkIndex = 0; chunkIndex < MAX_BUILDING_CHUNKS; ++chunkIndex)
+        {
+            const RenderChunk &chunk = buildingChunks[chunkIndex];
+            if (chunk.cache_valid && chunk.mesh && chunk.col == spec.col &&
+                chunk.row == spec.row && chunk.slot == spec.slot)
+            {
+                spec.chunk_index = chunkIndex;
+                buildingChunks[chunkIndex].active = true;
+                break;
+            }
+        }
+    }
+
+    for (int specIndex = 0; specIndex < buildingSpecCount; ++specIndex)
+    {
+        BuildingSpec &spec = buildingSpecs[specIndex];
+        const bool rebuildMesh = spec.chunk_index < 0;
+        if (rebuildMesh)
+        {
+            int freeChunkIndex = -1;
+            for (int chunkIndex = 0; chunkIndex < MAX_BUILDING_CHUNKS; ++chunkIndex)
+            {
+                if (!buildingChunks[chunkIndex].active)
+                {
+                    freeChunkIndex = chunkIndex;
+                    break;
+                }
+            }
+            if (freeChunkIndex < 0)
+            {
+                geometryError = true;
+                continue;
+            }
+            spec.chunk_index = freeChunkIndex;
+            buildingChunks[freeChunkIndex].active = true;
+        }
+        addBuilding(spec, spec.chunk_index, rebuildMesh);
+    }
 
     city->is_visible = roadChunk.mesh->getTriangleCount() > 0 || buildingChunkCount > 0;
     if (geometryError)
@@ -785,6 +857,10 @@ void Landscape::addBlock(int col, int row, float blockX, float blockZ,
             continue;
         }
         BuildingSpec &spec = buildingSpecs[buildingSpecCount++];
+        spec.col = col;
+        spec.row = row;
+        spec.slot = index;
+        spec.chunk_index = -1;
         const float dx = x - centerX;
         const float dz = z - centerZ;
         spec.distance = dx * dx + dz * dz;

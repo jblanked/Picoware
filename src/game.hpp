@@ -73,6 +73,7 @@ private:
     enum MultiplayerConnectionState
     {
         CONNECTION_IDLE,
+        CONNECTION_CONNECTING,
         CONNECTION_ACTIVE,
         CONNECTION_LOST,
         CONNECTION_LEAVING,

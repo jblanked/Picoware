@@ -740,7 +740,8 @@ void PicoGTA::updateInput(int key, bool held)
 
     lastInput = key;
     inputPressed = !held;
-    engine->updateGameInput(key);
+    if (engine)
+        engine->updateGameInput(key);
 }
 
 void PicoGTA::updateDraw()
@@ -1975,18 +1976,13 @@ void PicoGTA::connectMultiplayer()
     multiplayerConnectionState = CONNECTION_IDLE;
     copyText(multiplayerStatus, sizeof(multiplayerStatus), "Connecting...");
     multiplayerView = VIEW_PENDING;
-    if (!HTTP_WEBSOCKET_START(url, 443) || !HTTP_WEBSOCKET_IS_CONNECTED())
+    if (!HTTP_WEBSOCKET_START(url, 443))
     {
         leaveMultiplayer(false, "Connection failed: WebSocket could not start");
         return;
     }
 
-    multiplayerConnectionState = CONNECTION_ACTIVE;
-    copyText(multiplayerStatus, sizeof(multiplayerStatus), "Connected");
-    multiplayerView = VIEW_MENU;
-    multiplayerMenuOriginTitle = false;
-    multiplayerSelection = 0;
-    multiplayerLastSendFrame = frameClock;
+    multiplayerConnectionState = CONNECTION_CONNECTING;
 }
 
 void PicoGTA::pollMultiplayerWebSocket()
@@ -2010,7 +2006,19 @@ void PicoGTA::pollMultiplayerWebSocket()
 
 void PicoGTA::updateMultiplayer()
 {
-    if (multiplayerConnectionState == CONNECTION_ACTIVE)
+    if (multiplayerConnectionState == CONNECTION_CONNECTING)
+    {
+        if (HTTP_WEBSOCKET_IS_CONNECTED())
+        {
+            multiplayerConnectionState = CONNECTION_ACTIVE;
+            copyText(multiplayerStatus, sizeof(multiplayerStatus), "Connected");
+            multiplayerView = VIEW_MENU;
+            multiplayerMenuOriginTitle = false;
+            multiplayerSelection = 0;
+            multiplayerLastSendFrame = frameClock;
+        }
+    }
+    else if (multiplayerConnectionState == CONNECTION_ACTIVE)
     {
         for (int i = 0; i < MAX_REMOTE_PLAYERS; ++i)
         {

@@ -99,6 +99,12 @@ The `INPUT_KEY_*` macros map logical button names to integer values. Change thes
 #define INPUT_KEY_BACK   5
 ```
 
+`PicoGTA::run()` reads one input value per frame. Define both required engine macros in your platform's `engine_config.hpp`: `ENGINE_INPUT_INCLUDE` must include the header that declares your reader, and `ENGINE_INPUT_READ` must name a no-argument function returning `-1` or one of the configured `INPUT_KEY_*` values.
+```cpp
+#define ENGINE_INPUT_INCLUDE "input.h"
+#define ENGINE_INPUT_READ input_read
+```
+
 ### HTTP
 
 These macros must be defined to enable network requests and WebSocket support. Set them to the matching functions provided by your platform's HTTP library.

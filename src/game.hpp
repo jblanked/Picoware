@@ -32,8 +32,8 @@ public:
     bool isActive() const { return shouldExit == false; }
     bool isRunning() const { return isGameRunning; }
     void resetInput();
-    void updateDraw();
-    void updateInput(int key, bool held);
+    void run();
+    void update();
     void updatePerson(Pedestrian *person);
     void updatePlayer(Player *player, Game *game);
     void updateTraffic(Vehicle *car);

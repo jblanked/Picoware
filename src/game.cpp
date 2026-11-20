@@ -541,8 +541,34 @@ bool PicoGTA::initDraw()
 void PicoGTA::resetInput()
 {
     lastInput = -1;
+    inputPressed = false;
     if (engine)
         engine->updateGameInput(-1);
+}
+
+void PicoGTA::run()
+{
+    if (shouldExit)
+        return;
+    if (!draw && !initDraw())
+    {
+        endGame();
+        return;
+    }
+    if (!engine && !startGame())
+    {
+        ENGINE_LOG_INFO("[PicoGTA:run] Failed to start game\n");
+        endGame();
+        return;
+    }
+
+    engine->runAsync(false, false);
+    if (shouldExit)
+        return;
+    if (multiplayerView != VIEW_GAME)
+        drawFullScreenMenu();
+    else
+        engine->render();
 }
 
 bool PicoGTA::startGame()
@@ -729,25 +755,23 @@ void PicoGTA::stopGame()
     isGameRunning = false;
 }
 
-void PicoGTA::updateInput(int key, bool held)
+void PicoGTA::update()
 {
+    if (!engine || getGame() == nullptr || !draw || shouldExit)
+        return;
+
+    int key = getGame()->input;
+
     if (key < 0)
     {
         lastInput = -1;
         inputPressed = false;
-        return;
     }
-
-    lastInput = key;
-    inputPressed = !held;
-    if (engine)
-        engine->updateGameInput(key);
-}
-
-void PicoGTA::updateDraw()
-{
-    if (!draw || shouldExit)
-        return;
+    else
+    {
+        lastInput = key;
+        inputPressed = true;
+    }
 
     if (gameTime)
         gameTime->tick();
@@ -766,10 +790,8 @@ void PicoGTA::updateDraw()
     if (multiplayerView != VIEW_GAME)
     {
         handleMenuInput();
-        if (multiplayerView != VIEW_GAME)
-            drawFullScreenMenu();
         ENGINE_DELAY_MS(33);
-        inputPressed = false;
+        resetInput();
         return;
     }
 
@@ -778,9 +800,8 @@ void PicoGTA::updateDraw()
         multiplayerMenuOriginTitle = false;
         multiplayerView = VIEW_MENU;
         multiplayerSelection = 0;
-        drawFullScreenMenu();
         ENGINE_DELAY_MS(33);
-        inputPressed = false;
+        resetInput();
         return;
     }
 
@@ -788,16 +809,12 @@ void PicoGTA::updateDraw()
     {
         multiplayerView = VIEW_TITLE;
         multiplayerSelection = 0;
-        drawFullScreenMenu();
         ENGINE_DELAY_MS(33);
-        inputPressed = false;
+        resetInput();
         return;
     }
 
-    engine->runAsync(false);
     updateMultiplayer();
-    inputPressed = false;
-    resetInput();
 }
 
 void PicoGTA::backgroundRender(Entity *entity, Draw *canvas, Game *game, void *context)

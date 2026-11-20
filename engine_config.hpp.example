@@ -56,8 +56,8 @@
 // #define ENGINE_STORAGE_WRITE storage_write // (const char *file_path, void *buffer, size_t buffer_size) -> bool
 
 // input
-// #define ENGINE_INPUT_INCLUDE
-// #define ENGINE_INPUT_READ input_read // (void) -> int
+// #define ENGINE_INPUT_INCLUDE "input.h"
+// #define ENGINE_INPUT_READ input_read // (void) -> int; returns -1 or an INPUT_KEY_* value
 /*
 - None: -1
 - Up: 0

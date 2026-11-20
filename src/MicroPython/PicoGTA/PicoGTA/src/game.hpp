@@ -141,7 +141,7 @@ private:
     bool getJsonInt(const char *key, const char *json, int &value) const;
     bool getJsonString(const char *key, const char *json, char *output,
                        size_t capacity) const;
-    bool getServerError(const char *json, char *error, size_t capacity) const;
+    void getServerError(const char *json, char *error, size_t capacity);
     void handleMenuInput();
     bool hasJsonObjectShape(const char *text) const;
     void joinMultiplayerLobby(const char *lobbyId);

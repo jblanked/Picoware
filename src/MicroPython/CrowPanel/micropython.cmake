@@ -16,5 +16,6 @@ include(${CMAKE_CURRENT_LIST_DIR}/../view/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../view_manager/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../response/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../font/micropython.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/../input/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../log/micropython.cmake)
 

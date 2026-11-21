@@ -1,7 +1,7 @@
 """Input - Keyboard and touch input handling."""
 
+import input_mp
 from utime import ticks_ms
-
 from picoware.system import buttons
 from picoware.system.boards import (
     BOARD_CARDPUTER,
@@ -24,7 +24,7 @@ from picoware.system.boards import (
 )
 
 
-class Input:
+class Input(input_mp.Input):
     """Handles input from the keyboard."""
 
     __slots__ = (
@@ -44,7 +44,6 @@ class Input:
         "_button_map",
         "_screen_size",
         "_touch",
-        "_character_map",
         "_touch_read_data_fast",
         "_touch_down_1_69",
         "touch_down",
@@ -60,6 +59,7 @@ class Input:
         Args:
             back_button (int): The button code used as back. Defaults to buttons.BUTTON_BACK.
         """
+        super().__init__()
         from picoware_boards import get_display_size
 
         self._current_board_id = BOARD_ID
@@ -86,10 +86,9 @@ class Input:
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             from machine import Pin
-            from waveshare_touch import TOUCH_GESTURE_MODE, TOUCH_GESTURE_NONE, init
+            from waveshare_touch import TOUCH_GESTURE_NONE
 
             # Initialize touch in gesture mode
-            init(TOUCH_GESTURE_MODE)
             # set pin
             self.pin = Pin(21, Pin.IN, Pin.PULL_UP)
             # set callback
@@ -189,23 +188,12 @@ class Input:
 
             self._uart = UART(0, 0, 1)
             self._uart.set_callback(self.__uart_callback)
-        else:
-            from picoware_keyboard import (
-                init,
-                # set_background_poll,
-                # set_key_available_callback,
-            )
-
-            init()
-            # set_key_available_callback(self.on_key_callback)
-            # set_background_poll(True)
 
         self._elapsed_time = 0
         self._elapsed_touch_start = 0
         self._elapsed_touch_now = 0
         self._last_button = -1
         self._was_pressed = False
-        self._was_capitalized = False
         self.touch_down = False
 
         ansi_button_map = {
@@ -385,82 +373,6 @@ class Input:
                 }
             )
 
-        self._character_map = {
-            buttons.BUTTON_A: "a",
-            buttons.BUTTON_B: "b",
-            buttons.BUTTON_C: "c",
-            buttons.BUTTON_D: "d",
-            buttons.BUTTON_E: "e",
-            buttons.BUTTON_F: "f",
-            buttons.BUTTON_G: "g",
-            buttons.BUTTON_H: "h",
-            buttons.BUTTON_I: "i",
-            buttons.BUTTON_J: "j",
-            buttons.BUTTON_K: "k",
-            buttons.BUTTON_L: "l",
-            buttons.BUTTON_M: "m",
-            buttons.BUTTON_N: "n",
-            buttons.BUTTON_O: "o",
-            buttons.BUTTON_P: "p",
-            buttons.BUTTON_Q: "q",
-            buttons.BUTTON_R: "r",
-            buttons.BUTTON_S: "s",
-            buttons.BUTTON_T: "t",
-            buttons.BUTTON_U: "u",
-            buttons.BUTTON_V: "v",
-            buttons.BUTTON_W: "w",
-            buttons.BUTTON_X: "x",
-            buttons.BUTTON_Y: "y",
-            buttons.BUTTON_Z: "z",
-            #
-            buttons.BUTTON_0: "0",
-            buttons.BUTTON_1: "1",
-            buttons.BUTTON_2: "2",
-            buttons.BUTTON_3: "3",
-            buttons.BUTTON_4: "4",
-            buttons.BUTTON_5: "5",
-            buttons.BUTTON_6: "6",
-            buttons.BUTTON_7: "7",
-            buttons.BUTTON_8: "8",
-            buttons.BUTTON_9: "9",
-            #
-            buttons.BUTTON_CENTER: "\n",
-            buttons.BUTTON_SPACE: " ",
-            buttons.BUTTON_PERIOD: ".",
-            buttons.BUTTON_QUESTION: "?",
-            buttons.BUTTON_COMMA: ",",
-            buttons.BUTTON_SEMICOLON: ";",
-            buttons.BUTTON_MINUS: "-",
-            buttons.BUTTON_EQUAL: "=",
-            buttons.BUTTON_LEFT_BRACKET: "[",
-            buttons.BUTTON_LEFT_BRACE: "{",
-            buttons.BUTTON_RIGHT_BRACKET: "]",
-            buttons.BUTTON_RIGHT_BRACE: "}",
-            buttons.BUTTON_SLASH: "/",
-            buttons.BUTTON_BACKSLASH: "\\",
-            buttons.BUTTON_UNDERSCORE: "_",
-            buttons.BUTTON_COLON: ":",
-            buttons.BUTTON_SINGLE_QUOTE: "'",
-            buttons.BUTTON_DOUBLE_QUOTE: '"',
-            buttons.BUTTON_PLUS: "+",
-            #
-            buttons.BUTTON_EXCLAMATION: "!",
-            buttons.BUTTON_AT: "@",
-            buttons.BUTTON_HASH: "#",
-            buttons.BUTTON_DOLLAR: "$",
-            buttons.BUTTON_PERCENT: "%",
-            buttons.BUTTON_CARET: "^",
-            buttons.BUTTON_AMPERSAND: "&",
-            buttons.BUTTON_ASTERISK: "*",
-            buttons.BUTTON_LEFT_PARENTHESIS: "(",
-            buttons.BUTTON_RIGHT_PARENTHESIS: ")",
-            buttons.BUTTON_LESS_THAN: "<",
-            buttons.BUTTON_GREATER_THAN: ">",
-            buttons.BUTTON_BACK_TICK: "`",
-            buttons.BUTTON_TILDE: "~",
-            buttons.BUTTON_PIPE: "|",
-        }
-
     def __del__(self):
         """Destructor to clean up resources."""
         self.__deinit()
@@ -507,11 +419,8 @@ class Input:
             if key_available():
                 self.on_key_callback()
         else:
-            from picoware_keyboard import key_available, poll
+            return self.get_last_button()
 
-            poll()
-            if key_available():
-                self.on_key_callback()
         return self._last_button
 
     @property
@@ -565,54 +474,10 @@ class Input:
 
             deinit()
 
-        elif self._current_board_id not in (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_1_69_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-            BOARD_CROWPANEL_10_1,
-            BOARD_CROWPANEL_WATCH_2_01,
-            BOARD_WAVESHARE_2_06,
-            BOARD_WAVESHARE_C6_2_06,
-            BOARD_PANCAKE,
-            BOARD_WAVESHARE_C5_3_5,
-            BOARD_V8,
-        ):
-            from picoware_keyboard import deinit
-
-            deinit()
         del self._button_map
         self._button_map = None
 
-    def _key_to_button(self, key) -> int:
-        """Map a key to a button.
-
-        Args:
-            key (int or str): Key code from the C module or a string.
-
-        Returns:
-            int: The mapped button code, or BUTTON_NONE if unmapped.
-        """
-        if 65 <= key <= 90:
-            self._was_capitalized = True
-
-        return self._button_map.get(key, buttons.BUTTON_NONE)
-
-    def button_to_char(self, button: int) -> str:
-        """Convert a button code to its corresponding character.
-
-        Args:
-            button (int): Button code.
-
-        Returns:
-            str: The corresponding character or empty string if unmapped.
-        """
-        if button in self._character_map:
-            char_to_add = self._character_map[button]
-            if self._was_capitalized and char_to_add.isalpha():
-                char_to_add = char_to_add.upper()
-            return char_to_add
-        return ""
+        self.deinit()
 
     def is_pressed(self) -> bool:
         """Returns True if any key is currently pressed."""
@@ -701,7 +566,7 @@ class Input:
                 return
 
             self._was_capitalized = False
-            self._last_button = self._key_to_button(__button)
+            self._last_button = self.key_to_button(__button)
             self._elapsed_time += 1
             self._was_pressed = True
         except Exception as e:
@@ -738,9 +603,7 @@ class Input:
         if self._current_board_id == BOARD_PICO_DUO:
             return self._last_button
 
-        from picoware_keyboard import get_key
-
-        return get_key()
+        return self.get_input()
 
     def read_non_blocking(self) -> int:
         """Returns the key code as integer, or -1 if no key is pressed."""
@@ -769,10 +632,7 @@ class Input:
             return get_key_nonblocking()
         if self._current_board_id == BOARD_PICO_DUO:
             return self._last_button
-        from picoware_keyboard import get_key_nonblocking
-
-        key = get_key_nonblocking()
-        return key if key else -1
+        return self.get_input()
 
     def reset(self) -> None:
         """Resets the input state."""
@@ -912,46 +772,46 @@ class Input:
         Args:
             pin (Pin): The pin that triggered the interrupt.
         """
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
-            from waveshare_touch import (
-                TOUCH_GESTURE_CLICK,
-                TOUCH_GESTURE_DOWN,
-                TOUCH_GESTURE_LEFT,
-                TOUCH_GESTURE_LONG_PRESS,
-                TOUCH_GESTURE_NONE,
-                TOUCH_GESTURE_RIGHT,
-                TOUCH_GESTURE_UP,
-                get_gesture,
-                get_touch_point,
-            )
+        # if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        #     from waveshare_touch import (
+        #         TOUCH_GESTURE_CLICK,
+        #         TOUCH_GESTURE_DOWN,
+        #         TOUCH_GESTURE_LEFT,
+        #         TOUCH_GESTURE_LONG_PRESS,
+        #         TOUCH_GESTURE_NONE,
+        #         TOUCH_GESTURE_RIGHT,
+        #         TOUCH_GESTURE_UP,
+        #         get_gesture,
+        #         get_touch_point,
+        #     )
 
-            self._last_gesture = get_gesture()
-            if self._last_gesture != TOUCH_GESTURE_NONE:
-                self._elapsed_touch_now = int(ticks_ms())
+        #     self._last_gesture = get_gesture()
+        #     if self._last_gesture != TOUCH_GESTURE_NONE:
+        #         self._elapsed_touch_now = int(ticks_ms())
 
-                if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:
-                    self._last_gesture = TOUCH_GESTURE_NONE
-                    return
+        #         if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:
+        #             self._last_gesture = TOUCH_GESTURE_NONE
+        #             return
 
-                self._elapsed_touch_start = self._elapsed_touch_now
-                self._last_point = get_touch_point()
+        #         self._elapsed_touch_start = self._elapsed_touch_now
+        #         self._last_point = get_touch_point()
 
-                # set last button based on gesture
-                gesture_to_button = {
-                    TOUCH_GESTURE_UP: buttons.BUTTON_UP,
-                    TOUCH_GESTURE_DOWN: buttons.BUTTON_DOWN,
-                    TOUCH_GESTURE_LEFT: buttons.BUTTON_LEFT,
-                    TOUCH_GESTURE_RIGHT: buttons.BUTTON_RIGHT,
-                    TOUCH_GESTURE_LONG_PRESS: buttons.BUTTON_BACK,
-                    TOUCH_GESTURE_CLICK: buttons.BUTTON_CENTER,
-                }
-                self._last_button = gesture_to_button.get(
-                    self._last_gesture, buttons.BUTTON_NONE
-                )
-                self._elapsed_time += 1
-                self._was_pressed = True
+        #         # set last button based on gesture
+        #         gesture_to_button = {
+        #             TOUCH_GESTURE_UP: buttons.BUTTON_UP,
+        #             TOUCH_GESTURE_DOWN: buttons.BUTTON_DOWN,
+        #             TOUCH_GESTURE_LEFT: buttons.BUTTON_LEFT,
+        #             TOUCH_GESTURE_RIGHT: buttons.BUTTON_RIGHT,
+        #             TOUCH_GESTURE_LONG_PRESS: buttons.BUTTON_BACK,
+        #             TOUCH_GESTURE_CLICK: buttons.BUTTON_CENTER,
+        #         }
+        #         self._last_button = gesture_to_button.get(
+        #             self._last_gesture, buttons.BUTTON_NONE
+        #         )
+        #         self._elapsed_time += 1
+        #         self._was_pressed = True
 
-        elif self._current_board_id in (
+        if self._current_board_id in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):

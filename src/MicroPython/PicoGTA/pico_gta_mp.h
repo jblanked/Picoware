@@ -30,8 +30,7 @@ extern "C"
     mp_obj_t pico_gta_mp_del(mp_obj_t self_in);                                                                 // destructor for the PicoGTA object
     void pico_gta_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);                             // attribute handler for the PicoGTA object
 
-    mp_obj_t pico_gta_mp_update_draw(mp_obj_t self_in);                               // method to render the game (called in a loop)
-    mp_obj_t pico_gta_mp_update_input(mp_obj_t self_in, mp_obj_t button_pressed_obj); // method to update input state (call when a button is pressed/released)
+    mp_obj_t pico_gta_mp_run(mp_obj_t self_in); // method to run the game (called in a loop)
 
 #ifdef __cplusplus
 }

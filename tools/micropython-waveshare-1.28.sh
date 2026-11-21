@@ -102,6 +102,9 @@ rm -rf "$micropython_dir"/modules/view_manager
 # remove PicoGTA module if it exists
 rm -rf "$micropython_dir"/modules/PicoGTA
 
+# remove input module if it exists
+rm -rf "$micropython_dir"/modules/input
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -206,6 +209,9 @@ cp -r "$picoware_dir"/src/MicroPython/view_manager "$micropython_dir"/modules/vi
 
 # copy PicoGTA module
 cp -r "$picoware_dir"/src/MicroPython/PicoGTA "$micropython_dir"/modules/PicoGTA
+
+# copy input module
+cp -r "$picoware_dir"/src/MicroPython/input "$micropython_dir"/modules/input
 
 echo "Starting Waveshare 1.28 build process..."
 

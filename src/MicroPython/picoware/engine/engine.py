@@ -15,8 +15,9 @@ class GameEngine(engine.Engine):
         game (Game): Game instance managed by the engine.
 
     Methods:
+        - render(): Render the current game frame.
         - run(): Run the blocking game loop until the game stops.
-        - run_async(should_delay=True): Run one update and render tick.
+        - run_async(should_delay=False, should_render=True): Run one update and render tick.
         - stop(): Stop the game, clear the display, and release native resources.
         - update_game_input(input): Update the game input while the game is active.
         - __del__(): Release the native engine resources.

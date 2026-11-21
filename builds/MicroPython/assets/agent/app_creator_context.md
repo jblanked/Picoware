@@ -1108,8 +1108,9 @@ The engine module provides classes and functions for managing 3D game logic, ren
 #### picoware-engine-engine
 - `GameEngine(game, fps, clamp=False)`: Run a `Game` at the target frame rate, optionally clamping rendering.
 - `game`: The managed `Game`.
+- `render()`: Render the current game frame.
 - `run()`: Run the blocking update/render loop until the game stops, then call `stop()` and release the native game context.
-- `run_async(should_delay=True)`: Run one update/render tick and optionally delay for the frame rate.
+- `run_async(should_delay=False, should_render=True)`: Run one update/render tick and optionally delay for the frame rate.
 - `set_clamp(clamp)`: Set render clamping.
 - `update_game_input(input)`: Set input while the game is active.
 - `stop()`: Stop the game, clear the screen, and release the native game context.
@@ -1125,7 +1126,7 @@ The engine module provides classes and functions for managing 3D game logic, ren
 - The constructor callbacks are not callable entity methods: bound `start`/`stop`/`update` methods receive `game`; plain functions receive `(entity, game)`. Bound `render` methods receive `(draw, game)` and plain functions receive `(entity, draw, game)`. Bound `collision` methods receive `(other, game)` and plain functions receive `(entity, other, game)`.
 
 #### picoware-engine-game
-- `Game(name, size, draw, input_manager, foreground_color=0xFFFF, background_color=0x0000, camera_context=None, start=None, stop=None)`: Create a game. `camera_context` is an optional `Camera`; when omitted, the wrapper creates one. The wrapper's internal update reads `input_manager.button` and resets the manager.
+- `Game(name, size, draw, input_manager, foreground_color=0xFFFF, background_color=0x0000, camera_context=None, start=None, stop=None, update=None)`: Create a game. `camera_context` is an optional `Camera`; when omitted, the wrapper creates one.
 - Writable attributes: `name`, `position`, `size`, `is_active`, `foreground_color`, `background_color`, `camera`, `input`, and `current_level`; `draw` is read-only. `camera` is a `Camera`, while `camera_context` is only a constructor argument.
 - Methods: `set_camera`, `set_input`, `level_add`, `level_remove` (removes and deletes the native level), `level_switch(index_or_name)`, `set_name`, `set_position`, `set_size`, `set_is_active`, `set_foreground_color`, `set_background_color`, `set_current_level(level_or_none)`, and `level_exists(name)`. `MAX_LEVELS` is 10.
 - Optional `start` and `stop` callbacks are supported; bound methods receive no arguments and plain functions receive the `Game`. Starting, updating, rendering, and stopping are driven by `GameEngine`, not exposed as direct `Game` methods.

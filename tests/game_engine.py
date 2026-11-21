@@ -366,6 +366,9 @@ def __player_update(self, game):
 
     button: int = game.input
     position = self.position
+    
+    if button != -1:
+        print(button)
 
     if button == BUTTON_UP:
         position.y -= 5
@@ -403,12 +406,12 @@ def start(view_manager) -> bool:
         "Example",  # name
         draw.size,  # size
         draw,  # draw context
-        view_manager.input_manager,  # input manager
         0x0000,  # foreground color
         0xFFFF,  # background color
         c,  # camera context
         None,  # start
         None,  # stop
+        None,  # update
     )
 
     # Create and add a level to the game.
@@ -490,11 +493,12 @@ try:
             run,
             start,
             stop,
-        )
+        ),
+        True
     )
-    vm.switch_to("app_tester")
-    while True:
-        vm.run()
+    while vm.run():
+        pass
 finally:
+    vm.__cleanup()
     del vm
     vm = None

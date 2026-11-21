@@ -50,16 +50,36 @@ Source: https://github.com/jblanked/Picoware/blob/dev/src/MicroPython/PicoCalc/p
 #define KEY_CTRL_DOWN (0xC3)
 #define KEY_CTRL_0 (0xE0)
 
+#ifndef KEY_F1
 #define KEY_F1 (0x81)
+#endif
+#ifndef KEY_F2
 #define KEY_F2 (0x82)
+#endif
+#ifndef KEY_F3
 #define KEY_F3 (0x83)
+#endif
+#ifndef KEY_F4
 #define KEY_F4 (0x84)
+#endif
+#ifndef KEY_F5
 #define KEY_F5 (0x85)
+#endif
+#ifndef KEY_F6
 #define KEY_F6 (0x86)
+#endif
+#ifndef KEY_F7
 #define KEY_F7 (0x87)
+#endif
+#ifndef KEY_F8
 #define KEY_F8 (0x88)
+#endif
+#ifndef KEY_F9
 #define KEY_F9 (0x89)
+#endif
+#ifndef KEY_F10
 #define KEY_F10 (0x90)
+#endif
 
 #define KEY_POWER (0x91)
 
@@ -79,13 +99,14 @@ extern "C"
     extern volatile bool user_interrupt;
 
     // Keyboard Function prototypes
-    void keyboard_init(void);
+    bool keyboard_init(void);
     void keyboard_set_key_available_callback(keyboard_key_available_callback_t callback);
     bool keyboard_set_background_poll(bool enable);
     void keyboard_poll(void);
     bool keyboard_key_available(void);
     char keyboard_get_key(void);
     void keyboard_deinit(void);
+    int keyboard_get_input(void);
 
 #ifdef __cplusplus
 }

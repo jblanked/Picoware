@@ -1,20 +1,3 @@
-//
-//  PicoCalc keyboard driver
-//
-//  This driver implements a simple keyboard interface for the PicoCalc
-//  using the I2C bus. It handles key presses and releases, modifier keys,
-//  and user interrupts.
-//
-//  The PicoCalc only allows for polling the keyboard, and the API is
-//  limited. To support user interrupts, we need to poll the keyboard and
-//  buffer the key events for when needed, except for the user interrupt
-//  where we process it immediately. We use a semaphore to protect access
-//  to the I2C bus and a repeating timer to poll for the key events.
-//
-//  We also provide functions to interact with other features in the system,
-//  such as reading the battery level.
-//
-
 #include "keyboard.h"
 #include "southbridge.h"
 #if defined(PICOCALC_ESP32_P4)
@@ -48,14 +31,6 @@ static esp_timer_handle_t key_timer;
 static repeating_timer_t key_timer;
 #endif
 static bool key_timer_running;
-
-//
-//  Keyboard Driver
-//
-//  This section implements the keyboard driver, which polls the
-//  keyboard for key events and buffers them for processing. It uses
-//  a repeating timer to poll the keyboard at regular intervals.
-//
 
 void keyboard_poll()
 {
@@ -172,10 +147,6 @@ static bool on_keyboard_timer(repeating_timer_t *rt)
 }
 #endif
 
-//
-// Keyboard API
-//
-
 bool keyboard_key_available()
 {
     return rx_head != rx_tail;
@@ -197,9 +168,15 @@ char keyboard_get_key()
     return ch;
 }
 
-//
-// Keyboard Callback Setters
-//
+int keyboard_get_input(void)
+{
+    keyboard_poll();
+    if (keyboard_key_available())
+    {
+        return (unsigned char)keyboard_get_key();
+    }
+    return -1; // no input available
+}
 
 void keyboard_set_key_available_callback(keyboard_key_available_callback_t callback)
 {
@@ -278,15 +255,11 @@ bool keyboard_set_background_poll(bool enable)
 #endif
 }
 
-//
-//  Initialize the keyboard driver
-//
-
-void keyboard_init(void)
+bool keyboard_init(void)
 {
     if (keyboard_initialised)
     {
-        return; // already initialized
+        return true; // already initialized
     }
 
 #if !defined(PICOCALC_ESP32_P4)
@@ -297,6 +270,7 @@ void keyboard_init(void)
     sb_init(); // Initialize the south bridge
 
     keyboard_initialised = true;
+    return true;
 }
 
 void keyboard_deinit(void)

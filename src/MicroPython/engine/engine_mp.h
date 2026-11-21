@@ -42,6 +42,7 @@ extern "C"
     mp_obj_t engine_mp_del(mp_obj_t self_in);
     void engine_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);
 
+    mp_obj_t engine_mp_render(mp_obj_t self_in);
     mp_obj_t engine_mp_run(mp_obj_t self_in);
     mp_obj_t engine_mp_run_async(size_t n_args, const mp_obj_t *args);
     mp_obj_t engine_mp_set_clamp(mp_obj_t self_in, mp_obj_t clamp);

@@ -99,6 +99,17 @@ mp_obj_t engine_mp_del(mp_obj_t self_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(engine_mp_del_obj, engine_mp_del);
 
+mp_obj_t engine_mp_render(mp_obj_t self_in)
+{
+    engine_mp_obj_t *self = static_cast<engine_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+        return mp_const_none;
+    GameEngine *ctx = engine_get_context(self);
+    ctx->render();
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(engine_mp_render_obj, engine_mp_render);
+
 mp_obj_t engine_mp_run(mp_obj_t self_in)
 {
     engine_mp_obj_t *self = static_cast<engine_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
@@ -117,10 +128,11 @@ mp_obj_t engine_mp_run_async(size_t n_args, const mp_obj_t *args)
         return mp_const_none;
     GameEngine *ctx = engine_get_context(self);
     bool should_delay = n_args > 1 ? mp_obj_is_true(args[1]) : false;
-    ctx->runAsync(should_delay);
+    bool should_render = n_args > 2 ? mp_obj_is_true(args[2]) : true;
+    ctx->runAsync(should_delay, should_render);
     return mp_const_none;
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(engine_mp_run_async_obj, 1, 2, engine_mp_run_async);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(engine_mp_run_async_obj, 1, 3, engine_mp_run_async);
 
 mp_obj_t engine_mp_set_clamp(mp_obj_t self_in, mp_obj_t clamp)
 {
@@ -175,6 +187,7 @@ void engine_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 }
 
 static const mp_rom_map_elem_t engine_mp_locals_dict_table[] = {
+    {MP_ROM_QSTR(MP_QSTR_render), MP_ROM_PTR(&engine_mp_render_obj)},
     {MP_ROM_QSTR(MP_QSTR_run), MP_ROM_PTR(&engine_mp_run_obj)},
     {MP_ROM_QSTR(MP_QSTR_run_async), MP_ROM_PTR(&engine_mp_run_async_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_clamp), MP_ROM_PTR(&engine_mp_set_clamp_obj)},

@@ -123,3 +123,9 @@
 #else
 #define ENGINE_SPRITE3D_PSRAM_DEFAULT false
 #endif
+
+// input
+#include "../../input/input_config.h"
+#include "../../input/input.h"
+#define ENGINE_INPUT_INCLUDE INPUT_MP_INCLUDE
+#define ENGINE_INPUT_READ() (input_char_to_button(INPUT_MP_READ()))

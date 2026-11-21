@@ -52,12 +52,12 @@ class Game(engine.Game):
         name: str,
         size,
         draw,
-        input_manager,
         foreground_color: int = 0xFFFF,
         background_color: int = 0x0000,
         camera_context=None,
         start=None,
         stop=None,
+        update=None,
     ) -> None:
         """Initialize the game.
 
@@ -65,12 +65,12 @@ class Game(engine.Game):
             name (str): Name of the game.
             size (Vector): Size of the game.
             draw (Draw): Draw context used to render the game.
-            input_manager (InputManager): Input manager used to handle input.
             foreground_color (int): Foreground color of the game. Defaults to 0xFFFF.
             background_color (int): Background color of the game. Defaults to 0x0000.
             camera_context (Camera or None): Camera context used to render the game. Defaults to None.
             start (callable): Function called when the game is started. Defaults to None.
             stop (callable): Function called when the game is stopped. Defaults to None.
+            update (callable): Function called every update tick. Defaults to None.
         """
         from picoware.engine.camera import Camera
 
@@ -82,10 +82,9 @@ class Game(engine.Game):
             Camera() if camera_context is None else camera_context,
             start,
             stop,
-            self._update,
+            update,
             draw,
         )
-        self.input_manager = input_manager
 
     def __setattr__(self, name, value):
         """Set a game attribute, routing to the matching setter.
@@ -112,10 +111,3 @@ class Game(engine.Game):
             self.set_current_level(value)
         else:
             super().__setattr__(name, value)
-
-    def _update(self) -> None:
-        """Update the game input and entity positions in a thread-safe manner."""
-        if not self.is_active:
-            return
-        self.set_input(self.input_manager.button)
-        self.input_manager.reset()

@@ -37,9 +37,7 @@ def __get_asset_info() -> dict:
     """
     global _asset_index
 
-    base_url = (
-        "https://raw.githubusercontent.com/pico-game-engine/PicoGTA/dev/src/assets/"
-    )
+    base_url = "https://raw.githubusercontent.com/jblanked/PicoGTA/dev/src/assets/"
     base_path = "picoware/apps/games/pico_gta/assets/"
 
     asset_list = __get_asset_list()
@@ -123,7 +121,7 @@ def start(view_manager) -> bool:
 
     if __is_assets_loaded(view_manager):
         _state = STATE_PLAYING
-        view_manager.freq(True, 210000000)  # set to 210MHz
+        # view_manager.freq(True, 210000000)  # set to 210MHz
         return __init_pico_gta()
 
     if view_manager.alert(
@@ -174,22 +172,19 @@ def run(view_manager) -> None:
 
     global _state, _pico_gta, _loading
 
-    button = view_manager.button
+    # button = view_manager.button
 
     if _state == STATE_PLAYING:
         if _pico_gta is None:
             return
 
-        if button != -1:
-            _pico_gta.update_input(button)
+        while _pico_gta.is_active:
+            _pico_gta.run()
+            view_manager.thread_manager.run()
+        view_manager.back()
+        return
 
-        if not _pico_gta.is_active:
-            view_manager.back()
-            return
-
-        _pico_gta.update_draw()
-
-    elif _state == STATE_DOWNLOADING:
+    if _state == STATE_DOWNLOADING:
         if not _http.is_request_complete():
             if _loading:
                 _loading.animate(http=_http)

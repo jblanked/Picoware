@@ -1,6 +1,9 @@
 #include "touch.h"
+#include "py/mphal.h"
 
 static bool initialized = false;
+static int last_time = 0;
+static int debounce_time = 100; // debounce time in ms
 
 // read gesture ID
 uint8_t touch_get_gesture(void)
@@ -110,4 +113,47 @@ void touch_write(uint8_t reg, uint8_t value)
 {
     uint8_t data[2] = {reg, value};
     i2c_write_blocking(SENSOR_I2C_PORT, TOUCH_ADDR, data, 2, false);
+}
+
+void input_deinit(void)
+{
+    touch_reset();
+    initialized = false;
+}
+
+bool input_init(void)
+{
+    return touch_init(TOUCH_GESTURE_MODE);
+}
+
+int input_read(void)
+{
+    int current_time = mp_hal_ticks_ms();
+    if (current_time - last_time < debounce_time)
+    {
+        return -1;
+    }
+    last_time = current_time;
+    const uint8_t gesture = touch_get_gesture();
+    if (gesture == TOUCH_GESTURE_NONE)
+    {
+        return -1;
+    }
+    switch (gesture)
+    {
+    case TOUCH_GESTURE_UP:
+        return 0;
+    case TOUCH_GESTURE_DOWN:
+        return 1;
+    case TOUCH_GESTURE_RIGHT:
+        return 2;
+    case TOUCH_GESTURE_LEFT:
+        return 3;
+    case TOUCH_GESTURE_CLICK: // enter
+        return 4;
+    case TOUCH_GESTURE_LONG_PRESS: // back
+        return 5;
+    default:
+        return -1;
+    }
 }

@@ -343,7 +343,6 @@ def _install_view_tracking():
         import sim_runtime
         from picoware.system.input import Input
         from picoware.system.view_manager import ViewManager
-        from picoware.engine.game import Game
     except Exception:
         return
 
@@ -373,15 +372,6 @@ def _install_view_tracking():
     original_switch_to = ViewManager.switch_to
     original_back = ViewManager.back
     original_remove = ViewManager.remove
-    original_game_update = Game._update
-
-    def tracked_game_update(self):
-        original_game_update(self)
-        if self.is_active and self.input == -1:
-            code = sim_runtime.held_key()
-            if code != -1:
-                self.set_input(self.input_manager._key_to_button(code))
-
     def tracked_set(self, *args, **kwargs):
         if args:
             note_name(args[0])
@@ -453,11 +443,7 @@ def _install_view_tracking():
             if key_available():
                 self.on_key_callback()
         else:
-            from picoware_keyboard import key_available, poll
-
-            poll()
-            if key_available():
-                self.on_key_callback()
+            return self.get_last_button()
         return self._last_button
 
     ViewManager.set = tracked_set
@@ -465,7 +451,6 @@ def _install_view_tracking():
     ViewManager.back = tracked_back
     ViewManager.remove = tracked_remove
     Input.button = property(tracked_input_button)
-    Game._update = tracked_game_update
     ViewManager._sim_view_tracking_installed = True
 
 
@@ -937,6 +922,7 @@ def _run_desktop_native_check(opts):
         "engine",
         "font",
         "ghouls",
+        "input_mp",
         "mjs",
         "mmbasic",
         "pico_gta",
@@ -1020,18 +1006,42 @@ def _run_desktop_native_check(opts):
 
         # Exercise native method lookup, city rendering, and repeated teardown.
         from pico_gta import PicoGTA
+        import sim_input
+
+        from input_mp import Input as NativeInput
         from picoware.system.buttons import BUTTON_CENTER, BUTTON_UP
+
+        for _ in range(2):
+            keyboard = NativeInput()
+            try:
+                assert keyboard.get_input() == -1
+                sim_runtime.push_key(0)
+                assert keyboard.get_input() == 0
+                sim_runtime.push_key(181)
+                assert keyboard.get_last_button() == BUTTON_UP
+                sim_runtime.push_key(13)
+                assert keyboard.get_last_button() == BUTTON_CENTER
+                assert keyboard.get_last_button() == -1
+                before = sim_runtime.loop_count
+                keyboard.get_input()
+                assert sim_runtime.loop_count > before
+            finally:
+                keyboard.deinit()
+                keyboard.deinit()
+            del keyboard
+            gc.collect()
+        sim_input.init()
 
         for _ in range(2):
             city = PicoGTA("simulator", "offline-test")
             try:
                 assert city.is_active
-                city.update_draw()
+                city.run()
                 title = bytes(sim_runtime.get_lcd()._buffer)
-                city.update_input(BUTTON_CENTER)
-                city.update_draw()
-                city.update_input(BUTTON_UP)
-                city.update_draw()
+                sim_runtime.push_key(13)
+                city.run()
+                sim_runtime.push_key(181)
+                city.run()
                 assert bytes(sim_runtime.get_lcd()._buffer) != title
             finally:
                 city.__del__()

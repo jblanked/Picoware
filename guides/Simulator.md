@@ -3,6 +3,7 @@ Run Picoware on your desktop. The simulator uses a native SDL2 window for displa
 
 ## Features
 - Full Picoware UI with framebuffer and keyboard input
+- Firmware-native `input_mp` key mapping, shared by Python input and native game loops
 - Scripted/viewer touch input for supported touch-board profiles
 - Real network access via host DNS/TCP/TLS (or `--network offline` for fixtures)
 - Audio playback for WAV/MP3 files and HTTP MP3 radio streams
@@ -44,6 +45,11 @@ cd tools
 bash micropython-desktop.sh # build
 bash run-micropython-desktop.sh # run
 ```
+
+The Desktop build includes upstream's native input module and PicoGTA `run()` API.
+Its host keyboard bridge processes SDL and scripted events even while a game stays
+inside its native loop. Simulator input checks validate this bridge; they do not
+emulate the PicoCalc keyboard controller or prove physical key-release timing.
 
 ### Keyboard shortcuts (viewer window)
 

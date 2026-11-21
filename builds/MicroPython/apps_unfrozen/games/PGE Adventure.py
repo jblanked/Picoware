@@ -346,17 +346,14 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run one PGE Adventure frame."""
-    if _adv is None:
-        view_manager.back()
-        return
-    if not _adv.scene_open:
-        if not _adv.boot():
-            view_manager.back()
-        return
-
-    _adv.run()
-    if _adv.exit_requested:
-        view_manager.back()
+    while _adv is not None and not _adv.game_over and not _adv.exit_requested:
+        if not _adv.scene_open:
+            if not _adv.boot():
+                view_manager.back()
+            continue
+        _adv.run()
+        view_manager.thread_manager.run()
+    view_manager.back()
 
 
 def stop(_view_manager) -> None:
@@ -658,6 +655,7 @@ class _Adventure:
         "cos_h",
         "sin_h",
         "return_to_wizard",
+        "game_over",
     )
 
     def __init__(self, view_manager):
@@ -824,6 +822,7 @@ class _Adventure:
         self.sin_h = sin(self.heading)
 
         self._boot_begin()
+        self.game_over = False
 
     def _mesh_entity(self, name, position, size, mesh):
         """Create an entity backed by a custom 3D mesh."""
@@ -2669,6 +2668,7 @@ class _Adventure:
                 self._set_class_preview(self.class_name)
             elif button == BUTTON_BACK:
                 self.exit_requested = True
+                self.game_over = True
             return
         if self.phase == 1:
             if button in (BUTTON_UP, BUTTON_LEFT):
@@ -2692,6 +2692,7 @@ class _Adventure:
                 self.message_timer = 90
             elif button == BUTTON_BACK:
                 self.exit_requested = True
+                self.game_over = True
 
     def update_player(self, player, game):
         """Drive the story phase and the player."""
@@ -2735,6 +2736,7 @@ class _Adventure:
                 self._mark_progress()
             elif button in (4, 43) and self.menu_index == 3:
                 self.exit_requested = True
+                self.game_over = True
             return
         if self.ui == self.UI_CHAT:
             if button != -1:
@@ -3715,6 +3717,9 @@ class _Adventure:
                 self._open_scene()
             else:
                 self._draw_boot()
+            outgoing = self.view_manager.thread_manager.run()
+            if outgoing:
+                self.view_manager.log(outgoing)
             return True
         return True
 
@@ -3754,7 +3759,6 @@ class _Adventure:
             "PGE Adventure",
             self.draw.size,
             self.draw,
-            self.view_manager.input_manager,
             self.COLOR_TEXT,
             self.ZONE_SKY[0],
             self.camera,
@@ -4564,3 +4568,4 @@ class _Adventure:
         self.guide = None
         self.bird = None
         self._loading = None
+        self.game_over = True

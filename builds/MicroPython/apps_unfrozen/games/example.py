@@ -357,11 +357,13 @@ def __player_spawn(level):
 
 def __player_update(self, game):
     """Move the player based on input"""
+    global _game_engine
     from picoware.system.buttons import (
         BUTTON_UP,
         BUTTON_DOWN,
         BUTTON_LEFT,
         BUTTON_RIGHT,
+        BUTTON_BACK,
     )
 
     button: int = game.input
@@ -375,6 +377,11 @@ def __player_update(self, game):
         position.x -= 5
     elif button == BUTTON_RIGHT:
         position.x += 5
+    elif button == BUTTON_BACK:
+        _game_engine.stop()
+        del _game_engine
+        _game_engine = None
+        return
 
     if (
         position.x >= 0
@@ -391,7 +398,8 @@ def start(view_manager) -> bool:
     from picoware.engine.level import Level
     from picoware.engine.engine import GameEngine
 
-    global _game_engine
+    global _game_engine, _game_over
+    _game_over = False
 
     draw = view_manager.draw
 
@@ -400,12 +408,12 @@ def start(view_manager) -> bool:
         "Example",  # name
         draw.size,  # size
         draw,  # draw context
-        view_manager.input_manager,  # input manager
         0x0000,  # foreground color
         0xFFFF,  # background color
         None,  # camera context
         None,  # start
         None,  # stop
+        None,  # update
     )
 
     # Create and add a level to the game.
@@ -423,17 +431,11 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app."""
-    from picoware.system.buttons import BUTTON_BACK
-
-    if _game_engine:
+    global _game_engine
+    while _game_engine is not None:
         _game_engine.run_async(False)
-
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
-
-    if button == BUTTON_BACK:
-        input_manager.reset()
-        view_manager.back()
+        view_manager.thread_manager.run()
+    view_manager.back()
 
 
 def stop(view_manager) -> None:

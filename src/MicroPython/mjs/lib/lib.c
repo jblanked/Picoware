@@ -316,10 +316,6 @@ void lib_unload_modules(struct mjs *mjs)
         {
             bluetooth_destroy();
         }
-        else if (lib_loaded_modules[i] == LIB_MODULE_INPUT)
-        {
-            input_destroy();
-        }
         else if (lib_loaded_modules[i] == LIB_MODULE_PIN)
         {
             pin_destroy();

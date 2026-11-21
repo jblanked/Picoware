@@ -49,6 +49,7 @@ from flip_world.general import (
 from flip_world.player import (
     Player,
     INPUT_KEY_MAX,
+    GAME_VIEW_GAME,
     COLOR_WHITE,
     COLOR_BLACK,
     REQUEST_TYPE_SAVE_STATS,
@@ -116,6 +117,7 @@ class FlipWorldRun:
 
         # Game state
         self.engine = None
+        self.menu_engine = None
         self.player: Player = None
         self.is_game_running: bool = False
         self.is_pve_mode: bool = False
@@ -137,12 +139,30 @@ class FlipWorldRun:
         # Level management
         self.current_level_index: int = LEVEL_HOME_WOODS
         self.level_names: list = [
-            "Home Woods", "Rock World", "Forest World", "Meadow",
-            "Stronghold", "Lakeside", "Boulder Field", "Village",
-            "Deep Woods", "Wasteland", "Flower Garden", "Shadow Keep",
-            "Twin Peaks", "Marshland", "Ruins", "Sunflower Fields",
-            "Frozen Lake", "The Hollow", "Crossroads", "Crater",
-            "Enchanted Grove", "Ironhold", "Serpent Marsh", "Dragon's Lair",
+            "Home Woods",
+            "Rock World",
+            "Forest World",
+            "Meadow",
+            "Stronghold",
+            "Lakeside",
+            "Boulder Field",
+            "Village",
+            "Deep Woods",
+            "Wasteland",
+            "Flower Garden",
+            "Shadow Keep",
+            "Twin Peaks",
+            "Marshland",
+            "Ruins",
+            "Sunflower Fields",
+            "Frozen Lake",
+            "The Hollow",
+            "Crossroads",
+            "Crater",
+            "Enchanted Grove",
+            "Ironhold",
+            "Serpent Marsh",
+            "Dragon's Lair",
         ]
         self.total_levels: int = 24
 
@@ -151,7 +171,9 @@ class FlipWorldRun:
         # game begins on (resume point, or a map chosen from the picker).
         self.progress_path: str = "picoware/flip_world/progress.json"
         self.unlocked_count: int = self._load_unlocked()
-        self.start_level_index: int = max(0, self.unlocked_count - 1)  # resume by default
+        self.start_level_index: int = max(
+            0, self.unlocked_count - 1
+        )  # resume by default
 
         # Sound/vibration settings
         self.sound_toggle: int = 1
@@ -180,7 +202,9 @@ class FlipWorldRun:
             ICON_ID_WOMAN: icon_woman_9x16,
         }
         # Full colour: pre-tint each icon (and a charred copy for burnt scenery) once.
-        self.icon_map = {i: colorize(m, ICON_COLOR.get(i, 0xFFFF)) for i, m in _raw_icons.items()}
+        self.icon_map = {
+            i: colorize(m, ICON_COLOR.get(i, 0xFFFF)) for i, m in _raw_icons.items()
+        }
         self.icon_char_map = {i: colorize(m, COL_CHAR) for i, m in _raw_icons.items()}
 
     def __del__(self):
@@ -189,6 +213,9 @@ class FlipWorldRun:
             self.engine.stop()
             del self.engine
             self.engine = None
+        if self.menu_engine:
+            self.menu_engine.stop()
+            self.menu_engine = None
         if self.player:
             del self.player
             self.player = None
@@ -429,7 +456,7 @@ class FlipWorldRun:
         """Returns the IconSpec for a given icon name."""
         spec_map = {
             "house": IconSpec(ICON_ID_HOUSE, 48, 32),
-                "plant": IconSpec(ICON_ID_PLANT, 16, 16),
+            "plant": IconSpec(ICON_ID_PLANT, 16, 16),
             "tree": IconSpec(ICON_ID_TREE, 16, 16),
             "fence": IconSpec(ICON_ID_FENCE, 16, 8),
             "flower": IconSpec(ICON_ID_FLOWER, 16, 16),
@@ -542,7 +569,9 @@ class FlipWorldRun:
             spr4.flip_world_run = self
             spr5.flip_world_run = self
             #
-            self.view_manager.log("Sprites linked to FlipWorldRun instance, now adding to level...")
+            self.view_manager.log(
+                "Sprites linked to FlipWorldRun instance, now adding to level..."
+            )
             level.entity_add(spr5)
             level.entity_add(spr1)
             level.entity_add(spr2)
@@ -717,7 +746,7 @@ class FlipWorldRun:
         # Ported maps (levels 3-23): enemies come from a data table.
         elif index in WORLD_ENEMIES:
             for spec in WORLD_ENEMIES[index]:
-                (nm, sx, sy, ex, ey, mt, sp, at, st, hp) = spec
+                nm, sx, sy, ex, ey, mt, sp, at, st, hp = spec
                 enemy = Sprite(
                     nm,
                     ENTITY_TYPE_ENEMY,
@@ -829,6 +858,51 @@ class FlipWorldRun:
             self.player.last_input = self.last_input
             self.player.process_input()
 
+    def _ensure_menu_engine(self) -> bool:
+        """Create a non-rendering engine to provide game.input on menu screens."""
+        if self.menu_engine:
+            return True
+
+        from picoware.engine.engine import GameEngine
+        from picoware.engine.level import Level
+        from picoware.engine.game import Game
+
+        game = Game(
+            "FlipWorld Menu",
+            self.screen_size,
+            self.draw,
+            COLOR_WHITE,
+            COLOR_BLACK,
+            None,
+            None,
+            None,
+            self.update_input,
+        )
+        if not game:
+            self.view_manager.log("Failed to create FlipWorld menu game", 2)
+            return False
+
+        menu_level = Level("Menu", self.screen_size, game)
+        game.level_add(menu_level)
+        self.menu_engine = GameEngine(game, 30)
+        if not self.menu_engine:
+            self.view_manager.log("Failed to create FlipWorld menu engine", 2)
+            return False
+        return True
+
+    def _stop_menu_engine(self):
+        if self.menu_engine:
+            self.menu_engine.stop()
+            self.menu_engine = None
+
+    def stop(self):
+        """Stop gameplay and menu engines outside their update callbacks."""
+        if self.engine:
+            self.engine.stop()
+            self.engine = None
+        self._stop_menu_engine()
+        self.is_game_running = False
+
     def remove_remote_player(self, username: str) -> bool:
         """Remove a remote player from the current level (PvE mode only)."""
         if not self.is_pve_mode or not username:
@@ -892,6 +966,8 @@ class FlipWorldRun:
         if self.is_game_running or self.engine:
             return True
 
+        self._stop_menu_engine()
+
         # Create the player instance if it doesn't exist
         if not self.player:
             self.player = Player()
@@ -911,15 +987,20 @@ class FlipWorldRun:
             "FlipWorld",
             Vector(768, 384),
             self.draw,
-            self.view_manager.input_manager,
             0xFFFF,  # foreground (white)
             0x0000,  # background (black)
+            None,  # camera context
+            None,  # start
+            None,  # stop
+            self.update_input,  # update
         )
         if not game:
             return False
 
         self.draw.fill_screen(COLOR_WHITE)
-        self.draw._text(0, self.draw.scale_y(10), "Adding levels and player...", COLOR_BLACK)
+        self.draw._text(
+            0, self.draw.scale_y(10), "Adding levels and player...", COLOR_BLACK
+        )
         self.draw.swap()
 
         self.view_manager.log("Getting levels and adding player...")
@@ -981,7 +1062,16 @@ class FlipWorldRun:
             return False
 
         self.draw.fill_screen(COLOR_WHITE)
-        self.draw._text(0, self.draw.scale_y(10), "Starting multiplayer..." if self.is_pve_mode else "Starting single player...", COLOR_BLACK)
+        self.draw._text(
+            0,
+            self.draw.scale_y(10),
+            (
+                "Starting multiplayer..."
+                if self.is_pve_mode
+                else "Starting single player..."
+            ),
+            COLOR_BLACK,
+        )
         self.draw.swap()
 
         self.is_game_running = True
@@ -1020,7 +1110,9 @@ class FlipWorldRun:
             return
 
         if not self.engine.game.level_exists(self.get_level_name(level_index)):
-            self.view_manager.log(f"Level {level_index} does not exist in game, creating...")
+            self.view_manager.log(
+                f"Level {level_index} does not exist in game, creating..."
+            )
             # create level if it doesn't exist yet
             level = self.get_level(level_index, self.engine.game)
             if level:
@@ -1034,7 +1126,9 @@ class FlipWorldRun:
         self.engine.game.level_switch(self.get_level_name(self.current_level_index))
         self.set_icon_group(self.current_level_index)
 
-        self.view_manager.log(f"Switched to level {level_index} - {self.get_level_name(level_index)}")
+        self.view_manager.log(
+            f"Switched to level {level_index} - {self.get_level_name(level_index)}"
+        )
 
     def switch_to_next_level(self):
         """Switch to the next level in the game."""
@@ -1169,7 +1263,9 @@ class FlipWorldRun:
         try:
             data = loads(json_data)
         except Exception:
-            self.view_manager.log("parseEntityDataFromJSON: Failed to parse JSON:", json_data)
+            self.view_manager.log(
+                "parseEntityDataFromJSON: Failed to parse JSON:", json_data
+            )
             return False
 
         # Get direction
@@ -1243,7 +1339,9 @@ class FlipWorldRun:
         try:
             data = loads(message)
         except Exception:
-            self.view_manager.log("processCompleteMultiplayerMessage: Failed to parse JSON")
+            self.view_manager.log(
+                "processCompleteMultiplayerMessage: Failed to parse JSON"
+            )
             return
 
         msg_type = data.get("type", None)
@@ -1327,7 +1425,9 @@ class FlipWorldRun:
                         if target_x is None or target_y is None:
                             matched_entity = entity
                             break
-                        distance = ((entity.position.x - target_x) ** 2) + ((entity.position.y - target_y) ** 2)
+                        distance = ((entity.position.x - target_x) ** 2) + (
+                            (entity.position.y - target_y) ** 2
+                        )
                         if matched_distance is None or distance < matched_distance:
                             matched_entity = entity
                             matched_distance = distance
@@ -1437,7 +1537,9 @@ class FlipWorldRun:
         if not self.is_pve_mode or not self.is_lobby_host:
             return
 
-        self.queue_websocket_message(f'{{"type":"level","level_index":{self.get_current_level_index()}}}')
+        self.queue_websocket_message(
+            f'{{"type":"level","level_index":{self.get_current_level_index()}}}'
+        )
 
     def set_icon_group(self, index: int) -> bool:
         """Set the icon group for a level based on its JSON data."""
@@ -1514,7 +1616,7 @@ class FlipWorldRun:
         screen_y = entity.position.y - game.position.y
 
         # Check if visible
-        text_width = canvas.len(entity.name) # in pixels
+        text_width = canvas.len(entity.name)  # in pixels
         if (
             screen_x - text_width / 2 < 0
             or screen_x + text_width / 2 > game.draw.size.x
@@ -1525,16 +1627,16 @@ class FlipWorldRun:
 
         # Draw box around name
         canvas._fill_rectangle(
-            screen_x - (text_width / 2) - 1, 
+            screen_x - (text_width / 2) - 1,
             screen_y - canvas.scale_y(7),
-            text_width + canvas.scale_x(2), 
+            text_width + canvas.scale_x(2),
             canvas.font_size.y,
             COLOR_WHITE,
         )
 
         # Draw name over player's head
         canvas._text(
-            screen_x - (text_width / 2), 
+            screen_x - (text_width / 2),
             screen_y - canvas.scale_y(2),
             entity.name,
             COLOR_BLACK,
@@ -1562,11 +1664,27 @@ class FlipWorldRun:
                 self.vibration_toggle = self.player.vibration_toggle
                 self.end_game()
             else:
+                menu_active = not self.is_game_running or (
+                    self.player.current_main_view != GAME_VIEW_GAME
+                )
+                if menu_active and self._ensure_menu_engine():
+                    self.menu_engine.run_async(False, False)
                 self.player.draw_current_view(self.draw)
+        outgoing = self.view_manager.thread_manager.run()
+        if outgoing:
+            self.view_manager.log(outgoing)
 
-    def update_input(self, key: int):
+    def update_input(self):
         """Update input for the game."""
-        self.last_input = key
+        menu_active = not self.is_game_running or (
+            self.player is not None
+            and self.player.current_main_view != GAME_VIEW_GAME
+        )
+        engine = self.menu_engine if menu_active else self.engine
+        if not engine or not engine.game:
+            return
+
+        self.last_input = engine.game.input
 
         # Only run input_manager when not in an active game to avoid input conflicts
         if not (self.player and self.is_game_running):

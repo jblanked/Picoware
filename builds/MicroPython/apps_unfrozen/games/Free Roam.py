@@ -6,8 +6,11 @@ from picoware.system.buttons import (
     BUTTON_RIGHT,
     BUTTON_CENTER,
 )
-from picoware.system.decorator import server_settings_required, wifi_required, storage_required
-
+from picoware.system.decorator import (
+    server_settings_required,
+    wifi_required,
+    storage_required,
+)
 
 _free_roam_app_menu = None
 _free_roam_app_index: int = 0  # index for the Free Roam app menu
@@ -22,16 +25,9 @@ def __free_roam_game_start(view_manager) -> bool:
 
 def __free_roam_game_run(view_manager) -> None:
     """Run the game view"""
-    global _free_roam_run_instance
-
-    button = view_manager.button
-
-    if not _free_roam_run_instance or not _free_roam_run_instance.is_active:
-        view_manager.back()
-        return
-
-    _free_roam_run_instance.update_input(button)
-    _free_roam_run_instance.update_draw()
+    while _free_roam_run_instance and _free_roam_run_instance.is_active:
+        _free_roam_run_instance.update_draw()
+    view_manager.back()
 
 
 def __free_roam_game_stop(view_manager) -> None:
@@ -41,10 +37,12 @@ def __free_roam_game_stop(view_manager) -> None:
     global _free_roam_run_instance
 
     if _free_roam_run_instance:
+        _free_roam_run_instance.stop()
         del _free_roam_run_instance
         _free_roam_run_instance = None
 
     collect()
+
 
 @storage_required
 @wifi_required

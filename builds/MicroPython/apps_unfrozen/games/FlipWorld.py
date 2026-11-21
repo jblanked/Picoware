@@ -1,6 +1,12 @@
 # micropython implementation of FlipWorld: https://github.com/jblanked/FlipWorld/tree/main
-from picoware.system.decorator import wifi_required, storage_required, server_settings_required
+from picoware.system.decorator import (
+    wifi_required,
+    storage_required,
+    server_settings_required,
+)
+
 _game = None
+
 
 @storage_required
 @wifi_required
@@ -20,14 +26,9 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app"""
-    button = view_manager.button
-
-    if not _game or not _game.is_active:
-        view_manager.back()
-        return
-
-    _game.update_input(button)
-    _game.update_draw()
+    while _game is not None and _game.is_active:
+        _game.update_draw()
+    view_manager.back()
 
 
 def stop(view_manager) -> None:
@@ -37,6 +38,7 @@ def stop(view_manager) -> None:
     global _game
 
     if _game:
+        _game.stop()
         del _game
         _game = None
 

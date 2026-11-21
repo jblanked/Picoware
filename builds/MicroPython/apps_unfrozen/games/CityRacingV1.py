@@ -15,15 +15,21 @@ def _next_random(limit):
     _seed = (_seed * 1103515245 + 12345) & 0x7FFFFFFF
     return _seed % limit
 
+
 def _cell_hash(col, row, salt):
     """Return a stable hash for a block cell and salt."""
     value = (col * 73856093) ^ (row * 19349663) ^ (salt * 83492791)
     return value & 0x7FFFFFFF
 
+
 def _player_update(entity, game):
     """Forward the player callback to the active city."""
     if _city is not None:
-        _city.update_player(entity, game)
+        _city._in_player_update = True
+        try:
+            _city.update_player(entity, game)
+        finally:
+            _city._in_player_update = False
 
 
 def _person_update(entity, _game):
@@ -163,6 +169,8 @@ class _CityRace:
         self.draw = view_manager.draw
         self.level = None
         self.engine = None
+        self._deferred_engine = None
+        self._in_player_update = False
         self.meshes = []
         self.city_mesh = None
         self.route_mesh = None
@@ -188,7 +196,7 @@ class _CityRace:
         self.message_timer = 0
         self.countdown = self.COUNTDOWN_FRAMES
 
-        for index in range(len(self.ROUTE_POINTS)):
+        for index, point in enumerate(self.ROUTE_POINTS):
             x0, z0 = self.ROUTE_POINTS[index]
             x1, z1 = self.ROUTE_POINTS[(index + 1) % len(self.ROUTE_POINTS)]
             length = sqrt((x1 - x0) ** 2 + (z1 - z0) ** 2)
@@ -200,7 +208,6 @@ class _CityRace:
             "City GP",
             self.draw.size,
             self.draw,
-            view_manager.input_manager,
             self.COLOR_LINE,
             self.COLOR_SKY,
             Camera(
@@ -565,10 +572,26 @@ class _CityRace:
         color = self.ROUTE_START_COLOR
         for index in range(6):
             step = index * 0.7 - 1.75
-            a = (x0 + dx * step + px * span * 0.5, self.ROUTE_MARKER_HEIGHT, z0 + dz * step + pz * span * 0.5)
-            b = (x0 + dx * step - px * span * 0.5, self.ROUTE_MARKER_HEIGHT, z0 + dz * step - pz * span * 0.5)
-            c = (x0 + dx * step + px * span * 0.22, self.ROUTE_MARKER_HEIGHT, z0 + dz * step + pz * span * 0.22)
-            d = (x0 + dx * step + px * span * 0.34, self.ROUTE_MARKER_HEIGHT, z0 + dz * step + pz * span * 0.34)
+            a = (
+                x0 + dx * step + px * span * 0.5,
+                self.ROUTE_MARKER_HEIGHT,
+                z0 + dz * step + pz * span * 0.5,
+            )
+            b = (
+                x0 + dx * step - px * span * 0.5,
+                self.ROUTE_MARKER_HEIGHT,
+                z0 + dz * step - pz * span * 0.5,
+            )
+            c = (
+                x0 + dx * step + px * span * 0.22,
+                self.ROUTE_MARKER_HEIGHT,
+                z0 + dz * step + pz * span * 0.22,
+            )
+            d = (
+                x0 + dx * step + px * span * 0.34,
+                self.ROUTE_MARKER_HEIGHT,
+                z0 + dz * step + pz * span * 0.34,
+            )
             self._triangle(mesh, a, b, c, color)
             self._triangle(mesh, a, d, b, color)
 
@@ -590,8 +613,16 @@ class _CityRace:
         s = 1.5
         px, pz = dz, -dx
         tip = (cx + dx * s, self.ROUTE_MARKER_HEIGHT, cz + dz * s)
-        back_left = (cx - dx * s * 0.5 + px * s * 0.5, self.ROUTE_MARKER_HEIGHT, cz - dz * s * 0.5 + pz * s * 0.5)
-        back_right = (cx - dx * s * 0.5 - px * s * 0.5, self.ROUTE_MARKER_HEIGHT, cz - dz * s * 0.5 - pz * s * 0.5)
+        back_left = (
+            cx - dx * s * 0.5 + px * s * 0.5,
+            self.ROUTE_MARKER_HEIGHT,
+            cz - dz * s * 0.5 + pz * s * 0.5,
+        )
+        back_right = (
+            cx - dx * s * 0.5 - px * s * 0.5,
+            self.ROUTE_MARKER_HEIGHT,
+            cz - dz * s * 0.5 - pz * s * 0.5,
+        )
         self._triangle(mesh, tip, back_left, back_right, color)
 
     def _build_player(self):
@@ -659,9 +690,7 @@ class _CityRace:
                     segment[1] + segment[3] * distance,
                 )
                 car.direction_set(segment[2], segment[3])
-                car.set_3d_sprite_rotation(
-                    atan2(segment[3], segment[2]) - pi * 0.5
-                )
+                car.set_3d_sprite_rotation(atan2(segment[3], segment[2]) - pi * 0.5)
                 return
             distance -= segment[4]
 
@@ -889,8 +918,18 @@ class _CityRace:
 
     def update_player(self, car, game):
         """Drive the player car with building collision and lap tracking."""
-        from picoware.system.buttons import BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP
+        from picoware.system.buttons import (
+            BUTTON_DOWN,
+            BUTTON_LEFT,
+            BUTTON_RIGHT,
+            BUTTON_UP,
+            BUTTON_BACK,
+        )
 
+        button = game.input
+        if button == BUTTON_BACK:
+            self.stop()
+            return
         if self.countdown > 0:
             self.speed = 0.0
             return
@@ -898,7 +937,6 @@ class _CityRace:
             self.speed = 0.0
             return
 
-        button = game.input
         if button == BUTTON_UP:
             self.speed += self.ACCELERATION
         elif button == BUTTON_DOWN:
@@ -977,7 +1015,9 @@ class _CityRace:
         delta_y = other.position.y - car.position.y
         forward = delta_x * car.direction.x + delta_y * car.direction.y
         lateral = abs(-delta_x * car.direction.y + delta_y * car.direction.x)
-        facing = car.direction.x * other.direction.x + car.direction.y * other.direction.y
+        facing = (
+            car.direction.x * other.direction.x + car.direction.y * other.direction.y
+        )
 
         if lateral > self.CAR_HITBOX_LANE:
             return None
@@ -1048,8 +1088,12 @@ class _CityRace:
         haze = draw.scale_y(18)
         draw._fill_rectangle(0, 0, width, horizon, self.COLOR_SKY)
         draw._fill_rectangle(0, horizon, width, haze, self.COLOR_HORIZON)
-        draw._fill_rectangle(0, horizon + haze, width, height - horizon - haze, self.COLOR_GROUND)
-        draw._fill_rectangle(0, horizon - draw.scale_y(2), width, draw.scale_y(2), self.COLOR_ROOF)
+        draw._fill_rectangle(
+            0, horizon + haze, width, height - horizon - haze, self.COLOR_GROUND
+        )
+        draw._fill_rectangle(
+            0, horizon - draw.scale_y(2), width, draw.scale_y(2), self.COLOR_ROOF
+        )
 
     def draw_hud(self, draw=None):
         """Draw the lap, speed, position and route map HUD."""
@@ -1066,7 +1110,9 @@ class _CityRace:
             self.COLOR_LINE,
         )
         speed_label = "%3d MPH" % int(self.speed * 150)
-        draw._text(width // 2 - draw.scale_x(20), draw.scale_y(2), speed_label, self.COLOR_LINE)
+        draw._text(
+            width // 2 - draw.scale_x(20), draw.scale_y(2), speed_label, self.COLOR_LINE
+        )
         draw._text(
             width - draw.scale_x(32),
             draw.scale_y(2),
@@ -1091,7 +1137,9 @@ class _CityRace:
             alert_height = draw.scale_y(18)
             alert_x = width // 2 - alert_width // 2
             alert_y = int(draw.size.y) // 2 - alert_height // 2
-            draw._fill_rectangle(alert_x, alert_y, alert_width, alert_height, self.COLOR_BLACK)
+            draw._fill_rectangle(
+                alert_x, alert_y, alert_width, alert_height, self.COLOR_BLACK
+            )
             draw._text(
                 width // 2 - draw.scale_x(18),
                 alert_y + draw.scale_y(5),
@@ -1197,7 +1245,9 @@ class _CityRace:
         for car in self.cars:
             px = int(left + (car.position.x - self.ROUTE_MAP_X_MIN) * sx)
             pz = int(top + (car.position.y - self.ROUTE_MAP_Z_MIN) * sz)
-            draw._fill_rectangle(int(px - dot // 2), int(pz - dot // 2), dot, dot, self.COLOR_RIVAL)
+            draw._fill_rectangle(
+                int(px - dot // 2), int(pz - dot // 2), dot, dot, self.COLOR_RIVAL
+            )
 
     def _route_map_car(self, draw, left, top, sx, sz):
         """Mark the player car on the route map."""
@@ -1207,7 +1257,9 @@ class _CityRace:
         dot = draw.scale_x(4)
         if dot < 4:
             dot = 4
-        draw._fill_rectangle(int(px - dot // 2), int(pz - dot // 2), dot, dot, self.COLOR_PLAYER)
+        draw._fill_rectangle(
+            int(px - dot // 2), int(pz - dot // 2), dot, dot, self.COLOR_PLAYER
+        )
 
     def run(self):
         """Refill the local city and run one engine frame."""
@@ -1222,9 +1274,18 @@ class _CityRace:
 
     def stop(self):
         """Stop the engine and release the city resources."""
+        if self._in_player_update:
+            if self.engine is not None:
+                self._deferred_engine = self.engine
+                self.engine = None
+            return
+
         if self.engine is not None:
             self.engine.stop()
             self.engine = None
+        if self._deferred_engine is not None:
+            self._deferred_engine.stop()
+            self._deferred_engine = None
         self.meshes = []
         self.city_mesh = None
         self.route_mesh = None
@@ -1251,19 +1312,10 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run one city race frame."""
-    from picoware.system.buttons import BUTTON_BACK
-
-    if _city is None:
-        view_manager.back()
-        return
-
-    button = view_manager.input_manager.button
-    if button == BUTTON_BACK:
-        view_manager.input_manager.reset()
-        view_manager.back()
-        return
-
-    _city.run()
+    while _city.engine is not None:
+        _city.run()
+        view_manager.thread_manager.run()
+    view_manager.back()
 
 
 def stop(_view_manager) -> None:

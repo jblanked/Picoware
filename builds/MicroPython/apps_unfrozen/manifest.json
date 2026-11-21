@@ -637,14 +637,6 @@
         "version": "1.0"
     },
     {
-        "title": "PicoCity",
-        "description": "A city-building game",
-        "file_structure": [
-            "picoware/apps_unfrozen/games/PicoCity.py"
-        ],
-        "version": "1.0"
-    },
-    {
         "title": "Pico Bomber",
         "description": "A Bomberman-style game",
         "file_structure": [

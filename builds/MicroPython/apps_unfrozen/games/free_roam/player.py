@@ -224,6 +224,7 @@ class Player(Entity):
         self.ws = None  # WebSocketAsync instance for online games
         self.last_ws_response: str = ""  # Last WebSocket message received
         self._last_game_state: int = GAME_STATE_PLAYING  # previous render game state
+        self._back_input_latched: bool = False
 
     def __del__(self):
         if self.current_dynamic_map:
@@ -2073,6 +2074,7 @@ class Player(Entity):
                     if entity and not entity.is_active and not entity.is_player:
                         entity.is_active = True  # Activate all entities
                 self.is_visible = True  # Show player entity in game
+                self.sprite_3d_type = SPRITE_3D_HUMANOID
             self._last_game_state = GAME_STATE_PLAYING
 
             if self.current_dynamic_map is not None:
@@ -2107,7 +2109,8 @@ class Player(Entity):
                     entity = game.current_level.get_entity(i)
                     if entity and entity.is_active and not entity.is_player:
                         entity.is_active = False  # Deactivate all entities
-                self.is_visible = False  # Hide player entity in menu
+                self.sprite_3d_type = SPRITE_3D_NONE
+            self.is_visible = True
             self._last_game_state = GAME_STATE_MENU
             self.handle_menu(canvas, game)
 
@@ -2218,12 +2221,16 @@ class Player(Entity):
         """Update player state."""
 
         if game.input == INPUT_KEY_BACK:
-            self.game_state = (
-                GAME_STATE_PLAYING
-                if self.game_state == GAME_STATE_MENU
-                else GAME_STATE_MENU
-            )
+            if not self._back_input_latched:
+                self.game_state = (
+                    GAME_STATE_PLAYING
+                    if self.game_state == GAME_STATE_MENU
+                    else GAME_STATE_MENU
+                )
+                self._back_input_latched = True
+            game.input = INPUT_KEY_MAX
             return
+        self._back_input_latched = False
 
         if self.game_state == GAME_STATE_MENU:
             return  # Don't update player position in menu

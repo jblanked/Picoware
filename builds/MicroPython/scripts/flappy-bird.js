@@ -1,4 +1,3 @@
-let input = import('input');
 let buttons = import('buttons');
 let draw = import('draw');
 
@@ -210,11 +209,16 @@ let player = import('entity', 'Player', 0, { 'x': -100, 'y': -100, 'z': 0 }, { '
 level.entityAdd(player);
 game.levelAdd(level);
 let engine = import('engine', game, 240, false);
-
+let is_active = true;
 state_init();
+engine.runAsync(false);
 
-function tick(button) {
-    engine.updateGameInput(button);
+function tick() {
+    let button = game.get("input");
+    if (button === BACK) {
+        is_active = false;
+        return;
+    }
 
     if (button === UP || button === CENTER) {
         if (state === STATE_OVER) {
@@ -239,13 +243,9 @@ function tick(button) {
     if (SWAP) { draw.swap(); }
 }
 
-while (true) {
-    let button = input.button;
-    input.reset();
-    if (button === BACK) { break; }
-    tick(button);
+while (is_active) {
+    tick();
 }
 
-input.reset();
 engine.stop();
 engine.destroy();

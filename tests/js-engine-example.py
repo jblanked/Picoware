@@ -1,7 +1,6 @@
 _js = None
 
 SETUP = """
-let input = import('input');
 let buttons = import('buttons');
 let draw = import('draw');
 
@@ -35,9 +34,15 @@ let player = import('entity', 'Player', 0, { 'x': W / 2, 'y': H / 2, 'z': 0 }, {
 level.entityAdd(player);
 game.levelAdd(level);
 let engine = import('engine', game, 240, false);
+let is_active = true;
+engine.runAsync(false);
 
-function tick(button) {
-    engine.updateGameInput(button);
+function tick() {
+    let button = game.get("input");
+    if (button === BACK) {
+        is_active = false;
+        return;
+    }
     let p = player.get('position');
     if (button === UP) { p.y -= 5; }
     else if (button === DOWN) { p.y += 5; }
@@ -52,13 +57,9 @@ function tick(button) {
     engine.runAsync(false);
 }
 
-while (true) {
-    let button = input.button;
-    input.reset();
-    if (button === BACK) { break; }
-    tick(button);
+while (is_active) {
+    tick();
 }
-input.reset();
 engine.stop();
 engine.destroy();
 """
@@ -104,6 +105,8 @@ try:
     vm = ViewManager()
     start(vm)
 finally:
-    stop(vm)
-    del vm
+    if vm:
+        stop(vm)
+        vm.__cleanup()
+        del vm
     vm = None

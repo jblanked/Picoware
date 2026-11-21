@@ -16,6 +16,7 @@ class FreeRoamGame:
         self.is_game_running: bool = False
         self.last_input: int = -1
         self.level_names: list[str] = ["Tutorial", "First", "Second"]
+        self.menu_engine = None
         self.player = None
         self.should_return_to_menu: bool = False
         self.sound_toggle: int = 1  # ToggleOn
@@ -28,6 +29,9 @@ class FreeRoamGame:
         if self.engine:
             del self.engine
             self.engine = None
+        if self.menu_engine:
+            self.menu_engine.stop()
+            self.menu_engine = None
         if self.player:
             del self.player
             self.player = None
@@ -55,6 +59,7 @@ class FreeRoamGame:
 
         if self.engine:
             self.engine.stop()
+            self.engine = None
 
     def input_manager(self):
         """manage input for the game, called from updateInput"""
@@ -62,6 +67,51 @@ class FreeRoamGame:
         if self.player:
             self.player.last_input = self.last_input
             self.player.process_input()
+
+    def _ensure_menu_engine(self) -> bool:
+        """Create a non-rendering engine to provide game.input on menu screens."""
+        if self.menu_engine:
+            return True
+
+        from picoware.engine.engine import GameEngine
+        from picoware.engine.level import Level
+        from picoware.engine.game import Game
+
+        game = Game(
+            "Free Roam Menu",
+            self.draw.size,
+            self.draw,
+            COLOR_WHITE,
+            COLOR_BLACK,
+            None,
+            None,
+            None,
+            self.update_input,
+        )
+        if not game:
+            self.view_manager.log("Failed to create Free Roam menu game", 2)
+            return False
+
+        level = Level("Menu", self.draw.size, game)
+        game.level_add(level)
+        self.menu_engine = GameEngine(game, 30)
+        if not self.menu_engine:
+            self.view_manager.log("Failed to create Free Roam menu engine", 2)
+            return False
+        return True
+
+    def _stop_menu_engine(self):
+        if self.menu_engine:
+            self.menu_engine.stop()
+            self.menu_engine = None
+
+    def stop(self):
+        """Stop the gameplay and menu engines outside their update callbacks."""
+        if self.engine:
+            self.engine.stop()
+            self.engine = None
+        self._stop_menu_engine()
+        self.is_game_running = False
 
     def reset_input(self):
         """Reset input after processing"""
@@ -89,17 +139,21 @@ class FreeRoamGame:
             self.view_manager.log("Game already running, skipping initialization")
             return True
 
+        self._stop_menu_engine()
+
         # Create the game instance with 3rd person perspective
         game = Game(
             "Free Roam",
             self.draw.size,
             self.draw,
-            self.view_manager.input_manager,
             COLOR_WHITE,  # foreground color (actually black)
             COLOR_BLACK,  # background color (actually white)
             Camera(
                 perspective=CAMERA_THIRD_PERSON
             ),  # Use 3rd person camera perspective
+            None,  # start
+            None,  # stop
+            self.update_input,  # update
         )
         if not game:
             # Failed to create Game object
@@ -297,17 +351,21 @@ class FreeRoamGame:
             self.view_manager.log("Game already running, skipping initialization")
             return True
 
+        self._stop_menu_engine()
+
         # Create the game instance with 3rd person perspective
         game = Game(
             "Free Roam",
             self.draw.size,
             self.draw,
-            self.view_manager.input_manager,
             COLOR_WHITE,  # foreground color (actually black)
             COLOR_BLACK,  # background color (actually white)
             Camera(
                 perspective=CAMERA_THIRD_PERSON
             ),  # Use 3rd person camera perspective
+            None,  # start
+            None,  # stop
+            self.update_input,  # update
         )
         if not game:
             # Failed to create Game object
@@ -319,6 +377,7 @@ class FreeRoamGame:
             from free_roam.player import Player
 
             from picoware.system.settings import Settings
+
             settings = Settings(self.view_manager.storage)
             player = settings.server_settings.get("username", "Player")
 
@@ -494,6 +553,7 @@ class FreeRoamGame:
         if not self.player:
             from free_roam.player import Player
             from picoware.system.settings import Settings
+
             settings = Settings(self.view_manager.storage)
             player = settings.server_settings.get("username", "Player")
 
@@ -505,11 +565,22 @@ class FreeRoamGame:
 
         # Let the player handle all drawing
         if self.player:
-            self.player.draw_current_view(self.draw)
+            if not self.is_active:
+                return
+            if not self.is_game_running and self._ensure_menu_engine():
+                self.menu_engine.run_async(False, False)
+            if self.is_active:
+                self.player.draw_current_view(self.draw)
+        outgoing = self.view_manager.thread_manager.run()
+        if outgoing:
+            self.view_manager.log(outgoing)
 
-    def update_input(self, key: int):
+    def update_input(self):
         """update input for the game"""
-        self.last_input = key
+        engine = self.engine if self.is_game_running else self.menu_engine
+        if not engine or not engine.game:
+            return
+        self.last_input = engine.game.input
 
         # Only run input_manager when not in an active game to avoid input conflicts
         if not (

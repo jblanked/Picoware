@@ -146,12 +146,13 @@ class _City:
         self.player = None
         self.speed = 0.0
         self.heading = pi * 0.5
+        self.exit_requested = False
+        self._deferred_engine = None
 
         game = Game(
             "City Drive",
             self.draw.size,
             self.draw,
-            view_manager.input_manager,
             self.COLOR_LINE,
             self.COLOR_SKY,
             Camera(
@@ -741,13 +742,23 @@ class _City:
         return False
 
     def update_player(self, car, game):
-        from picoware.system.buttons import BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP
+        from picoware.system.buttons import (
+            BUTTON_DOWN,
+            BUTTON_LEFT,
+            BUTTON_RIGHT,
+            BUTTON_UP,
+            BUTTON_BACK,
+        )
 
         button = game.input
         if button == BUTTON_UP:
             self.speed += self.ACCELERATION
         elif button == BUTTON_DOWN:
             self.speed -= self.BRAKING
+        elif button == BUTTON_BACK:
+            self.exit_requested = True
+            self.stop()
+            return
         elif self.speed > 0:
             self.speed = max(0.0, self.speed - self.FRICTION)
         else:
@@ -793,8 +804,12 @@ class _City:
         haze = draw.scale_y(18)
         draw._fill_rectangle(0, 0, width, horizon, self.COLOR_SKY)
         draw._fill_rectangle(0, horizon, width, haze, self.COLOR_HORIZON)
-        draw._fill_rectangle(0, horizon + haze, width, height - horizon - haze, self.COLOR_GROUND)
-        draw._fill_rectangle(0, horizon - draw.scale_y(2), width, draw.scale_y(2), self.COLOR_ROOF)
+        draw._fill_rectangle(
+            0, horizon + haze, width, height - horizon - haze, self.COLOR_GROUND
+        )
+        draw._fill_rectangle(
+            0, horizon - draw.scale_y(2), width, draw.scale_y(2), self.COLOR_ROOF
+        )
 
     def draw_hud(self, draw=None):
         if self.engine is None:
@@ -805,7 +820,9 @@ class _City:
         draw._fill_rectangle(0, 0, width, bar_height, self.COLOR_BLACK)
         draw._text(draw.scale_x(3), draw.scale_y(2), "CITY", self.COLOR_LINE)
         speed_label = "%3d MPH" % int(self.speed * 150)
-        draw._text(width // 2 - draw.scale_x(20), draw.scale_y(2), speed_label, self.COLOR_LINE)
+        draw._text(
+            width // 2 - draw.scale_x(20), draw.scale_y(2), speed_label, self.COLOR_LINE
+        )
         draw._text(width - draw.scale_x(35), draw.scale_y(2), "DRIVE", self.COLOR_LINE)
         self._draw_minimap(draw)
 
@@ -874,7 +891,11 @@ class _City:
             self.COLOR_LINE,
         )
         draw._fill_rectangle(
-            int(middle_x) - dot // 2, int(middle_z) - dot // 2, dot, dot, self.COLOR_PLAYER
+            int(middle_x) - dot // 2,
+            int(middle_z) - dot // 2,
+            dot,
+            dot,
+            self.COLOR_PLAYER,
         )
         draw._text(
             left,
@@ -896,8 +917,18 @@ class _City:
     def stop(self):
         """Stop the engine and release the city resources."""
         if self.engine is not None:
-            self.engine.stop()
-            self.engine = None
+            if self.exit_requested:
+                # Defer teardown until the active Game.update callback returns.
+                self._deferred_engine = self.engine
+                self.engine = None
+                return
+            engine = self.engine
+        else:
+            engine = self._deferred_engine
+        if engine is not None:
+            engine.stop()
+        self.engine = None
+        self._deferred_engine = None
         self.meshes = []
         self.city_mesh = None
         self.buildings = []
@@ -914,24 +945,15 @@ def start(view_manager) -> bool:
     global _city
 
     _city = _City(view_manager)
-    return _city.engine is not None
+    return _city is not None and _city.engine is not None
 
 
 def run(view_manager) -> None:
     """Run one city driving frame."""
-    from picoware.system.buttons import BUTTON_BACK
-
-    if _city is None:
-        view_manager.back()
-        return
-
-    button = view_manager.input_manager.button
-    if button == BUTTON_BACK:
-        view_manager.input_manager.reset()
-        view_manager.back()
-        return
-
-    _city.run()
+    while _city.engine is not None:
+        _city.run()
+        view_manager.thread_manager.run()
+    view_manager.back()
 
 
 def stop(_view_manager) -> None:
@@ -942,5 +964,6 @@ def stop(_view_manager) -> None:
 
     if _city is not None:
         _city.stop()
+        del _city
         _city = None
     collect()

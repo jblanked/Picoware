@@ -98,10 +98,9 @@ class _Race:
         self.message_timer = 0
 
         game = Game(
-            "Pico GP",
+            "RacingV1",
             self.draw.size,
             self.draw,
-            view_manager.input_manager,
             self.COLOR_LINE,
             self.COLOR_SKY,
             Camera(
@@ -162,7 +161,7 @@ class _Race:
             third[1],
             third[2],
             color,
-            False
+            False,
         )
 
     def _quad(self, mesh, first, second, third, fourth, color):
@@ -185,10 +184,18 @@ class _Race:
         count = len(points)
         for index in range(count):
             next_index = (index + 1) % count
-            start_left_x, start_left_y = self._offset_point(points, index, offset + half_width)
-            start_right_x, start_right_y = self._offset_point(points, index, offset - half_width)
-            end_right_x, end_right_y = self._offset_point(points, next_index, offset - half_width)
-            end_left_x, end_left_y = self._offset_point(points, next_index, offset + half_width)
+            start_left_x, start_left_y = self._offset_point(
+                points, index, offset + half_width
+            )
+            start_right_x, start_right_y = self._offset_point(
+                points, index, offset - half_width
+            )
+            end_right_x, end_right_y = self._offset_point(
+                points, next_index, offset - half_width
+            )
+            end_left_x, end_left_y = self._offset_point(
+                points, next_index, offset + half_width
+            )
             self._quad(
                 mesh,
                 (start_left_x, height, start_left_y),
@@ -206,14 +213,62 @@ class _Race:
         top = y + half_height
         front = z + half_depth
         back = z - half_depth
-        self._triangle(mesh, (x - half_width, bottom, front), (x + half_width, bottom, front), (x + half_width, top, front), color)
-        self._triangle(mesh, (x - half_width, bottom, front), (x + half_width, top, front), (x - half_width, top, front), color)
-        self._triangle(mesh, (x + half_width, bottom, back), (x - half_width, bottom, back), (x - half_width, top, back), color)
-        self._triangle(mesh, (x + half_width, bottom, back), (x - half_width, top, back), (x + half_width, top, back), color)
-        self._triangle(mesh, (x + half_width, bottom, front), (x + half_width, bottom, back), (x + half_width, top, back), color)
-        self._triangle(mesh, (x + half_width, bottom, front), (x + half_width, top, back), (x + half_width, top, front), color)
-        self._triangle(mesh, (x - half_width, bottom, back), (x - half_width, bottom, front), (x - half_width, top, front), color)
-        self._triangle(mesh, (x - half_width, bottom, back), (x - half_width, top, front), (x - half_width, top, back), color)
+        self._triangle(
+            mesh,
+            (x - half_width, bottom, front),
+            (x + half_width, bottom, front),
+            (x + half_width, top, front),
+            color,
+        )
+        self._triangle(
+            mesh,
+            (x - half_width, bottom, front),
+            (x + half_width, top, front),
+            (x - half_width, top, front),
+            color,
+        )
+        self._triangle(
+            mesh,
+            (x + half_width, bottom, back),
+            (x - half_width, bottom, back),
+            (x - half_width, top, back),
+            color,
+        )
+        self._triangle(
+            mesh,
+            (x + half_width, bottom, back),
+            (x - half_width, top, back),
+            (x + half_width, top, back),
+            color,
+        )
+        self._triangle(
+            mesh,
+            (x + half_width, bottom, front),
+            (x + half_width, bottom, back),
+            (x + half_width, top, back),
+            color,
+        )
+        self._triangle(
+            mesh,
+            (x + half_width, bottom, front),
+            (x + half_width, top, back),
+            (x + half_width, top, front),
+            color,
+        )
+        self._triangle(
+            mesh,
+            (x - half_width, bottom, back),
+            (x - half_width, bottom, front),
+            (x - half_width, top, front),
+            color,
+        )
+        self._triangle(
+            mesh,
+            (x - half_width, bottom, back),
+            (x - half_width, top, front),
+            (x - half_width, top, back),
+            color,
+        )
 
     def _add_tree_geometry(self, mesh):
         tree_specs = (
@@ -312,11 +367,17 @@ class _Race:
 
         self._add_tree_geometry(mesh)
         loop_points = points[:-1]
-        self._add_loop_strip(mesh, loop_points, 0, self.TRACK_WIDTH * 0.5, 0.04, self.COLOR_ROAD)
+        self._add_loop_strip(
+            mesh, loop_points, 0, self.TRACK_WIDTH * 0.5, 0.04, self.COLOR_ROAD
+        )
         self._add_loop_strip(mesh, loop_points, 0, 0.07, 0.08, self.COLOR_LINE)
         curb_offset = self.TRACK_WIDTH * 0.5 - 0.18
-        self._add_loop_strip(mesh, loop_points, -curb_offset, 0.11, 0.09, self.COLOR_CURB)
-        self._add_loop_strip(mesh, loop_points, curb_offset, 0.11, 0.09, self.COLOR_CURB)
+        self._add_loop_strip(
+            mesh, loop_points, -curb_offset, 0.11, 0.09, self.COLOR_CURB
+        )
+        self._add_loop_strip(
+            mesh, loop_points, curb_offset, 0.11, 0.09, self.COLOR_CURB
+        )
         self._quad(
             mesh,
             (self.TRACK_RADIUS_X - self.TRACK_WIDTH * 0.5, 0.12, -0.12),
@@ -397,7 +458,13 @@ class _Race:
         car.set_3d_sprite_rotation(atan2(direction_y, direction_x) - pi * 0.5)
 
     def update_player(self, car, game):
-        from picoware.system.buttons import BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP
+        from picoware.system.buttons import (
+            BUTTON_DOWN,
+            BUTTON_LEFT,
+            BUTTON_RIGHT,
+            BUTTON_UP,
+            BUTTON_BACK,
+        )
 
         button = game.input
         if self.finished:
@@ -408,6 +475,9 @@ class _Race:
             self.player_speed += self.ACCELERATION
         elif button == BUTTON_DOWN:
             self.player_speed -= self.BRAKING
+        elif button == BUTTON_BACK:
+            self.stop()
+            return
         else:
             self.player_speed -= self.FRICTION
 
@@ -450,7 +520,9 @@ class _Race:
         delta_y = other.position.y - car.position.y
         forward = delta_x * car.direction.x + delta_y * car.direction.y
         lateral = abs(-delta_x * car.direction.y + delta_y * car.direction.x)
-        facing = car.direction.x * other.direction.x + car.direction.y * other.direction.y
+        facing = (
+            car.direction.x * other.direction.x + car.direction.y * other.direction.y
+        )
 
         if lateral > self.CAR_HITBOX_LANE:
             return None
@@ -484,7 +556,9 @@ class _Race:
             self.MAX_SPEED,
             max(self.rival_speeds[rival_index], impact_speed) + self.CAR_PUSH_SPEED,
         )
-        self._place_car(car, self.rival_progress[rival_index], self.rival_lanes[rival_index])
+        self._place_car(
+            car, self.rival_progress[rival_index], self.rival_lanes[rival_index]
+        )
 
     def handle_collision(self, car, other, _game):
         if not self._is_car(car) or not self._is_car(other) or car.name == other.name:
@@ -514,7 +588,9 @@ class _Race:
         height = int(draw.size.y)
         half_height = height // 2
         draw._fill_rectangle(0, 0, width, half_height, self.COLOR_SKY)
-        draw._fill_rectangle(0, half_height, width, height - half_height, self.COLOR_GRASS)
+        draw._fill_rectangle(
+            0, half_height, width, height - half_height, self.COLOR_GRASS
+        )
 
     def draw_hud(self, draw=None):
         if self.engine is None:
@@ -523,19 +599,20 @@ class _Race:
         width = draw.size.x
         draw._fill_rectangle(0, 0, width, draw.scale_y(18), self.COLOR_BLACK)
         draw._text(
-            draw.scale_x(4), 
+            draw.scale_x(4),
             draw.scale_y(3),
             "LAP %d/%d" % (min(self.lap, self.LAPS_TO_WIN), self.LAPS_TO_WIN),
-            self.COLOR_LINE
+            self.COLOR_LINE,
         )
         draw._text(
-            width // 2 - draw.scale_x(12), 
+            width // 2 - draw.scale_x(12),
             draw.scale_y(3),
             "%02d MPH" % int(self.player_speed * 280),
             self.COLOR_LINE,
         )
         draw._text(
-            width - draw.scale_x(42), draw.scale_y(3),
+            width - draw.scale_x(42),
+            draw.scale_y(3),
             "P%d/4" % self.position,
             self.COLOR_LINE,
         )
@@ -556,16 +633,18 @@ class _Race:
             self.message_timer -= 1
         if self.finished:
             draw._fill_rectangle(
-                width // 2 - draw.scale_x(38), int(draw.size.y) // 2 - draw.scale_y(10),
-                draw.scale_x(76), draw.scale_y(20),
+                width // 2 - draw.scale_x(38),
+                int(draw.size.y) // 2 - draw.scale_y(10),
+                draw.scale_x(76),
+                draw.scale_y(20),
                 self.COLOR_BLACK,
             )
             draw._text(
-                width // 2 - draw.scale_x(30), int(draw.size.y) // 2 - draw.scale_y(4),
+                width // 2 - draw.scale_x(30),
+                int(draw.size.y) // 2 - draw.scale_y(4),
                 "FINISH!",
                 self.COLOR_LINE,
             )
-
 
     def run(self):
         if self.engine is not None:
@@ -588,19 +667,9 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run one race frame."""
-    from picoware.system.buttons import BUTTON_BACK
-
-    if _race is None:
-        view_manager.back()
-        return
-
-    button = view_manager.input_manager.button
-    if button == BUTTON_BACK:
-        view_manager.input_manager.reset()
-        view_manager.back()
-        return
-
-    _race.run()
+    while _race.engine is not None:
+        _race.run()
+    view_manager.back()
 
 
 def stop(_view_manager) -> None:

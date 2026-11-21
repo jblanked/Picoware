@@ -777,6 +777,9 @@ void Level::stop()
 // Update all active entities
 void Level::update(Game *game)
 {
+    if (!game)
+        return;
+
     for (int i = entity_count - 1; i >= 0; i--)
     {
         Entity *ent = getEntity(i);
@@ -790,6 +793,9 @@ void Level::update(Game *game)
         }
 
         ent->update(game);
+
+        if (!game)
+            break;
 
         for (int j = entity_count - 1; j > i; j--)
         {

@@ -15,9 +15,11 @@ native_sources_newer() {
         -newer "$binary" -print -quit)" ]
 }
 
-if [ ! -x "$binary" ] || native_sources_newer || ! "$binary" -c 'import engine, ghouls, mjs, pico_gta, vector, view, view_manager
+if [ ! -x "$binary" ] || native_sources_newer || ! "$binary" -c 'import engine, ghouls, input_mp, mjs, pico_gta, vector, view, view_manager
 from micropython import alloc_emergency_exception_buf
 alloc_emergency_exception_buf(100)
+assert hasattr(pico_gta.PicoGTA, "run")
+assert hasattr(input_mp.Input, "get_last_button")
 assert hasattr(engine, "Billboard")
 assert hasattr(engine.Entity, "set_billboard")
 assert hasattr(engine.Entity, "set_billboard_pose")

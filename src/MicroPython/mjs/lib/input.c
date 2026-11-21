@@ -12,7 +12,7 @@ static void input_button_to_char_mjs(struct mjs *mjs)
     bool was_capitalized = button >= 65 && button <= 90;
     const char c = input_button_to_char(button, was_capitalized);
     const char str[2] = {c, '\0'};
-    mjs_return(mjs, mjs_mk_string(mjs, str, 0, 1));
+    mjs_return(mjs, mjs_mk_string(mjs, str, strlen(str), 1));
 }
 
 static void input_read(struct mjs *mjs)

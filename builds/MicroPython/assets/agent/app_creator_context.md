@@ -439,8 +439,6 @@ Supported DuckyScript commands: `DELAY`, `DEFAULT_DELAY`, `STRING_DELAY`, `STRIN
     - `point`: Property - last touch point as an `(x, y)` tuple (Waveshare boards only).
     - `was_capitalized`: Property - True if the last key pressed was a capital letter.
     - `button_to_char(button)`: Convert a `BUTTON_*` constant to its character string representation.
-    - `is_held(duration=3)`: Returns True if the last button has been held for at least `duration` frames.
-    - `is_pressed()`: Returns True if any key is currently pressed.
     - `on_key_callback(_=None)`: Callback invoked when a new key becomes available.
     - `read()`: Blocking read - waits until a key is pressed and returns the raw key code integer.
     - `read_non_blocking()`: Non-blocking read - returns the raw key code, or -1 if no key is available.

@@ -230,6 +230,130 @@ bool GhoulsGame::initDraw()
     return true;
 }
 
+bool GhoulsGame::initializeEngine()
+{
+    if (engine)
+        return true;
+    if (!draw || !player)
+        return false;
+
+    Camera *camera = ENGINE_MEM_NEW Camera(
+        Vector(0, 0, 0), Vector(1, 0, 0), Vector(0, 0.66f),
+        1.6f, 2.0f, CAMERA_THIRD_PERSON);
+    if (!camera)
+    {
+        ENGINE_LOG_INFO("[GhoulsGame:initializeEngine] Failed to create Camera instance\n");
+        return false;
+    }
+
+    Game *game = ENGINE_MEM_NEW Game(
+        "Ghouls", draw->getDisplaySize(), draw, 0x0000, 0xFFFF, camera);
+    if (!game)
+    {
+        ENGINE_MEM_DELETE camera;
+        ENGINE_LOG_INFO("[GhoulsGame:initializeEngine] Failed to create Game instance\n");
+        return false;
+    }
+
+    Level *initialLevel = ENGINE_MEM_NEW Level("Startup", draw->getDisplaySize(), game);
+    if (!initialLevel)
+    {
+        ENGINE_MEM_DELETE game;
+        ENGINE_LOG_INFO("[GhoulsGame:initializeEngine] Failed to create startup level\n");
+        return false;
+    }
+    initialLevel->setClearAllowed(false);
+    initialLevel->entity_add(player);
+    if (initialLevel->getEntityCount() != 1)
+    {
+        ENGINE_MEM_DELETE initialLevel;
+        ENGINE_MEM_DELETE game;
+        ENGINE_LOG_INFO("[GhoulsGame:initializeEngine] Failed to add player to startup level\n");
+        return false;
+    }
+
+    game->level_add(initialLevel);
+    if (game->levels[0] != initialLevel)
+    {
+        ENGINE_MEM_DELETE initialLevel;
+        ENGINE_MEM_DELETE game;
+        ENGINE_LOG_INFO("[GhoulsGame:initializeEngine] Failed to add startup level to game\n");
+        return false;
+    }
+
+    GameEngine *newEngine = ENGINE_MEM_NEW GameEngine(game, 240);
+    if (!newEngine)
+    {
+        ENGINE_MEM_DELETE game;
+        ENGINE_LOG_INFO("[GhoulsGame:initializeEngine] Failed to create GameEngine\n");
+        return false;
+    }
+
+    engine = newEngine;
+    startupLevel = initialLevel;
+    game->start();
+    if (!game->is_active)
+    {
+        engine = nullptr;
+        startupLevel = nullptr;
+        ENGINE_MEM_DELETE newEngine;
+        ENGINE_MEM_DELETE game;
+        ENGINE_LOG_INFO("[GhoulsGame:initializeEngine] Failed to start Game\n");
+        return false;
+    }
+    return true;
+}
+
+bool GhoulsGame::activateLevel(GhoulsLevel *level)
+{
+    if (!level)
+        return false;
+
+    Game *game = getGame();
+    if (!game)
+    {
+        ENGINE_MEM_DELETE level;
+        return false;
+    }
+
+    game->level_add(level);
+    int levelIndex = -1;
+    for (int i = 0; i < MAX_LEVELS; ++i)
+    {
+        if (game->levels[i] == level)
+        {
+            levelIndex = i;
+            break;
+        }
+    }
+    if (levelIndex < 0)
+    {
+        ENGINE_MEM_DELETE level;
+        if (startupLevel && player)
+            player->start(game);
+        ENGINE_LOG_INFO("[GhoulsGame:activateLevel] Failed to add gameplay level\n");
+        return false;
+    }
+
+    if (startupLevel)
+    {
+        if (game->current_level == startupLevel)
+            game->current_level = nullptr;
+        game->level_remove(startupLevel);
+        startupLevel = nullptr;
+    }
+
+    game->level_switch(levelIndex);
+    if (game->current_level != level)
+    {
+        ENGINE_LOG_INFO("[GhoulsGame:activateLevel] Failed to activate gameplay level\n");
+        return false;
+    }
+    if (player)
+        player->start(game);
+    return true;
+}
+
 bool GhoulsGame::isDay() const
 {
     if (!gameTime)
@@ -543,44 +667,38 @@ void GhoulsGame::setSelectedMapFile(const char *filename)
 
 bool GhoulsGame::startGame()
 {
-    if (isGameRunning || engine)
+    if (isGameRunning)
     {
-        ENGINE_LOG_INFO("[GhoulsGame:startGame] Game is already running or engine is already initialized\n");
+        ENGINE_LOG_INFO("[GhoulsGame:startGame] Game is already running\n");
         return true;
     }
 
-    // Create the game instance with 3rd person perspective
-    auto camera = ENGINE_MEM_NEW Camera(Vector(0, 0, 0), Vector(1, 0, 0), Vector(0, 0.66f, 0), 1.6f, 2.0f, CAMERA_THIRD_PERSON);
-    if (!camera)
+    if (!draw && !initDraw())
     {
-        ENGINE_LOG_INFO("[GhoulsGame:startGame] Failed to create Camera instance\n");
+        ENGINE_LOG_INFO("[GhoulsGame:startGame] Failed to initialize drawing\n");
+        return false;
+    }
+    if (!initializeEngine())
+    {
+        ENGINE_LOG_INFO("[GhoulsGame:startGame] Failed to initialize game engine\n");
         return false;
     }
 
-    auto game = ENGINE_MEM_NEW Game("Ghouls", draw->getDisplaySize(), draw, 0x0000, 0xFFFF, camera);
-    if (!game)
-    {
-        ENGINE_LOG_INFO("[GhoulsGame:startGame] Failed to create Game instance\n");
-        return false;
-    }
-
-    // spawn initial level based on currentLevelIndex
-    isOnline = false; // always a local game here
-    Level *initialLevel = spawnLevel(game);
+    GhoulsLevel *initialLevel = spawnLevel(getGame());
     if (!initialLevel)
     {
+        if (startupLevel && player)
+            player->start(getGame());
         ENGINE_LOG_INFO("[GhoulsGame:startGame] Failed to spawn initial level\n");
         return false;
     }
-    game->level_add(initialLevel);
-
-    this->engine = ENGINE_MEM_NEW GameEngine(game, 240);
-    if (!this->engine)
+    if (!activateLevel(initialLevel))
     {
-        ENGINE_LOG_INFO("[GhoulsGame:startGame] Failed to create GameEngine\n");
+        ENGINE_LOG_INFO("[GhoulsGame:startGame] Failed to activate initial level\n");
         return false;
     }
 
+    isOnline = false;
     isGameRunning = true; // Set the flag to indicate game is running
     gameTime->reset();    // ensure day starts at 0
     if (soundAllowed())
@@ -594,57 +712,111 @@ bool GhoulsGame::startGame()
 
 bool GhoulsGame::startGameOnline()
 {
-    if (isGameRunning || engine)
+    if (isGameRunning)
     {
-        ENGINE_LOG_INFO("[GhoulsGame:startGameOnline] Game is already running or engine is already initialized\n");
+        ENGINE_LOG_INFO("[GhoulsGame:startGameOnline] Game is already running\n");
         return true;
     }
 
-    // Create the game instance with 3rd person perspective
-    auto camera = ENGINE_MEM_NEW Camera(Vector(0, 0, 0), Vector(1, 0, 0), Vector(0, 0.66f, 0), 1.6f, 2.0f, CAMERA_THIRD_PERSON);
-    if (!camera)
+    if (!draw && !initDraw())
     {
-        ENGINE_LOG_INFO("[GhoulsGame:startGameOnline] Failed to create Camera instance\n");
+        ENGINE_LOG_INFO("[GhoulsGame:startGameOnline] Failed to initialize drawing\n");
         return false;
     }
-
-    auto game = ENGINE_MEM_NEW Game("Ghouls", draw->getDisplaySize(), draw, 0x0000, 0xFFFF, camera);
-    if (!game)
+    if (!initializeEngine())
     {
-        ENGINE_LOG_INFO("[GhoulsGame:startGameOnline] Failed to create Game instance\n");
+        ENGINE_LOG_INFO("[GhoulsGame:startGameOnline] Failed to initialize game engine\n");
         return false;
     }
 
     // Online level; entities come from the server.
-    isOnline = true;
     if (player)
     {
         player->clearPendingGhoulKills();
     }
-    Level *initialLevel = spawnLevel(game, "Online", true);
+    GhoulsLevel *initialLevel = spawnLevel(getGame(), "Online", true);
     if (!initialLevel)
     {
+        if (startupLevel && player)
+            player->start(getGame());
         ENGINE_LOG_INFO("[GhoulsGame:startGameOnline] Failed to spawn initial level\n");
         return false;
     }
-    game->level_add(initialLevel);
-
-    this->engine = ENGINE_MEM_NEW GameEngine(game, 240);
-    if (!this->engine)
+    if (!activateLevel(initialLevel))
     {
-        ENGINE_LOG_INFO("[GhoulsGame:startGameOnline] Failed to create GameEngine\n");
+        ENGINE_LOG_INFO("[GhoulsGame:startGameOnline] Failed to activate initial level\n");
         return false;
     }
 
+    isOnline = true;
     isGameRunning = true; // Set the flag to indicate game is running
     gameTime->reset();    // ensure day starts at 0
     player->showAlert("Online game started!", 60);
     return true;
 }
 
-// called by the platform in a loop
-void GhoulsGame::updateDraw()
+void GhoulsGame::run()
 {
+    if (shouldExit)
+        return;
+    if (!draw && !initDraw())
+    {
+        ENGINE_LOG_INFO("[GhoulsGame:run] Failed to initialize drawing\n");
+        endGame();
+        return;
+    }
+    if (!initializeEngine())
+    {
+        ENGINE_LOG_INFO("[GhoulsGame:run] Failed to initialize game engine\n");
+        endGame();
+        return;
+    }
+
+    const GameMainView currentView = player->getCurrentMainView();
+    const bool gameplayView =
+        currentView == GameViewGameLocal || currentView == GameViewGameOnline;
+
+    // engine reads the input and updates the game
+    if (!gameplayView)
+        engine->runAsync(false, false);
+
+    // receive the input from the game
+    const int input = engine->getGame()->input;
+    const uint32_t currentTime = TIME_MILLIS;
+    const bool repeatedInput = input >= 0 && input == previousReadInput;
+    if (input < 0)
+    {
+        previousReadInput = -1;
+        resetInput();
+    }
+    else
+    {
+        if (!repeatedInput ||
+            (input != INPUT_KEY_BACK &&
+             currentTime - lastInputRepeatTime >= INPUT_REPEAT_INTERVAL))
+        {
+            updateInput(input, repeatedInput);
+            lastInputRepeatTime = currentTime;
+        }
+        else
+        {
+            resetInput();
+        }
+        previousReadInput = input;
+    }
+    if (shouldExit)
+        return;
+
+    this->frameInput = isGameRunning && gameplayView ? input : -1;
+
+    updateDraw();
+}
+
+void GhoulsGame::update()
+{
+    if (!isGameRunning || !gameTime || !gameSound || !player)
+        return;
+
     gameTime->tick();
     gameSound->tick();
 
@@ -725,7 +897,12 @@ void GhoulsGame::updateDraw()
             }
         }
     }
+}
 
+void GhoulsGame::updateDraw()
+{
+    if (!draw || !player)
+        return;
     draw->fillScreen(0xFFFF);
     player->drawCurrentView(draw);
     draw->swap();
@@ -737,6 +914,7 @@ void GhoulsGame::updateInput(int key, bool held)
     (void)held; // not used for now
 
     this->lastInput = key;
+    this->frameInput = key;
 
     // Only run inputManager when not in an active game to avoid input conflicts
     if (!(player && (player->getCurrentMainView() == GameViewGameLocal || player->getCurrentMainView() == GameViewGameOnline) && this->isGameRunning))

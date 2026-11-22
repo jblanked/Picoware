@@ -69,6 +69,7 @@ public:
     Time *getGameTime() const { return gameTime; }        // Get the game time instance
     void endGame();                                       // end the game and return to the submenu
     int getCurrentInput() const { return lastInput; }     // Get the last input key pressed
+    int getFrameInput() const { return frameInput; }      // Get the input state for the current frame
     GhoulsLevel *getCurrentLevel() const;                 // Get the current level
     GameEngine *getEngine() const { return engine; }      // Get the game engine instance
     Draw *getDraw() const { return draw; }                // Get the Draw instance
@@ -81,11 +82,24 @@ public:
     bool isRunning() const { return isGameRunning; }      // Check if the game engine is running
     bool isOnlineGame() const { return isOnline; }        // Check if the game is online
     void onGhoulDied(const char *ghoulName = nullptr);    // Called when a ghoul dies; spawns a replacement if round total not yet reached
-    void resetInput() { lastInput = -1; }                 // Reset input after processing
+    void resetInput() { lastInput = -1; frameInput = -1; } // Reset input after processing
+    void run();                                           // Run one application frame
     void setSelectedMapFile(const char *filename);        // set the map file to use when starting the next local game
     bool soundAllowed() const;                            // Check if sound is allowed based on player settings
     bool startGame();                                     // start the actual game
     bool startGameOnline();                               // start the online multiplayer game
+    void update();                                        // update active game systems
     void updateDraw();                                    // update and draw the game
     void updateInput(int key, bool held);                 // update input for the game
+
+private:
+    bool activateLevel(GhoulsLevel *level);
+    bool initializeEngine();
+
+private:
+    Level *startupLevel = nullptr;
+    int frameInput = -1;
+    int previousReadInput = -1;
+    uint32_t lastInputRepeatTime = 0;
+    static constexpr uint32_t INPUT_REPEAT_INTERVAL = 1200;
 };

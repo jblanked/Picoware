@@ -16,5 +16,8 @@ def deinit():
 def read():
     # Native games poll here without returning to Python Input.button.
     sim_runtime.input_polled()
-    key = picoware_keyboard.get_key_nonblocking()
-    return -1 if key is None else key
+    return picoware_keyboard._get_input()
+
+
+def game_mode(enable):
+    picoware_keyboard._set_game_mode(enable)

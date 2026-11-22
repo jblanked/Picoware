@@ -403,6 +403,15 @@ def _install_view_tracking():
             BOARD_WAVESHARE_1_69_RP2350, BOARD_WAVESHARE_2_06,
             BOARD_WAVESHARE_C5_3_5, BOARD_WAVESHARE_C6_2_06,
         )
+        # Native Input already advances the host transport. Dispatching here
+        # too would overwrite its one-key buffer with the next queued key.
+        if self._current_board_id not in (
+            BOARD_CARDPUTER, BOARD_CROWPANEL_10_1, BOARD_CROWPANEL_WATCH_2_01,
+            BOARD_FLIPPER_ZERO, BOARD_PANCAKE, BOARD_V8, BOARD_POOM,
+            BOARD_WAVESHARE_1_69_RP2350, BOARD_WAVESHARE_2_06,
+            BOARD_WAVESHARE_C5_3_5, BOARD_WAVESHARE_C6_2_06,
+        ):
+            return self.get_last_button()
         sim_runtime.input_polled()
         if self._current_board_id == BOARD_CROWPANEL_WATCH_2_01:
             self._poll_touch()
@@ -1032,10 +1041,45 @@ def _run_desktop_native_check(opts):
             gc.collect()
         sim_input.init()
 
+        import picoware_keyboard
+        from engine import Engine, Game
+        from ghouls import Ghouls
+
+        def check_mode(enabled):
+            assert picoware_keyboard._game_mode == enabled
+            assert sim_runtime._background_key_poll == (not enabled)
+            if enabled:
+                assert sim_runtime._key_callback is None
+            else:
+                assert sim_runtime._key_callback is not None
+            sim_runtime.push_key(181)
+            assert sim_input.read() == 181
+            assert sim_input.read() == -1
+
+        for _ in range(2):
+            game = Game("input-parity", vector.Vector(10, 10, 10))
+            runner = Engine(game, 30, False)
+            check_mode(True)
+            release = runner.__del__
+            release(runner)
+            release(runner)
+            del release
+            check_mode(False)
+            game.__del__(game)
+            del runner, game
+            ghost = Ghouls("simulator", "offline-test", False)
+            check_mode(True)
+            ghost.__del__()
+            ghost.__del__()
+            check_mode(False)
+            del ghost
+            gc.collect()
+
         for _ in range(2):
             city = PicoGTA("simulator", "offline-test")
             try:
                 assert city.is_active
+                check_mode(True)
                 city.run()
                 title = bytes(sim_runtime.get_lcd()._buffer)
                 sim_runtime.push_key(13)
@@ -1047,6 +1091,7 @@ def _run_desktop_native_check(opts):
                 city.__del__()
                 city.__del__()
                 assert not city.is_active
+                check_mode(False)
             del city
             gc.collect()
     finally:
@@ -1368,7 +1413,10 @@ def _run_keyboard_background_check():
     assert picoware_keyboard.init() is None
     sim_runtime.input_polled()
     sim_runtime.input_polled()
-    assert received == [ord("a"), ord("b"), ord("e")]
+    # init restores the firmware's default input callback.
+    assert received == [ord("a"), ord("b")]
+    assert picoware_keyboard._get_input() == ord("e")
+    assert picoware_keyboard._get_input() == -1
     assert picoware_keyboard.get_key_nonblocking() is None
     picoware_keyboard.deinit()
     print("[sim-check:ok] picocalc keyboard callbacks, empty reads, teardown, and reinit")
@@ -2192,14 +2240,14 @@ def _run_gpio_buttons_check():
                 inp.reset()
                 sim_runtime._keys = [code]
                 if poll_first:
-                    if not inp.is_pressed() or not inp.is_pressed():
+                    if not gpio_buttons.key_available() or not gpio_buttons.key_available():
                         raise RuntimeError("simulator GPIO press was lost while polling")
                     if sim_runtime.peek_key() != code:
                         raise RuntimeError("touch consumed a GPIO key")
                 if inp.button != expected or sim_runtime.has_key():
                     raise RuntimeError("simulator GPIO Input.button mismatch")
                 inp.reset()
-                if inp.is_pressed() or inp.button != buttons.BUTTON_NONE:
+                if gpio_buttons.key_available() or inp.button != buttons.BUTTON_NONE:
                     raise RuntimeError("simulator GPIO event repeated")
         inp.reset()
         sim_runtime._keys = [sim_runtime.KEY_NAMES["up"], 8, 13]
@@ -2207,7 +2255,7 @@ def _run_gpio_buttons_check():
             raise RuntimeError("simulator GPIO interfered with touch direction")
         for expected in (buttons.BUTTON_BACK, buttons.BUTTON_CENTER):
             inp.reset()
-            if not inp.is_pressed() or inp.button != expected:
+            if not gpio_buttons.key_available() or inp.button != expected:
                 raise RuntimeError("simulator mixed GPIO/touch input order mismatch")
         gpio_buttons.deinit()
         if gpio_buttons.key_available() or gpio_buttons.get_key() != 0:

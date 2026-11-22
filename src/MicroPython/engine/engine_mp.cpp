@@ -1,3 +1,7 @@
+#ifdef DESKTOP
+#include "desktop_input.h"
+#endif
+
 #include "billboard_mp.h"
 #include "camera_mp.h"
 #include "engine_mp.h"
@@ -78,6 +82,8 @@ mp_obj_t engine_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     self->freed = false;
 #ifdef PICOCALC
     keyboard_game_mode(true);
+#elif defined(DESKTOP)
+    desktop_input_game_mode(true);
 #endif
     return MP_OBJ_FROM_PTR(self);
 }
@@ -100,6 +106,8 @@ mp_obj_t engine_mp_del(mp_obj_t self_in)
     engine_mp_game_global = MP_OBJ_NULL;
 #ifdef PICOCALC
     keyboard_game_mode(false);
+#elif defined(DESKTOP)
+    desktop_input_game_mode(false);
 #endif
     return mp_const_none;
 }

@@ -1,3 +1,7 @@
+#ifdef DESKTOP
+#include "desktop_input.h"
+#endif
+
 #include "pico_gta_mp.h"
 #include "PicoGTA/src/game.hpp"
 
@@ -28,6 +32,8 @@ mp_obj_t pico_gta_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n
     ctx->initDraw();
 #ifdef PICOCALC
     keyboard_game_mode(true);
+#elif defined(DESKTOP)
+    desktop_input_game_mode(true);
 #endif
     return MP_OBJ_FROM_PTR(self);
 }
@@ -49,6 +55,8 @@ mp_obj_t pico_gta_mp_del(mp_obj_t self_in)
     self->freed = true;
 #ifdef PICOCALC
     keyboard_game_mode(false);
+#elif defined(DESKTOP)
+    desktop_input_game_mode(false);
 #endif
     return mp_const_none;
 }

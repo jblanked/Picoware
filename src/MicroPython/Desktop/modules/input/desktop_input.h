@@ -6,6 +6,7 @@ extern "C" {
 bool desktop_input_init(void);
 void desktop_input_deinit(void);
 int desktop_input_read(void);
+void desktop_input_game_mode(bool enable);
 #ifdef __cplusplus
 }
 #endif

@@ -250,9 +250,9 @@ private:
         "Traffic 1", "Traffic 2", "Traffic 3", "Traffic 4", "Traffic 5", "Traffic 6"};
     const float trafficOffset = 1.2f;
     const float trafficSpeed = 0.45f;
-    const float turnLerp = 0.3f;
-    const float walkAccel = 0.12f;
-    const float walkFriction = 0.08f;
-    const float walkSpeed = 1.0f;
-    const float walkTurn = 0.25f;
+    const float turnLerp = 0.5f;
+    const float walkAccel = 0.15f;
+    const float walkFriction = 0.12f;
+    const float walkSpeed = 1.5f;
+    const float walkTurn = 0.28f;
 };

@@ -12,6 +12,8 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_rom_sys.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #else
 #include "pico/stdlib.h"
 #include "pico/platform.h"
@@ -29,6 +31,7 @@ volatile atomic_bool sb_i2c_in_use = false; // flag to indicate if I2C bus is in
 static const char *TAG = "picocalc-sb";
 static i2c_master_bus_handle_t sb_bus;
 static i2c_master_dev_handle_t sb_device;
+static SemaphoreHandle_t sb_i2c_mutex;
 #endif
 
 //
@@ -39,6 +42,44 @@ static i2c_master_dev_handle_t sb_device;
 bool sb_available()
 {
     return atomic_load(&sb_i2c_in_use) == false;
+}
+
+static bool sb_bus_lock(bool wait)
+{
+#if defined(PICOCALC_ESP32_P4)
+    if (sb_i2c_mutex == NULL)
+    {
+        if (wait)
+        {
+            ESP_LOGE(TAG, "southbridge I2C mutex is not initialized");
+        }
+        return false;
+    }
+    if (xSemaphoreTake(sb_i2c_mutex, wait ? portMAX_DELAY : 0) != pdTRUE)
+    {
+        if (wait)
+        {
+            ESP_LOGE(TAG, "failed to acquire southbridge I2C mutex");
+        }
+        return false;
+    }
+#else
+    (void)wait;
+#endif
+
+    atomic_store(&sb_i2c_in_use, true);
+    return true;
+}
+
+static void sb_bus_unlock()
+{
+    atomic_store(&sb_i2c_in_use, false);
+#if defined(PICOCALC_ESP32_P4)
+    if (xSemaphoreGive(sb_i2c_mutex) != pdTRUE)
+    {
+        ESP_LOGE(TAG, "failed to release southbridge I2C mutex");
+    }
+#endif
 }
 
 static size_t sb_write(const uint8_t *src, size_t len)
@@ -84,46 +125,62 @@ static size_t sb_read(uint8_t *dst, size_t len)
 #endif
 }
 
+static bool sb_read_register(uint8_t reg, uint8_t *dst, size_t len, bool wait)
+{
+    if (!sb_bus_lock(wait))
+    {
+        return false;
+    }
+
+    bool success = false;
+    if (sb_write(&reg, 1) == 1 && sb_read(dst, len) == len)
+    {
+        success = true;
+    }
+    sb_bus_unlock();
+    return success;
+}
+
+static bool sb_write_register(uint8_t reg, uint8_t value, uint8_t *read_value)
+{
+    uint8_t buffer[2] = {reg | SB_WRITE, value};
+    if (!sb_bus_lock(true))
+    {
+        return false;
+    }
+
+    bool success = sb_write(buffer, sizeof(buffer)) == sizeof(buffer);
+    if (success && read_value != NULL)
+    {
+        success = sb_read(buffer, sizeof(buffer)) == sizeof(buffer);
+        if (success)
+        {
+            *read_value = buffer[1];
+        }
+    }
+    sb_bus_unlock();
+    return success;
+}
+
 // Read the keyboard
 uint16_t sb_read_keyboard()
 {
     uint8_t buffer[2];
-
-    atomic_store(&sb_i2c_in_use, true);
-    buffer[0] = SB_REG_FIF; // command to check if key is available
-    if (sb_write(buffer, 1) != 1)
+    // Keyboard polling is best effort and must not wait on foreground I2C operations.
+    if (!sb_read_register(SB_REG_FIF, buffer, sizeof(buffer), false))
     {
-        atomic_store(&sb_i2c_in_use, false);
         return 0;
     }
-    if (sb_read(buffer, 2) != 2)
-    {
-        atomic_store(&sb_i2c_in_use, false);
-        return 0;
-    }
-    atomic_store(&sb_i2c_in_use, false);
-
-    return buffer[0] << 8 | buffer[1];
+    return (uint16_t)buffer[0] << 8 | buffer[1];
 }
 
 uint16_t sb_read_keyboard_state()
 {
     uint8_t buffer[2];
-
-    atomic_store(&sb_i2c_in_use, true);
-    buffer[0] = SB_REG_KEY; // command to read key state
-    if (sb_write(buffer, 1) != 1)
+    if (!sb_read_register(SB_REG_KEY, buffer, sizeof(buffer), true))
     {
-        atomic_store(&sb_i2c_in_use, false);
         return 0;
     }
-    if (sb_read(buffer, 2) != 2)
-    {
-        atomic_store(&sb_i2c_in_use, false);
-        return 0;
-    }
-    atomic_store(&sb_i2c_in_use, false);
-
     return buffer[0];
 }
 
@@ -131,21 +188,10 @@ uint16_t sb_read_keyboard_state()
 uint8_t sb_read_battery()
 {
     uint8_t buffer[2];
-
-    atomic_store(&sb_i2c_in_use, true);
-    buffer[0] = SB_REG_BAT; // command to read battery level
-    if (sb_write(buffer, 1) != 1)
+    if (!sb_read_register(SB_REG_BAT, buffer, sizeof(buffer), true))
     {
-        atomic_store(&sb_i2c_in_use, false);
         return 0;
     }
-    if (sb_read(buffer, 2) != 2)
-    {
-        atomic_store(&sb_i2c_in_use, false);
-        return 0;
-    }
-    atomic_store(&sb_i2c_in_use, false);
-
     return buffer[1];
 }
 
@@ -153,148 +199,65 @@ uint8_t sb_read_battery()
 uint8_t sb_read_lcd_backlight()
 {
     uint8_t buffer[2];
-
-    atomic_store(&sb_i2c_in_use, true);
-    buffer[0] = SB_REG_BKL; // command to read LCD backlight
-    if (sb_write(buffer, 1) != 1)
+    if (!sb_read_register(SB_REG_BKL, buffer, sizeof(buffer), true))
     {
-        atomic_store(&sb_i2c_in_use, false);
         return 0;
     }
-    if (sb_read(buffer, 2) != 2)
-    {
-        atomic_store(&sb_i2c_in_use, false);
-        return 0;
-    }
-    atomic_store(&sb_i2c_in_use, false);
-
     return buffer[1];
 }
 
 // Write the LCD backlight level
 uint8_t sb_write_lcd_backlight(uint8_t brightness)
 {
-    uint8_t buffer[2];
-
-    atomic_store(&sb_i2c_in_use, true);
-    buffer[0] = SB_REG_BKL | SB_WRITE; // command to write LCD backlight
-    buffer[1] = brightness;
-    if (sb_write(buffer, 2) != 2)
+    uint8_t result;
+    if (!sb_write_register(SB_REG_BKL, brightness, &result))
     {
-        atomic_store(&sb_i2c_in_use, false);
         return 0;
     }
-    if (sb_read(buffer, 2) != 2)
-    {
-        atomic_store(&sb_i2c_in_use, false);
-        return 0;
-    }
-    atomic_store(&sb_i2c_in_use, false);
-
-    return buffer[1];
+    return result;
 }
 
 // Read the keyboard backlight level
 uint8_t sb_read_keyboard_backlight()
 {
     uint8_t buffer[2];
-
-    atomic_store(&sb_i2c_in_use, true);
-    buffer[0] = SB_REG_BK2; // command to read keyboard backlight
-    if (sb_write(buffer, 1) != 1)
+    if (!sb_read_register(SB_REG_BK2, buffer, sizeof(buffer), true))
     {
-        atomic_store(&sb_i2c_in_use, false);
         return 0;
     }
-    if (sb_read(buffer, 2) != 2)
-    {
-        atomic_store(&sb_i2c_in_use, false);
-        return 0;
-    }
-    atomic_store(&sb_i2c_in_use, false);
-
     return buffer[1];
 }
 
 // Write the keyboard backlight level
 uint8_t sb_write_keyboard_backlight(uint8_t brightness)
 {
-    uint8_t buffer[2];
-
-    atomic_store(&sb_i2c_in_use, true);
-    buffer[0] = SB_REG_BK2 | SB_WRITE; // command to write keyboard backlight
-    buffer[1] = brightness;
-    if (sb_write(buffer, 2) != 2)
+    uint8_t result;
+    if (!sb_write_register(SB_REG_BK2, brightness, &result))
     {
-        atomic_store(&sb_i2c_in_use, false);
         return 0;
     }
-    if (sb_read(buffer, 2) != 2)
-    {
-        atomic_store(&sb_i2c_in_use, false);
-        return 0;
-    }
-    atomic_store(&sb_i2c_in_use, false);
-
-    return buffer[1];
+    return result;
 }
 
 bool sb_is_power_off_supported()
 {
     uint8_t buffer[2];
-
-    atomic_store(&sb_i2c_in_use, true);
-    buffer[0] = SB_REG_OFF; // read the power-off register
-    if (sb_write(buffer, 1) != 1)
+    if (!sb_read_register(SB_REG_OFF, buffer, sizeof(buffer), true))
     {
-        atomic_store(&sb_i2c_in_use, false);
         return false;
     }
-    if (sb_read(buffer, 2) != 2)
-    {
-        atomic_store(&sb_i2c_in_use, false);
-        return false;
-    }
-    atomic_store(&sb_i2c_in_use, false);
-
     return buffer[1] > 0;
 }
 
 bool sb_write_power_off_delay(uint8_t delay_seconds)
 {
-    uint8_t buffer[2];
-
-    atomic_store(&sb_i2c_in_use, true);
-    buffer[0] = SB_REG_OFF | SB_WRITE; // command to write power-off delay
-    buffer[1] = delay_seconds;
-    if (sb_write(buffer, 2) != 2)
-    {
-        atomic_store(&sb_i2c_in_use, false);
-        return false;
-    }
-    atomic_store(&sb_i2c_in_use, false);
-    return true;
+    return sb_write_register(SB_REG_OFF, delay_seconds, NULL);
 }
 
 bool sb_reset(uint8_t delay_seconds)
 {
-    uint8_t buffer[2];
-
-    atomic_store(&sb_i2c_in_use, true);
-    buffer[0] = SB_REG_RST | SB_WRITE; // command to reset the PicoCalc
-    buffer[1] = delay_seconds;
-    if (sb_write(buffer, 2) != 2)
-    {
-        atomic_store(&sb_i2c_in_use, false);
-        return false;
-    }
-    if (sb_read(buffer, 2) != 2)
-    {
-        atomic_store(&sb_i2c_in_use, false);
-        return false;
-    }
-    atomic_store(&sb_i2c_in_use, false);
-    return true;
+    uint8_t read_value;
+    return sb_write_register(SB_REG_RST, delay_seconds, &read_value);
 }
 
 // Deinitialize the southbridge
@@ -306,6 +269,10 @@ void sb_deinit()
     }
 
 #if defined(PICOCALC_ESP32_P4)
+    if (!sb_bus_lock(true))
+    {
+        return;
+    }
     if (sb_device != NULL)
     {
         esp_err_t err = i2c_master_bus_rm_device(sb_device);
@@ -319,6 +286,9 @@ void sb_deinit()
     i2c_deinit(SB_I2C);
 #endif
     sb_initialised = false;
+#if defined(PICOCALC_ESP32_P4)
+    sb_bus_unlock();
+#endif
 }
 
 // Initialize the southbridge
@@ -330,6 +300,16 @@ void sb_init()
     }
 
 #if defined(PICOCALC_ESP32_P4)
+    if (sb_i2c_mutex == NULL)
+    {
+        sb_i2c_mutex = xSemaphoreCreateMutex();
+        if (sb_i2c_mutex == NULL)
+        {
+            ESP_LOGE(TAG, "failed to create southbridge I2C mutex");
+            return;
+        }
+    }
+
     esp_err_t err = i2c_master_get_bus_handle((i2c_port_num_t)SB_I2C_PORT, &sb_bus);
     if (err != ESP_OK)
     {

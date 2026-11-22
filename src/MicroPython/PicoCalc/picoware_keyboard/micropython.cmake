@@ -42,10 +42,12 @@ if(PICOCALC_ESP32_P4)
         idf::esp_rom
         idf::log
         idf::esp_timer
+        idf::freertos
     )
     target_link_libraries(usermod_picoware_southbridge INTERFACE
         idf::esp_driver_i2c
         idf::esp_rom
         idf::log
+        idf::freertos
     )
 endif()

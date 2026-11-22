@@ -31,6 +31,19 @@ static esp_timer_handle_t key_timer;
 static repeating_timer_t key_timer;
 #endif
 static bool key_timer_running;
+static int last_key = -1;
+
+static void keyboard_callback()
+{
+    if (keyboard_key_available())
+    {
+        last_key = (unsigned char)keyboard_get_key();
+    }
+    else
+    {
+        last_key = -1; // no input available
+    }
+}
 
 void keyboard_poll()
 {
@@ -170,12 +183,9 @@ char keyboard_get_key()
 
 int keyboard_get_input(void)
 {
-    keyboard_poll();
-    if (keyboard_key_available())
-    {
-        return (unsigned char)keyboard_get_key();
-    }
-    return -1; // no input available
+    int key = last_key;
+    last_key = -1;
+    return key;
 }
 
 void keyboard_set_key_available_callback(keyboard_key_available_callback_t callback)
@@ -270,6 +280,8 @@ bool keyboard_init(void)
     sb_init(); // Initialize the south bridge
 
     keyboard_initialised = true;
+    keyboard_set_key_available_callback(keyboard_callback);
+    keyboard_set_background_poll(true);
     return true;
 }
 

@@ -85,7 +85,11 @@ Source: https://github.com/jblanked/Picoware/blob/dev/src/MicroPython/PicoCalc/p
 
 // Keyboard defaults
 #define KBD_BUFFER_SIZE (32)
+#if defined(PICOCALC_ESP32_P4)
+#define KEYBOARD_POLL_MS (5) // poll keyboard every 5 ms
+#else
 #define KEYBOARD_POLL_MS (50) // poll keyboard every 50 ms
+#endif
 
 #ifdef __cplusplus
 extern "C"

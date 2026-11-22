@@ -33,6 +33,8 @@ static repeating_timer_t key_timer;
 static bool key_timer_running;
 static int last_key = -1;
 
+static bool game_mode = false;
+
 static void keyboard_callback()
 {
     if (keyboard_key_available())
@@ -183,9 +185,19 @@ char keyboard_get_key()
 
 int keyboard_get_input(void)
 {
-    int key = last_key;
-    last_key = -1;
-    return key;
+    if (!game_mode)
+    {
+        int key = last_key;
+        last_key = -1;
+        return key;
+    }
+
+    keyboard_poll();
+    if (keyboard_key_available())
+    {
+        return keyboard_get_key();
+    }
+    return -1;
 }
 
 void keyboard_set_key_available_callback(keyboard_key_available_callback_t callback)
@@ -282,6 +294,8 @@ bool keyboard_init(void)
     keyboard_initialised = true;
     keyboard_set_key_available_callback(keyboard_callback);
     keyboard_set_background_poll(true);
+
+    game_mode = false;
     return true;
 }
 
@@ -299,4 +313,27 @@ void keyboard_deinit(void)
     rx_head = rx_tail = 0;
     key_control = key_shift = key_alt = false;
     user_interrupt = false;
+}
+
+void keyboard_game_mode(bool enable)
+{
+#ifdef PICOCALC
+    if (!keyboard_initialised || game_mode == enable)
+    {
+        return;
+    }
+    game_mode = enable;
+    if (enable)
+    {
+        keyboard_set_background_poll(false);
+        keyboard_set_key_available_callback(NULL);
+    }
+    else
+    {
+        keyboard_set_background_poll(true);
+        keyboard_set_key_available_callback(keyboard_callback);
+    }
+#else
+    (void)enable;
+#endif
 }

@@ -76,6 +76,9 @@ mp_obj_t engine_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     }
     self->context = new GameEngine(game_ctx, fps, clamp);
     self->freed = false;
+#ifdef PICOCALC
+    keyboard_game_mode(true);
+#endif
     return MP_OBJ_FROM_PTR(self);
 }
 
@@ -95,6 +98,9 @@ mp_obj_t engine_mp_del(mp_obj_t self_in)
     self->freed = true;
     self->game_obj = MP_OBJ_NULL;
     engine_mp_game_global = MP_OBJ_NULL;
+#ifdef PICOCALC
+    keyboard_game_mode(false);
+#endif
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(engine_mp_del_obj, engine_mp_del);

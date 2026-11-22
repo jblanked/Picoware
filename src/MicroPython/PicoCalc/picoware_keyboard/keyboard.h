@@ -112,6 +112,8 @@ extern "C"
     void keyboard_deinit(void);
     int keyboard_get_input(void);
 
+    void keyboard_game_mode(bool enable);
+
 #ifdef __cplusplus
 }
 #endif

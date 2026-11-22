@@ -31,6 +31,9 @@ mp_obj_t ghouls_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     self->game = new GhoulsGame(username, password, soundEnabled);
     GhoulsGame *ctx = ghouls_get_context(self);
     ctx->initDraw();
+#ifdef PICOCALC
+    keyboard_game_mode(true);
+#endif
     return MP_OBJ_FROM_PTR(self);
 }
 
@@ -49,6 +52,9 @@ mp_obj_t ghouls_mp_del(mp_obj_t self_in)
     }
     self->game = nullptr;
     self->freed = true;
+#ifdef PICOCALC
+    keyboard_game_mode(false);
+#endif
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(ghouls_mp_del_obj, ghouls_mp_del);

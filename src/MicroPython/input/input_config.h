@@ -1,6 +1,11 @@
 #pragma once
 
-#if defined(PICOCALC) || defined(PICOCALC_ESP32_P4)
+#if defined(DESKTOP)
+#define INPUT_MP_INCLUDE "desktop_input.h"
+#define INPUT_MP_DEINIT desktop_input_deinit
+#define INPUT_MP_INIT desktop_input_init
+#define INPUT_MP_READ desktop_input_read
+#elif defined(PICOCALC) || defined(PICOCALC_ESP32_P4)
 #define INPUT_MP_INCLUDE "../PicoCalc/picoware_keyboard/keyboard.h"
 #define INPUT_MP_DEINIT keyboard_deinit
 #define INPUT_MP_INIT keyboard_init

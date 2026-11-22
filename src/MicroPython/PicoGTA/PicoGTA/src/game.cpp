@@ -9,6 +9,10 @@
 #include HTTP_INCLUDE
 #include JSON_INCLUDE
 
+#ifndef PICO_GTA_WS_PORT
+#define PICO_GTA_WS_PORT 80
+#endif
+
 float PicoGTA::absoluteFloat(float value) const
 {
     return value < 0.0f ? -value : value;
@@ -442,7 +446,8 @@ PicoGTA::PicoGTA(const char *username, const char *password)
       playerCar(nullptr),
       remotePlayerCount(0),
       shouldExit(false),
-      speed(0.0f)
+      speed(0.0f),
+      steering(0.0f)
 {
     multiplayerStatus[0] = '\0';
     multiplayerPlayerId[0] = '\0';
@@ -952,16 +957,27 @@ void PicoGTA::walkPlayer(Player *activePlayer, Game *game)
 {
     const int input = game->input;
     if (input == INPUT_KEY_UP)
-        speed = walkSpeed;
+        speed = minFloat(walkSpeed, speed + walkAccel);
     else if (input == INPUT_KEY_DOWN)
-        speed = -walkSpeed * 0.5f;
+        speed = maxFloat(-walkSpeed * 0.5f, speed - walkAccel);
     else
-        speed = 0.0f;
+    {
+        if (speed > 0.0f)
+            speed = maxFloat(0.0f, speed - walkFriction);
+        else
+            speed = minFloat(0.0f, speed + walkFriction);
+    }
 
+    float steerTarget = 0.0f;
     if (input == INPUT_KEY_LEFT)
-        heading -= walkTurn;
+        steerTarget = -1.0f;
     else if (input == INPUT_KEY_RIGHT)
-        heading += walkTurn;
+        steerTarget = 1.0f;
+    steering += (steerTarget - steering) * turnLerp;
+    if (steerTarget == 0.0f && absoluteFloat(steering) < 0.01f)
+        steering = 0.0f;
+    if (steering != 0.0f)
+        heading += steering * walkTurn;
 
     const float dx = cosf(heading);
     const float dz = sinf(heading);
@@ -1003,11 +1019,14 @@ void PicoGTA::driveCar(Player *activePlayer, Game *game)
     else
         speed = minFloat(0.0f, speed + carFriction);
 
-    float steering = 0.0f;
+    float steerTarget = 0.0f;
     if (input == INPUT_KEY_LEFT)
-        steering = -1.0f;
+        steerTarget = -1.0f;
     else if (input == INPUT_KEY_RIGHT)
-        steering = 1.0f;
+        steerTarget = 1.0f;
+    steering += (steerTarget - steering) * turnLerp;
+    if (steerTarget == 0.0f && absoluteFloat(steering) < 0.01f)
+        steering = 0.0f;
 
     if (steering != 0.0f)
     {
@@ -1870,8 +1889,16 @@ void PicoGTA::pollMultiplayerHttp()
     {
         if (serverError[0])
         {
-            finishMultiplayerLeave(serverError);
-            return;
+            if (strcmp(serverError, "Lobby not found") == 0)
+            {
+                // Lobby already gone
+                serverError[0] = '\0';
+            }
+            else
+            {
+                finishMultiplayerLeave(serverError);
+                return;
+            }
         }
         if (!hasResponse || !response[0])
         {
@@ -1993,7 +2020,7 @@ void PicoGTA::connectMultiplayer()
     multiplayerConnectionState = CONNECTION_IDLE;
     copyText(multiplayerStatus, sizeof(multiplayerStatus), "Connecting...");
     multiplayerView = VIEW_PENDING;
-    if (!HTTP_WEBSOCKET_START(url, 80))
+    if (!HTTP_WEBSOCKET_START(url, PICO_GTA_WS_PORT))
     {
         leaveMultiplayer(false, "Connection failed: WebSocket could not start");
         return;

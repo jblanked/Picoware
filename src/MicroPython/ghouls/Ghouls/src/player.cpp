@@ -225,9 +225,7 @@ void Player::drawGameLocalView(Draw *canvas)
                 ghoulsGame->endGame();
                 return;
             }
-            engine->updateGameInput(ghoulsGame->getCurrentInput());
-            // Reset the input after processing to prevent it from being continuously pressed
-            ghoulsGame->resetInput();
+            // engine reads the input, updates the game and renders
             engine->runAsync(false);
         }
         return;
@@ -2289,6 +2287,11 @@ void Player::update(Game *game)
     {
         return;
     }
+
+    if (ghoulsGame)
+        ghoulsGame->update();
+    if (!ghoulsGame || !ghoulsGame->isRunning())
+        return;
 
     // per-player input (multiplayer server)
     int input = gameplayInput;

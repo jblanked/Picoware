@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "py/nlr.h"
+#include "py/gc.h"
 #include "py/qstr.h"
 #include "py/objstr.h"
 #include "py/objmodule.h"
@@ -15,6 +16,14 @@
 
 static mp_obj_t desktop_import(qstr module_name)
 {
+    mp_map_elem_t *module = mp_map_lookup(&MP_STATE_VM(mp_loaded_modules_dict).map,
+        MP_OBJ_NEW_QSTR(module_name), MP_MAP_LOOKUP);
+    if (module != NULL && module->value != MP_OBJ_NULL)
+        return module->value;
+    // Finalisers may call the bridge while collection locks the heap. Importing
+    // a new module then can leave an incomplete entry in sys.modules.
+    if (gc_is_locked())
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("cannot import during collection"));
     return mp_import_name(module_name, mp_const_none, MP_OBJ_NEW_SMALL_INT(0));
 }
 

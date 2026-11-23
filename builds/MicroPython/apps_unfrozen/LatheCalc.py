@@ -2756,7 +2756,7 @@ def run(view_manager):
     if s.is_typing:
         kb = view_manager.keyboard
         if not kb.is_finished:
-            if kb.run(True, s.kb_force) is False:
+            if kb.run(True, s.kb_force, button=_btn) is False:
                 s.is_typing = False
                 s.kb_force = False
                 kb.reset()

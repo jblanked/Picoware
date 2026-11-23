@@ -504,12 +504,14 @@ class Keyboard:
         self._auto_complete_words_set = False
         self._auto_complete_words.clear()
 
-    def run(self, swap: bool = True, force: bool = False, max_characters: int = 0) -> bool:
+    def run(self, swap: bool = True, force: bool = False, max_characters: int = 0, button=None) -> bool:
         """Run the input manager, handle input, and draw the keyboard.
 
         Args:
             swap (bool): Whether to swap the display buffer. Defaults to True.
             force (bool): Whether to force a redraw. Defaults to False.
+            button (int): Cached input event, including -1 for no event.
+                None polls input directly for standalone callers.
             max_characters (int): The maximum number of characters allowed in the response. 0 means no limit. Defaults to 0.
 
         Returns:
@@ -518,7 +520,7 @@ class Keyboard:
         if self.just_stopped:
             return False
 
-        self.dpad_input = self.input_manager.button
+        self.dpad_input = self.input_manager.button if button is None else button
         if self._rotated:
             self.dpad_input = {
                 BUTTON_UP: BUTTON_RIGHT, BUTTON_RIGHT: BUTTON_DOWN,

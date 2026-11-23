@@ -253,11 +253,14 @@ input_buffer = None
 input_buffer2 = None
 cursor = 0
 cursor2 = 0
+editing_y = False
+show_graph = False
 
 
 def start(view_manager) -> bool:
     """Start the app"""
     global mode, expr, expr2, input_buffer, input_buffer2, cursor, cursor2
+    global editing_y, show_graph
     global SCREEN_WIDTH, SCREEN_HEIGHT, GRAPH_HEIGHT, INPUT_HEIGHT
     draw = view_manager.draw
     SCREEN_WIDTH = draw.size.x
@@ -270,7 +273,8 @@ def start(view_manager) -> bool:
     input_buffer2 = list(expr2)
     cursor = len(input_buffer)
     cursor2 = len(input_buffer2)
-    view_manager.input_manager.reset()
+    editing_y = False
+    show_graph = False
     return True
 
 
@@ -296,6 +300,15 @@ def run(view_manager) -> None:
     fb = view_manager.draw
 
     global mode, input_buffer, input_buffer2, cursor, cursor2
+    global editing_y, show_graph
+
+    if show_graph:
+        if button == BUTTON_NONE:
+            return
+        show_graph = False
+        editing_y = False
+        # Consume the dismissal key before resuming editing.
+        button = BUTTON_NONE
 
     fb.fill_screen(TFT_BLACK)
 
@@ -309,115 +322,99 @@ def run(view_manager) -> None:
 
     fb.swap()
 
-    # Input loop for editing
+    # Process one cached event per ViewManager frame.
     editing = True
-    editing_y = False  # For parametric: editing y(t)
-    while editing:
-        button = inp.button
-        if button != BUTTON_NONE:
-            key = button
-            if key == BUTTON_RIGHT:  # Right arrow
-                inp.reset()
-                if mode == "param" and editing_y:
-                    if cursor2 < len(input_buffer2):
-                        cursor2 += 1
-                else:
-                    if cursor < len(input_buffer):
-                        cursor += 1
-            elif key == BUTTON_LEFT:  # Left arrow
-                inp.reset()
-                if mode == "param" and editing_y:
-                    if cursor2 > 0:
-                        cursor2 -= 1
-                else:
-                    if cursor > 0:
-                        cursor -= 1
-            elif key == BUTTON_CENTER:  # Enter key
-                inp.reset()
-                if mode == "param" and not editing_y:
-                    editing_y = True
-                    continue
-                editing = False
-            elif key == BUTTON_BACKSPACE:  # Backspace
-                inp.reset()
-                if mode == "param" and editing_y:
-                    if cursor2 > 0:
-                        input_buffer2.pop(cursor2 - 1)
-                        cursor2 -= 1
-                else:
-                    if cursor > 0:
-                        input_buffer.pop(cursor - 1)
-                        cursor -= 1
-            elif key == 3:  # Ctrl+C (clear input)
-                inp.reset()
-                if mode == "param" and editing_y:
-                    input_buffer2 = []
-                    cursor2 = 0
-                else:
-                    input_buffer = []
-                    cursor = 0
-            elif key == BUTTON_BACK:
-                inp.reset()
-                view_manager.back()
-                return
-            elif key == BUTTON_M:  # Toggle mode
-                inp.reset()
-                if mode == "normal":
-                    mode = "param"
-                    editing_y = False
-                    input_buffer = list("cos(2*t)*(1+0.5*sin(5*t))")
-                    input_buffer2 = list("sin(2*t)*(1+0.5*sin(5*t))")
-                    cursor = len(input_buffer)
-                    cursor2 = len(input_buffer2)
-                else:
-                    mode = "normal"
-                    input_buffer = list(expr)
-                    cursor = len(input_buffer)
-            elif inp.button_to_char(key) != "":
-                inp.reset()
-                _converted_char = inp.button_to_char(key)
-                if mode == "param" and editing_y:
-                    input_buffer2.insert(cursor2, _converted_char)
+    if button != BUTTON_NONE:
+        key = button
+        if key == BUTTON_RIGHT:  # Right arrow
+            if mode == "param" and editing_y:
+                if cursor2 < len(input_buffer2):
                     cursor2 += 1
-                else:
-                    input_buffer.insert(cursor, _converted_char)
-                    cursor += 1
-        # Draw cursor
-        if mode == "param":
-            draw_input_line(
-                fb, "".join(input_buffer), mode="param", expr2="".join(input_buffer2)
-            )
-            if editing_y:
-                # Cursor for y(t) on second line
-                cursor_x = 4 + 6 * len("y(t)=" + "".join(input_buffer2[:cursor2]))
-                cursor_y = GRAPH_HEIGHT + 16
             else:
-                # Cursor for x(t) on first line
-                cursor_x = 4 + 6 * len("x(t)=" + "".join(input_buffer[:cursor]))
-                cursor_y = GRAPH_HEIGHT + 4
-
-            cursor_x, cursor_y = fb.scale(cursor_x, cursor_y)
-            _w, _h = fb.scale(6, 8)
-            fb._fill_rectangle(cursor_x, cursor_y, _w, _h, TFT_WHITE)
-        else:
-            draw_input_line(fb, "".join(input_buffer))
-            cursor_x = 4 + 6 * len("y = " + "".join(input_buffer[:cursor]))
-            cursor_y = GRAPH_HEIGHT + 4
-            cursor_x, cursor_y = fb.scale(cursor_x, cursor_y)
-            _w, _h = fb.scale(6, 8)
-            fb._fill_rectangle(cursor_x, cursor_y, _w, _h, TFT_WHITE)
-        fb.swap()
-    # Graph the equation
+                if cursor < len(input_buffer):
+                    cursor += 1
+        elif key == BUTTON_LEFT:  # Left arrow
+            if mode == "param" and editing_y:
+                if cursor2 > 0:
+                    cursor2 -= 1
+            else:
+                if cursor > 0:
+                    cursor -= 1
+        elif key == BUTTON_CENTER:  # Enter key
+            if mode == "param" and not editing_y:
+                editing_y = True
+                return
+            editing = False
+        elif key == BUTTON_BACKSPACE:  # Backspace
+            if mode == "param" and editing_y:
+                if cursor2 > 0:
+                    input_buffer2.pop(cursor2 - 1)
+                    cursor2 -= 1
+            else:
+                if cursor > 0:
+                    input_buffer.pop(cursor - 1)
+                    cursor -= 1
+        elif key == 3:  # Ctrl+C (clear input)
+            if mode == "param" and editing_y:
+                input_buffer2 = []
+                cursor2 = 0
+            else:
+                input_buffer = []
+                cursor = 0
+        elif key == BUTTON_BACK:
+            view_manager.back()
+            return
+        elif key == BUTTON_M:  # Toggle mode
+            if mode == "normal":
+                mode = "param"
+                editing_y = False
+                input_buffer = list("cos(2*t)*(1+0.5*sin(5*t))")
+                input_buffer2 = list("sin(2*t)*(1+0.5*sin(5*t))")
+                cursor = len(input_buffer)
+                cursor2 = len(input_buffer2)
+            else:
+                mode = "normal"
+                input_buffer = list(expr)
+                cursor = len(input_buffer)
+        elif view_manager.input_manager.button_to_char(key) != "":
+            _converted_char = view_manager.input_manager.button_to_char(key)
+            if mode == "param" and editing_y:
+                input_buffer2.insert(cursor2, _converted_char)
+                cursor2 += 1
+            else:
+                input_buffer.insert(cursor, _converted_char)
+                cursor += 1
+    # Draw cursor
     if mode == "param":
-        graph_parametric(fb, "".join(input_buffer), "".join(input_buffer2))
-    else:
-        graph_equation(fb, "".join(input_buffer))
+        draw_input_line(
+            fb, "".join(input_buffer), mode="param", expr2="".join(input_buffer2)
+        )
+        if editing_y:
+            # Cursor for y(t) on second line
+            cursor_x = 4 + 6 * len("y(t)=" + "".join(input_buffer2[:cursor2]))
+            cursor_y = GRAPH_HEIGHT + 16
+        else:
+            # Cursor for x(t) on first line
+            cursor_x = 4 + 6 * len("x(t)=" + "".join(input_buffer[:cursor]))
+            cursor_y = GRAPH_HEIGHT + 4
 
-    # Wait for any key to return to input
-    button = inp.button
-    while button == BUTTON_NONE:
-        button = inp.button
-    inp.reset()
+        cursor_x, cursor_y = fb.scale(cursor_x, cursor_y)
+        _w, _h = fb.scale(6, 8)
+        fb._fill_rectangle(cursor_x, cursor_y, _w, _h, TFT_WHITE)
+    else:
+        draw_input_line(fb, "".join(input_buffer))
+        cursor_x = 4 + 6 * len("y = " + "".join(input_buffer[:cursor]))
+        cursor_y = GRAPH_HEIGHT + 4
+        cursor_x, cursor_y = fb.scale(cursor_x, cursor_y)
+        _w, _h = fb.scale(6, 8)
+        fb._fill_rectangle(cursor_x, cursor_y, _w, _h, TFT_WHITE)
+    fb.swap()
+    if not editing:
+        if mode == "param":
+            graph_parametric(fb, "".join(input_buffer), "".join(input_buffer2))
+        else:
+            graph_equation(fb, "".join(input_buffer))
+        show_graph = True
 
 
 def stop(view_manager) -> None:
@@ -425,6 +422,7 @@ def stop(view_manager) -> None:
     from gc import collect
 
     global mode, expr, expr2, input_buffer, input_buffer2, cursor, cursor2
+    global editing_y, show_graph
 
     mode = ""  # 'normal' or 'param'
     expr = ""
@@ -433,5 +431,7 @@ def stop(view_manager) -> None:
     input_buffer2 = None
     cursor = 0
     cursor2 = 0
+    editing_y = False
+    show_graph = False
 
     collect()

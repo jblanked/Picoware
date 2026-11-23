@@ -959,7 +959,7 @@ def _begin_input(view_manager, second=False):
     else:
         kb.title = "z = f(x, y)   ENTER plots"
         kb.response = _clean_expr(_expr)
-    kb.run(force=True)
+    kb.run(force=True, button=-1)
 
 
 def _draw_slice(draw):
@@ -1271,7 +1271,7 @@ def run(view_manager) -> None:
             kb.reset()
             _state = ST_MENU
             _make_menu(view_manager)
-        elif not kb.run():
+        elif not kb.run(button=button):
             kb.reset()
             _state = ST_MENU
             _make_menu(view_manager)
@@ -1292,7 +1292,7 @@ def run(view_manager) -> None:
             kb.reset()
             _state = ST_MENU
             _make_menu(view_manager)
-        elif not kb.run():
+        elif not kb.run(button=button):
             kb.reset()
             _state = ST_MENU
             _make_menu(view_manager)

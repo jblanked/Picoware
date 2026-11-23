@@ -854,6 +854,9 @@ def _run_sim_check(opts):
     _run_fatal_exit_check(opts)
     if board_name not in ("desktop", "unix"):
         _run_mjs_check(opts)
+    if (board_name in ("desktop", "unix", "pimoroni-2w")
+            or board_name.startswith("picocalc-")):
+        _run_view_manager_input_check(opts)
     _run_cleanup_parity_check(opts)
     from task_checks import check_app_tasks, check_scheduler, check_websocket
 
@@ -861,6 +864,71 @@ def _run_sim_check(opts):
     check_app_tasks()
     check_websocket()
     print("[sim-check:pass]")
+
+
+def _run_view_manager_input_check(opts):
+    """Exercise cached view input using the real Input and native host bridge."""
+    import sim_runtime
+    from picoware.system.view_manager import ViewManager
+    from picoware.system.view import View
+    from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK
+
+    sim_runtime.configure(ROOT, opts["sd"], opts["apps_source"], 1,
+                          opts["board"], 0, True, False, False, False, "",
+                          _network_mode="offline", _audio_mode="silent")
+
+    class CheckedManager(ViewManager):
+        def alert(self, message, back=False):
+            raise RuntimeError("view input callback failed: " + str(message))
+
+    manager = CheckedManager()
+    observed = []
+
+    def parent_run(vm):
+        observed.append(("parent", vm.button, vm.button))
+        if vm.button == BUTTON_CENTER:
+            vm.switch_to("input_child")
+
+    def child_run(vm):
+        observed.append(("child", vm.button, vm.button))
+        if vm.button == BUTTON_BACK:
+            vm.back()
+
+    def frame(expected_view, expected_button):
+        before = len(observed)
+        manager.run()
+        assert len(observed) == before + 1, "a frame must run exactly one view"
+        assert observed[-1] == (expected_view, expected_button, expected_button), observed[-1]
+        assert manager.button == -1, "cached button leaked beyond the frame"
+        assert manager.input_manager._last_button == -1, "Input was not reset"
+
+    try:
+        manager.add(View("input_parent", parent_run, lambda vm: True, None), True)
+        manager.add(View("input_child", child_run, lambda vm: True, None))
+        frame("parent", -1)
+        # Repeated reads must not consume the following queued key.
+        sim_runtime.push_key(181)
+        sim_runtime.push_key(182)
+        frame("parent", BUTTON_UP)
+        frame("parent", BUTTON_DOWN)
+        for _ in range(10):
+            frame("parent", -1)
+        # Repeat events are distinct presses, not discarded duplicates.
+        for _ in range(5):
+            sim_runtime.push_key(181)
+            frame("parent", BUTTON_UP)
+        sim_runtime.push_key(13)
+        frame("parent", BUTTON_CENTER)
+        assert manager._current_view.name == "input_child"
+        frame("child", -1)
+        sim_runtime.push_key(8)
+        frame("child", BUTTON_BACK)
+        assert manager._current_view.name == "input_parent"
+        frame("parent", -1)
+    finally:
+        manager.__cleanup()
+        gc.collect()
+    print("[sim-check:ok] ViewManager cached input, queued/repeated events, idle reset, and view transitions")
 
 
 def _run_cleanup_parity_check(opts):
@@ -2192,14 +2260,15 @@ def _run_gpio_buttons_check():
                 inp.reset()
                 sim_runtime._keys = [code]
                 if poll_first:
-                    if not inp.is_pressed() or not inp.is_pressed():
+                    if not gpio_buttons.key_available() or not gpio_buttons.key_available():
                         raise RuntimeError("simulator GPIO press was lost while polling")
+                    inp._poll_touch()
                     if sim_runtime.peek_key() != code:
                         raise RuntimeError("touch consumed a GPIO key")
                 if inp.button != expected or sim_runtime.has_key():
                     raise RuntimeError("simulator GPIO Input.button mismatch")
                 inp.reset()
-                if inp.is_pressed() or inp.button != buttons.BUTTON_NONE:
+                if gpio_buttons.key_available() or inp.button != buttons.BUTTON_NONE:
                     raise RuntimeError("simulator GPIO event repeated")
         inp.reset()
         sim_runtime._keys = [sim_runtime.KEY_NAMES["up"], 8, 13]
@@ -2207,7 +2276,7 @@ def _run_gpio_buttons_check():
             raise RuntimeError("simulator GPIO interfered with touch direction")
         for expected in (buttons.BUTTON_BACK, buttons.BUTTON_CENTER):
             inp.reset()
-            if not inp.is_pressed() or inp.button != expected:
+            if not gpio_buttons.key_available() or inp.button != expected:
                 raise RuntimeError("simulator mixed GPIO/touch input order mismatch")
         gpio_buttons.deinit()
         if gpio_buttons.key_available() or gpio_buttons.get_key() != 0:

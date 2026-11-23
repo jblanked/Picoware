@@ -889,7 +889,7 @@ class VibesApp:
                             handled = True
 
                     if not handled:
-                        handled = self._handle_now_playing_input(btn, inp)
+                        handled = self._handle_now_playing_input(btn)
 
                 elif v == VIEW_SETTINGS:
                     from vibesmp_lib.resources import handle_settings_input as handle_input
@@ -897,13 +897,13 @@ class VibesApp:
                     handled = True # Settings handles its own refresh/state
 
                 elif v == VIEW_LIBRARY:
-                    handled = self._handle_library_input(btn, inp)
+                    handled = self._handle_library_input(btn)
 
                 elif v == VIEW_PLAYLIST_SELECTOR:
-                    handled = self._handle_playlist_selector_input(btn, inp)
+                    handled = self._handle_playlist_selector_input(btn)
 
                 elif v == VIEW_PLAYLIST_EDITOR:
-                    handled = self._handle_playlist_editor_input(btn, inp)
+                    handled = self._handle_playlist_editor_input(btn)
 
                 # Global fallback for BUTTON_BACK if not handled by view
                 if not handled and btn == BUTTON_BACK:
@@ -1047,7 +1047,7 @@ class VibesApp:
             self._perf_inc("render_requests")
         return render_due
 
-    def _handle_now_playing_input(self, button, inp):
+    def _handle_now_playing_input(self, button):
         def no_render():
             self._handled_no_render = True
             self._perf_inc("np_input_noop")
@@ -1703,7 +1703,7 @@ class VibesApp:
             self._library_clear_favorites()
             return
 
-    def _handle_library_input(self, button, inp):
+    def _handle_library_input(self, button):
         if not self.library_stack:
             self._reset_library_browser()
         level = self._library_current_level()
@@ -1807,7 +1807,7 @@ class VibesApp:
             return True
         return True
 
-    def _handle_playlist_selector_input(self, button, inp):
+    def _handle_playlist_selector_input(self, button):
         playlists = self.ui_playlists[1:] if self.ui_playlists else []  # Skip the '+ New' entry
         max_idx = len(playlists) - 1
         if button == BUTTON_BACK:
@@ -1834,7 +1834,7 @@ class VibesApp:
                 return True
         return False
 
-    def _handle_playlist_editor_input(self, button, inp):
+    def _handle_playlist_editor_input(self, button):
         if button == BUTTON_BACK:
             switch_view(self, VIEW_MENU)
             return True

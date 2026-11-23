@@ -61,7 +61,8 @@ bool Landscape::create(Level *level)
         return false;
     }
 
-    roadChunk.mesh = ENGINE_MEM_NEW Sprite3D(false);
+    // Keep the large road buffer in external RAM where the engine supports it.
+    roadChunk.mesh = ENGINE_MEM_NEW Sprite3D(true);
     if (!roadChunk.mesh)
     {
         ENGINE_LOG_INFO("[Landscape:create] Failed to create road mesh\n");

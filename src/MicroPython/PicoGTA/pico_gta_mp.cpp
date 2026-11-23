@@ -56,23 +56,25 @@ static MP_DEFINE_CONST_FUN_OBJ_1(pico_gta_mp_del_obj, pico_gta_mp_del);
 
 void pico_gta_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
-    pico_gta_mp_obj_t *self = static_cast<pico_gta_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    if (!self || self->freed)
-    {
+    if (destination[0] != MP_OBJ_NULL)
         return;
-    }
-    if (destination[0] == MP_OBJ_NULL)
+    pico_gta_mp_obj_t *self = static_cast<pico_gta_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (!self)
+        return;
+    if (attribute == MP_QSTR___del__)
     {
-        // Load attributes
-        if (attribute == MP_QSTR_is_active)
-        {
-            PicoGTA *ctx = pico_gta_get_context(self);
-            destination[0] = mp_obj_new_bool(ctx ? ctx->isActive() : false);
-        }
-        else if (attribute == MP_QSTR___del__)
-        {
-            destination[0] = MP_OBJ_FROM_PTR(&pico_gta_mp_del_obj);
-        }
+        destination[0] = MP_OBJ_FROM_PTR(&pico_gta_mp_del_obj);
+        destination[1] = self_in;
+    }
+    else if (attribute == MP_QSTR_is_active)
+    {
+        PicoGTA *ctx = self->freed ? nullptr : pico_gta_get_context(self);
+        destination[0] = mp_obj_new_bool(ctx ? ctx->isActive() : false);
+    }
+    else
+    {
+        // Let MicroPython resolve methods such as run from the locals dictionary.
+        destination[1] = MP_OBJ_SENTINEL;
     }
 }
 

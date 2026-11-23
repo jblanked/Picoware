@@ -68,17 +68,34 @@ public:
         return true;
     }
 
+    static void retain() { ++owners(); }
+
+    static void release()
+    {
+        if (owners() && --owners() == 0)
+            reset();
+    }
+
     // Reserve `count` contiguous triangles. Returns the base address, or INVALID if PSRAM is full.
     static uint32_t reserve(uint32_t count)
     {
         if (count == 0)
             return INVALID;
 
-        start();
         uint32_t &n = next();
         const uint32_t current_base = (uint32_t)ENGINE_PSRAM_BASE;
-        if (n < current_base)
-            n = current_base;
+        if (used() == 0)
+        {
+            start() = n = current_base;
+            canRewind() = true;
+        }
+        else if (current_base != n)
+        {
+            // Another allocator touched the shared cursor; preserve its data.
+            canRewind() = false;
+            if (n < current_base)
+                n = current_base;
+        }
 
         const uint32_t end = (uint32_t)ENGINE_PSRAM_LIMIT;
         const uint32_t bytes = count * (uint32_t)sizeof(Triangle3D);
@@ -94,12 +111,13 @@ public:
 
     static void reset()
     {
-        const uint32_t initial_base = start();
-        uint32_t &n = next();
-        if ((uint32_t)ENGINE_PSRAM_BASE == n)
-            ENGINE_PSRAM_ADVANCE(initial_base);
-        n = initial_base;
+        if (owners() != 0)
+            return;
+        if (used() && canRewind() && (uint32_t)ENGINE_PSRAM_BASE == next())
+            ENGINE_PSRAM_ADVANCE(start());
+        start() = next() = (uint32_t)ENGINE_PSRAM_BASE;
         used() = 0;
+        canRewind() = true;
     }
 
     static uint32_t bytesUsed() { return used(); }
@@ -115,6 +133,18 @@ public:
 
 private:
     uint32_t address;
+
+    static uint32_t &owners()
+    {
+        static uint32_t count = 0;
+        return count;
+    }
+
+    static bool &canRewind()
+    {
+        static bool allowed = true;
+        return allowed;
+    }
 
     static uint32_t &start()
     {

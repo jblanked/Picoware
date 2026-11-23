@@ -4,7 +4,6 @@ import input_mp
 from utime import ticks_ms
 from picoware.system import buttons
 from picoware.system.boards import (
-    BOARD_CARDPUTER,
     BOARD_CROWPANEL_10_1,
     BOARD_CROWPANEL_WATCH_2_01,
     BOARD_ID,
@@ -306,25 +305,7 @@ class Input(input_mp.Input):
             buttons.KEY_CTRL_9: buttons.BUTTON_CTRL_9,
         }
 
-        if self._current_board_id == BOARD_CARDPUTER:
-            # Cardputer keyboard module emits ANSI plus special key constants.
-            self._button_map = {
-                buttons.KEY_UP: buttons.BUTTON_UP,
-                buttons.KEY_DOWN: buttons.BUTTON_DOWN,
-                buttons.KEY_LEFT: buttons.BUTTON_LEFT,
-                buttons.KEY_RIGHT: buttons.BUTTON_RIGHT,
-                buttons.KEY_ESC: self._key_esc,
-                buttons.KEY_MOD_CTRL: buttons.BUTTON_CONTROL,
-                buttons.KEY_MOD_ALT: buttons.BUTTON_ALT,
-                buttons.KEY_MOD_SHL: buttons.BUTTON_SHIFT,
-                buttons.KEY_CAPS_LOCK: buttons.BUTTON_CAPS_LOCK,
-                8: self._key_back,
-                9: buttons.BUTTON_TAB,
-                10: buttons.BUTTON_CENTER,
-                13: buttons.BUTTON_CENTER,
-            }
-            self._button_map.update(ansi_button_map)
-        elif self._current_board_id == BOARD_PICO_DUO:
+        if self._current_board_id == BOARD_PICO_DUO:
             self._button_map = {
                 b"\x04": buttons.BUTTON_UP,  # 4
                 b"\x07": buttons.BUTTON_DOWN,  # 7

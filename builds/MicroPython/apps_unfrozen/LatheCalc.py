@@ -3882,7 +3882,6 @@ def run(view_manager):
                 s.kb_force = True
                 return
     if _needs_redraw:
-        _im.reset()
         _draw_ui(view_manager)
 
 

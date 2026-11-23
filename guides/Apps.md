@@ -267,43 +267,6 @@ if image.from_path("desktop.bmp"):
 # image.from_byte_array(image_data, Vector(100, 100), is_8bit=True)
 ```
 
-### Keyboard
-Use the `Keyboard` component to create an on-screen keyboard for text input.
-```python
-from picoware.gui.draw import Draw
-from picoware.gui.keyboard import Keyboard
-from picoware.system.colors import TFT_WHITE, TFT_BLACK, TFT_BLUE
-
-# create draw instance
-draw = Draw()
-
-# assume input_manager is available from view_manager
-# input_manager = view_manager.input_manager
-
-# create keyboard instance
-keyboard = Keyboard(
-    draw, 
-    input_manager, 
-    text_color=TFT_WHITE, 
-    background_color=TFT_BLACK, 
-    selected_color=TFT_BLUE
-)
-
-# in the run loop, handle input and draw
-# if not keyboard.is_finished:
-#     if not keyboard.run():
-#         input_manager.reset()
-#         view_manager.back()
-# else:
-#     view_manager.back()
-
-# get the entered text
-# response = keyboard.response
-
-# reset the keyboard for next use
-# keyboard.reset()
-```
-
 ### Loading
 Use the `Loading` component to display a spinner animation during loading operations.
 ```python

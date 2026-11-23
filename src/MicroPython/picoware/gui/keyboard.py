@@ -177,17 +177,17 @@ class Keyboard:
     def __init__(
         self,
         draw,
-        input_manager,
+        view_manager,
         text_color: int = 0xFFFF,
         background_color: int = 0x0000,
         selected_color: int = 0x001F,
         on_save_callback: callable = None,
     ) -> None:
-        """Initialize the keyboard with drawing context and input manager.
+        """Initialize the keyboard.
 
         Args:
             draw (Draw): Drawing context for rendering the keyboard.
-            input_manager: Input manager to handle button presses.
+            view_manager: ViewManager for handling view transitions and updates.
             text_color (int): Color for the text on keys and textbox. Defaults to 0xFFFF.
             background_color (int): Background color for keys and textbox. Defaults to 0x0000.
             selected_color (int): Color for the selected key highlight. Defaults to 0x001F.
@@ -209,9 +209,10 @@ class Keyboard:
         self._rotated = BOARD_ID == BOARD_WAVESHARE_3_49_RP2350
         if self._rotated:
             from picoware.gui.keyboard_rotation import KeyboardRotation
+
             draw = KeyboardRotation(draw)
         self.draw = draw
-        self.input_manager = input_manager
+        self.vm = view_manager
         self.text_color = text_color
         self.background_color = background_color
         self.selected_color = selected_color
@@ -248,32 +249,45 @@ class Keyboard:
         self._layout_y = (draw.size.y - self._layout_height) // 2
         self.KEY_MARGIN = 0 if self._is_flipper else max(1, draw.scale_x(2))
         self.KEY_SPACING = 1
-        self._touch_enabled = input_manager.has_touch_support
+        self._touch_enabled = self.vm.input_manager.has_touch_support
         self._touch_latched = False
 
         font_height = draw.font_size.y
         padding_x = 1 if self._is_flipper else max(1, draw.scale_x(3))
         padding_y = 1 if self._is_flipper else max(1, draw.scale_y(3))
         self.max_chars_per_line = max(
-            1, (self._layout_width - 2 * (self.KEY_MARGIN + padding_x + 1))
-            // draw.font_size.x - 1,
+            1,
+            (self._layout_width - 2 * (self.KEY_MARGIN + padding_x + 1))
+            // draw.font_size.x
+            - 1,
         )
         preferred_height = self._layout_height * 45 // 320
-        self.max_lines = max(1, (preferred_height - 2 * (padding_y + 1)) // (font_height + 1))
-        self.TEXTBOX_HEIGHT = 2 * (padding_y + 1) + self.max_lines * font_height + self.max_lines - 1
+        self.max_lines = max(
+            1, (preferred_height - 2 * (padding_y + 1)) // (font_height + 1)
+        )
+        self.TEXTBOX_HEIGHT = (
+            2 * (padding_y + 1) + self.max_lines * font_height + self.max_lines - 1
+        )
         self._text_y = self._layout_y + padding_y + 1
         self.size_vec = Vector(0, 0)
-        self.text_vec = Vector(self._layout_x + self.KEY_MARGIN + padding_x + 1, self._text_y)
+        self.text_vec = Vector(
+            self._layout_x + self.KEY_MARGIN + padding_x + 1, self._text_y
+        )
         self.cursor = Vector(0, 0)
         self.text_border_pos = Vector(self._layout_x + self.KEY_MARGIN, self._layout_y)
         self.text_border_size = Vector(
-            self._layout_width - 2 * self.KEY_MARGIN, self.TEXTBOX_HEIGHT,
+            self._layout_width - 2 * self.KEY_MARGIN,
+            self.TEXTBOX_HEIGHT,
         )
         title_y = self._layout_y + self.TEXTBOX_HEIGHT + 1
         self.title_vec = Vector(0, title_y)
-        self._keys_y = title_y + font_height + 1 if not self._is_flipper else title_y - 1
+        self._keys_y = (
+            title_y + font_height + 1 if not self._is_flipper else title_y - 1
+        )
         self._suggestion_y = self._layout_y + self._layout_height - font_height
-        self.KEY_HEIGHT = (self._suggestion_y - self._keys_y - (self.NUM_ROWS - 1)) // self.NUM_ROWS
+        self.KEY_HEIGHT = (
+            self._suggestion_y - self._keys_y - (self.NUM_ROWS - 1)
+        ) // self.NUM_ROWS
         self.keyboard_height = self.NUM_ROWS * self.KEY_HEIGHT + self.NUM_ROWS - 1
         self.text_box_pos_vec = Vector(self._layout_x, self._keys_y)
         self.text_box_pos_size = Vector(self._layout_width, self.keyboard_height)
@@ -422,8 +436,13 @@ class Keyboard:
             value (str): The new title.
         """
         self.current_title = value
-        self._display_title = self._fit_text(value, self._layout_width - 2 * self.KEY_MARGIN)
-        self.title_vec.x = self._layout_x + (self._layout_width - self.draw.len(self._display_title)) // 2
+        self._display_title = self._fit_text(
+            value, self._layout_width - 2 * self.KEY_MARGIN
+        )
+        self.title_vec.x = (
+            self._layout_x
+            + (self._layout_width - self.draw.len(self._display_title)) // 2
+        )
 
     @property
     def response(self) -> str:
@@ -504,14 +523,14 @@ class Keyboard:
         self._auto_complete_words_set = False
         self._auto_complete_words.clear()
 
-    def run(self, swap: bool = True, force: bool = False, max_characters: int = 0, button=None) -> bool:
+    def run(
+        self, swap: bool = True, force: bool = False, max_characters: int = 0
+    ) -> bool:
         """Run the input manager, handle input, and draw the keyboard.
 
         Args:
             swap (bool): Whether to swap the display buffer. Defaults to True.
             force (bool): Whether to force a redraw. Defaults to False.
-            button (int): Cached input event, including -1 for no event.
-                None polls input directly for standalone callers.
             max_characters (int): The maximum number of characters allowed in the response. 0 means no limit. Defaults to 0.
 
         Returns:
@@ -520,28 +539,29 @@ class Keyboard:
         if self.just_stopped:
             return False
 
-        self.dpad_input = self.input_manager.button if button is None else button
+        self.dpad_input = self.vm.button
         if self._rotated:
             self.dpad_input = {
-                BUTTON_UP: BUTTON_RIGHT, BUTTON_RIGHT: BUTTON_DOWN,
-                BUTTON_DOWN: BUTTON_LEFT, BUTTON_LEFT: BUTTON_UP,
+                BUTTON_UP: BUTTON_RIGHT,
+                BUTTON_RIGHT: BUTTON_DOWN,
+                BUTTON_DOWN: BUTTON_LEFT,
+                BUTTON_LEFT: BUTTON_UP,
             }.get(self.dpad_input, self.dpad_input)
-        if self._touch_latched and not self.input_manager.touch_down:
+        if self._touch_latched and not self.vm.input_manager.touch_down:
             self._touch_latched = False
         has_touch_point = (
             self._touch_enabled
-            and self.input_manager.point
-            and self.input_manager.point != (0, 0)
+            and self.vm.input_manager.point
+            and self.vm.input_manager.point != (0, 0)
         )
         if self.dpad_input != -1 or force or has_touch_point:
             if self.dpad_input == BUTTON_BACK:
                 # Exit keyboard without saving
                 self.just_stopped = True
-                self.input_manager.reset()
                 return False
 
             if not self.is_manual_shift:
-                self.is_shift_pressed = self.input_manager.was_capitalized
+                self.is_shift_pressed = self.vm.input_manager.was_capitalized
 
             self.draw.erase()
 
@@ -557,15 +577,14 @@ class Keyboard:
 
             if not self._is_flipper:
                 self.draw._text(
-                    self.title_vec.x, self.title_vec.y,
+                    self.title_vec.x,
+                    self.title_vec.y,
                     self._display_title,
                     self.text_color,
                 )
 
             # Draw auto-complete suggestions after keyboard/title
             self._draw_suggestions()
-
-            self.input_manager.reset()
 
             if swap or force:
                 self.draw.swap()
@@ -620,7 +639,7 @@ class Keyboard:
 
     def _fit_text(self, text: str, width: int) -> str:
         """Keep a single line within the available pixel width.
-        
+
         Args:
             text (str): The text to fit within the width.
             width (int): The available pixel width.
@@ -632,7 +651,7 @@ class Keyboard:
         count = max(0, width // self.draw.len(" "))
         if self.draw.len(text) <= width:
             return text
-        return text[:max(0, count - 3)] + "." * min(3, count)
+        return text[: max(0, count - 3)] + "." * min(3, count)
 
     def _key_widths(self, row: int, unit: int) -> list:
         """Calculate the widths of keys in a given row.
@@ -647,20 +666,33 @@ class Keyboard:
         font = self.draw.get_font(self._key_font)
         widths = []
         for col, key in enumerate(self.ROWS[row]):
-            label_width = self.draw.len(self._key_label(row, col), self._key_font) - font.spacing
-            widths.append(max(key.width * unit, label_width + (2 if self._is_flipper else 3)))
+            label_width = (
+                self.draw.len(self._key_label(row, col), self._key_font) - font.spacing
+            )
+            widths.append(
+                max(key.width * unit, label_width + (2 if self._is_flipper else 3))
+            )
         return widths
 
     def _build_key_rects(self) -> list:
         """Fit labels and borders inside disjoint drawing and touch rectangles."""
         available = self._layout_width - 2 * self.KEY_MARGIN
         while self._key_font > 0:
-            minimum = max(sum(self._key_widths(row, 1)) + self.ROW_SIZES[row] - 1 for row in range(self.NUM_ROWS))
-            if minimum <= available and self.draw.get_font(self._key_font).height + 2 <= self.KEY_HEIGHT:
+            minimum = max(
+                sum(self._key_widths(row, 1)) + self.ROW_SIZES[row] - 1
+                for row in range(self.NUM_ROWS)
+            )
+            if (
+                minimum <= available
+                and self.draw.get_font(self._key_font).height + 2 <= self.KEY_HEIGHT
+            ):
                 break
             self._key_font -= 1
         while self.KEY_WIDTH > 1:
-            widest = max(sum(self._key_widths(row, self.KEY_WIDTH)) + self.ROW_SIZES[row] - 1 for row in range(self.NUM_ROWS))
+            widest = max(
+                sum(self._key_widths(row, self.KEY_WIDTH)) + self.ROW_SIZES[row] - 1
+                for row in range(self.NUM_ROWS)
+            )
             if widest <= available:
                 break
             self.KEY_WIDTH -= 1
@@ -697,7 +729,7 @@ class Keyboard:
 
     def _handle_touch_input(self) -> bool:
         """Press the key under the touch point. True if the touch was used."""
-        point = self.input_manager.point
+        point = self.vm.input_manager.point
         if not point or point == (0, 0):
             return False
 
@@ -743,7 +775,11 @@ class Keyboard:
         if self._is_flipper:
             # draw key background
             self.draw._fill_rectangle(
-                x_pos, y_pos, self.size_vec.x, self.size_vec.y, self.text_color if is_selected else self.background_color
+                x_pos,
+                y_pos,
+                self.size_vec.x,
+                self.size_vec.y,
+                self.text_color if is_selected else self.background_color,
             )
         else:
             # Draw key background
@@ -765,10 +801,16 @@ class Keyboard:
             # Printable fonts have no Shift/Caps Lock glyphs.
             caps = key.normal == "\x01"
             rows = (4, 14, 31, 4, 4, 0, 31) if caps else (4, 14, 31, 4, 4, 4, 4)
-            color = self.background_color if self._is_flipper and is_selected else self.text_color
+            color = (
+                self.background_color
+                if self._is_flipper and is_selected
+                else self.text_color
+            )
             # Fit the 5x7 bitmap to the same glyph box as the other key labels.
             font = self.draw.get_font(self._key_font)
-            icon_width = self.draw.len(self._key_label(row, col), self._key_font) - font.spacing
+            icon_width = (
+                self.draw.len(self._key_label(row, col), self._key_font) - font.spacing
+            )
             icon_height = font.height - 1
             x = x_pos + (width - icon_width) // 2
             y = y_pos + (height - icon_height) // 2
@@ -779,13 +821,18 @@ class Keyboard:
                     if bits & (16 >> dx):
                         left = dx * icon_width // 5
                         right = (dx + 1) * icon_width // 5
-                        self.draw._fill_rectangle(x + left, y + top, right - left, bottom - top, color)
+                        self.draw._fill_rectangle(
+                            x + left, y + top, right - left, bottom - top, color
+                        )
             active = self.is_caps_lock_on if caps else self.is_shift_pressed
             if active:
                 inset = 0 if self._is_flipper else 2
                 self.draw._line(
-                    x_pos + inset, y_pos + height - 1 - inset,
-                    x_pos + width - 1 - inset, y_pos + height - 1 - inset, color,
+                    x_pos + inset,
+                    y_pos + height - 1 - inset,
+                    x_pos + width - 1 - inset,
+                    y_pos + height - 1 - inset,
+                    color,
                 )
             return
 
@@ -794,7 +841,11 @@ class Keyboard:
         label_width = self.draw.len(key_label, self._key_font) - font.spacing
         key_x = x_pos + (width - label_width) // 2
         key_y = y_pos + (height - font.height) // 2
-        color = self.background_color if self._is_flipper and is_selected else self.text_color
+        color = (
+            self.background_color
+            if self._is_flipper and is_selected
+            else self.text_color
+        )
         self.draw._text(key_x, key_y, key_label, color, self._key_font)
 
     def _key_label(self, row: int, col: int) -> str:
@@ -942,9 +993,12 @@ class Keyboard:
             start = self.text_scroll_x
             end = min(len(line), start + visible_chars)
             if end > start:
-                self.draw._text(self.text_vec.x + start * char_w,
-                                self.text_vec.y,
-                                line[start:end], self.text_color)
+                self.draw._text(
+                    self.text_vec.x + start * char_w,
+                    self.text_vec.y,
+                    line[start:end],
+                    self.text_color,
+                )
 
         # Draw cursor at the current position
         if start_line <= cursor_line < end_line:
@@ -961,7 +1015,9 @@ class Keyboard:
         if self._show_keyboard:
             # Show only one suggestion below the keyboard area
             suggestion = suggestions[0]
-            text = self._fit_text("Suggestion: " + suggestion, self._layout_width - 2 * self.KEY_MARGIN)
+            text = self._fit_text(
+                "Suggestion: " + suggestion, self._layout_width - 2 * self.KEY_MARGIN
+            )
             x_pos = self._layout_x + (self._layout_width - self.draw.len(text)) // 2
             self.draw._text(x_pos, self._suggestion_y, text, self.text_color)
         else:
@@ -969,16 +1025,29 @@ class Keyboard:
             padding_x = max(1, self.draw.scale_x(2))
             padding_y = max(1, self.draw.scale_y(2))
             line_height = self.draw.font_size.y + 2 * padding_y
-            visible_rows = max(1, (self._layout_y + self._layout_height - self._keys_y) // line_height)
+            visible_rows = max(
+                1, (self._layout_y + self._layout_height - self._keys_y) // line_height
+            )
             first_row = max(0, self.selected_suggestion_index // 2 - visible_rows + 1)
             column_width = (self._layout_width - 2 * self.KEY_MARGIN) // 2
-            for i in range(first_row * 2, min(len(suggestions), (first_row + visible_rows) * 2)):
-                x_pos = self._layout_x + self.KEY_MARGIN + (i % 2) * column_width + padding_x
+            for i in range(
+                first_row * 2, min(len(suggestions), (first_row + visible_rows) * 2)
+            ):
+                x_pos = (
+                    self._layout_x
+                    + self.KEY_MARGIN
+                    + (i % 2) * column_width
+                    + padding_x
+                )
                 y_pos = self._keys_y + (i // 2 - first_row) * line_height + padding_y
                 text = self._fit_text(suggestions[i], column_width - 2 * padding_x)
                 if i == self.selected_suggestion_index:
                     self.draw._fill_rectangle(
-                        x_pos - padding_x, y_pos - padding_y, column_width, line_height, self.selected_color,
+                        x_pos - padding_x,
+                        y_pos - padding_y,
+                        column_width,
+                        line_height,
+                        self.selected_color,
                     )
                 self.draw._text(x_pos, y_pos, text, self.text_color)
 

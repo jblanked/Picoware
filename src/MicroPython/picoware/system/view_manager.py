@@ -392,7 +392,7 @@ class ViewManager(view_manager.ViewManager):
 
             self._keyboard = Keyboard(
                 self._draw,
-                self._input_manager,
+                self,
                 self._foreground_color,
                 self._background_color,
                 self._selected_color,

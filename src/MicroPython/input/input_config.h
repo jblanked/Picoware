@@ -5,6 +5,11 @@
 #define INPUT_MP_DEINIT desktop_input_deinit
 #define INPUT_MP_INIT desktop_input_init
 #define INPUT_MP_READ desktop_input_read
+#elif defined(CARDPUTER)
+#define INPUT_MP_INCLUDE "../Cardputer/keyboard/keyboard_input.h"
+#define INPUT_MP_DEINIT keyboard_input_deinit
+#define INPUT_MP_INIT() (keyboard_input_init() == ESP_OK)
+#define INPUT_MP_READ keyboard_input_read
 #elif defined(PICOCALC) || defined(PICOCALC_ESP32_P4)
 #define INPUT_MP_INCLUDE "../PicoCalc/picoware_keyboard/keyboard.h"
 #define INPUT_MP_DEINIT keyboard_deinit

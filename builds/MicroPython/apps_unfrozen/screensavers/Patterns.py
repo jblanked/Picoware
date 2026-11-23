@@ -229,10 +229,8 @@ def run(view_manager) -> None:
 
     # Exit on button
     if button == BUTTON_BACK:
-        button.reset()
         view_manager.back()
     elif button == BUTTON_CENTER:
-        button.reset()
         _draw_pattern(draw)
         _demo_state = (_demo_state + 1) % 11
         draw.swap()

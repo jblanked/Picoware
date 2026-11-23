@@ -562,13 +562,7 @@ def _open_kb(vm, mode, starter, back):
     global _state, _kb, _key_mode, _key_back
     _key_mode = mode
     _key_back = back
-    _kb = Keyboard(
-        vm.draw,
-        vm.input_manager,
-        vm.foreground_color,
-        vm.background_color,
-        vm.selected_color,
-    )
+    _kb = vm.keyboard
     _kb.title = "Address" if mode == "url" else "Search"
     _kb.reset()
     _kb.response = starter or ""

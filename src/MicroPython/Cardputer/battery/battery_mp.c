@@ -90,7 +90,19 @@ mp_obj_t cardputer_battery_get_percentage(void)
 static MP_DEFINE_CONST_FUN_OBJ_0(cardputer_battery_get_percentage_obj,
                                  cardputer_battery_get_percentage);
 
+mp_obj_t cardputer_battery_read_grove_adc(void)
+{
+    int raw = 0;
+    esp_err_t err = battery_read_grove_adc(&raw);
+    if (err != ESP_OK) {
+        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("Grove ADC failed: %d"), err);
+    }
+    return mp_obj_new_int(raw);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(cardputer_battery_read_grove_adc_obj, cardputer_battery_read_grove_adc);
+
 static const mp_rom_map_elem_t cardputer_battery_module_globals_table[] = {
+    {MP_ROM_QSTR(MP_QSTR_read_grove_adc), MP_ROM_PTR(&cardputer_battery_read_grove_adc_obj)},
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_cardputer_battery)},
     {MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&cardputer_battery_init_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_voltage), MP_ROM_PTR(&cardputer_battery_get_voltage_obj)},

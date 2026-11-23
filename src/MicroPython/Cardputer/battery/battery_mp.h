@@ -13,6 +13,7 @@ extern "C"
     mp_obj_t cardputer_battery_init(void);
     mp_obj_t cardputer_battery_get_voltage(void);
     mp_obj_t cardputer_battery_get_percentage(void);
+    mp_obj_t cardputer_battery_read_grove_adc(void);
 
 #ifdef __cplusplus
 }

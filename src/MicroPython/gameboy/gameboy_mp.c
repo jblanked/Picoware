@@ -1,5 +1,8 @@
 #include "gameboy_mp.h"
 #include "PicoCalc-GameBoy/src/config.h"
+#include "../input/input_config.h"
+#include "../input/input.h"
+#include INPUT_MP_INCLUDE
 #include LCD_INCLUDE
 #include BUFFER_INCLUDE
 #include "PicoCalc-GameBoy/src/shared.h"
@@ -153,7 +156,7 @@ void gameboy_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     }
 }
 
-mp_obj_t gameboy_mp_run(mp_obj_t self_in, mp_obj_t button_pressed)
+mp_obj_t gameboy_mp_run(mp_obj_t self_in)
 {
     // Arguments: self, button_states (tuple of 8 bools representing the state of each button)
     gameboy_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -161,7 +164,7 @@ mp_obj_t gameboy_mp_run(mp_obj_t self_in, mp_obj_t button_pressed)
     {
         return mp_const_none; // If the emulator is not running, do nothing
     }
-    const int button_hit = mp_obj_get_int(button_pressed);
+    const int button_hit = input_char_to_button(INPUT_MP_READ());
     /*
     - Up: 0
     - Down: 1
@@ -171,15 +174,24 @@ mp_obj_t gameboy_mp_run(mp_obj_t self_in, mp_obj_t button_pressed)
     - B: 58 (left bracket)
     - Select: 54 (minus)
     - Start: 57 (equal)
+    - Back: 5
     */
-    uint8_t BUTTON_UP = button_hit == 0 ? 0 : 1; // Invert button state for Game
-    uint8_t BUTTON_DOWN = button_hit == 1 ? 0 : 1;
-    uint8_t BUTTON_RIGHT = button_hit == 2 ? 0 : 1;
-    uint8_t BUTTON_LEFT = button_hit == 3 ? 0 : 1;
-    uint8_t BUTTON_A = button_hit == 59 ? 0 : 1;
-    uint8_t BUTTON_B = button_hit == 58 ? 0 : 1;
-    uint8_t BUTTON_SELECT = button_hit == 54 ? 0 : 1;
-    uint8_t BUTTON_START = button_hit == 57 ? 0 : 1;
+    uint8_t but_UP = button_hit == 0 ? 0 : 1; // Invert button state for Game
+    uint8_t but_DOWN = button_hit == 1 ? 0 : 1;
+    uint8_t but_RIGHT = button_hit == 2 ? 0 : 1;
+    uint8_t but_LEFT = button_hit == 3 ? 0 : 1;
+    uint8_t but_A = button_hit == 59 ? 0 : 1;
+    uint8_t but_B = button_hit == 58 ? 0 : 1;
+    uint8_t but_SELECT = button_hit == 54 ? 0 : 1;
+    uint8_t but_START = button_hit == 57 ? 0 : 1;
+    uint8_t but_BACK = button_hit == 5 ? 0 : 1;
+
+    // stop if back is selected
+    if (!but_BACK)
+    {
+        self->running = false;
+        return mp_const_none;
+    }
 
     struct gb_s *gb = (struct gb_s *)self->gb_context;
 
@@ -191,14 +203,14 @@ mp_obj_t gameboy_mp_run(mp_obj_t self_in, mp_obj_t button_pressed)
     self->prev_joypad_bits->b = gb->direct.joypad_bits.b;
     self->prev_joypad_bits->select = gb->direct.joypad_bits.select;
     self->prev_joypad_bits->start = gb->direct.joypad_bits.start;
-    gb->direct.joypad_bits.up = BUTTON_UP;
-    gb->direct.joypad_bits.down = BUTTON_DOWN;
-    gb->direct.joypad_bits.left = BUTTON_LEFT;
-    gb->direct.joypad_bits.right = BUTTON_RIGHT;
-    gb->direct.joypad_bits.a = BUTTON_A;
-    gb->direct.joypad_bits.b = BUTTON_B;
-    gb->direct.joypad_bits.select = BUTTON_SELECT;
-    gb->direct.joypad_bits.start = BUTTON_START;
+    gb->direct.joypad_bits.up = but_UP;
+    gb->direct.joypad_bits.down = but_DOWN;
+    gb->direct.joypad_bits.left = but_LEFT;
+    gb->direct.joypad_bits.right = but_RIGHT;
+    gb->direct.joypad_bits.a = but_A;
+    gb->direct.joypad_bits.b = but_B;
+    gb->direct.joypad_bits.select = but_SELECT;
+    gb->direct.joypad_bits.start = but_START;
 
     /* hotkeys (select + * combo)*/
     if (!gb->direct.joypad_bits.select)
@@ -277,7 +289,7 @@ mp_obj_t gameboy_mp_run(mp_obj_t self_in, mp_obj_t button_pressed)
     lcd_swap_gb();
     return mp_const_none;
 }
-static MP_DEFINE_CONST_FUN_OBJ_2(gameboy_mp_run_obj, gameboy_mp_run);
+static MP_DEFINE_CONST_FUN_OBJ_1(gameboy_mp_run_obj, gameboy_mp_run);
 
 mp_obj_t gameboy_mp_start(size_t n_args, const mp_obj_t *args)
 {

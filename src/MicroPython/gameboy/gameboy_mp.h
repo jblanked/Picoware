@@ -52,9 +52,9 @@ extern "C"
     mp_obj_t gameboy_mp_del(mp_obj_t self_in);                                                                 // destructor for the GameBoy object
     void gameboy_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);                             // attribute handler for the GameBoy object
 
-    mp_obj_t gameboy_mp_run(mp_obj_t self_in, mp_obj_t button_pressed); // method to run the GameBoy emulator (called in a loop to keep the emulator running)
-    mp_obj_t gameboy_mp_start(size_t n_args, const mp_obj_t *args);     // method to start the GameBoy emulator (initializes the buffers, loads roam, and loads state))
-    mp_obj_t gameboy_mp_stop(mp_obj_t self_in);                         // method to stop the GameBoy emulator (deinitializes and stops the main loop)
+    mp_obj_t gameboy_mp_run(mp_obj_t self_in);                      // method to run the GameBoy emulator (called in a loop to keep the emulator running)
+    mp_obj_t gameboy_mp_start(size_t n_args, const mp_obj_t *args); // method to start the GameBoy emulator (initializes the buffers, loads roam, and loads state))
+    mp_obj_t gameboy_mp_stop(mp_obj_t self_in);                     // method to stop the GameBoy emulator (deinitializes and stops the main loop)
 
 #ifdef __cplusplus
 }

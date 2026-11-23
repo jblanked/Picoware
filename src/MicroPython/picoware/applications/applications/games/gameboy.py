@@ -73,8 +73,6 @@ def run(view_manager) -> None:
     """
     global gb, _file_browser, _state
 
-    button = view_manager.button
-
     if _state == STATE_BROWSER:
         if _file_browser is None:
             view_manager.back()
@@ -100,8 +98,9 @@ def run(view_manager) -> None:
 
             _state = STATE_PLAYING
             if view_manager.alert(
-                "Starting game: %s. Press BACK to cancel, otherwise wait (this may take a moment...)" % selected_path
-            ): 
+                "Starting game: %s. Press BACK to cancel, otherwise wait (this may take a moment...)"
+                % selected_path
+            ):
                 view_manager.draw.erase()
                 view_manager.draw.swap()
                 gb.start(selected_path)
@@ -109,17 +108,9 @@ def run(view_manager) -> None:
                 view_manager.back()
         return
 
-    # STATE_PLAYING
-    if button == 5:  # back
-        if gb is not None:
-            gb.stop()
-            del gb
-            gb = None
-        view_manager.back()
-        return
-
-    if gb is not None:
-        gb.run(button)
+    while gb is not None and gb.running:
+        gb.run()
+    view_manager.back()
 
 
 def stop(view_manager) -> None:

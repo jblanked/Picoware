@@ -107,6 +107,17 @@ require_dir "$esp_idf_dir"
 require_dir "$build_dir"
 require_file "$esp_idf_dir/export.sh"
 
+# Prefer an already-installed ESP-IDF Python env (for example idf5.5_py3.11_env)
+# so export.sh doesn't fail when the shell's python3 is a different version.
+if [ -z "${IDF_PYTHON_ENV_PATH:-}" ]; then
+    idf_tools_dir="${IDF_TOOLS_PATH:-$HOME/.espressif}"
+    idf_py_env_candidate="$(ls -d "$idf_tools_dir/python_env"/idf5.5_py*_env 2>/dev/null | head -n 1 || true)"
+    if [ -n "$idf_py_env_candidate" ]; then
+        export IDF_PYTHON_ENV_PATH="$idf_py_env_candidate"
+        echo "Using detected ESP-IDF Python environment: $IDF_PYTHON_ENV_PATH"
+    fi
+fi
+
 bootloader_bin="$build_dir/${artifact_name}-bootloader.bin"
 partition_bin="$build_dir/${artifact_name}-partition-table.bin"
 firmware_bin="$build_dir/${artifact_name}.bin"

@@ -176,10 +176,10 @@ class AnimationTools:
     def run_animation(self):
         from picoware.system.buttons import (BUTTON_ESCAPE,BUTTON_BACK,BUTTON_CENTER,BUTTON_LEFT,BUTTON_RIGHT,
             BUTTON_UP,BUTTON_DOWN,BUTTON_TAB,BUTTON_SPACE,BUTTON_O,BUTTON_Z,BUTTON_Y)
-        s=self.animation_ui;inputs=self.vm.input_manager;button=inputs.button
+        s=self.animation_ui;button=self.vm.button
         try:
             if s['visual'] is not None and s['page']!=2 and not any(s[k] is not None for k in ('prompt','job','confirm','preview')):
-                inputs.reset();s['visual'].run(button)
+                s['visual'].run(button)
                 if self.animation_ui is not None:self.draw_animation()
                 return
             if s['prompt'] is not None:
@@ -203,7 +203,6 @@ class AnimationTools:
                 if s['prompt'] is not None:return
                 s['redraw']=True
             elif s['job'] is not None:
-                inputs.reset()
                 if button in (BUTTON_ESCAPE,BUTTON_BACK):
                     s['job'].close();s['job']=None;s['message']='Export cancelled';s['redraw']=True
                 else:
@@ -215,7 +214,6 @@ class AnimationTools:
                     except StopIteration:
                         s['job']=None;self.animation_preview(s['job_path']);s['message']='Export verified'
             elif s['confirm'] is not None:
-                inputs.reset()
                 if button==BUTTON_CENTER:
                     key,path=s['confirm'];s['confirm']=None
                     if path is not None:
@@ -225,7 +223,7 @@ class AnimationTools:
                     s['redraw']=True
                 elif button in (BUTTON_ESCAPE,BUTTON_BACK):s['confirm']=None;s['message']='Cancelled';s['redraw']=True
             elif s['preview'] is not None:
-                inputs.reset();path,info=s['preview'];now=ticks_ms()
+                path,info=s['preview'];now=ticks_ms()
                 if button in (BUTTON_ESCAPE,BUTTON_BACK):
                     s['preview']=None;s['pose']=min(s['pose'],len(self.animation['poses'])-1);s['redraw']=True
                     if 'return_pose' in s:s['pose'],s['direction'],s['playing']=s.pop('return_pose')
@@ -246,7 +244,6 @@ class AnimationTools:
                     if s['orbit'] and ticks_diff(now,s['orbit_last'])>=600:
                         s['direction']=(s['direction']+1)%info['directions'];s['orbit_last']=now;s['redraw']=True
             else:
-                inputs.reset()
                 if button in (BUTTON_ESCAPE,BUTTON_BACK):
                     if s['visual'] is not None and s['page']==2:s['page']=0;s['redraw']=True;self.draw_animation();return
                     self.end_animation();self.draw_frame();return

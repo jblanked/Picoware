@@ -115,9 +115,7 @@ class ViewerTools:
             self.draw_frame()
 
     def run_viewer(self):
-        inputs = self.vm.input_manager
-        button = inputs.button
-        inputs.reset()
+        button = self.vm.button
         try:
             if not self.viewer.run(button):
                 self.end_viewer()

@@ -823,7 +823,7 @@ class _State:
         """Set default player and view values."""
         self.tiles = None
         self.hts = None
-        self.world = None
+        self.world = bytearray(_N * 2)
         self.fog = None
         self.npcs = None
         self.foes = None
@@ -987,8 +987,9 @@ def _build_world(st):
     ea = _grid(9)
     eb = _grid(17)
     wt = _grid(9)
-    tiles = bytearray(_N)
-    hts = bytearray(_N)
+    # Share one packed buffer between world generation and ray marching.
+    tiles = memoryview(st.world)[:_N]
+    hts = memoryview(st.world)[_N:]
     for y in range(_H):
         rx = _river_x(y)
         fy = y / (_H - 1)
@@ -1070,7 +1071,6 @@ def _prep(st):
         tab[4 + n * 3 + j] = fog[j]
     st.tab = tab
     st.buf = array("i", [0] * (16 + n * 3))
-    st.world = st.tiles + st.hts
 
 
 def _open(st, x, y):

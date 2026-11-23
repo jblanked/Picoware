@@ -104,3 +104,17 @@ esp_err_t battery_read_voltage(float *voltage_v)
     *voltage_v = adc_v * 2.0f;
     return ESP_OK;
 }
+
+// Grove white wire is GPIO1 / ADC1 channel 0. Share the battery ADC unit.
+esp_err_t battery_read_grove_adc(int *raw)
+{
+    if (raw == NULL) return ESP_ERR_INVALID_ARG;
+    ESP_RETURN_ON_ERROR(battery_init(), TAG, "adc init failed");
+    adc_oneshot_chan_cfg_t cfg = {
+        .bitwidth = ADC_BITWIDTH_12,
+        .atten = ADC_ATTEN_DB_12,
+    };
+    ESP_RETURN_ON_ERROR(adc_oneshot_config_channel(s_adc_handle, ADC_CHANNEL_0, &cfg),
+                        TAG, "grove adc config failed");
+    return adc_oneshot_read(s_adc_handle, ADC_CHANNEL_0, raw);
+}

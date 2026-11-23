@@ -4,3 +4,5 @@
 
 esp_err_t battery_init(void);
 esp_err_t battery_read_voltage(float *voltage_v);
+
+esp_err_t battery_read_grove_adc(int *raw);

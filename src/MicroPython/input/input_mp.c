@@ -11,11 +11,12 @@ void input_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t k
 
 mp_obj_t input_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
-    mp_arg_check_num(n_args, n_kw, 0, 0, true);
+    mp_arg_check_num(n_args, n_kw, 0, 1, true);
     input_mp_obj_t *self = mp_obj_malloc_with_finaliser(input_mp_obj_t, &input_mp_type);
     self->base.type = &input_mp_type;
     self->was_capitalized = false;
     self->initialized = INPUT_MP_INIT();
+    input_back_special = n_args > 0 ? mp_obj_get_int(args[0]) != BUTTON_BACK : false;
     return MP_OBJ_FROM_PTR(self);
 }
 

@@ -59,7 +59,7 @@ class Input(input_mp.Input):
         Args:
             back_button (int): The button code used as back. Defaults to buttons.BUTTON_BACK.
         """
-        super().__init__()
+        super().__init__(back_button)
         from picoware_boards import get_display_size
 
         self._current_board_id = BOARD_ID
@@ -171,10 +171,6 @@ class Input(input_mp.Input):
 
             init()
 
-        elif self._current_board_id == BOARD_CARDPUTER:
-            from cardputer_keyboard import init
-
-            init()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
             from flipper_input import init
 
@@ -400,12 +396,6 @@ class Input(input_mp.Input):
                 self.on_key_callback()
             else:
                 self._poll_touch()
-        elif self._current_board_id == BOARD_CARDPUTER:
-            from cardputer_keyboard import key_available, poll
-
-            poll()
-            if key_available():
-                self.on_key_callback()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
             from flipper_input import key_available, poll
 
@@ -461,10 +451,6 @@ class Input(input_mp.Input):
 
             deinit()
 
-        if self._current_board_id == BOARD_CARDPUTER:
-            from cardputer_keyboard import deinit
-
-            deinit()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
             from flipper_input import deinit
 
@@ -514,10 +500,6 @@ class Input(input_mp.Input):
             return get_key()
         if self.has_touch_support:
             return -1  # Not applicable for touch input
-        if self._current_board_id == BOARD_CARDPUTER:
-            from cardputer_keyboard import get_key
-
-            return get_key()
         if self._current_board_id == BOARD_FLIPPER_ZERO:
             from flipper_input import get_key
 
@@ -545,10 +527,6 @@ class Input(input_mp.Input):
             return get_key()
         if self.has_touch_support:
             return -1  # Not applicable for touch input
-        if self._current_board_id == BOARD_CARDPUTER:
-            from cardputer_keyboard import get_key_nonblocking
-
-            return get_key_nonblocking()
         if self._current_board_id == BOARD_FLIPPER_ZERO:
             from flipper_input import get_key_nonblocking
 

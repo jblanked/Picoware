@@ -20,6 +20,10 @@ extern "C"
     mp_obj_t cardputer_keyboard_get_key(void);
     mp_obj_t cardputer_keyboard_get_key_nonblocking(void);
 
+    int keyboard_get_key(void);
+    bool keyboard_mp_init(void);
+    void keyboard_deinit(void);
+
 #ifdef __cplusplus
 }
 #endif

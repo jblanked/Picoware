@@ -15,4 +15,9 @@
 #define INPUT_MP_DEINIT input_deinit
 #define INPUT_MP_INIT input_init
 #define INPUT_MP_READ input_read
+#elif defined(CARDPUTER) || defined(CARDPUTER_ORIGINAL)
+#define INPUT_MP_INCLUDE "../Cardputer/keyboard/keyboard_mp.h"
+#define INPUT_MP_DEINIT keyboard_deinit
+#define INPUT_MP_INIT keyboard_mp_init
+#define INPUT_MP_READ keyboard_get_key
 #endif

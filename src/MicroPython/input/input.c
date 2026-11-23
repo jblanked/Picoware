@@ -1,5 +1,7 @@
 #include "input.h"
 
+bool input_back_special = false;
+
 int input_char_to_button(int c)
 {
     switch (c)
@@ -15,7 +17,7 @@ int input_char_to_button(int c)
     case BUTTON_CENTER:
         return BUTTON_CENTER;
     case BUTTON_BACK:
-        return BUTTON_BACK;
+        return input_back_special ? BUTTON_BACKSPACE : BUTTON_BACK;
     case BUTTON_START:
         return BUTTON_START;
     case PICOWARE_KEYCODE_BACKSPACE:
@@ -26,7 +28,7 @@ int input_char_to_button(int c)
     case PICOWARE_KEYCODE_RETURN:
         return BUTTON_CENTER;
     case PICOWARE_KEYCODE_ESC:
-        return BUTTON_ESCAPE;
+        return input_back_special ? BUTTON_BACK : BUTTON_ESCAPE;
     case PICOWARE_KEYCODE_UP:
         return BUTTON_UP;
     case PICOWARE_KEYCODE_DOWN:

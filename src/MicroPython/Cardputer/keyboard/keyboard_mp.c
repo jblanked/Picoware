@@ -159,28 +159,13 @@ static void cardputer_keyboard_poll_internal(void)
 
 mp_obj_t cardputer_keyboard_init(void)
 {
-    if (!g_keyboard_ready)
-    {
-        esp_err_t err = keyboard_init();
-        if (err != ESP_OK)
-        {
-            mp_raise_msg_varg(&mp_type_RuntimeError,
-                              MP_ERROR_TEXT("keyboard_init failed: %d"), err);
-        }
-        g_keyboard_ready = true;
-        cardputer_keyboard_queue_reset();
-    }
-
-    return mp_const_none;
+    return keyboard_init() ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(cardputer_keyboard_init_obj, cardputer_keyboard_init);
 
 mp_obj_t cardputer_keyboard_deinit(void)
 {
-    g_keyboard_ready = false;
-    cardputer_keyboard_queue_reset();
-    g_key_available_callback = mp_const_none;
-    g_background_poll = false;
+    keyboard_deinit();
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(cardputer_keyboard_deinit_obj, cardputer_keyboard_deinit);
@@ -250,18 +235,45 @@ static MP_DEFINE_CONST_FUN_OBJ_0(cardputer_keyboard_get_key_obj, cardputer_keybo
 
 mp_obj_t cardputer_keyboard_get_key_nonblocking(void)
 {
+    return mp_obj_new_int(keyboard_get_key());
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(cardputer_keyboard_get_key_nonblocking_obj,
+                                 cardputer_keyboard_get_key_nonblocking);
+
+int keyboard_get_key(void)
+{
     uint8_t key = 0;
 
     cardputer_keyboard_poll_internal();
     if (!cardputer_keyboard_queue_pop(&key))
     {
-        return mp_const_none;
+        return -1;
     }
-
-    return mp_obj_new_int(key);
+    return key;
 }
-static MP_DEFINE_CONST_FUN_OBJ_0(cardputer_keyboard_get_key_nonblocking_obj,
-                                 cardputer_keyboard_get_key_nonblocking);
+
+bool keyboard_mp_init(void)
+{
+    if (!g_keyboard_ready)
+    {
+        esp_err_t err = keyboard_init();
+        if (err != ESP_OK)
+        {
+            return false;
+        }
+        g_keyboard_ready = true;
+        cardputer_keyboard_queue_reset();
+    }
+    return true;
+}
+
+void keyboard_deinit(void)
+{
+    g_keyboard_ready = false;
+    cardputer_keyboard_queue_reset();
+    g_key_available_callback = mp_const_none;
+    g_background_poll = false;
+}
 
 static const mp_rom_map_elem_t cardputer_keyboard_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_cardputer_keyboard)},

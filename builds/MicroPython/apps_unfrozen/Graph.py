@@ -293,10 +293,6 @@ def run(view_manager) -> None:
 
     button = view_manager.button
 
-    if button == BUTTON_BACK:
-        view_manager.back()
-        return
-
     fb = view_manager.draw
 
     global mode, input_buffer, input_buffer2, cursor, cursor2
@@ -309,6 +305,10 @@ def run(view_manager) -> None:
         editing_y = False
         # Consume the dismissal key before resuming editing.
         button = BUTTON_NONE
+
+    if button == BUTTON_BACK:
+        view_manager.back()
+        return
 
     fb.fill_screen(TFT_BLACK)
 

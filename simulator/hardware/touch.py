@@ -20,8 +20,8 @@ class Touch:
                 ):
                     import gpio_buttons
 
-                    # Input.is_pressed polls touch before GPIO. Leave physical
-                    # button keys queued so that either polling order works.
+                    # Touch reads must leave physical button keys queued
+                    # for Input.button to consume through GPIO polling.
                     if gpio_buttons.key_available():
                         self.x = self.y = 0
                         return False

@@ -297,7 +297,7 @@ def check_time_and_alarms(t, c_sec):
                     b.duty_u16(32768 if ring_flash else 0)
             except Exception: pass
 
-def handle_input_diagnostic(button, input_mgr, view_manager, t, c_sec):
+def handle_input_diagnostic(button, view_manager, t, c_sec):
     global current_mode, dirty_ui
     if button in (BUTTON_BACK, BUTTON_ESCAPE):
         dirty_ui = False
@@ -307,7 +307,7 @@ def handle_input_diagnostic(button, input_mgr, view_manager, t, c_sec):
         current_mode = MODE_MAIN
         dirty_ui = True
 
-def handle_input_modals(button, input_mgr, view_manager, t, c_sec):
+def handle_input_modals(button, view_manager, t, c_sec):
     global current_mode, dirty_ui, msg_origin, del_confirm_yes, clear_confirm_yes, settings, cursor_idx, snooze_idx, snooze_epoch, snooze_count, sys_time
     if current_mode in (MODE_ERR_TIME, MODE_ERR_DATE):
         if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP, BUTTON_DOWN):
@@ -335,7 +335,7 @@ def handle_input_modals(button, input_mgr, view_manager, t, c_sec):
                 cursor_idx = 0; queue_save()
             current_mode = MODE_ALARMS; dirty_ui = True
 
-def handle_input_ring(button, input_mgr, view_manager, t, c_sec):
+def handle_input_ring(button, view_manager, t, c_sec):
     global current_mode, dirty_ui, ringing_idx, snooze_count, snooze_epoch, snooze_idx, settings
     if ringing_idx in (-2, -3):
         if button in (BUTTON_CENTER, BUTTON_O, BUTTON_BACK, BUTTON_ESCAPE):
@@ -353,7 +353,7 @@ def handle_input_ring(button, input_mgr, view_manager, t, c_sec):
             if 0 <= ringing_idx < len(settings["alarms"]) and not settings["alarms"][ringing_idx][8]: settings["alarms"][ringing_idx][5] = False; queue_save()
             ringing_idx = -1; snooze_epoch = snooze_count = 0; dirty_ui = True; handle_audio_silence()
 
-def handle_input_main(button, input_mgr, view_manager, t, c_sec):
+def handle_input_main(button, view_manager, t, c_sec):
     global current_mode, dirty_ui, show_help, show_options, cursor_idx, origin_mode, edit_idx, tmp_daily, tmp_y, tmp_mo, tmp_d, date_cursor, tmp_h, tmp_m, tmp_label, tmp_audible, settings
     cy, cmo, cd, ch, cm = t[0], t[1], t[2], t[3], t[4]
     if button in (BUTTON_BACK, BUTTON_ESCAPE):
@@ -375,7 +375,7 @@ def handle_input_main(button, input_mgr, view_manager, t, c_sec):
         elif cursor_idx == 5: show_help = True
         dirty_ui = True
 
-def handle_input_egg_timer(button, input_mgr, view_manager, t, c_sec):
+def handle_input_egg_timer(button, view_manager, t, c_sec):
     global current_mode, dirty_ui, egg_preset, egg_end
     if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = MODE_MAIN; dirty_ui = True
     elif button == BUTTON_DOWN: egg_preset = (egg_preset + 1) % len(_EGG_PRESETS); dirty_ui = True
@@ -386,7 +386,7 @@ def handle_input_egg_timer(button, input_mgr, view_manager, t, c_sec):
         else: egg_end = c_sec + (m * 60)
         queue_save(); dirty_ui = True
 
-def handle_input_stopwatch(button, input_mgr, view_manager, t, c_sec):
+def handle_input_stopwatch(button, view_manager, t, c_sec):
     global current_mode, dirty_ui, sw_run, sw_accum, sw_start
     if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = MODE_MAIN; dirty_ui = True
     elif button == BUTTON_CENTER:
@@ -395,7 +395,7 @@ def handle_input_stopwatch(button, input_mgr, view_manager, t, c_sec):
         dirty_ui = True
     elif button == BUTTON_R: sw_accum = 0; sw_run = False; dirty_ui = True
 
-def handle_input_countdown(button, input_mgr, view_manager, t, c_sec):
+def handle_input_countdown(button, view_manager, t, c_sec):
     global current_mode, dirty_ui, cd_end, cd_cursor, cd_h, cd_m, cd_s
     if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = MODE_MAIN; dirty_ui = True
     elif cd_end == 0:
@@ -418,7 +418,7 @@ def handle_input_countdown(button, input_mgr, view_manager, t, c_sec):
     else:
         if button in (BUTTON_CENTER, BUTTON_R): cd_end = 0; dirty_ui = True
 
-def handle_input_alarms(button, input_mgr, view_manager, t, c_sec):
+def handle_input_alarms(button, view_manager, t, c_sec):
     global current_mode, dirty_ui, cursor_idx, settings, sys_time, msg_origin, clear_confirm_yes, del_confirm_yes, origin_mode, edit_idx, tmp_daily, tmp_y, tmp_mo, tmp_d, date_cursor, tmp_h, tmp_m, tmp_label, tmp_audible, snooze_idx, snooze_epoch, snooze_count
     cy, cmo, cd, ch, cm = t[0], t[1], t[2], t[3], t[4]
     list_len = len(settings["alarms"]) + 1
@@ -447,7 +447,7 @@ def handle_input_alarms(button, input_mgr, view_manager, t, c_sec):
             a = settings["alarms"][cursor_idx]; edit_idx = cursor_idx
             tmp_y = a[0]; tmp_mo = a[1]; tmp_d = a[2]; tmp_h = a[3]; tmp_m = a[4]; tmp_label = a[6]; tmp_audible = a[7]; tmp_daily = a[8]
 
-def handle_input_editor(button, input_mgr, view_manager, t, c_sec):
+def handle_input_editor(button, view_manager, t, c_sec):
     global current_mode, dirty_ui, settings, origin_mode, msg_origin, tmp_daily, tmp_y, tmp_mo, tmp_d, date_cursor, tmp_h, tmp_m, tmp_label, tmp_audible, edit_idx, cursor_idx, sys_time
     cy, cmo, cd, ch, cm = t[0], t[1], t[2], t[3], t[4]
     if current_mode == MODE_EDIT_TYPE:
@@ -764,8 +764,7 @@ def process_input(button, view_manager, t, c_sec):
         return
 
     handler = INPUT_DISPATCH.get(current_mode)
-    if handler: handler(button, input_mgr, view_manager, t, c_sec)
-    # input_mgr.reset()
+    if handler: handler(button, view_manager, t, c_sec)
 
 def draw_view(view_manager):
     global help_scroll, current_mode, show_options, show_help, options_cursor_idx, settings, dirty_ui

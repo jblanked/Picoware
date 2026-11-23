@@ -285,7 +285,6 @@ def run(view_manager) -> None:
         )
         d.swap()
         if button == BUTTON_CENTER:
-            inp.reset()
             if _mic and not _mic.is_recording:
                 _mic.record()
 

@@ -1011,5 +1011,13 @@
             "picoware/apps_unfrozen/CSIRadar.py"
         ],
         "version": "1.0"
+    },
+    {
+        "title": "CADV-Earthreader",
+        "description": "M5Stack Unit Earth moisture reader: Cardputer shared ADC or configurable MicroPython ADC.",
+        "file_structure": [
+            "picoware/apps_unfrozen/CADV-Earthreader.py"
+        ],
+        "version": "1.13"
     }
 ]

@@ -29,11 +29,19 @@ Sprite3D::Sprite3D(bool usePsram) : active(false), position(Vector(0, 0)), psram
                                     triangle_capacity(0), triangle_count(0), triangles(nullptr),
                                     type(SPRITE_CUSTOM)
 {
+#ifdef ENGINE_USE_PSRAM
+    if (psramAllowed)
+        TrianglePSRAM::retain();
+#endif
 }
 
 Sprite3D::~Sprite3D()
 {
     clearTriangles();
+#ifdef ENGINE_USE_PSRAM
+    if (psramAllowed)
+        TrianglePSRAM::release();
+#endif
 }
 
 bool Sprite3D::addTriangle(const Triangle3D &triangle)

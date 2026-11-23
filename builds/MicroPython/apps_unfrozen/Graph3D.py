@@ -959,7 +959,7 @@ def _begin_input(view_manager, second=False):
     else:
         kb.title = "z = f(x, y)   ENTER plots"
         kb.response = _clean_expr(_expr)
-    kb.run(force=True)
+    kb.run(force=True, button=-1)
 
 
 def _draw_slice(draw):
@@ -1138,16 +1138,12 @@ def run(view_manager) -> None:
         if _menu is None:
             _make_menu(view_manager)
         if button == BUTTON_UP:
-            inp.reset()
             _menu.scroll_up()
         elif button == BUTTON_DOWN:
-            inp.reset()
             _menu.scroll_down()
         elif button == BUTTON_BACK:
-            inp.reset()
             view_manager.back()
         elif button == BUTTON_CENTER:
-            inp.reset()
             idx = _menu.selected_index
             if idx == 0:
                 _goto_plot(view_manager)
@@ -1177,18 +1173,14 @@ def run(view_manager) -> None:
         if _preset_menu is None:
             _make_presets(view_manager)
         if button == BUTTON_UP:
-            inp.reset()
             _preset_menu.scroll_up()
         elif button == BUTTON_DOWN:
-            inp.reset()
             _preset_menu.scroll_down()
         elif button == BUTTON_BACK:
-            inp.reset()
             _kill_menu("preset")
             _state = ST_MENU
             _make_menu(view_manager)
         elif button == BUTTON_CENTER:
-            inp.reset()
             idx = _preset_menu.selected_index
             if 0 <= idx < len(PRESETS):
                 _expr = PRESETS[idx][1]
@@ -1200,25 +1192,20 @@ def run(view_manager) -> None:
         if _saved_menu is None:
             _make_saved(view_manager)
         if button == BUTTON_UP:
-            inp.reset()
             _saved_menu.scroll_up()
         elif button == BUTTON_DOWN:
-            inp.reset()
             _saved_menu.scroll_down()
         elif button == BUTTON_BACK:
-            inp.reset()
             _kill_menu("saved")
             _state = ST_MENU
             _make_menu(view_manager)
         elif button == BUTTON_BACKSPACE:
-            inp.reset()
             idx = _saved_menu.selected_index
             if idx >= 1 and idx - 1 < len(_saved):
                 _saved.pop(idx - 1)
                 _write_saved(_storage)
                 _make_saved(view_manager)
         elif button == BUTTON_CENTER:
-            inp.reset()
             idx = _saved_menu.selected_index
             if idx == 0:
                 entry = _pack_entry()
@@ -1234,25 +1221,20 @@ def run(view_manager) -> None:
 
     elif _state == ST_SETTINGS:
         if button == BUTTON_UP:
-            inp.reset()
             _set_row = (_set_row - 1) % 6
             _dirty = True
         elif button == BUTTON_DOWN:
-            inp.reset()
             _set_row = (_set_row + 1) % 6
             _dirty = True
         elif button == BUTTON_LEFT:
-            inp.reset()
             if _set_row <= 3:
                 _apply_setting(-1)
             _dirty = True
         elif button == BUTTON_RIGHT:
-            inp.reset()
             if _set_row <= 3:
                 _apply_setting(1)
             _dirty = True
         elif button == BUTTON_CENTER:
-            inp.reset()
             if _set_row == 4:
                 _apply_setting(0)
                 _dirty = True
@@ -1264,7 +1246,6 @@ def run(view_manager) -> None:
                 _apply_setting(1)
                 _dirty = True
         elif button == BUTTON_BACK:
-            inp.reset()
             _state = ST_MENU
             _make_menu(view_manager)
             return
@@ -1276,33 +1257,27 @@ def run(view_manager) -> None:
         if _help_box is None:
             _make_help(view_manager)
         if button in (BUTTON_BACK,):
-            inp.reset()
             _kill_menu("help")
             _state = ST_MENU
             _make_menu(view_manager)
         elif button == BUTTON_UP:
-            inp.reset()
             _help_box.scroll_up()
         elif button == BUTTON_DOWN:
-            inp.reset()
             _help_box.scroll_down()
 
     elif _state == ST_INPUT:
         kb = view_manager.keyboard
         if button == BUTTON_BACK:
-            inp.reset()
             kb.reset()
             _state = ST_MENU
             _make_menu(view_manager)
-        elif not kb.run():
-            inp.reset()
+        elif not kb.run(button=button):
             kb.reset()
             _state = ST_MENU
             _make_menu(view_manager)
         elif kb.is_finished:
             result = (kb.response or "").strip()
             kb.reset()
-            inp.reset()
             if result:
                 _expr = result
                 _need_eval = True
@@ -1314,19 +1289,16 @@ def run(view_manager) -> None:
     elif _state == ST_INPUT2:
         kb = view_manager.keyboard
         if button == BUTTON_BACK:
-            inp.reset()
             kb.reset()
             _state = ST_MENU
             _make_menu(view_manager)
-        elif not kb.run():
-            inp.reset()
+        elif not kb.run(button=button):
             kb.reset()
             _state = ST_MENU
             _make_menu(view_manager)
         elif kb.is_finished:
             result = (kb.response or "").strip()
             kb.reset()
-            inp.reset()
             _expr2 = result
             _need_eval = True
             if result:
@@ -1341,38 +1313,31 @@ def run(view_manager) -> None:
             _draw_error(draw)
             _dirty = False
         if button == BUTTON_BACK:
-            inp.reset()
             _state = ST_MENU
             _make_menu(view_manager)
         elif button == BUTTON_CENTER:
-            inp.reset()
             _state = ST_INPUT
             _begin_input(view_manager, False)
 
     elif _state == ST_SLICE:
         n = _grid_n
         if button == BUTTON_BACK:
-            inp.reset()
             _state = ST_PLOT
             _dirty = True
         elif button == BUTTON_C:
-            inp.reset()
             _slice_axis = 1 - _slice_axis
             _dirty = True
         elif button == BUTTON_LEFT:
-            inp.reset()
             _slice_idx -= 1
             if _slice_idx < 0:
                 _slice_idx = 0
             _dirty = True
         elif button == BUTTON_RIGHT:
-            inp.reset()
             _slice_idx += 1
             if _slice_idx > n - 1:
                 _slice_idx = n - 1
             _dirty = True
         elif button == BUTTON_P:
-            inp.reset()
             _take_shot(view_manager)
         if _dirty:
             _layout(draw)
@@ -1382,93 +1347,76 @@ def run(view_manager) -> None:
     elif _state == ST_PLOT:
         moved = False
         if button == BUTTON_BACK:
-            inp.reset()
             _auto = False
             _state = ST_MENU
             _make_menu(view_manager)
             return
         if button == BUTTON_LEFT:
-            inp.reset()
             _yaw -= 0.16
             moved = True
         elif button == BUTTON_RIGHT:
-            inp.reset()
             _yaw += 0.16
             moved = True
         elif button == BUTTON_UP:
-            inp.reset()
             _pitch += 0.11
             if _pitch > 1.40:
                 _pitch = 1.40
             moved = True
         elif button == BUTTON_DOWN:
-            inp.reset()
             _pitch -= 0.11
             if _pitch < -0.15:
                 _pitch = -0.15
             moved = True
         elif button in (BUTTON_PLUS, BUTTON_EQUAL):
-            inp.reset()
             _zoom *= 1.12
             if _zoom > 3.0:
                 _zoom = 3.0
             moved = True
         elif button == BUTTON_MINUS:
-            inp.reset()
             _zoom *= 0.89
             if _zoom < 0.38:
                 _zoom = 0.38
             moved = True
         elif button in (BUTTON_A, BUTTON_START):
-            inp.reset()
             _auto = not _auto
             moved = True
         elif button == BUTTON_W:
-            inp.reset()
             _style = 0
             moved = True
         elif button == BUTTON_S:
-            inp.reset()
             _style = 1
             moved = True
         elif button == BUTTON_R:
-            inp.reset()
             _pitch = 0.55
             _yaw = 0.70
             _zoom = 1.0
             _auto = False
             moved = True
         elif button in (BUTTON_H, BUTTON_QUESTION):
-            inp.reset()
             _auto = False
             _state = ST_HELP
             _make_help(view_manager)
             return
         elif button == BUTTON_CENTER:
-            inp.reset()
             _auto = False
             _state = ST_INPUT
             _begin_input(view_manager, False)
             return
         elif button == BUTTON_C:
-            inp.reset()
             _auto = False
             _slice_idx = _grid_n // 2
             _state = ST_SLICE
             _dirty = True
             return
         elif button == BUTTON_P:
-            inp.reset()
             _take_shot(view_manager)
             moved = True
         elif button == BUTTON_G:
-            inp.reset()
             _grid_n = int(_cycle(GRIDS, float(_grid_n), 1))
             _need_eval = True
             _goto_plot(view_manager)
             return
         elif button in (BUTTON_Z, BUTTON_SPACE):
-            inp.reset()
             _range = _cycle(RANGES, _range, 1)
             _need_eval = True
             _goto_plot(view_manager)

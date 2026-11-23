@@ -638,7 +638,6 @@ def run(view_manager):
         view_manager,
         _game.screen in (SCREEN_MARKET, SCREEN_MAP, SCREEN_OFFICE, SCREEN_BUSINESS),
     )
-    view_manager.input_manager.reset()
     should_draw = True
 
     audio_button = button == BUTTON_P

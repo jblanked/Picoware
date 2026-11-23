@@ -234,7 +234,7 @@ def handle_direct_input(button):
         cursor_visible = True
         blink_counter = 0
 
-def handle_input_typing(button, input_mgr, view_manager):
+def handle_input_typing(button, view_manager):
     global current_mode, active_typing_field, dirty_ui
     
     if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
@@ -242,18 +242,18 @@ def handle_input_typing(button, input_mgr, view_manager):
         
     handle_direct_input(button)
 
-def handle_input_help(button, input_mgr, view_manager):
+def handle_input_help(button, view_manager):
     global current_mode, help_scroll, dirty_ui
     if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_H): 
         current_mode = MODE_MAIN; help_scroll = 0; dirty_ui = True
     elif button == BUTTON_DOWN: help_scroll += 1; dirty_ui = True
     elif button == BUTTON_UP: help_scroll = max(0, help_scroll - 1); dirty_ui = True
 
-def handle_input_main(button, input_mgr, view_manager):
+def handle_input_main(button, view_manager):
     global current_mode, active_typing_field, dirty_ui, cursor_visible, blink_counter
     
     if button in (BUTTON_BACK, BUTTON_ESCAPE):
-        save_settings(); input_mgr.reset(); view_manager.back(); return
+        save_settings(); view_manager.back(); return
 
     elif button == BUTTON_S:
         state["cursor_idx"] = 0; state["mode_sink"] = not state["mode_sink"]; dirty_ui = True
@@ -392,7 +392,7 @@ def start(view_manager):
 def run(view_manager):
     global rpm_result, current_mode, dirty_ui, blink_counter, cursor_visible, pending_save, save_timer
     
-    draw = view_manager.draw; input_mgr = view_manager.input_manager; button = input_mgr.button
+    draw = view_manager.draw; button = view_manager.button
     screen_w = draw.size.x; screen_h = draw.size.y
     
     # Handle typing cursor blink state
@@ -405,9 +405,8 @@ def run(view_manager):
 
     if button != -1:
         handler = INPUT_DISPATCH.get(current_mode)
-        if handler: handler(button, input_mgr, view_manager)
+        if handler: handler(button, view_manager)
         
-        input_mgr.reset()
         if dirty_ui: queue_save()
 
     # Process pending SD saves when idle

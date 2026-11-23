@@ -219,7 +219,7 @@ def clamp_unit_indices():
             state["input_val"] = state["input_val"][1:]
             if state["input_val"] == "": state["input_val"] = "0"
 
-def handle_input_typing(button, input_mgr, view_manager):
+def handle_input_typing(button, view_manager):
     global current_mode, dirty_ui, cursor_visible, blink_counter
     
     if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
@@ -266,7 +266,7 @@ def handle_input_typing(button, input_mgr, view_manager):
         cursor_visible = True
         blink_counter = 0
 
-def handle_input_options(button, input_mgr, view_manager):
+def handle_input_options(button, view_manager):
     global current_mode, dirty_ui
     if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
         current_mode = MODE_MAIN; dirty_ui = True; queue_save()
@@ -287,18 +287,18 @@ def handle_input_options(button, input_mgr, view_manager):
         elif o_idx == 3: state["bg_b"] = (state["bg_b"] - 5) % 256
         dirty_ui = True; queue_save()
 
-def handle_input_help(button, input_mgr, view_manager):
+def handle_input_help(button, view_manager):
     global current_mode, help_scroll, dirty_ui
     if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_H): 
         current_mode = MODE_MAIN; help_scroll = 0; dirty_ui = True
     elif button == BUTTON_DOWN: help_scroll += 1; dirty_ui = True
     elif button == BUTTON_UP: help_scroll = max(0, help_scroll - 1); dirty_ui = True
 
-def handle_input_main(button, input_mgr, view_manager):
+def handle_input_main(button, view_manager):
     global current_mode, dirty_ui, cursor_visible, blink_counter
     
     if button in (BUTTON_BACK, BUTTON_ESCAPE):
-        save_settings(); input_mgr.reset(); view_manager.back(); return
+        save_settings(); view_manager.back(); return
         
     elif button == BUTTON_C:
         state["cursor_idx"] = 0
@@ -487,7 +487,7 @@ def start(view_manager):
 def run(view_manager):
     global conv_result, current_mode, dirty_ui, blink_counter, cursor_visible, pending_save, save_timer
     
-    draw = view_manager.draw; input_mgr = view_manager.input_manager; button = input_mgr.button
+    draw = view_manager.draw; button = view_manager.button
     screen_w = draw.size.x; screen_h = draw.size.y
     
     # Handle typing cursor blink state
@@ -500,9 +500,8 @@ def run(view_manager):
 
     if button != -1:
         handler = INPUT_DISPATCH.get(current_mode)
-        if handler: handler(button, input_mgr, view_manager)
+        if handler: handler(button, view_manager)
         
-        input_mgr.reset()
         if dirty_ui: queue_save()
 
     # Process pending SD saves when idle

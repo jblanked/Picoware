@@ -18,12 +18,10 @@ def run(view_manager):
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK
 
-    inp = view_manager.input_manager
     draw = view_manager.draw
-    but = inp.button
+    but = view_manager.button
 
     if but == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
     else:
         draw._text(draw.size.x // 2, draw.size.y // 2, _text, draw.foreground)

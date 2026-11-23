@@ -8,17 +8,32 @@ from gc import collect
 import micropython
 from micropython import const
 from picoware.engine.engine import GameEngine
-from picoware.engine.entity import ENTITY_TYPE_ICON, ENTITY_TYPE_NPC, ENTITY_TYPE_PLAYER, Entity
+from picoware.engine.entity import (
+    ENTITY_TYPE_ICON,
+    ENTITY_TYPE_NPC,
+    ENTITY_TYPE_PLAYER,
+    Entity,
+)
 from picoware.engine.game import Game
 from picoware.engine.level import Level
 from picoware.system.buttons import (
-    BUTTON_BACK, BUTTON_CENTER, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP,
+    BUTTON_BACK,
+    BUTTON_CENTER,
+    BUTTON_DOWN,
+    BUTTON_LEFT,
+    BUTTON_RIGHT,
+    BUTTON_UP,
 )
 from picoware.system.vector import Vector
 
 from .assets import (
-    BANANA_FRAMES, CLOUD_ART, GORILLA_ART, GORILLA_FALLEN_ART, TITLE_ART,
-    LOADING_LOGO, LOADING_LOGO_COMPACT,
+    BANANA_FRAMES,
+    CLOUD_ART,
+    GORILLA_ART,
+    GORILLA_FALLEN_ART,
+    TITLE_ART,
+    LOADING_LOGO,
+    LOADING_LOGO_COMPACT,
 )
 from .sprites import SpriteCache
 from .sound import SoundEffects
@@ -64,8 +79,9 @@ _sound_effects = None
 
 def __play_sound(name):
     """Play a short optional SFX unless audio is switched off."""
-    if (_sound_effects is not None and
-            (_state is None or _state.audio_mode != AUDIO_OFF)):
+    if _sound_effects is not None and (
+        _state is None or _state.audio_mode != AUDIO_OFF
+    ):
         _sound_effects.play(name)
 
 
@@ -86,7 +102,7 @@ def __set_audio_mode(mode):
 class _Scenery:
     """Drawing geometry without a native entity or per-frame callbacks."""
 
-    __slots__ = ('name', 'position', 'size')
+    __slots__ = ("name", "position", "size")
 
     def __init__(self, name, position, size):
         self.name, self.position, self.size = name, position, size
@@ -96,22 +112,78 @@ class _State:
     """Per-match state with direct attributes, not keyed lookups."""
 
     __slots__ = (
-        'ai_best', 'ai_index', 'ai_search', 'ai_shots', 'ai_ticks',
-        'aims', 'angle', 'banana', 'banana_hit', 'banana_hit_order',
-        'banana_path', 'banana_vx', 'banana_vy', 'banana_x', 'banana_y',
-        'baseline', 'buildings', 'city_seed', 'cloud_offset',
-        'cloud_palette', 'compact', 'day_time', 'dead', 'distant_colors',
-        'environment', 'explosion_frames', 'explosion_x', 'explosion_y',
-        'facades', 'falling', 'flight_ticks', 'font_height', 'gorilla_scale',
-        'gorillas', 'height', 'hit_player', 'last_frame', 'left_player', 'menu_selection',
-        'message', 'obstacle_hosts', 'obstacle_kinds', 'obstacles',
-        'particles', 'phase', 'physics_scale', 'pixel_scale', 'players',
-        'power', 'remainder', 'renderer', 'round', 'scores', 'season', 'sky',
-        'spawn_buildings', 'starter', 'steps', 'terrain', 'terrain_columns', 'terrain_unit', 'tick', 'trail', 'turn',
-        'width', 'wind', 'audio_mode',
+        "ai_best",
+        "ai_index",
+        "ai_search",
+        "ai_shots",
+        "ai_ticks",
+        "aims",
+        "angle",
+        "banana",
+        "banana_hit",
+        "banana_hit_order",
+        "banana_path",
+        "banana_vx",
+        "banana_vy",
+        "banana_x",
+        "banana_y",
+        "baseline",
+        "buildings",
+        "city_seed",
+        "cloud_offset",
+        "cloud_palette",
+        "compact",
+        "day_time",
+        "dead",
+        "distant_colors",
+        "environment",
+        "explosion_frames",
+        "explosion_x",
+        "explosion_y",
+        "facades",
+        "falling",
+        "flight_ticks",
+        "font_height",
+        "gorilla_scale",
+        "gorillas",
+        "height",
+        "hit_player",
+        "last_frame",
+        "left_player",
+        "menu_selection",
+        "message",
+        "obstacle_hosts",
+        "obstacle_kinds",
+        "obstacles",
+        "particles",
+        "phase",
+        "physics_scale",
+        "pixel_scale",
+        "players",
+        "power",
+        "remainder",
+        "renderer",
+        "round",
+        "scores",
+        "season",
+        "sky",
+        "spawn_buildings",
+        "starter",
+        "steps",
+        "terrain",
+        "terrain_columns",
+        "terrain_unit",
+        "tick",
+        "trail",
+        "turn",
+        "width",
+        "wind",
+        "audio_mode",
     )
 
-    def __init__(self, draw, width, height, compact, font, scale, gorilla_scale, baseline):
+    def __init__(
+        self, draw, width, height, compact, font, scale, gorilla_scale, baseline
+    ):
         self.ai_best = (1e12, 50, 80)
         self.ai_index = 0
         self.ai_shots = 0
@@ -228,7 +300,7 @@ def __ai_score(angle, power):
         if x < -20 or x > width + 20 or y > baseline:
             break
         yield None
-    yield closest + width ** 2
+    yield closest + width**2
 
 
 def __ai_update():
@@ -279,10 +351,12 @@ def __banana_collision(entity, other, game):
         if victim not in _state.dead:
             position, size = other.position, other.size
             __banana_contact(victim, None, position.x, position.y, size.x, size.y)
-    elif other.type == ENTITY_TYPE_NPC and other.name == 'city':
+    elif other.type == ENTITY_TYPE_NPC and other.name == "city":
         # One terrain collider represents the city; buildings are plain data.
         for terrain in _state.terrain:
-            __banana_contact(-1, terrain, terrain[0], terrain[1], terrain[2], terrain[3])
+            __banana_contact(
+                -1, terrain, terrain[0], terrain[1], terrain[2], terrain[3]
+            )
 
 
 def __banana_contact(victim, terrain, left, top, width, height):
@@ -290,7 +364,12 @@ def __banana_contact(victim, terrain, left, top, width, height):
     right, bottom = left + width, top + height
     banana = _state.banana
     position, size = banana.position, banana.size
-    if position.x >= right or position.x + size.x <= left or position.y >= bottom or position.y + size.y <= top:
+    if (
+        position.x >= right
+        or position.x + size.x <= left
+        or position.y >= bottom
+        or position.y + size.y <= top
+    ):
         return
     for segment, (x, y, vx, vy, tick) in enumerate(_state.banana_path):
         if segment >= _state.banana_hit_order:
@@ -327,7 +406,12 @@ def __banana_finish():
     else:
         x, y = _state.banana_x, _state.banana_y
         banana.position = Vector(x, y)
-        if x < -20 or x > _state.width + 20 or y > _state.baseline + 4 or _state.flight_ticks > 240:
+        if (
+            x < -20
+            or x > _state.width + 20
+            or y > _state.baseline + 4
+            or _state.flight_ticks > 240
+        ):
             __resolve_shot(-1)
     _state.banana_path.clear()
     _state.banana_hit = None
@@ -343,7 +427,9 @@ def __banana_step(entity, game):
     _state.banana_vx += _state.wind * 0.003 * scale
     _state.banana_vy += 0.26 * scale
     vx, vy = _state.banana_vx, _state.banana_vy
-    _state.banana_path.append((_state.banana_x, _state.banana_y, vx, vy, _state.flight_ticks))
+    _state.banana_path.append(
+        (_state.banana_x, _state.banana_y, vx, vy, _state.flight_ticks)
+    )
     # Only collision refinement needs pixel-sized samples; integrate once here.
     _state.banana_x += vx
     _state.banana_y += vy
@@ -382,52 +468,80 @@ def __draw_loading_screen(draw):
     width, height = int(draw.size.x), int(draw.size.y)
     font_height = int(draw.font_size.y)
     compact = width < 180 or height < 180
-    filename, logo_width, logo_height = LOADING_LOGO_COMPACT if compact else LOADING_LOGO
+    filename, logo_width, logo_height = (
+        LOADING_LOGO_COMPACT if compact else LOADING_LOGO
+    )
     logo = bytearray(logo_width * logo_height)
-    source = open(__file__.rsplit('/', 1)[0] + '/' + filename, 'rb')
+    source = open(__file__.rsplit("/", 1)[0] + "/" + filename, "rb")
     try:
         if source.readinto(logo) != len(logo):
-            raise ValueError('Truncated Gorillas loading logo')
+            raise ValueError("Truncated Gorillas loading logo")
     finally:
         source.close()
 
     panel_width, panel_height = logo_width + 10, logo_height + 10
     panel_x = max(0, (width - panel_width) // 2)
-    panel_y = max(4, (height - panel_height - (2 if compact else 4) * font_height - 28) // 2)
+    panel_y = max(
+        4, (height - panel_height - (2 if compact else 4) * font_height - 28) // 2
+    )
     logo_x, logo_y = (width - logo_width) // 2, panel_y + 5
 
     draw.fill_screen(INK)
     draw._fill_rectangle(0, 0, width, 3, TEAL)
     draw.fill_round_rectangle(
-        Vector(panel_x, panel_y), Vector(panel_width, panel_height), 5, PANEL,
+        Vector(panel_x, panel_y),
+        Vector(panel_width, panel_height),
+        5,
+        PANEL,
     )
     draw.rect(Vector(panel_x, panel_y), Vector(panel_width, panel_height), TEAL)
     draw.image_bytearray(Vector(logo_x, logo_y), Vector(logo_width, logo_height), logo)
 
-    title = 'GORILLAS'
+    title = "GORILLAS"
     title_y = panel_y + panel_height + font_height
     draw.text(Vector(max(0, (width - draw.len(title)) // 2), title_y), title, CREAM)
     if compact:
-        status = 'LOADING CITY...'
+        status = "LOADING CITY..."
         status_y = max(title_y + font_height + 3, height - font_height - 8)
     else:
-        subtitle = 'ROOFTOP DUEL'
+        subtitle = "ROOFTOP DUEL"
         subtitle_y = title_y + font_height + 3
-        draw.text(Vector(max(0, (width - draw.len(subtitle)) // 2), subtitle_y), subtitle, GOLD)
-        status = 'LOADING CITY...'
+        draw.text(
+            Vector(max(0, (width - draw.len(subtitle)) // 2), subtitle_y),
+            subtitle,
+            GOLD,
+        )
+        status = "LOADING CITY..."
         status_y = max(subtitle_y + font_height + 7, height - 2 * font_height - 14)
-        footer = 'FIRST TO 3 WINS'
+        footer = "FIRST TO 3 WINS"
         footer_y = min(height - font_height, status_y + font_height + 2)
         if footer_y >= status_y + font_height + 2 and footer_y + font_height <= height:
-            draw.text(Vector(max(0, (width - draw.len(footer)) // 2), footer_y), footer, SLATE)
+            draw.text(
+                Vector(max(0, (width - draw.len(footer)) // 2), footer_y), footer, SLATE
+            )
     draw.text(Vector(max(0, (width - draw.len(status)) // 2), status_y), status, TEAL)
     draw._fill_rectangle(0, height - 3, width, 3, CORAL)
     draw.swap()
 
 
-def __create_entity(name, entity_type, position, size, update=None, render=None, collision=None):
+def __create_entity(
+    name, entity_type, position, size, update=None, render=None, collision=None
+):
     """Create an engine entity with Python update/render/collision callbacks."""
-    return Entity(name, entity_type, position, size, None, None, None, None, None, update, render, collision)
+    return Entity(
+        name,
+        entity_type,
+        position,
+        size,
+        None,
+        None,
+        None,
+        None,
+        None,
+        update,
+        render,
+        collision,
+    )
 
 
 def __create_scene(view_manager):
@@ -441,15 +555,26 @@ def __create_scene(view_manager):
     gorilla_scale = 1 if compact else max(1, scale * 0.75)
     baseline = height - (font + 3 if compact else max(64, font * 6 + 12))
     _state = _State(draw, width, height, compact, font, scale, gorilla_scale, baseline)
-    _game = Game("Gorillas", Vector(width, height), draw, view_manager.input_manager, WHITE, INK)
+    _game = Game("Gorillas", Vector(width, height), draw, WHITE, INK)
     _level = Level("Sunset city", Vector(width, height), _game, None, None)
     # Scenery is drawn after engine updates; avoid a duplicate clear/swap.
     _level.clear_allowed = False
     # Banana precedes solid entities: the engine visits each collision pair once.
-    banana = __create_entity("banana", ENTITY_TYPE_ICON, Vector(-32, -32), Vector(3 * scale, 3 * scale), __banana_update, collision=__banana_collision)
+    banana = __create_entity(
+        "banana",
+        ENTITY_TYPE_ICON,
+        Vector(-32, -32),
+        Vector(3 * scale, 3 * scale),
+        __banana_update,
+        collision=__banana_collision,
+    )
     _state.banana = banana
     _level.entity_add(banana)
-    _level.entity_add(__create_entity('city', ENTITY_TYPE_NPC, Vector(0, 0), Vector(width, baseline + 1)))
+    _level.entity_add(
+        __create_entity(
+            "city", ENTITY_TYPE_NPC, Vector(0, 0), Vector(width, baseline + 1)
+        )
+    )
     margin, gap = (3, 2) if compact else (8, 3)
     count = 7 if compact else 9
     building_width = (width - margin * 2 - gap * (count - 1)) // count
@@ -457,16 +582,28 @@ def __create_scene(view_manager):
         building_height = 8
         x = margin + index * (building_width + gap)
         y = baseline - building_height
-        entity = _Scenery("building_" + str(index), Vector(x, y), Vector(building_width, building_height))
+        entity = _Scenery(
+            "building_" + str(index),
+            Vector(x, y),
+            Vector(building_width, building_height),
+        )
         _state.buildings.append(entity)
     for index in range(2 if compact else 3):
         obstacle = _Scenery("obstacle_" + str(index), Vector(-32, -32), Vector(1, 1))
         _state.obstacles.append(obstacle)
-    gorilla_width, gorilla_height = (10, 11) if compact else (20 * gorilla_scale, 23 * gorilla_scale)
+    gorilla_width, gorilla_height = (
+        (10, 11) if compact else (20 * gorilla_scale, 23 * gorilla_scale)
+    )
     for index, building in enumerate((_state.buildings[0], _state.buildings[-1])):
         x = building.position.x + (building.size.x - gorilla_width) / 2
         y = building.position.y - gorilla_height - 2
-        gorilla = __create_entity("gorilla_" + str(index), ENTITY_TYPE_PLAYER, Vector(x, y), Vector(gorilla_width, gorilla_height), render=__render_scene if index == 0 else None)
+        gorilla = __create_entity(
+            "gorilla_" + str(index),
+            ENTITY_TYPE_PLAYER,
+            Vector(x, y),
+            Vector(gorilla_width, gorilla_height),
+            render=__render_scene if index == 0 else None,
+        )
         _state.gorillas.append(gorilla)
         _level.entity_add(gorilla)
     __randomize_city()
@@ -481,16 +618,33 @@ def __damage_terrain(x, y, radius):
     building_count = len(_state.buildings)
     for terrain_index, terrain in enumerate(_state.terrain):
         bx, by, bw, bh, cols, rows, cells = terrain
-        if x + outer < bx or x - outer >= bx + bw or y + outer < by or y - outer >= by + bh:
+        if (
+            x + outer < bx
+            or x - outer >= bx + bw
+            or y + outer < by
+            or y - outer >= by + bh
+        ):
             continue
-        key = ("building", terrain_index) if terrain_index < building_count else ("obstacle", terrain_index - building_count)
+        key = (
+            ("building", terrain_index)
+            if terrain_index < building_count
+            else ("obstacle", terrain_index - building_count)
+        )
         _state.renderer.invalidate(key)
-        for row in range(max(0, (y - outer - by) // unit), min(rows, (y + outer - by) // unit + 1)):
-            for col in range(max(0, (x - outer - bx) // unit), min(cols, (x + outer - bx) // unit + 1)):
+        for row in range(
+            max(0, (y - outer - by) // unit), min(rows, (y + outer - by) // unit + 1)
+        ):
+            for col in range(
+                max(0, (x - outer - bx) // unit),
+                min(cols, (x + outer - bx) // unit + 1),
+            ):
                 index = row * cols + col
                 if not cells[index]:
                     continue
-                dx, dy = bx + col * unit + unit // 2 - x, by + row * unit + unit // 2 - y
+                dx, dy = (
+                    bx + col * unit + unit // 2 - x,
+                    by + row * unit + unit // 2 - y,
+                )
                 distance = dx * dx + dy * dy
                 if distance <= radius * radius:
                     cells[index] = 0
@@ -530,7 +684,9 @@ def __draw_building(entity, draw, game):
     cached = draw.capture(x, y - 20, w, h + 20, key)
     draw.set_terrain_clip(_state.terrain[index], _state.terrain_unit)
     compact, tick = _state.compact, _state.tick
-    body, shadow, rim = (WHITE, 0, WHITE) if compact else _state.facades[(index + _state.city_seed) % 3]
+    body, shadow, rim = (
+        (WHITE, 0, WHITE) if compact else _state.facades[(index + _state.city_seed) % 3]
+    )
     draw.box(x, y, w, h, body)
     draw.box(x + w - max(2, w // 6), y, max(2, w // 6), h, shadow)
     unit = _state.terrain_unit
@@ -566,7 +722,9 @@ def __draw_building(entity, draw, game):
         draw.box(x + w // 2, y - 18, 1, 16, rim)
         draw.box(x + w // 2 - 6, y - 14, 13, 1, rim)
         draw.box(x + w // 2 - 3, y - 18, 7, 1, rim)
-    if index in (1, 5) and __intact_rectangle(_state.terrain[index], x + 2, y + 11, w - 4, _state.font_height + 6):
+    if index in (1, 5) and __intact_rectangle(
+        _state.terrain[index], x + 2, y + 11, w - 4, _state.font_height + 6
+    ):
         label = "BANANA" if index == 1 else "ARCADE"
         if draw.len(label) + 6 > w:
             label = "BN" if index == 1 else "AR"
@@ -577,9 +735,16 @@ def __draw_building(entity, draw, game):
             neon = SLATE
         draw.box(x + 2, y + 11, sign_w, 1, neon)
         draw.text(x + 4, y + 14, label, neon)
-    if index in _state.spawn_buildings and __intact_rectangle(_state.terrain[index], x + 5, y + h - 13, 12, 8):
+    if index in _state.spawn_buildings and __intact_rectangle(
+        _state.terrain[index], x + 5, y + h - 13, 12, 8
+    ):
         player = _state.spawn_buildings.index(index)
-        draw.text(x + 5, y + h - 13, "01" if player == 0 else "02", TEAL if player == 0 else CORAL)
+        draw.text(
+            x + 5,
+            y + h - 13,
+            "01" if player == 0 else "02",
+            TEAL if player == 0 else CORAL,
+        )
     __draw_decals(draw, index)
     draw.set_terrain_clip(None, 1)
     draw.end_capture(key, cached)
@@ -598,22 +763,37 @@ def __draw_building_lights(index, draw):
         return
     x, y, w, h = _state.terrain[index][:4]
     compact, tick = _state.compact, _state.tick
-    body, shadow, rim = (WHITE, 0, WHITE) if compact else _state.facades[(index + _state.city_seed) % 3]
+    body, shadow, rim = (
+        (WHITE, 0, WHITE) if compact else _state.facades[(index + _state.city_seed) % 3]
+    )
     step = 4 if compact else max(7, w // 5)
     wx, wy = x + 4 + step, y + 5 + step + 3
     draw.set_terrain_clip(_state.terrain[index], _state.terrain_unit)
     window, neon_tiles = [], []
     if wx < x + w - 5 and wy < y + h - 3:
         ww, wh = (1, 1) if compact else (max(2, step // 3), 4)
-        for state, color in enumerate((0, 0) if compact else ((rim if _state.day_time == 1 else GOLD), shadow)):
-            tile = draw.capture(wx, wy, ww, wh, ('window', index, state))
+        for state, color in enumerate(
+            (0, 0) if compact else ((rim if _state.day_time == 1 else GOLD), shadow)
+        ):
+            tile = draw.capture(wx, wy, ww, wh, ("window", index, state))
             draw.box(wx, wy, ww, wh, color)
             window.append(tile)
-    if not compact and index == 5 and __intact_rectangle(_state.terrain[index], x + 2, y + 11, w - 4, _state.font_height + 6):
+    if (
+        not compact
+        and index == 5
+        and __intact_rectangle(
+            _state.terrain[index], x + 2, y + 11, w - 4, _state.font_height + 6
+        )
+    ):
         label = "ARCADE" if draw.len("ARCADE") + 6 <= w else "AR"
         for state, color in enumerate((CORAL, SLATE)):
-            tile = draw.capture(x + 2, y + 11, min(w - 4, draw.len(label) + 4), _state.font_height + 6,
-                                ('neon', index, state))
+            tile = draw.capture(
+                x + 2,
+                y + 11,
+                min(w - 4, draw.len(label) + 4),
+                _state.font_height + 6,
+                ("neon", index, state),
+            )
             draw.box(x + 2, y + 11, min(w - 4, draw.len(label) + 4), 1, color)
             draw.text(x + 4, y + 14, label, color)
             neon_tiles.append(tile)
@@ -645,12 +825,20 @@ def __draw_decals(draw, index):
                 current[run] = active.pop(run, row)
             col = end
         for (left, right, material), top in active.items():
-            color = (0 if material == 2 else WHITE) if _state.compact else (0x18A5 if material == 2 else 0x8B4C)
+            color = (
+                (0 if material == 2 else WHITE)
+                if _state.compact
+                else (0x18A5 if material == 2 else 0x8B4C)
+            )
             # Every cell in this merged rectangle has the same solid material.
             # Avoid another terrain-clipping pass and its temporary dictionaries.
-            draw.fill_rect(x + left * unit, y + top * unit,
-                           min(w, right * unit) - left * unit,
-                           min(h, row * unit) - top * unit, color)
+            draw.fill_rect(
+                x + left * unit,
+                y + top * unit,
+                min(w, right * unit) - left * unit,
+                min(h, row * unit) - top * unit,
+                color,
+            )
             remaining -= 1
             if not remaining:
                 return
@@ -662,7 +850,7 @@ def __draw_explosion(draw):
     age = EXPLOSION_TICKS - _state.explosion_frames
     x, y, scale = _state.explosion_x, _state.explosion_y, _state.pixel_scale
     compact = _state.compact
-    if not draw.layer('explosion', (x, y, age)):
+    if not draw.layer("explosion", (x, y, age)):
         return
     draw.effect(x, y, scale, compact, age)
     for index, (vx, vy, size) in enumerate(_state.particles):
@@ -687,11 +875,32 @@ def __draw_gorilla(entity, draw, game):
         return
     throwing = active and _state.phase == PHASE_FLYING and _state.flight_ticks < 16
     celebrating = _state.phase == PHASE_GAME_OVER and not dead
-    revision = (x, y, dead, falling, _state.left_player, throwing or celebrating,
-                (tick, _state.explosion_frames) if dead else None)
-    if draw.layer(('gorilla', index), revision):
-        art = GORILLA_ART[2 if compact else (3 if dead and not falling else (1 if throwing or celebrating else 0))]
-        palette = {"o": INK, "f": 0x49CA if index == 0 else 0x71E9, "h": 0x8B51 if index == 0 else 0xBBAE, "m": 0xE534, "s": 0x3928}
+    revision = (
+        x,
+        y,
+        dead,
+        falling,
+        _state.left_player,
+        throwing or celebrating,
+        (tick, _state.explosion_frames) if dead else None,
+    )
+    if draw.layer(("gorilla", index), revision):
+        art = GORILLA_ART[
+            (
+                2
+                if compact
+                else (
+                    3 if dead and not falling else (1 if throwing or celebrating else 0)
+                )
+            )
+        ]
+        palette = {
+            "o": INK,
+            "f": 0x49CA if index == 0 else 0x71E9,
+            "h": 0x8B51 if index == 0 else 0xBBAE,
+            "m": 0xE534,
+            "s": 0x3928,
+        }
         if compact:
             palette = {"o": 0, "f": WHITE, "h": WHITE, "m": WHITE, "s": 0}
         dissolve = 0
@@ -706,8 +915,15 @@ def __draw_gorilla(entity, draw, game):
                     art = GORILLA_FALLEN_ART[1 if compact else 0]
                     w, h = (11, 10) if compact else (23, 20)
                     x = max(0, min(_state.width - int(w * scale), x))
-                    __art(draw, art, x, _state.baseline - int(h * scale), scale,
-                          palette, w if __direction(index) == 1 else 0)
+                    __art(
+                        draw,
+                        art,
+                        x,
+                        _state.baseline - int(h * scale),
+                        scale,
+                        palette,
+                        w if __direction(index) == 1 else 0,
+                    )
                 draw.end_layer()
                 return
         elif dead:
@@ -719,7 +935,16 @@ def __draw_gorilla(entity, draw, game):
                 palette = {"o": WHITE, "f": WHITE, "h": WHITE, "m": WHITE, "s": 0}
             elif not compact:
                 palette = {"o": INK, "f": 0x296A, "h": SLATE, "m": 0xACD4, "s": INK}
-        __art(draw, art, x, y, scale, palette, (10 if compact else 20) if __direction(index) == 1 else 0, dissolve)
+        __art(
+            draw,
+            art,
+            x,
+            y,
+            scale,
+            palette,
+            (10 if compact else 20) if __direction(index) == 1 else 0,
+            dissolve,
+        )
         if falling:
             draw.end_layer()
             return
@@ -733,7 +958,7 @@ def __draw_gorilla(entity, draw, game):
             return
         draw.end_layer()
     if active and _state.phase == PHASE_AIMING:
-        if not draw.layer(('aim_marker', index), (x, y, tick // 15 % 2, _state.angle)):
+        if not draw.layer(("aim_marker", index), (x, y, tick // 15 % 2, _state.angle)):
             return
         marker_y = y - (5 if compact else 10) - (tick // 15 % 2)
         color = WHITE if compact else (TEAL if index == 0 else CORAL)
@@ -746,7 +971,13 @@ def __draw_gorilla(entity, draw, game):
         direction = __direction(index)
         for dot in range(1, 5):
             distance = dot * (4 if compact else 7)
-            draw.box(sx + cosine * distance * direction, sy - sine * distance, 1 if compact else 2, 1 if compact else 2, color)
+            draw.box(
+                sx + cosine * distance * direction,
+                sy - sine * distance,
+                1 if compact else 2,
+                1 if compact else 2,
+                color,
+            )
         draw.end_layer()
 
 
@@ -758,28 +989,65 @@ def __draw_hud(entity, draw, game):
     scale, font = _state.pixel_scale, _state.font_height
     accent = WHITE if compact else (TEAL if _state.turn == 0 else CORAL)
     if phase == PHASE_MENU:
-        if draw.layer('menu', (_state.menu_selection, _state.environment, _state.audio_mode)):
+        if draw.layer(
+            "menu", (_state.menu_selection, _state.environment, _state.audio_mode)
+        ):
             __draw_menu(draw)
             draw.end_layer()
         draw.present()
         return
     if phase == PHASE_FLYING:
-        if draw.layer('trail', tuple(_state.trail)):
+        if draw.layer("trail", tuple(_state.trail)):
             for index, (x, y) in enumerate(_state.trail):
-                draw.box(x, y, 1 if compact else 2, 1 if compact else 2, WHITE if compact else (GOLD if index > 4 else SLATE))
+                draw.box(
+                    x,
+                    y,
+                    1 if compact else 2,
+                    1 if compact else 2,
+                    WHITE if compact else (GOLD if index > 4 else SLATE),
+                )
             draw.end_layer()
         # Dirty-region bounds also become integer sprite-buffer slice offsets.
         bx, by = int(_state.banana_x - 2 * scale), int(_state.banana_y - 2 * scale)
-        draw.watch('banana', _state.flight_ticks // 3 % 4, (bx, by, bx + 8 * scale, by + 8 * scale))
-        __art(draw, BANANA_FRAMES[(_state.flight_ticks // 3) % 4], _state.banana_x - 2 * scale, _state.banana_y - 2 * scale, scale, {"s": WHITE if compact else 0xA365, "y": WHITE if compact else GOLD, "h": WHITE if compact else CREAM})
+        draw.watch(
+            "banana",
+            _state.flight_ticks // 3 % 4,
+            (bx, by, bx + 8 * scale, by + 8 * scale),
+        )
+        __art(
+            draw,
+            BANANA_FRAMES[(_state.flight_ticks // 3) % 4],
+            _state.banana_x - 2 * scale,
+            _state.banana_y - 2 * scale,
+            scale,
+            {
+                "s": WHITE if compact else 0xA365,
+                "y": WHITE if compact else GOLD,
+                "h": WHITE if compact else CREAM,
+            },
+        )
     elif phase == PHASE_EXPLODING:
         __draw_explosion(draw)
     if compact:
-        revision = (phase, _state.turn, _state.players, _state.angle, _state.power, _state.wind, tuple(_state.scores))
-        if draw.layer('hud', revision):
+        revision = (
+            phase,
+            _state.turn,
+            _state.players,
+            _state.angle,
+            _state.power,
+            _state.wind,
+            tuple(_state.scores),
+        )
+        if draw.layer("hud", revision):
             draw.box(0, 0, width, font + 3, 0)
-            side = "CPU" if _state.players == 1 and _state.turn == 1 else "P{}".format(_state.turn + 1)
-            status = "{} A{} P{} W{:+d}".format(side, _state.angle, _state.power, _state.wind)
+            side = (
+                "CPU"
+                if _state.players == 1 and _state.turn == 1
+                else "P{}".format(_state.turn + 1)
+            )
+            status = "{} A{} P{} W{:+d}".format(
+                side, _state.angle, _state.power, _state.wind
+            )
             __center_text(draw, status, 1, WHITE)
             draw.box(0, height - font - 2, width, font + 2, 0)
             __center_text(draw, __score_text(), height - font - 1, WHITE)
@@ -787,12 +1055,21 @@ def __draw_hud(entity, draw, game):
     else:
         __draw_hud_static(draw)
         __draw_hud_fields(draw)
-    if phase == PHASE_GAME_OVER and draw.layer('result', (_state.message, accent, tuple(_state.scores)), (__game_over_box(),)):
+    if phase == PHASE_GAME_OVER and draw.layer(
+        "result", (_state.message, accent, tuple(_state.scores)), (__game_over_box(),)
+    ):
         left, banner_y, right, bottom = __game_over_box()
         draw.box(left, banner_y, right - left, bottom - banner_y, 0 if compact else INK)
         __center_text(draw, _state.message, banner_y + 3, accent)
-        __center_text(draw, __score_text(), banner_y + font + 7, WHITE if compact else CREAM)
-        __center_text(draw, __result_prompt(), banner_y + font * 2 + 11, WHITE if compact else CREAM)
+        __center_text(
+            draw, __score_text(), banner_y + font + 7, WHITE if compact else CREAM
+        )
+        __center_text(
+            draw,
+            __result_prompt(),
+            banner_y + font * 2 + 11,
+            WHITE if compact else CREAM,
+        )
         draw.end_layer()
     draw.present()
 
@@ -805,7 +1082,7 @@ def __draw_hud_fields(draw):
     panel_y = _state.baseline + 3
     label_y, value_y = panel_y + 7, panel_y + font + 10
     cpu = __is_cpu_turn()
-    if draw.layer('hud_panel', 0):
+    if draw.layer("hud_panel", 0):
         draw.box(0, panel_y, width, height - panel_y, INK)
         draw.box(8, panel_y, width - 16, 1, SLATE)
         draw.text(12, label_y, "ANGLE", SLATE)
@@ -813,25 +1090,40 @@ def __draw_hud_fields(draw):
         draw.text(width * 2 // 3 + 4, label_y, "WIND", SLATE)
         draw.end_layer()
     turn_label = "THINK" if cpu else ("AIM" if phase == PHASE_AIMING else "FIRE")
-    if draw.layer('hud_turn', (turn, turn_label, _state.left_player)):
-        label_x = 10 if turn == _state.left_player else width - draw.len(turn_label) - 10
+    if draw.layer("hud_turn", (turn, turn_label, _state.left_player)):
+        label_x = (
+            10 if turn == _state.left_player else width - draw.len(turn_label) - 10
+        )
         draw.text(label_x, 23, turn_label, accent)
         draw.end_layer()
-    if draw.layer('hud_angle', _state.angle):
+    if draw.layer("hud_angle", _state.angle):
         draw.text(12, value_y, "{} DEG".format(_state.angle), CREAM)
         draw.end_layer()
-    if draw.layer('hud_power', (_state.power, turn)):
+    if draw.layer("hud_power", (_state.power, turn)):
         draw.text(width // 3 + 5, value_y, str(_state.power), CREAM)
         bar_x, bar_w = width // 3 + 5, width // 3 - 18
         draw.box(bar_x, value_y + font + 3, bar_w, 3, PANEL)
         draw.box(bar_x, value_y + font + 3, bar_w * _state.power // 100, 3, accent)
         draw.end_layer()
     wind = _state.wind
-    if draw.layer('hud_wind', wind):
-        draw.text(width * 2 // 3 + 4, value_y, "CALM" if wind == 0 else "{} {}".format("<" if wind < 0 else ">", abs(wind)), TEAL)
+    if draw.layer("hud_wind", wind):
+        draw.text(
+            width * 2 // 3 + 4,
+            value_y,
+            (
+                "CALM"
+                if wind == 0
+                else "{} {}".format("<" if wind < 0 else ">", abs(wind))
+            ),
+            TEAL,
+        )
         draw.end_layer()
-    if draw.layer('hud_footer', cpu):
-        footer = "CPU IS AIMING...   BACK: MENU" if cpu else "U/D AIM   L/R POWER   OK FIRE   BACK MENU"
+    if draw.layer("hud_footer", cpu):
+        footer = (
+            "CPU IS AIMING...   BACK: MENU"
+            if cpu
+            else "U/D AIM   L/R POWER   OK FIRE   BACK MENU"
+        )
         __center_text(draw, footer, height - font - 4, SLATE)
         draw.end_layer()
 
@@ -841,17 +1133,25 @@ def __draw_hud_static(draw):
     width = _state.width
     title_scale = 2 if width >= 250 else 1
     title_x = (width - 47 * title_scale) // 2
-    if draw.layer('hud_static', (_state.environment, _state.players, tuple(_state.scores), _state.left_player)):
+    if draw.layer(
+        "hud_static",
+        (_state.environment, _state.players, tuple(_state.scores), _state.left_player),
+    ):
         draw.box(0, 0, width, 39, INK)
-        __art(draw, TITLE_ART, title_x + 1, 8, title_scale, {'#': 0x91E9})
+        __art(draw, TITLE_ART, title_x + 1, 8, title_scale, {"#": 0x91E9})
         __center_text(draw, _state.environment, 27, SLATE)
         for player in (0, 1):
-            label = '{} {}/3'.format('P1' if player == 0 else ('CPU' if _state.players == 1 else 'P2'), _state.scores[player])
-            label_x = 10 if player == _state.left_player else width - draw.len(label) - 10
+            label = "{} {}/3".format(
+                "P1" if player == 0 else ("CPU" if _state.players == 1 else "P2"),
+                _state.scores[player],
+            )
+            label_x = (
+                10 if player == _state.left_player else width - draw.len(label) - 10
+            )
             draw.text(label_x, 9, label, TEAL if player == 0 else CORAL)
         draw.end_layer()
-    if draw.layer('hud_title', width):
-        __art(draw, TITLE_ART, title_x, 7, title_scale, {'#': CREAM})
+    if draw.layer("hud_title", width):
+        __art(draw, TITLE_ART, title_x, 7, title_scale, {"#": CREAM})
         draw.end_layer()
 
 
@@ -871,11 +1171,15 @@ def __draw_menu(draw):
                 draw.box(5, y - 2, width - 10, font + 4, WHITE)
             __center_text(draw, label, y, 0 if index == selected else WHITE)
         if height >= 80:
-            hint = "L/R OR OK AUDIO" if selected == MENU_AUDIO else "U/D SELECT  OK PLAY"
+            hint = (
+                "L/R OR OK AUDIO" if selected == MENU_AUDIO else "U/D SELECT  OK PLAY"
+            )
             __center_text(draw, hint, height - font - 1, WHITE)
         return
     title_scale = 3 if width >= 250 else 2
-    __art(draw, TITLE_ART, (width - 47 * title_scale) // 2, 48, title_scale, {"#": CREAM})
+    __art(
+        draw, TITLE_ART, (width - 47 * title_scale) // 2, 48, title_scale, {"#": CREAM}
+    )
     __center_text(draw, _state.environment, 48 + 7 * title_scale + 10, CREAM)
     panel_w = min(width - 28, 270)
     panel_h = max(122, font * 8 + 16)
@@ -887,7 +1191,9 @@ def __draw_menu(draw):
     draw.box(left, top, panel_w, 2, TEAL)
     __center_text(draw, "FIRST TO 3 WINS", top + 8, SLATE)
     row_height = max(25, font + 10)
-    for index, label in enumerate(("1 PLAYER", "2 PLAYERS", AUDIO_LABELS[_state.audio_mode], "EXIT")):
+    for index, label in enumerate(
+        ("1 PLAYER", "2 PLAYERS", AUDIO_LABELS[_state.audio_mode], "EXIT")
+    ):
         y = top + 31 + index * row_height
         if index == selected:
             draw.box(left + 10, y - 4, panel_w - 20, font + 8, TEAL)
@@ -936,7 +1242,13 @@ def __draw_obstacle(entity, draw, game):
     elif kind == 1:
         # Hazard stripes mark an actual wall the banana must clear or break.
         for stripe in range(1, w - 2, 4 * unit):
-            draw.box(x + stripe, y + 2 * unit, 2 * unit, max(1, h - 4 * unit), 0 if compact else GOLD)
+            draw.box(
+                x + stripe,
+                y + 2 * unit,
+                2 * unit,
+                max(1, h - 4 * unit),
+                0 if compact else GOLD,
+            )
     else:
         for row in range(3 * unit, h, 4 * unit):
             draw.box(x, y + row, w, unit, 0 if compact else INK)
@@ -955,7 +1267,11 @@ def __draw_obstacle_smoke(index, draw):
             age = (_state.tick + puff * 24) % 72
             sx = x + w // 2 + sin(age / 14) * 3 + age * _state.wind / 50
             cx, cy, radius = int(sx), int(y - 3 - age / 4), 2 + age // 22
-            draw.watch(('smoke', index, puff), radius, (cx - radius, cy - radius, cx + radius + 1, cy + radius + 1))
+            draw.watch(
+                ("smoke", index, puff),
+                radius,
+                (cx - radius, cy - radius, cx + radius + 1, cy + radius + 1),
+            )
             draw.circle(cx, cy, radius, SLATE)
 
 
@@ -969,8 +1285,13 @@ def __draw_sky(entity, draw, game):
     if _state.compact:
         for cloud in range(2):
             # Cache by the final pixel coordinate, including negative positions.
-            x = int((cloud * 79 + _state.cloud_offset * (0.8 + cloud * 0.25)) % (width + 28) - 24)
-            if draw.layer(('cloud', cloud), 0, background=True, position=(x, 12 + cloud * 8)):
+            x = int(
+                (cloud * 79 + _state.cloud_offset * (0.8 + cloud * 0.25)) % (width + 28)
+                - 24
+            )
+            if draw.layer(
+                ("cloud", cloud), 0, background=True, position=(x, 12 + cloud * 8)
+            ):
                 __art(draw, CLOUD_ART, x, 12 + cloud * 8, 1, {"h": WHITE, "s": 0})
                 draw.end_layer()
         return
@@ -979,7 +1300,7 @@ def __draw_sky(entity, draw, game):
     key = ("sky", _state.day_time)
     cached = draw.terrain.get(key)
     if cached is None:
-        cached = draw.capture(0, sky_top, width, band_h * len(SKY), 'sky_surface')
+        cached = draw.capture(0, sky_top, width, band_h * len(SKY), "sky_surface")
         for index, color in enumerate(_state.sky):
             draw.box(0, sky_top + index * band_h, width, band_h, color)
         draw.end_capture(key, cached)
@@ -987,25 +1308,45 @@ def __draw_sky(entity, draw, game):
         draw.blit(cached)
     night = _state.day_time == 3
     star_count = 35 if night else (0 if _state.day_time == 1 else 12)
-    if star_count and draw.layer('stars', (_state.day_time, tick // 20 % 7), background=True):
+    if star_count and draw.layer(
+        "stars", (_state.day_time, tick // 20 % 7), background=True
+    ):
         for star in range(star_count):
             x = (star * 71 + 23) % width
-            y = sky_top + 8 + (star * 31) % max(12, (baseline - sky_top) // (2 if night else 3))
+            y = (
+                sky_top
+                + 8
+                + (star * 31) % max(12, (baseline - sky_top) // (2 if night else 3))
+            )
             color = CREAM if (tick // 20 + star) % 7 == 0 else SLATE
             draw.box(x, y, 1, 1, color)
         draw.end_layer()
     sun_x, sun_y = int(width * 0.72), int(sky_top + (baseline - sky_top) * 0.30)
     radius = max(12, width // 18)
-    surprised = _state.phase == PHASE_FLYING and abs(_state.banana_x - sun_x) < radius * 2 and abs(_state.banana_y - sun_y) < radius * 2
+    surprised = (
+        _state.phase == PHASE_FLYING
+        and abs(_state.banana_x - sun_x) < radius * 2
+        and abs(_state.banana_y - sun_y) < radius * 2
+    )
     key = ("sun", night, surprised)
     cached = draw.terrain.get(key)
     if cached is None:
-        cached = draw.capture(sun_x - radius, sun_y - radius, radius * 2 + 1, radius * 2 + 1, 'sun_surface')
+        cached = draw.capture(
+            sun_x - radius,
+            sun_y - radius,
+            radius * 2 + 1,
+            radius * 2 + 1,
+            "sun_surface",
+        )
         draw.fill_circle(sun_x, sun_y, radius, 0xCE9D if night else GOLD)
         draw.fill_circle(sun_x, sun_y - 2, radius - 2, 0xEF7F if night else CREAM)
         if night:
-            draw.fill_circle(sun_x - radius // 3, sun_y - 4, max(2, radius // 4), 0xADB9)
-            draw.fill_circle(sun_x + radius // 3, sun_y + 5, max(1, radius // 6), 0xADB9)
+            draw.fill_circle(
+                sun_x - radius // 3, sun_y - 4, max(2, radius // 4), 0xADB9
+            )
+            draw.fill_circle(
+                sun_x + radius // 3, sun_y + 5, max(1, radius // 6), 0xADB9
+            )
         else:
             draw.box(sun_x - 6, sun_y - 3, 2, 3, INK)
             draw.box(sun_x + 4, sun_y - 3, 2, 3, INK)
@@ -1024,18 +1365,23 @@ def __draw_sky(entity, draw, game):
         # Match art() pixel rounding so subpixel drift reuses the cached layer.
         x = int((cloud * width // 3 + drift) % (width + 60) - 50)
         y = sky_top + 10 + (cloud * 23) % max(20, (baseline - sky_top) // 2)
-        if draw.layer(('cloud', cloud), _state.day_time, background=True, position=(x, y)):
+        if draw.layer(
+            ("cloud", cloud), _state.day_time, background=True, position=(x, y)
+        ):
             __art(draw, CLOUD_ART, x, y, cloud_scale, _state.cloud_palette)
             draw.end_layer()
     key = ("distant", _state.day_time)
     cached = draw.terrain.get(key)
     if cached is None:
-        cached = draw.capture(0, sky_top, width, baseline - sky_top, 'distant_surface')
+        cached = draw.capture(0, sky_top, width, baseline - sky_top, "distant_surface")
         for layer in range(2):
             step = max(12, width // (18 if layer == 0 else 14))
             color = _state.distant_colors[layer]
             for index in range(width // step + 1):
-                h = 15 + ((index * 37 + layer * 23 + _state.city_seed) % max(20, (baseline - sky_top) // 3))
+                h = 15 + (
+                    (index * 37 + layer * 23 + _state.city_seed)
+                    % max(20, (baseline - sky_top) // 3)
+                )
                 draw.box(index * step, baseline - h, step - 2, h, color)
                 if index % 4 == 1:
                     draw.box(index * step + step // 2, baseline - h - 7, 1, 7, color)
@@ -1048,9 +1394,17 @@ def __draw_sky(entity, draw, game):
         for fleck in range(count):
             drift = _state.cloud_offset * 2 + sin(tick / 25 + fleck) * 5
             x = int((fleck * 71 + _state.city_seed + drift) % width)
-            y = sky_top + int((fleck * 37 + tick * (0.45 if season == 3 else 0.65)) % (baseline - sky_top))
+            y = sky_top + int(
+                (fleck * 37 + tick * (0.45 if season == 3 else 0.65))
+                % (baseline - sky_top)
+            )
             color = WHITE if season == 3 else (0xFDB0 if season == 2 else 0xFCDD)
-            draw.watch(('fleck', fleck), color, (x, y, x + (2 if season == 2 else 1), y + 2), True)
+            draw.watch(
+                ("fleck", fleck),
+                color,
+                (x, y, x + (2 if season == 2 else 1), y + 2),
+                True,
+            )
             draw.box(x, y, 2 if season == 2 else 1, 2, color)
 
 
@@ -1063,7 +1417,11 @@ def __finish_turn():
             winner = 1 - _state.dead[0]
             _state.scores[winner] += 1
             if _state.scores[winner] >= MATCH_WINS:
-                _state.message = "CPU wins" if _state.players == 1 and winner == 1 else "Player {} wins".format(winner + 1)
+                _state.message = (
+                    "CPU wins"
+                    if _state.players == 1 and winner == 1
+                    else "Player {} wins".format(winner + 1)
+                )
                 _state.phase = PHASE_GAME_OVER
                 __play_sound("lose" if _state.players == 1 and winner == 1 else "win")
                 return
@@ -1088,7 +1446,15 @@ def __game_over_box():
     width, height, font = _state.width, _state.height, _state.font_height
     compact = _state.compact
     padding = 3 if compact else 6
-    panel_width = min(width - 6, max(draw.len(_state.message), draw.len(__score_text()), draw.len(__result_prompt())) + padding * 2)
+    panel_width = min(
+        width - 6,
+        max(
+            draw.len(_state.message),
+            draw.len(__score_text()),
+            draw.len(__result_prompt()),
+        )
+        + padding * 2,
+    )
     left = (width - panel_width) // 2
     panel_height = font * 3 + 17
     top = (height - panel_height) // 2
@@ -1113,14 +1479,21 @@ def __is_cpu_turn():
 def __launch_position():
     """Start the projectile completely above the shooter's collision box."""
     gorilla = _state.gorillas[_state.turn]
-    return gorilla.position.x + gorilla.size.x / 2, gorilla.position.y - 5 * _state.pixel_scale
+    return (
+        gorilla.position.x + gorilla.size.x / 2,
+        gorilla.position.y - 5 * _state.pixel_scale,
+    )
 
 
 @micropython.native
 def __mix_color(first, second, amount):
     """Blend RGB565 palette entries once when the match starts."""
-    red = (((first >> 11) & 31) * (256 - amount) + ((second >> 11) & 31) * amount) // 256
-    green = (((first >> 5) & 63) * (256 - amount) + ((second >> 5) & 63) * amount) // 256
+    red = (
+        ((first >> 11) & 31) * (256 - amount) + ((second >> 11) & 31) * amount
+    ) // 256
+    green = (
+        ((first >> 5) & 63) * (256 - amount) + ((second >> 5) & 63) * amount
+    ) // 256
     blue = ((first & 31) * (256 - amount) + (second & 31) * amount) // 256
     return (red << 11) | (green << 5) | blue
 
@@ -1199,8 +1572,11 @@ def __randomize_city():
         gorilla.position = Vector(x, y)
     # The buckets keep references to live cells, so blast holes need no rebuild.
     _state.terrain_columns = tuple(
-        tuple(terrain for terrain in _state.terrain
-              if terrain[0] < column + 16 and terrain[0] + terrain[2] > column)
+        tuple(
+            terrain
+            for terrain in _state.terrain
+            if terrain[0] < column + 16 and terrain[0] + terrain[2] > column
+        )
         for column in range(0, width, 16)
     )
     _state.renderer.prepare_effect(_state.pixel_scale, compact)
@@ -1227,7 +1603,12 @@ def __reset_round(new_match=False):
         _state.starter = 1 - _state.starter
     _state.message = ""
     _state.angle, _state.power = 52, 50
-    _state.phase, _state.turn, _state.round, _state.wind = PHASE_AIMING, _state.starter, 1, 0
+    _state.phase, _state.turn, _state.round, _state.wind = (
+        PHASE_AIMING,
+        _state.starter,
+        1,
+        0,
+    )
     _state.hit_player = -1
     _state.dead.clear()
     _state.falling.clear()
@@ -1264,7 +1645,10 @@ def __resolve_shot(victim):
         pos, size = gorilla.position, gorilla.size
         nearest_x = max(pos.x, min(x, pos.x + size.x))
         nearest_y = max(pos.y, min(y, pos.y + size.y))
-        if index == victim or (nearest_x - x) ** 2 + (nearest_y - y) ** 2 <= radius * radius:
+        if (
+            index == victim
+            or (nearest_x - x) ** 2 + (nearest_y - y) ** 2 <= radius * radius
+        ):
             _state.dead.append(index)
     if _state.dead:
         __play_sound("hit")
@@ -1272,7 +1656,13 @@ def __resolve_shot(victim):
     for index in range(10 if _state.compact else 22):
         angle = index * 2.399 + _state.tick / 10
         speed = (0.4 + index % 5 * 0.17) * scale
-        _state.particles.append((cos(angle) * speed, sin(angle) * speed - scale * 0.5, (1 + index % 3) * scale))
+        _state.particles.append(
+            (
+                cos(angle) * speed,
+                sin(angle) * speed - scale * 0.5,
+                (1 + index % 3) * scale,
+            )
+        )
     __settle_gorillas()
 
 
@@ -1291,15 +1681,37 @@ def __set_environment(day_time, season):
     """Prepare a time-of-day sky and seasonal materials for this match."""
     _state.day_time, _state.season = day_time, season
     _state.environment = SEASONS[season] + " / " + DAY_TIMES[day_time]
-    top, bottom = ((0x52D2, 0xFE35), (0x3498, 0xC73F), (SKY[0], SKY[-1]), (0x0843, 0x212C))[day_time]
+    top, bottom = (
+        (0x52D2, 0xFE35),
+        (0x3498, 0xC73F),
+        (SKY[0], SKY[-1]),
+        (0x0843, 0x212C),
+    )[day_time]
     tint = (0xABF4, 0xFDD0, 0xEB48, 0xB65E)[season]
-    colors = SKY if day_time == 2 else tuple(__mix_color(top, bottom, index * 256 // 9) for index in range(10))
-    _state.sky = tuple(__mix_color(color, tint, 12 if day_time == 3 else 28) for color in colors)
+    colors = (
+        SKY
+        if day_time == 2
+        else tuple(__mix_color(top, bottom, index * 256 // 9) for index in range(10))
+    )
+    _state.sky = tuple(
+        __mix_color(color, tint, 12 if day_time == 3 else 28) for color in colors
+    )
     facade_tint = (0x3B0D, 0x734D, 0xAB49, 0x8495)[season]
-    _state.facades = tuple(tuple(__mix_color(color, facade_tint, 60) for color in facade) for facade in FACADES)
-    cloud_light, cloud_shadow = ((0xDEDC, 0xA475), (WHITE, 0xAE1B), (0xAD15, 0x83B2), (0x4A70, 0x294A))[day_time]
+    _state.facades = tuple(
+        tuple(__mix_color(color, facade_tint, 60) for color in facade)
+        for facade in FACADES
+    )
+    cloud_light, cloud_shadow = (
+        (0xDEDC, 0xA475),
+        (WHITE, 0xAE1B),
+        (0xAD15, 0x83B2),
+        (0x4A70, 0x294A),
+    )[day_time]
     _state.cloud_palette = {"h": cloud_light, "s": cloud_shadow}
-    _state.distant_colors = (__mix_color(_state.sky[7], INK, 100), __mix_color(_state.sky[7], INK, 175))
+    _state.distant_colors = (
+        __mix_color(_state.sky[7], INK, 100),
+        __mix_color(_state.sky[7], INK, 175),
+    )
 
 
 def __settle_gorillas():
@@ -1349,8 +1761,6 @@ def __throw():
     __play_sound("throw")
 
 
-
-
 def __ui_boxes():
     """Opaque UI areas also define the HUD's explicit repaint regions."""
     width, height, font = _state.width, _state.height, _state.font_height
@@ -1363,8 +1773,10 @@ def __ui_boxes():
         if top + panel_h > height:
             top = height - panel_h
         return ((left, top, left + panel_w, top + panel_h),)
-    boxes = ((0, 0, width, font + 3 if compact else 39),
-             (0, height - font - 2 if compact else _state.baseline + 3, width, height))
+    boxes = (
+        (0, 0, width, font + 3 if compact else 39),
+        (0, height - font - 2 if compact else _state.baseline + 3, width, height),
+    )
     if phase == PHASE_GAME_OVER:
         boxes += (__game_over_box(),)
     return boxes

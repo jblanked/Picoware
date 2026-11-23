@@ -730,14 +730,14 @@ VIEW_DISPATCH = {
     MODE_ERR_DATE: draw_modals
 }
 
-def process_input(button, input_mgr, view_manager, t, c_sec):
+def process_input(button, view_manager, t, c_sec):
     global show_help, show_options, help_scroll, current_mode, dirty_ui, options_cursor_idx, settings
     if show_help:
         if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_H):
             show_help = False; help_scroll = 0; dirty_ui = True
         elif button == BUTTON_DOWN: help_scroll += 1; dirty_ui = True
         elif button == BUTTON_UP: help_scroll = max(0, help_scroll - 1); dirty_ui = True
-        input_mgr.reset(); return
+        return
     elif show_options:
         if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
             show_options = False; dirty_ui = True; queue_save()
@@ -761,11 +761,11 @@ def process_input(button, input_mgr, view_manager, t, c_sec):
             elif options_cursor_idx == 5: settings["snooze_min"] = settings["snooze_min"] - 1 if settings["snooze_min"] > 1 else 60
             elif options_cursor_idx == 6: settings["show_diagnostics"] = not settings.get("show_diagnostics", False)
             dirty_ui = True; queue_save()
-        input_mgr.reset(); return
+        return
 
     handler = INPUT_DISPATCH.get(current_mode)
     if handler: handler(button, input_mgr, view_manager, t, c_sec)
-    input_mgr.reset()
+    # input_mgr.reset()
 
 def draw_view(view_manager):
     global help_scroll, current_mode, show_options, show_help, options_cursor_idx, settings, dirty_ui
@@ -864,13 +864,13 @@ def start(view_manager):
 def run(view_manager):
     global settings, dirty_ui, dirty_save, save_timer, sys_time
     
-    draw = view_manager.draw; input_mgr = view_manager.input_manager; button = input_mgr.button
+    draw = view_manager.draw; button = view_manager.button
     t = time.localtime(); c_sec = time.time()
     
     check_time_and_alarms(t, c_sec)
     
     if button == -1 and not dirty_ui and not dirty_save: return
-    if button != -1: process_input(button, input_mgr, view_manager, t, c_sec)
+    if button != -1: process_input(button, view_manager, t, c_sec)
     
     if settings is None: return
     

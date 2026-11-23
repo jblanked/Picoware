@@ -586,21 +586,19 @@ def run(view_manager):
     draw = view_manager.draw
     fg = view_manager.foreground_color
     bg = view_manager.background_color
-    inp = view_manager.input_manager
+    button = view_manager.button
 
-    if inp.button == BUTTON_BACK or not _cctv:
-        inp.reset()
+    if button == BUTTON_BACK or not _cctv:
         view_manager.back()
         return
 
-    if inp.button in (BUTTON_UP, BUTTON_LEFT):
-        inp.reset()
+    if button in (BUTTON_UP, BUTTON_LEFT):
+
         _tv_index = (_tv_index - 1) % len(tv_list)
         _cctv.close()
         _streaming = False
         draw.erase()
-    elif inp.button in (BUTTON_DOWN, BUTTON_RIGHT):
-        inp.reset()
+    elif button in (BUTTON_DOWN, BUTTON_RIGHT):
         _tv_index = (_tv_index + 1) % len(tv_list)
         _cctv.close()
         _streaming = False

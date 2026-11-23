@@ -47,11 +47,9 @@ def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
 
 

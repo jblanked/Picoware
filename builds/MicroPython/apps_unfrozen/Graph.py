@@ -287,12 +287,11 @@ def run(view_manager) -> None:
     )
     from picoware.system.colors import TFT_BLACK, TFT_WHITE
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
+        return
 
     fb = view_manager.draw
 

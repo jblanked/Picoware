@@ -267,12 +267,10 @@ def run(view_manager) -> None:
     """Run the app"""
     global _speed, _adder
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
     draw = view_manager.draw
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
         return
 

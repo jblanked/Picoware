@@ -165,9 +165,7 @@ def start(view_manager) -> bool:
     focal = max(int(256 * scale), 80)
     LINES = _make_lines(cube_size)
 
-    Xoff = (
-        draw.size.x // 2
-    )  # Center of 3D space on screen
+    Xoff = draw.size.x // 2  # Center of 3D space on screen
     Yoff = draw.size.y // 2
     Zoff = int(550 * scale)  # Z offset (closer = bigger)
 
@@ -183,12 +181,10 @@ def run(view_manager) -> None:
 
     global Xan, Yan, Zoff, inc, scale
 
-    input_manager = view_manager.input_manager
-    input_button = input_manager.button
+    button = view_manager.button
     draw = view_manager.draw
-    if input_button in (BUTTON_LEFT, BUTTON_BACK):
+    if button in (BUTTON_LEFT, BUTTON_BACK):
         view_manager.back()
-        input_manager.reset()
         return
 
     # Rotate 1 degree per frame

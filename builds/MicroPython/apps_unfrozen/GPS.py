@@ -105,18 +105,15 @@ def run(view_manager) -> None:
     global _gps_alert, _gps_http
     global _gps_request_sent, _gps_request_in_progress, _gps_displaying_result
 
-    input_manager = view_manager.input_manager
-    button = input_manager.button
+    button = view_manager.button
     draw = view_manager.draw
 
     if button in (BUTTON_LEFT, BUTTON_BACK):
-        input_manager.reset()
         __reset_gps_state()
         view_manager.back()
         return
 
     if button in (BUTTON_RIGHT, BUTTON_CENTER):
-        input_manager.reset()
         __reset_gps_state()
 
         draw.clear(Vector(0, 0), draw.size, view_manager.background_color)

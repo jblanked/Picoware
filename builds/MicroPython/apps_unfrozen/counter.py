@@ -50,22 +50,17 @@ def run(view_manager) -> None:
     if not _counter_textbox:
         return
 
-    input_manager = view_manager.input_manager
-    button = input_manager.button
+    button = view_manager.button
 
     if button in (BUTTON_BACK, BUTTON_LEFT):
-        input_manager.reset()
         view_manager.back()
     elif button == BUTTON_UP:
-        input_manager.reset()
         _counter_value += 1
         _update_display()
     elif button == BUTTON_DOWN:
-        input_manager.reset()
         _counter_value -= 1
         _update_display()
     elif button == BUTTON_CENTER:
-        input_manager.reset()
         _counter_value = 0
         _update_display()
 

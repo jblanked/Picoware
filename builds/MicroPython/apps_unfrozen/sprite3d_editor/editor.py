@@ -245,10 +245,9 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
             raise
         finally:worker.close()
 
-    def run_quad_job(self,inputs):
+    def run_quad_job(self,button):
         from picoware.system.buttons import BUTTON_BACK,BUTTON_ESCAPE
         worker,mesh,records,low,high,path,pivot_out=self.quad_job
-        button=inputs.button;inputs.reset()
         if button in (BUTTON_BACK,BUTTON_ESCAPE):
             worker.close();mesh.clear_triangles();self.quad_job=None
             self.status='Open cancelled';self.draw_frame();return
@@ -712,21 +711,21 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
             BUTTON_RIGHT, BUTTON_UP, BUTTON_DOWN, BUTTON_R, BUTTON_TAB,
             BUTTON_F10, BUTTON_F5, BUTTON_F, BUTTON_V, BUTTON_M, BUTTON_L, BUTTON_C, BUTTON_B, BUTTON_E, BUTTON_H, BUTTON_Z, BUTTON_Y, BUTTON_W, BUTTON_G, BUTTON_O,
         )
-        inputs = self.vm.input_manager
+        button = self.vm.button
         if self.quad_job is not None:
-            self.run_quad_job(inputs)
+            self.run_quad_job(button)
             return
         if self.settings_state is not None:
-            self.run_settings(inputs)
+            self.run_settings(button)
             return
         self._interactive_visibility = True
         if self._camera_job is not None or self._camera_requested is not None:
             from .camera import poll, cancel, navigation_key
-            if inputs.button<0:
+            if button<0:
                 poll(self)
                 if self._camera_job is None:self.draw_frame()
                 return
-            if not navigation_key(inputs.button):cancel(self)
+            if not navigation_key(button):cancel(self)
         # Wait through the initial held-key repeat gap before starting work
         # that the next camera input would invalidate.
         if self._camera_pending and ticks_diff(ticks_ms(),self._camera_finished)>=350:
@@ -735,13 +734,13 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         if self._transform_pending and ticks_diff(ticks_ms(),self._transform_finished)>=350:
             self._transform_pending = False
             self._frame_drawn = False
-        if self._visibility_pending and inputs.button < 0 and not (self._camera_pending or self._transform_pending):
+        if self._visibility_pending and button < 0 and not (self._camera_pending or self._transform_pending):
             from .visibilityjobs import poll
             poll(self)
-        elif self._overlay_pending and inputs.button < 0 and not (self._camera_pending or self._transform_pending):
+        elif self._overlay_pending and button < 0 and not (self._camera_pending or self._transform_pending):
             from .overlayjobs import poll
             poll(self)
-        if (inputs.button < 0 and self._frame_drawn and self.status == self._drawn_status
+        if (button < 0 and self._frame_drawn and self.status == self._drawn_status
                 and not self.error and self.browser is None and not self.save_as
                 and not self.numeric and self.edit_prompt is None
                 and self.color_picker is None and self.boolean_job is None
@@ -749,34 +748,34 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
             return
         if self.color_picker is not None:
             self._scene_keys.clear()
-            self.run_color_picker(inputs)
+            self.run_color_picker(button)
             return
         if self.edit_prompt is not None:
             self.run_edit_prompt()
             return
         if self.boolean_job is not None:
-            self.run_boolean_job(inputs)
+            self.run_boolean_job(button)
             return
         if self.decimation_job is not None:
-            self.run_decimation(inputs)
+            self.run_decimation(button)
             return
         if self.boolean_preview is not None:
-            self.run_boolean(inputs)
+            self.run_boolean(button)
             return
         if self.boolean_workflow is not None:
-            self.run_boolean_workflow(inputs)
+            self.run_boolean_workflow(button)
             return
         if self.pivot_edit is not None:
-            self.run_pivot_edit(inputs)
+            self.run_pivot_edit(button)
             return
         if self.model_tool is not None:
-            self.run_model_tool(inputs)
+            self.run_model_tool(button)
             return
         if self.transform is not None:
-            self.run_transform(inputs)
+            self.run_transform(button)
             return
         if self.save_as:
-            self.run_name(inputs)
+            self.run_name(button)
             return
         if self.browser is not None:
             self._scene_keys.clear()
@@ -786,7 +785,6 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
             path = self.browser.path
             self.directory = self.browser.directory
             self.browser = None
-            inputs.reset()
             if selected:
                 try:
                     self.open(path,cooperative=True)
@@ -795,10 +793,9 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
                     self.dialog = ("Open failed", str(exc) or "Not enough memory")
         if self.mode_chooser is not None and self.dialog is None:
             from .modes import run_chooser
-            run_chooser(self,inputs)
+            run_chooser(self,button)
             return
-        button = inputs.button
-        inputs.reset()
+        button = self.vm.button
         if self.error:
             self.dialog = ("Open failed", self.error)
             self.error = ""
@@ -1009,7 +1006,7 @@ def run(_view_manager):
     if _app is not None:
         # Input and modal work can change settings; idle frames only flush an
         # already pending snapshot after its debounce expires.
-        check = (_view_manager.input_manager.button >= 0 or _app.browser is not None
+        check = (_view_manager.button >= 0 or _app.browser is not None
                  or _app.numeric or _app.edit_prompt is not None or _app.save_as
                  or _app.color_picker is not None or _app.boolean_job is not None
                  or _app.decimation_job is not None or _app.settings_state is not None)

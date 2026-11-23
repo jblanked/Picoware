@@ -427,23 +427,18 @@ def run(view_manager) -> None:
         BUTTON_CENTER,
     )
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     global current_view, menu_index, _menu, fetch_started, sending_index, keyboard_index, channel_index
 
     if current_view == VIEW_MAIN_MENU:
         if button == BUTTON_BACK:
-            inp.reset()
             view_manager.back()
         elif button in (BUTTON_UP, BUTTON_LEFT):
-            inp.reset()
             _menu.scroll_up()
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-            inp.reset()
             _menu.scroll_down()
         elif button == BUTTON_CENTER:
-            inp.reset()
             menu_index = _menu.selected_index
             if menu_index == MENU_ITEM_SEND_MESSAGE:
                 current_view = VIEW_SENDING_MESSAGE
@@ -460,7 +455,6 @@ def run(view_manager) -> None:
                 _keyboard_run(view_manager)
     elif current_view == VIEW_SENDING_MESSAGE:
         if button == BUTTON_BACK:
-            inp.reset()
             current_view = VIEW_MAIN_MENU
             sending_index = SENDING_WAITING
             _menu_start(view_manager)
@@ -470,7 +464,6 @@ def run(view_manager) -> None:
             _http_await(view_manager)
     elif current_view == VIEW_CHANNEL:
         if button == BUTTON_BACK:
-            inp.reset()
             current_view = VIEW_MAIN_MENU
             fetch_started = False
             channel_index = CHANNEL_FETCHING
@@ -481,7 +474,6 @@ def run(view_manager) -> None:
             __channel_display(view_manager)
     elif current_view in (VIEW_KEYBOARD_TOKEN, VIEW_KEYBOARD_CHAT_ID):
         if button == BUTTON_BACK:
-            inp.reset()
             current_view = VIEW_MAIN_MENU
             keyboard_index = KEYBOARD_WAITING
             _menu_start(view_manager)

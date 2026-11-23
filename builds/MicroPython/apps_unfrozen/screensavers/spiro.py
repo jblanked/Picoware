@@ -69,6 +69,7 @@ def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.colors import TFT_BLACK
     from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
+
     global is_flipper
 
     is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
@@ -83,10 +84,9 @@ def run(view_manager) -> None:
     """Run the app"""
     global spiro_elapsed, sp_sx, sp_sy, x0, x1, yy0, yy1
 
-    input_button = view_manager.input_manager.button
+    input_button = view_manager.button
 
     if input_button in (BUTTON_LEFT, BUTTON_BACK):
-        view_manager.input_manager.reset()
         spiro_elapsed = 0
         view_manager.back()
         return

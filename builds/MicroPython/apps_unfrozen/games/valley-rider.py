@@ -1855,8 +1855,6 @@ def run(view_manager):
         if button == BUTTON_M or (st.map_open and button == BUTTON_BACK):
             st.map_open = not st.map_open
             st.dirty = True
-        if button != BUTTON_NONE:
-            view_manager.input_manager.reset()
         if st.dirty:
             st.dirty = False
             if st.map_open:
@@ -1867,15 +1865,12 @@ def run(view_manager):
                 _render(view_manager, st)
         return
     if _multiplayer_input(view_manager, st, button):
-        if button != BUTTON_NONE:
-            view_manager.input_manager.reset()
         if st.multiplayer_view is not None:
             _draw_multiplayer_menu(view_manager, st)
         return
     if button == BUTTON_BACK:
         if st.multiplayer_lobby_id:
             _leave_multiplayer(view_manager, st, True)
-            view_manager.input_manager.reset()
             _draw_multiplayer_menu(view_manager, st)
             return
         view_manager.back()

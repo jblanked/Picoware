@@ -88,14 +88,14 @@ class ModelingTools:
         from .rendercache import clear
         clear(self);self._frame_drawn=False
 
-    def run_model_tool(self,inputs):
+    def run_model_tool(self,button):
         from picoware.system.buttons import (BUTTON_BACK,BUTTON_ESCAPE,BUTTON_CENTER,BUTTON_UP,BUTTON_DOWN,BUTTON_LEFT,BUTTON_RIGHT,BUTTON_E,BUTTON_W,BUTTON_P,BUTTON_R)
-        state=self.model_tool;button=inputs.button
+        state=self.model_tool
         try:
             if state['numeric']:
                 keyboard=self.vm.keyboard
                 if button in (BUTTON_BACK,BUTTON_ESCAPE):
-                    inputs.reset();keyboard.reset();state['numeric']=False
+                    keyboard.reset();state['numeric']=False
                 elif keyboard.is_finished:
                     text=keyboard.response;keyboard.reset();state['numeric']=False
                     value=float(text)
@@ -104,7 +104,6 @@ class ModelingTools:
                 elif not keyboard.run():keyboard.reset();state['numeric']=False
                 else:return
             else:
-                inputs.reset()
                 from .modes import control
                 if control(self,button,tool=True,alias=True):pass
                 elif button in (BUTTON_BACK,BUTTON_ESCAPE):

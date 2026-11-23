@@ -78,11 +78,9 @@ def start(view_manager) -> bool:
 def run(view_manager) -> None:
     """Run the app."""
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
         return
 
@@ -103,13 +101,10 @@ def run(view_manager) -> None:
         return
 
     if button == BUTTON_UP:
-        inp.reset()
         _menu.scroll_up()
     elif button == BUTTON_DOWN:
-        inp.reset()
         _menu.scroll_down()
     elif button == BUTTON_CENTER and not _request_started:
-        inp.reset()
         selection = _menu.selected_index
         if selection == 0:
             url = "https://httpbin.org/bytes/1024"

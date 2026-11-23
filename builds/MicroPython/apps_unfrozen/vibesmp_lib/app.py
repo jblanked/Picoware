@@ -830,8 +830,7 @@ class VibesApp:
             return render_due
         now = time.ticks_ms()
         _player_busy, _is_playing, _is_paused, _sd_busy = self._capture_player_state()
-        inp = view_manager.input_manager
-        btn = inp.button if inp else -1
+        btn = view_manager.button
         v = self.ui.current_view
         self._nav_fast_frame = btn >= 0 and self._is_fast_nav_button(v, btn)
         self._nav_button = btn if self._nav_fast_frame else -1
@@ -1035,14 +1034,10 @@ class VibesApp:
             self._deferred_saves(now, _player_busy, _is_playing)
 
         if handled and self._handled_no_render and not self.needs_refresh and not self._list_marquee_tick:
-            if inp:
-                inp.reset()
             self._perf_inc("handled_no_render")
             handled = False
 
         if handled or self.needs_refresh or self._list_marquee_tick:
-            if inp:
-                inp.reset()
             render_due = True
 
         if self._timed_render_due(now, _is_playing, _player_busy, _is_paused):

@@ -487,10 +487,9 @@ def _show_links(vm):
 
 def _run_list(vm, which):
     global _sel
-    btn = vm.input_manager.button
+    btn = vm.button
     if btn == BUTTON_NONE:
         return
-    vm.input_manager.reset()
     n = len(_items)
     if n == 0:
         return
@@ -738,9 +737,8 @@ def _pull_http_stats():
 
 def _run_load(vm):
     global _last_err
-    btn = vm.input_manager.button
+    btn = vm.button
     if btn == BUTTON_BACK:
-        vm.input_manager.reset()
         _close_http()
         _show_home(vm)
         return
@@ -795,10 +793,9 @@ def _show_page(vm):
 
 def _run_page(vm):
     global _scroll
-    btn = vm.input_manager.button
+    btn = vm.button
     if btn == BUTTON_NONE:
         return
-    vm.input_manager.reset()
     last = _line_count()
     max_top = last - 1
     if max_top < 0:

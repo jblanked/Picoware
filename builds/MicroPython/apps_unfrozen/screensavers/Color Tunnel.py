@@ -65,9 +65,8 @@ def run(view_manager) -> None:
     """Run the app"""
     global time_val
 
-    inp = view_manager.input_manager
-    if inp.button == BUTTON_BACK:
-        inp.reset()
+    button = view_manager.button
+    if button == BUTTON_BACK:
         view_manager.back()
         return
 

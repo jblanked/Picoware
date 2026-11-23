@@ -63,7 +63,9 @@ class Bullet:
         """Draw the bullet"""
         if self.active:
             self.pos.x, self.pos.y = int(self.x), int(self.y)
-            draw._fill_rectangle(self.pos.x, self.pos.y, self.size.x, self.size.y, color)
+            draw._fill_rectangle(
+                self.pos.x, self.pos.y, self.size.x, self.size.y, color
+            )
 
 
 class Enemy:
@@ -91,7 +93,13 @@ class Enemy:
         """Draw the enemy"""
         if self.active:
             self.pos.x, self.pos.y = int(self.x), int(self.y)
-            draw._fill_rectangle(self.pos.x, self.pos.y, self.size.x, self.size.y, 0xFFFF if is_flipper else TFT_GREEN)
+            draw._fill_rectangle(
+                self.pos.x,
+                self.pos.y,
+                self.size.x,
+                self.size.y,
+                0xFFFF if is_flipper else TFT_GREEN,
+            )
             # Draw eyes
             self.eye_pos.x, self.eye_pos.y = int(self.x) + 2, int(self.y) + 2
             draw._pixel(self.eye_pos.x, self.eye_pos.y, TFT_BLACK)
@@ -148,11 +156,9 @@ def run(view_manager) -> None:
     global player_x, bullets, enemies, enemy_bullets, score, lives, game_over
     global enemy_direction, enemy_move_counter
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
         return
 
@@ -161,21 +167,17 @@ def run(view_manager) -> None:
     if not game_over:
         # Player controls
         if button == BUTTON_LEFT:
-            inp.reset()
             player_x -= 5
             player_x = max(player_x, 0)
         elif button == BUTTON_RIGHT:
-            inp.reset()
             player_x += 5
             player_x = min(player_x, screen_size.x - PLAYER_WIDTH)
         elif button == BUTTON_CENTER:
-            inp.reset()
             # Fire bullet
             if len(bullets) < 3:  # Limit bullets on screen
                 bullet_x = player_x + PLAYER_WIDTH // 2 - BULLET_WIDTH // 2
                 bullet_y = screen_size.y - PLAYER_HEIGHT - BULLET_HEIGHT - 5
                 bullets.append(Bullet(bullet_x, bullet_y, -6))
-            inp.reset()
 
         # Update bullets
         for bullet in bullets[:]:

@@ -233,17 +233,14 @@ def run(view_manager) -> None:
 
     global _test_index
 
-    inp = view_manager.input_manager
+    button = view_manager.button
 
-    if inp.button == BUTTON_BACK:
-        inp.reset()
+    if button == BUTTON_BACK:
         view_manager.back()
-    elif inp.button == BUTTON_UP:
-        inp.reset()
+    elif button == BUTTON_UP:
         if _textbox:
             _textbox.scroll_up()
-    elif inp.button == BUTTON_DOWN:
-        inp.reset()
+    elif button == BUTTON_DOWN:
         if _textbox:
             _textbox.scroll_down()
 

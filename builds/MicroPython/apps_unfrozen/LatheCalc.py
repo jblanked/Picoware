@@ -3,6 +3,7 @@ import json
 import gc
 import math
 from picoware.system.vector import Vector
+
 KC_MAP = (700, 600, 1600, 2000, 1100, 200, 1800, 700, 1800, 2200, 2600)
 N_GRADES = (0.025, 0.05, 0.1, 0.2, 0.4, 0.8, 1.6, 3.2, 6.3, 12.5, 25.0, 50.0)
 SCREEN_CALC = const(0)
@@ -47,23 +48,59 @@ FIELD_FEED = const(10)
 FIELD_DOC = const(11)
 FIELD_MAIN_TOOLBOX = const(12)
 FIELD_MAIN_HELP = const(13)
-PROC_NAMES = ('TURN', 'FACE', 'PART', 'CHAMF', 'BORE', 'DRILL')
-WORK_NAMES = ('ALUM', 'BRASS', 'MILD ST', 'STAINLS', 'CST IRN', 'PLASTIC',
-    'TITAN', 'COPPER', 'HI-C ST', 'TOOL ST', 'SUPERAL')
-TOOLBOX_MENU = [('Charts & Refs', [('Vc Ref Charts', SCREEN_CHART), (
-    'Tap Sizes', SCREEN_TAP), ('Drill Sizes', SCREEN_DRILL), (
-    'Center Drills', SCREEN_CENTER), ('Morse Tapers', SCREEN_MORSE), (
-    'SHCS Clearances', SCREEN_CLEAR), ('Surface Finishes', SCREEN_SURFACE),
-    ('ISO Fits', SCREEN_FITS), ('Knurling Guide', SCREEN_KNURL), (
-    'Hardness Chart', SCREEN_HARDNESS), ('RPM Bar Chart', SCREEN_GRAPH)]),
-    ('Calculators', [('Taper Angle', SCREEN_TAPER), ('Threading Assist',
-    SCREEN_THREAD), ('Unit Converter', SCREEN_CONVERT), ('3-Wire Thread',
-    SCREEN_WIRE), ('Stock Weight', SCREEN_WEIGHT), ('Speeds & Feeds',
-    SCREEN_SPEED), ('Change Gears', SCREEN_GEARS), ('Bolt Circle',
-    SCREEN_BOLT_CIRCLE), ('Drill Pt Depth', SCREEN_DRILL_PT), (
-    'Tap Drill Calc', SCREEN_TAP_HOLE), ('Right Triangle', SCREEN_TRIANGLE),
-    ('Arc & Chord', SCREEN_ARC)]), ('Management', [('Options & Themes',
-    SCREEN_OPTIONS), ('Tool Manager', SCREEN_TOOL_MGR)])]
+PROC_NAMES = ("TURN", "FACE", "PART", "CHAMF", "BORE", "DRILL")
+WORK_NAMES = (
+    "ALUM",
+    "BRASS",
+    "MILD ST",
+    "STAINLS",
+    "CST IRN",
+    "PLASTIC",
+    "TITAN",
+    "COPPER",
+    "HI-C ST",
+    "TOOL ST",
+    "SUPERAL",
+)
+TOOLBOX_MENU = [
+    (
+        "Charts & Refs",
+        [
+            ("Vc Ref Charts", SCREEN_CHART),
+            ("Tap Sizes", SCREEN_TAP),
+            ("Drill Sizes", SCREEN_DRILL),
+            ("Center Drills", SCREEN_CENTER),
+            ("Morse Tapers", SCREEN_MORSE),
+            ("SHCS Clearances", SCREEN_CLEAR),
+            ("Surface Finishes", SCREEN_SURFACE),
+            ("ISO Fits", SCREEN_FITS),
+            ("Knurling Guide", SCREEN_KNURL),
+            ("Hardness Chart", SCREEN_HARDNESS),
+            ("RPM Bar Chart", SCREEN_GRAPH),
+        ],
+    ),
+    (
+        "Calculators",
+        [
+            ("Taper Angle", SCREEN_TAPER),
+            ("Threading Assist", SCREEN_THREAD),
+            ("Unit Converter", SCREEN_CONVERT),
+            ("3-Wire Thread", SCREEN_WIRE),
+            ("Stock Weight", SCREEN_WEIGHT),
+            ("Speeds & Feeds", SCREEN_SPEED),
+            ("Change Gears", SCREEN_GEARS),
+            ("Bolt Circle", SCREEN_BOLT_CIRCLE),
+            ("Drill Pt Depth", SCREEN_DRILL_PT),
+            ("Tap Drill Calc", SCREEN_TAP_HOLE),
+            ("Right Triangle", SCREEN_TRIANGLE),
+            ("Arc & Chord", SCREEN_ARC),
+        ],
+    ),
+    (
+        "Management",
+        [("Options & Themes", SCREEN_OPTIONS), ("Tool Manager", SCREEN_TOOL_MGR)],
+    ),
+]
 TP_D = const(0)
 TP_d = 1
 TP_L = const(2)
@@ -152,15 +189,150 @@ TH_METRIC = const(0)
 TH_UNIFIED = const(1)
 MAX_LATHE_RPM_HOBBY = 2500.0
 MAX_LATHE_RPM_INDUST = 6000.0
-_SETTINGS_FILE = 'picoware/settings/lathecalc_settings.json'
+_SETTINGS_FILE = "picoware/settings/lathecalc_settings.json"
 storage = None
 dirty_save = False
 save_timer = 0
-_last_saved_json = ''
+_last_saved_json = ""
 
 
 class AppState:
-    __slots__ = ("active_tool_idx", "ar_angle", "ar_arc_len", "ar_chord", "ar_radius", "auto_rec_doc", "bc_diam", "bc_holes", "bc_results", "bc_rows", "bc_scroll_pos", "c_bg", "c_err", "c_fg", "c_hlt", "c_ok", "c_sec", "c_warn", "current_screen", "cv_frac", "cv_inch", "cv_mm", "cv_unit", "cv_val", "dp_angle", "dp_diam", "dp_result", "feed_m_result", "gr_gears", "gr_pitch_cut", "gr_pitch_ls", "gr_results", "is_typing", "kb_force", "last_mode", "max_feed_i", "max_feed_m", "max_rpm_hobby", "max_rpm_indust", "motor_eff", "motor_kw_hobby", "motor_kw_indust", "pwr_result_str", "ra_as_ngrade", "ra_result_str", "rec_doc", "rpm_result", "scroll_pos", "sel_ar", "sel_bc", "sel_cv", "sel_dp", "sel_gr", "sel_main", "sel_opt", "sel_sp", "sel_tb_cat", "sel_tb_col", "sel_tb_item", "sel_td", "sel_th", "sel_tm", "sel_tp", "sel_tr", "sel_wr", "sel_wt", "sp_diam", "sp_rpm", "sp_vc", "td_diam", "td_pitch", "td_result", "text_lines", "th_diam", "th_infeed", "th_minor", "th_pass_1", "th_pass_n", "th_pitch", "th_type", "theme_id", "time_result", "tool_profiles", "tp_D", "tp_L", "tp_angle", "tp_d", "tr_A", "tr_B", "tr_C", "tr_ang_a", "tr_ang_b", "tr_mode", "tr_v1", "tr_v2", "ui_feed_m", "ui_left", "ui_max_doc", "ui_pwr", "ui_ra", "ui_res", "ui_right", "ui_rows", "ui_rpm", "ui_rpm_warn", "ui_time", "val_diam", "val_doc", "val_feed", "val_len", "val_pass", "val_proc", "val_type", "val_unit", "val_vc", "val_work", "warn_carbide_spd", "warn_coolant", "warn_high_feed", "warn_poor_finish", "warn_power_cap", "warn_rpm_cap", "wr_best", "wr_diam", "wr_pitch", "wr_result", "wr_type", "wr_wire", "wt_diam", "wt_len", "wt_matl", "wt_result", "x", "y")
+    __slots__ = (
+        "active_tool_idx",
+        "ar_angle",
+        "ar_arc_len",
+        "ar_chord",
+        "ar_radius",
+        "auto_rec_doc",
+        "bc_diam",
+        "bc_holes",
+        "bc_results",
+        "bc_rows",
+        "bc_scroll_pos",
+        "c_bg",
+        "c_err",
+        "c_fg",
+        "c_hlt",
+        "c_ok",
+        "c_sec",
+        "c_warn",
+        "current_screen",
+        "cv_frac",
+        "cv_inch",
+        "cv_mm",
+        "cv_unit",
+        "cv_val",
+        "dp_angle",
+        "dp_diam",
+        "dp_result",
+        "feed_m_result",
+        "gr_gears",
+        "gr_pitch_cut",
+        "gr_pitch_ls",
+        "gr_results",
+        "is_typing",
+        "kb_force",
+        "last_mode",
+        "max_feed_i",
+        "max_feed_m",
+        "max_rpm_hobby",
+        "max_rpm_indust",
+        "motor_eff",
+        "motor_kw_hobby",
+        "motor_kw_indust",
+        "pwr_result_str",
+        "ra_as_ngrade",
+        "ra_result_str",
+        "rec_doc",
+        "rpm_result",
+        "scroll_pos",
+        "sel_ar",
+        "sel_bc",
+        "sel_cv",
+        "sel_dp",
+        "sel_gr",
+        "sel_main",
+        "sel_opt",
+        "sel_sp",
+        "sel_tb_cat",
+        "sel_tb_col",
+        "sel_tb_item",
+        "sel_td",
+        "sel_th",
+        "sel_tm",
+        "sel_tp",
+        "sel_tr",
+        "sel_wr",
+        "sel_wt",
+        "sp_diam",
+        "sp_rpm",
+        "sp_vc",
+        "td_diam",
+        "td_pitch",
+        "td_result",
+        "text_lines",
+        "th_diam",
+        "th_infeed",
+        "th_minor",
+        "th_pass_1",
+        "th_pass_n",
+        "th_pitch",
+        "th_type",
+        "theme_id",
+        "time_result",
+        "tool_profiles",
+        "tp_D",
+        "tp_L",
+        "tp_angle",
+        "tp_d",
+        "tr_A",
+        "tr_B",
+        "tr_C",
+        "tr_ang_a",
+        "tr_ang_b",
+        "tr_mode",
+        "tr_v1",
+        "tr_v2",
+        "ui_feed_m",
+        "ui_left",
+        "ui_max_doc",
+        "ui_pwr",
+        "ui_ra",
+        "ui_res",
+        "ui_right",
+        "ui_rows",
+        "ui_rpm",
+        "ui_rpm_warn",
+        "ui_time",
+        "val_diam",
+        "val_doc",
+        "val_feed",
+        "val_len",
+        "val_pass",
+        "val_proc",
+        "val_type",
+        "val_unit",
+        "val_vc",
+        "val_work",
+        "warn_carbide_spd",
+        "warn_coolant",
+        "warn_high_feed",
+        "warn_poor_finish",
+        "warn_power_cap",
+        "warn_rpm_cap",
+        "wr_best",
+        "wr_diam",
+        "wr_pitch",
+        "wr_result",
+        "wr_type",
+        "wr_wire",
+        "wt_diam",
+        "wt_len",
+        "wt_matl",
+        "wt_result",
+        "x",
+        "y",
+    )
     """Encapsulates all application variables to avoid global namespace pollution"""
 
     def __init__(self):
@@ -203,10 +375,10 @@ class AppState:
         self.val_doc = 1.0
         self.rpm_result = 0.0
         self.feed_m_result = 0.0
-        self.time_result = '0m 0s'
-        self.ra_result_str = ''
-        self.pwr_result_str = ''
-        self.rec_doc = ''
+        self.time_result = "0m 0s"
+        self.ra_result_str = ""
+        self.pwr_result_str = ""
+        self.rec_doc = ""
         self.warn_coolant = False
         self.warn_rpm_cap = False
         self.warn_carbide_spd = False
@@ -222,9 +394,22 @@ class AppState:
         self.motor_kw_hobby = 0.5
         self.motor_kw_indust = 5.0
         self.motor_eff = 0.8
-        self.tool_profiles = [{'name': 'Gen HSS', 'type': CUT_HSS, 'rad_m':
-            0.4, 'rad_i': 0.015, 'angle': 0.0}, {'name': 'Gen CARB', 'type':
-            CUT_CARB, 'rad_m': 0.8, 'rad_i': 0.031, 'angle': 0.0}]
+        self.tool_profiles = [
+            {
+                "name": "Gen HSS",
+                "type": CUT_HSS,
+                "rad_m": 0.4,
+                "rad_i": 0.015,
+                "angle": 0.0,
+            },
+            {
+                "name": "Gen CARB",
+                "type": CUT_CARB,
+                "rad_m": 0.8,
+                "rad_i": 0.031,
+                "angle": 0.0,
+            },
+        ]
         self.active_tool_idx = 0
         self.tp_D = 20.0
         self.tp_d = 15.0
@@ -241,7 +426,7 @@ class AppState:
         self.cv_val = 10.0
         self.cv_mm = 0.0
         self.cv_inch = 0.0
-        self.cv_frac = ''
+        self.cv_frac = ""
         self.wr_type = TH_METRIC
         self.wr_diam = 12.0
         self.wr_pitch = 1.75
@@ -257,7 +442,7 @@ class AppState:
         self.sp_rpm = 0.0
         self.gr_pitch_cut = 1.75
         self.gr_pitch_ls = 2.0
-        self.gr_gears = '20,24,30,32,36,40,44,48,50,52,56,60,64,80,100,120,127'
+        self.gr_gears = "20,24,30,32,36,40,44,48,50,52,56,60,64,80,100,120,127"
         self.gr_results = []
         self.bc_diam = 50.0
         self.bc_holes = 6
@@ -283,14 +468,14 @@ class AppState:
         self.td_result = 5.0
         self.ui_left = []
         self.ui_right = []
-        self.ui_rpm = ''
-        self.ui_feed_m = ''
-        self.ui_pwr = ''
-        self.ui_time = ''
-        self.ui_ra = ''
-        self.ui_max_doc = ''
-        self.ui_rpm_warn = ''
-        self.ui_res = ''
+        self.ui_rpm = ""
+        self.ui_feed_m = ""
+        self.ui_pwr = ""
+        self.ui_time = ""
+        self.ui_ra = ""
+        self.ui_max_doc = ""
+        self.ui_rpm_warn = ""
+        self.ui_res = ""
         self.ui_rows = []
         self.bc_rows = []
 
@@ -319,31 +504,64 @@ def save_settings(view_manager=None, force=False):
     if not dirty_save and not force:
         return
     try:
-        save_dict = {'theme_id': s.theme_id, 'val_unit': s.val_unit,
-            'val_work': s.val_work, 'val_type': s.val_type, 'val_proc': s.
-            val_proc, 'val_pass': s.val_pass, 'val_diam': s.val_diam,
-            'val_len': s.val_len, 'val_vc': s.val_vc, 'val_feed': s.
-            val_feed, 'val_doc': s.val_doc, 'max_feed_m': s.max_feed_m,
-            'max_feed_i': s.max_feed_i, 'max_rpm_hobby': s.max_rpm_hobby,
-            'max_rpm_indust': s.max_rpm_indust, 'ra_as_ngrade': s.
-            ra_as_ngrade, 'auto_rec_doc': s.auto_rec_doc, 'motor_kw_hobby':
-            s.motor_kw_hobby, 'motor_kw_indust': s.motor_kw_indust,
-            'motor_eff': s.motor_eff, 'tp_D': s.tp_D, 'tp_d': s.tp_d,
-            'tp_L': s.tp_L, 'th_type': s.th_type, 'th_diam': s.th_diam,
-            'th_pitch': s.th_pitch, 'cv_unit': s.cv_unit, 'cv_val': s.
-            cv_val, 'wr_type': s.wr_type, 'wr_diam': s.wr_diam, 'wr_pitch':
-            s.wr_pitch, 'wr_wire': s.wr_wire, 'wt_matl': s.wt_matl,
-            'wt_diam': s.wt_diam, 'wt_len': s.wt_len, 'sp_diam': s.sp_diam,
-            'sp_vc': s.sp_vc, 'gr_pitch_cut': s.gr_pitch_cut, 'gr_pitch_ls':
-            s.gr_pitch_ls, 'gr_gears': s.gr_gears, 'bc_diam': s.bc_diam,
-            'bc_holes': s.bc_holes, 'tr_mode': s.tr_mode, 'tr_v1': s.tr_v1,
-            'tr_v2': s.tr_v2, 'ar_radius': s.ar_radius, 'ar_angle': s.
-            ar_angle, 'dp_diam': s.dp_diam, 'dp_angle': s.dp_angle,
-            'td_diam': s.td_diam, 'td_pitch': s.td_pitch, 'tool_profiles':
-            s.tool_profiles, 'active_tool_idx': s.active_tool_idx}
+        save_dict = {
+            "theme_id": s.theme_id,
+            "val_unit": s.val_unit,
+            "val_work": s.val_work,
+            "val_type": s.val_type,
+            "val_proc": s.val_proc,
+            "val_pass": s.val_pass,
+            "val_diam": s.val_diam,
+            "val_len": s.val_len,
+            "val_vc": s.val_vc,
+            "val_feed": s.val_feed,
+            "val_doc": s.val_doc,
+            "max_feed_m": s.max_feed_m,
+            "max_feed_i": s.max_feed_i,
+            "max_rpm_hobby": s.max_rpm_hobby,
+            "max_rpm_indust": s.max_rpm_indust,
+            "ra_as_ngrade": s.ra_as_ngrade,
+            "auto_rec_doc": s.auto_rec_doc,
+            "motor_kw_hobby": s.motor_kw_hobby,
+            "motor_kw_indust": s.motor_kw_indust,
+            "motor_eff": s.motor_eff,
+            "tp_D": s.tp_D,
+            "tp_d": s.tp_d,
+            "tp_L": s.tp_L,
+            "th_type": s.th_type,
+            "th_diam": s.th_diam,
+            "th_pitch": s.th_pitch,
+            "cv_unit": s.cv_unit,
+            "cv_val": s.cv_val,
+            "wr_type": s.wr_type,
+            "wr_diam": s.wr_diam,
+            "wr_pitch": s.wr_pitch,
+            "wr_wire": s.wr_wire,
+            "wt_matl": s.wt_matl,
+            "wt_diam": s.wt_diam,
+            "wt_len": s.wt_len,
+            "sp_diam": s.sp_diam,
+            "sp_vc": s.sp_vc,
+            "gr_pitch_cut": s.gr_pitch_cut,
+            "gr_pitch_ls": s.gr_pitch_ls,
+            "gr_gears": s.gr_gears,
+            "bc_diam": s.bc_diam,
+            "bc_holes": s.bc_holes,
+            "tr_mode": s.tr_mode,
+            "tr_v1": s.tr_v1,
+            "tr_v2": s.tr_v2,
+            "ar_radius": s.ar_radius,
+            "ar_angle": s.ar_angle,
+            "dp_diam": s.dp_diam,
+            "dp_angle": s.dp_angle,
+            "td_diam": s.td_diam,
+            "td_pitch": s.td_pitch,
+            "tool_profiles": s.tool_profiles,
+            "active_tool_idx": s.active_tool_idx,
+        }
         json_str = json.dumps(save_dict)
         if json_str != _last_saved_json:
-            storage.write(_SETTINGS_FILE, json_str, 'w')
+            storage.write(_SETTINGS_FILE, json_str, "w")
             _last_saved_json = json_str
         dirty_save = False
         del json_str
@@ -358,25 +576,32 @@ def load_settings():
     s = state
     if storage and storage.exists(_SETTINGS_FILE):
         try:
-            raw_data = storage.read(_SETTINGS_FILE, 'r')
+            raw_data = storage.read(_SETTINGS_FILE, "r")
             _last_saved_json = raw_data
             loaded = json.loads(raw_data)
             for key in loaded:
                 if hasattr(s, key):
                     setattr(s, key, loaded[key])
-            if 'tool_profiles' in loaded:
+            if "tool_profiles" in loaded:
                 s.tool_profiles = []
-                for tp in loaded['tool_profiles']:
-                    if 'angle' not in tp:
-                        tp['angle'] = 0.0
+                for tp in loaded["tool_profiles"]:
+                    if "angle" not in tp:
+                        tp["angle"] = 0.0
                     s.tool_profiles.append(tp)
-                s.active_tool_idx = loaded.get('active_tool_idx', 0)
-            elif 'val_cutter' in loaded:
-                _type = int(loaded['val_cutter'])
-                _rad_m = float(loaded.get('nose_radius_m', 0.4))
-                _rad_i = float(loaded.get('nose_radius_i', 0.015))
-                s.tool_profiles = [{'name': 'Legacy Tool', 'type': _type,
-                    'rad_m': _rad_m, 'rad_i': _rad_i, 'angle': 0.0}]
+                s.active_tool_idx = loaded.get("active_tool_idx", 0)
+            elif "val_cutter" in loaded:
+                _type = int(loaded["val_cutter"])
+                _rad_m = float(loaded.get("nose_radius_m", 0.4))
+                _rad_i = float(loaded.get("nose_radius_i", 0.015))
+                s.tool_profiles = [
+                    {
+                        "name": "Legacy Tool",
+                        "type": _type,
+                        "rad_m": _rad_m,
+                        "rad_i": _rad_i,
+                        "angle": 0.0,
+                    }
+                ]
                 s.active_tool_idx = 0
             s.val_unit = int(s.val_unit)
             s.val_work = int(s.val_work)
@@ -388,15 +613,19 @@ def load_settings():
             s.th_type = int(s.th_type)
             s.cv_unit = int(s.cv_unit)
             s.wr_type = int(s.wr_type)
-            s.wt_matl = int(s.wt_matl) if hasattr(s, 'wt_matl') else 0
-            s.bc_holes = int(s.bc_holes) if hasattr(s, 'bc_holes') else 6
-            s.gr_gears = str(s.gr_gears) if hasattr(s, 'gr_gears') else '20,24,30,32,36,40,44,48,50,52,56,60,64,80,100,120,127'
-            s.tr_mode = int(s.tr_mode) if hasattr(s, 'tr_mode') else 0
-            s.dp_diam = float(s.dp_diam) if hasattr(s, 'dp_diam') else 10.0
-            s.dp_angle = float(s.dp_angle) if hasattr(s, 'dp_angle') else 118.0
-            s.td_diam = float(s.td_diam) if hasattr(s, 'td_diam') else 6.0
-            s.td_pitch = float(s.td_pitch) if hasattr(s, 'td_pitch') else 1.0
-            if hasattr(s, 'auto_rec_doc'):
+            s.wt_matl = int(s.wt_matl) if hasattr(s, "wt_matl") else 0
+            s.bc_holes = int(s.bc_holes) if hasattr(s, "bc_holes") else 6
+            s.gr_gears = (
+                str(s.gr_gears)
+                if hasattr(s, "gr_gears")
+                else "20,24,30,32,36,40,44,48,50,52,56,60,64,80,100,120,127"
+            )
+            s.tr_mode = int(s.tr_mode) if hasattr(s, "tr_mode") else 0
+            s.dp_diam = float(s.dp_diam) if hasattr(s, "dp_diam") else 10.0
+            s.dp_angle = float(s.dp_angle) if hasattr(s, "dp_angle") else 118.0
+            s.td_diam = float(s.td_diam) if hasattr(s, "td_diam") else 6.0
+            s.td_pitch = float(s.td_pitch) if hasattr(s, "td_pitch") else 1.0
+            if hasattr(s, "auto_rec_doc"):
                 s.auto_rec_doc = bool(s.auto_rec_doc)
             return True
         except Exception:
@@ -406,7 +635,16 @@ def load_settings():
 
 def _apply_theme():
     s = state
-    from picoware.system.colors import TFT_BLACK, TFT_WHITE, TFT_BLUE, TFT_GREEN, TFT_YELLOW, TFT_RED, TFT_CYAN
+    from picoware.system.colors import (
+        TFT_BLACK,
+        TFT_WHITE,
+        TFT_BLUE,
+        TFT_GREEN,
+        TFT_YELLOW,
+        TFT_RED,
+        TFT_CYAN,
+    )
+
     if s.theme_id == 0:
         s.c_bg = TFT_BLACK
         s.c_fg = TFT_WHITE
@@ -443,7 +681,7 @@ def _apply_theme():
 
 def _load_text(mode):
     s = state
-    if mode == 'CHART':
+    if mode == "CHART":
         if s.val_unit == UNIT_METRIC:
             text = """--- HSS REFERENCE Vc (m/min) ---
 
@@ -506,7 +744,7 @@ CAST IRON | 260-400| 160-230
 TITANIUM  | 130-200| 100-130
 SUPERALLOY| 65-130 | 50-80
 """
-    elif mode == 'TAP':
+    elif mode == "TAP":
         text = """--- METRIC COARSE ---
 
 THREAD    | PITCH | DRILL(mm)
@@ -548,7 +786,7 @@ THREAD    | DRILL | DEC(in)
 3/8 - 24  | Q     | .3320
 1/2 - 20  | 29/64 | .4531
 """
-    elif mode == 'DRILL':
+    elif mode == "DRILL":
         text = """--- FRACTIONAL DRILLS ---
 
 FRAC   | DEC(in)| METRIC
@@ -580,7 +818,7 @@ F      | 0.2570 | 6.53mm
 I      | 0.2770 | 7.04mm
 Q      | 0.3320 | 8.43mm
 """
-    elif mode == 'KNURL':
+    elif mode == "KNURL":
         text = """--- KNURLING REFERENCE ---
 
 PITCH | TPI  | USE CASE
@@ -610,7 +848,7 @@ a 0.8mm pitch wheel:
 * Flood with cutting fluid.
 * Use power feed if possible.
 """
-    elif mode == 'CENTER':
+    elif mode == "CENTER":
         text = """--- CENTER DRILL SIZES ---
 
 SIZE | BODY  | DRILL DIA
@@ -626,7 +864,7 @@ SIZE | BODY  | DRILL DIA
 PRO TIP: Never drill past
 the 60-degree taper section.
 """
-    elif mode == 'MORSE':
+    elif mode == "MORSE":
         text = """--- MORSE TAPERS (MT) ---
 
 SIZE| LRG DIA | TAPER/FOOT
@@ -643,7 +881,7 @@ Set compound to ~1.43 deg
 and use a dial indicator to
 sweep a known good taper.
 """
-    elif mode == 'CLEAR':
+    elif mode == "CLEAR":
         text = """--- FASTENER CLEARANCES ---
        (Metric SHCS)
 
@@ -660,7 +898,7 @@ M16 | 17.5mm | 26.0mm
 NOTE: Clearance hole sizes
 are 'Standard/Normal' fit.
 """
-    elif mode == 'SURFACE':
+    elif mode == "SURFACE":
         text = """--- SURFACE FINISHES ---
 
 ISO | Ra(µm) | Ra(µin)| CLASS
@@ -676,7 +914,7 @@ Turning usually achieves
 N6 to N9 depending on feed
 rate and tool nose radius.
 """
-    elif mode == 'FITS':
+    elif mode == "FITS":
         text = """--- ISO SHAFT/HOLE FITS ---
 
 Using H7 Base Hole System:
@@ -696,7 +934,7 @@ H7 / p6 : Medium Press Fit
 H7 / s6 : Heavy Press Fit
   (Permanent, heat shrink)
 """
-    elif mode == 'HARDNESS':
+    elif mode == "HARDNESS":
         text = """--- HARDNESS CONVERSION ---
 
 HRC | Brinell(HB)| Tens(MPa)
@@ -715,7 +953,7 @@ HRC | Brinell(HB)| Tens(MPa)
 Note: Conversions are approx
 for non-austenitic steels.
 """
-    elif mode == 'HELP':
+    elif mode == "HELP":
         text = """=== LATHE-CALC v2.1 ===
 
 === ABBREVIATIONS GLOSSARY ===
@@ -801,23 +1039,39 @@ EFF   : Motor Efficiency
 Made by Slasher006
 with the help of Gemini
 """
-    if not hasattr(s, 'last_mode') or s.last_mode != mode:
-        s.text_lines = text.split('\n')
+    if not hasattr(s, "last_mode") or s.last_mode != mode:
+        s.text_lines = text.split("\n")
         s.last_mode = mode
     s.scroll_pos = 0
 
 
 def _apply_safe_defaults():
     s = state
-    _active_type = s.tool_profiles[s.active_tool_idx]['type']
+    _active_type = s.tool_profiles[s.active_tool_idx]["type"]
     if s.val_type == TYPE_HOBBY:
-        vc_map = [60.0, 45.0, 18.0, 12.0, 12.0, 85.0, 10.0, 30.0, 12.0,
-            10.0, 3.0] if _active_type == CUT_HSS else [150.0, 100.0, 70.0,
-            50.0, 60.0, 150.0, 35.0, 100.0, 60.0, 40.0, 20.0]
+        vc_map = (
+            [60.0, 45.0, 18.0, 12.0, 12.0, 85.0, 10.0, 30.0, 12.0, 10.0, 3.0]
+            if _active_type == CUT_HSS
+            else [150.0, 100.0, 70.0, 50.0, 60.0, 150.0, 35.0, 100.0, 60.0, 40.0, 20.0]
+        )
     else:
-        vc_map = [75.0, 50.0, 27.0, 17.0, 20.0, 120.0, 12.0, 37.0, 21.0,
-            15.0, 4.0] if _active_type == CUT_HSS else [200.0, 150.0, 100.0,
-            80.0, 100.0, 200.0, 50.0, 120.0, 80.0, 65.0, 30.0]
+        vc_map = (
+            [75.0, 50.0, 27.0, 17.0, 20.0, 120.0, 12.0, 37.0, 21.0, 15.0, 4.0]
+            if _active_type == CUT_HSS
+            else [
+                200.0,
+                150.0,
+                100.0,
+                80.0,
+                100.0,
+                200.0,
+                50.0,
+                120.0,
+                80.0,
+                65.0,
+                30.0,
+            ]
+        )
     base_vc = vc_map[s.val_work]
     _f_mod = 1.0
     if s.val_proc not in (PROC_PART, PROC_CHAMFER):
@@ -827,8 +1081,8 @@ def _apply_safe_defaults():
             _f_mod = 0.85
         elif s.val_work == WORK_COPPER and s.val_pass == PASS_FINISH:
             _f_mod = 1.5
-    _nose_radius_i = s.tool_profiles[s.active_tool_idx]['rad_i']
-    _nose_radius_m = s.tool_profiles[s.active_tool_idx]['rad_m']
+    _nose_radius_i = s.tool_profiles[s.active_tool_idx]["rad_i"]
+    _nose_radius_m = s.tool_profiles[s.active_tool_idx]["rad_m"]
 
     # Calculate recommended DOC
     if s.val_unit == UNIT_IMP:
@@ -853,9 +1107,11 @@ def _apply_safe_defaults():
             s.val_feed = 0.002
         else:
             s.val_vc = base_vc if s.val_pass == PASS_ROUGH else base_vc * 1.3
-            _base_feed = ((0.006 if _active_type == CUT_HSS else 0.008) if
-                s.val_pass == PASS_ROUGH else 0.002 if _active_type ==
-                CUT_HSS else 0.003)
+            _base_feed = (
+                (0.006 if _active_type == CUT_HSS else 0.008)
+                if s.val_pass == PASS_ROUGH
+                else 0.002 if _active_type == CUT_HSS else 0.003
+            )
             s.val_feed = _base_feed * _f_mod
             s.val_vc = int(s.val_vc)
             s.val_feed = int(s.val_feed * 10000) / 10000.0
@@ -866,9 +1122,11 @@ def _apply_safe_defaults():
         s.val_feed = 0.05
     else:
         s.val_vc = base_vc if s.val_pass == PASS_ROUGH else base_vc * 1.3
-        _base_feed = ((0.15 if _active_type == CUT_HSS else 0.2) if s.
-            val_pass == PASS_ROUGH else 0.05 if _active_type == CUT_HSS else
-            0.08)
+        _base_feed = (
+            (0.15 if _active_type == CUT_HSS else 0.2)
+            if s.val_pass == PASS_ROUGH
+            else 0.05 if _active_type == CUT_HSS else 0.08
+        )
         s.val_feed = _base_feed * _f_mod
         s.val_vc = int(s.val_vc * 10) / 10.0
         s.val_feed = int(s.val_feed * 1000) / 1000.0
@@ -876,55 +1134,87 @@ def _apply_safe_defaults():
             s.val_doc = _rec_v
 
 
-
-
-
-
 def _calc_main(s, _pi):
     _max_rpm = MAX_LATHE_RPM_HOBBY if s.val_type == TYPE_HOBBY else MAX_LATHE_RPM_INDUST
-    _active_type = s.tool_profiles[s.active_tool_idx]['type']
-    _nose_radius_m = s.tool_profiles[s.active_tool_idx]['rad_m']
-    _nose_radius_i = s.tool_profiles[s.active_tool_idx]['rad_i']
+    _active_type = s.tool_profiles[s.active_tool_idx]["type"]
+    _nose_radius_m = s.tool_profiles[s.active_tool_idx]["rad_m"]
+    _nose_radius_i = s.tool_profiles[s.active_tool_idx]["rad_i"]
     if s.val_diam > 0:
-        theoretical_rpm = s.val_vc * 1000.0 / (_pi * s.val_diam) if s.val_unit == UNIT_METRIC else s.val_vc * 12.0 / (_pi * s.val_diam)
+        theoretical_rpm = (
+            s.val_vc * 1000.0 / (_pi * s.val_diam)
+            if s.val_unit == UNIT_METRIC
+            else s.val_vc * 12.0 / (_pi * s.val_diam)
+        )
         s.rpm_result = theoretical_rpm
         if s.rpm_result > _max_rpm:
             s.rpm_result = _max_rpm
             s.warn_rpm_cap = True
             if _active_type == CUT_CARB:
                 s.warn_carbide_spd = True
-        if _active_type == CUT_HSS or s.val_proc in (PROC_PART, PROC_CHAMFER, PROC_DRILL) or s.val_work in (WORK_STAIN, WORK_TITAN, WORK_SUPER):
+        if (
+            _active_type == CUT_HSS
+            or s.val_proc in (PROC_PART, PROC_CHAMFER, PROC_DRILL)
+            or s.val_work in (WORK_STAIN, WORK_TITAN, WORK_SUPER)
+        ):
             s.warn_coolant = True
         if s.val_proc == PROC_PART:
-            s.rec_doc = 'FULL BLD'
+            s.rec_doc = "FULL BLD"
         elif s.val_proc == PROC_CHAMFER:
-            s.rec_doc = 'MANUAL'
+            s.rec_doc = "MANUAL"
         elif s.val_proc == PROC_DRILL:
-            s.rec_doc = 'PECK'
+            s.rec_doc = "PECK"
         elif s.val_proc == PROC_BORE:
             if s.val_pass == PASS_FINISH:
                 _n = _nose_radius_m if s.val_unit == UNIT_METRIC else _nose_radius_i
                 _rnd = 2 if s.val_unit == UNIT_METRIC else 4
-                s.rec_doc = "{}-{}mm".format(round(_n * 0.5, _rnd), round(_n * 1.5, _rnd)) if s.val_unit == UNIT_METRIC else "{}-{}in".format(round(_n * 0.5, _rnd), round(_n * 1.5, _rnd))
+                s.rec_doc = (
+                    "{}-{}mm".format(round(_n * 0.5, _rnd), round(_n * 1.5, _rnd))
+                    if s.val_unit == UNIT_METRIC
+                    else "{}-{}in".format(round(_n * 0.5, _rnd), round(_n * 1.5, _rnd))
+                )
             elif s.val_type == TYPE_INDUST:
-                s.rec_doc = 'SEE SPEC' if _active_type == CUT_CARB else '1.0mm+' if s.val_unit == UNIT_METRIC else '0.04in+'
+                s.rec_doc = (
+                    "SEE SPEC"
+                    if _active_type == CUT_CARB
+                    else "1.0mm+" if s.val_unit == UNIT_METRIC else "0.04in+"
+                )
             else:
-                s.rec_doc = '0.2-0.5mm' if s.val_unit == UNIT_METRIC else '0.01-0.02in'
+                s.rec_doc = "0.2-0.5mm" if s.val_unit == UNIT_METRIC else "0.01-0.02in"
         elif s.val_pass == PASS_FINISH:
             _n = _nose_radius_m if s.val_unit == UNIT_METRIC else _nose_radius_i
             _rnd = 2 if s.val_unit == UNIT_METRIC else 4
-            s.rec_doc = "{}-{}mm".format(round(_n * 0.5, _rnd), round(_n * 1.5, _rnd)) if s.val_unit == UNIT_METRIC else "{}-{}in".format(round(_n * 0.5, _rnd), round(_n * 1.5, _rnd))
+            s.rec_doc = (
+                "{}-{}mm".format(round(_n * 0.5, _rnd), round(_n * 1.5, _rnd))
+                if s.val_unit == UNIT_METRIC
+                else "{}-{}in".format(round(_n * 0.5, _rnd), round(_n * 1.5, _rnd))
+            )
         elif s.val_type == TYPE_INDUST:
-            s.rec_doc = 'SEE SPEC' if _active_type == CUT_CARB else '2.0mm+' if s.val_unit == UNIT_METRIC else '0.08in+'
+            s.rec_doc = (
+                "SEE SPEC"
+                if _active_type == CUT_CARB
+                else "2.0mm+" if s.val_unit == UNIT_METRIC else "0.08in+"
+            )
         elif s.val_work in (WORK_SUPER, WORK_TOOL_ST):
-            s.rec_doc = ('0.5mm' if _active_type == CUT_HSS else '0.2mm') if s.val_unit == UNIT_METRIC else '0.02in' if _active_type == CUT_HSS else '0.008in'
+            s.rec_doc = (
+                ("0.5mm" if _active_type == CUT_HSS else "0.2mm")
+                if s.val_unit == UNIT_METRIC
+                else "0.02in" if _active_type == CUT_HSS else "0.008in"
+            )
         else:
-            s.rec_doc = ('1.0mm' if _active_type == CUT_HSS else '0.5mm') if s.val_unit == UNIT_METRIC else '0.04in' if _active_type == CUT_HSS else '0.02in'
+            s.rec_doc = (
+                ("1.0mm" if _active_type == CUT_HSS else "0.5mm")
+                if s.val_unit == UNIT_METRIC
+                else "0.04in" if _active_type == CUT_HSS else "0.02in"
+            )
         _feed_limit = s.max_feed_m if s.val_unit == UNIT_METRIC else s.max_feed_i
         s.feed_m_result = s.rpm_result * s.val_feed
         if s.feed_m_result > _feed_limit:
             s.warn_high_feed = True
-        s.feed_m_result = round(s.feed_m_result, 1) if s.val_unit == UNIT_METRIC else round(s.feed_m_result, 3)
+        s.feed_m_result = (
+            round(s.feed_m_result, 1)
+            if s.val_unit == UNIT_METRIC
+            else round(s.feed_m_result, 3)
+        )
         if s.val_feed > 0 and s.rpm_result > 0 and s.val_len > 0:
             time_mins = s.val_len / (s.val_feed * s.rpm_result)
             _m = int(time_mins)
@@ -932,19 +1222,24 @@ def _calc_main(s, _pi):
             s.time_result = "{}m {}s".format(_m, _s)
         if s.val_unit == UNIT_IMP:
             _nose_r = _nose_radius_i
-            _ra = s.val_feed ** 2 / (32.0 * _nose_r) * 1000000.0 if _nose_r > 0 else 0.0
+            _ra = s.val_feed**2 / (32.0 * _nose_r) * 1000000.0 if _nose_r > 0 else 0.0
             _ra_um = _ra * 0.0254
-            if not s.ra_as_ngrade: s.ra_result_str = "{} uin".format(int(_ra))
-            if _ra > (250.0 if s.val_pass == PASS_ROUGH else 63.0): s.warn_poor_finish = True
+            if not s.ra_as_ngrade:
+                s.ra_result_str = "{} uin".format(int(_ra))
+            if _ra > (250.0 if s.val_pass == PASS_ROUGH else 63.0):
+                s.warn_poor_finish = True
         else:
             _nose_r = _nose_radius_m
-            _ra = s.val_feed ** 2 / (32.0 * _nose_r) * 1000.0 if _nose_r > 0 else 0.0
+            _ra = s.val_feed**2 / (32.0 * _nose_r) * 1000.0 if _nose_r > 0 else 0.0
             _ra_um = _ra
-            if not s.ra_as_ngrade: s.ra_result_str = "{} um".format(round(_ra, 2))
-            if _ra > (6.3 if s.val_pass == PASS_ROUGH else 1.6): s.warn_poor_finish = True
+            if not s.ra_as_ngrade:
+                s.ra_result_str = "{} um".format(round(_ra, 2))
+            if _ra > (6.3 if s.val_pass == PASS_ROUGH else 1.6):
+                s.warn_poor_finish = True
         if s.ra_as_ngrade:
             _n_idx = 0
-            while _n_idx < 11 and _ra_um > N_GRADES[_n_idx]: _n_idx += 1
+            while _n_idx < 11 and _ra_um > N_GRADES[_n_idx]:
+                _n_idx += 1
             s.ra_result_str = "N{}".format(_n_idx + 1)
         _kc = KC_MAP[s.val_work] if s.val_work < 11 else 1000
         _vc_m = s.val_vc if s.val_unit == UNIT_METRIC else s.val_vc * 0.3048
@@ -952,25 +1247,36 @@ def _calc_main(s, _pi):
         _doc_mm = s.val_doc if s.val_unit == UNIT_METRIC else s.val_doc * 25.4
         _pc_kw = _vc_m * _doc_mm * _feed_mm * _kc / 60000.0
         _req_motor_kw = _pc_kw / s.motor_eff if s.motor_eff > 0 else 0.0
-        _motor_limit_kw = s.motor_kw_hobby if s.val_type == TYPE_HOBBY else s.motor_kw_indust
-        if _req_motor_kw > _motor_limit_kw: s.warn_power_cap = True
-        s.pwr_result_str = "{} HP".format(round(_req_motor_kw * 1.34102, 2)) if s.val_unit == UNIT_IMP else "{} kW".format(round(_req_motor_kw, 2))
+        _motor_limit_kw = (
+            s.motor_kw_hobby if s.val_type == TYPE_HOBBY else s.motor_kw_indust
+        )
+        if _req_motor_kw > _motor_limit_kw:
+            s.warn_power_cap = True
+        s.pwr_result_str = (
+            "{} HP".format(round(_req_motor_kw * 1.34102, 2))
+            if s.val_unit == UNIT_IMP
+            else "{} kW".format(round(_req_motor_kw, 2))
+        )
 
     # Pre-format UI strings
-    _str_unit = 'METRIC' if s.val_unit == UNIT_METRIC else 'IMPERL'
-    _active_tool_name = s.tool_profiles[s.active_tool_idx]['name'][:5]
-    _r_val = s.tool_profiles[s.active_tool_idx]['rad_m'] if s.val_unit == UNIT_METRIC else s.tool_profiles[s.active_tool_idx]['rad_i']
-    _r_str = str(_r_val).lstrip('0') if str(_r_val).startswith('0.') else str(_r_val)
+    _str_unit = "METRIC" if s.val_unit == UNIT_METRIC else "IMPERL"
+    _active_tool_name = s.tool_profiles[s.active_tool_idx]["name"][:5]
+    _r_val = (
+        s.tool_profiles[s.active_tool_idx]["rad_m"]
+        if s.val_unit == UNIT_METRIC
+        else s.tool_profiles[s.active_tool_idx]["rad_i"]
+    )
+    _r_str = str(_r_val).lstrip("0") if str(_r_val).startswith("0.") else str(_r_val)
     _str_tool = "{}]R{}".format("[{}".format(_active_tool_name), _r_str)
-    _str_type = 'HOBBY' if s.val_type == TYPE_HOBBY else 'INDUST'
+    _str_type = "HOBBY" if s.val_type == TYPE_HOBBY else "INDUST"
     _str_proc = PROC_NAMES[s.val_proc]
-    _str_pass = 'ROUGH' if s.val_pass == PASS_ROUGH else 'FINISH'
+    _str_pass = "ROUGH" if s.val_pass == PASS_ROUGH else "FINISH"
     _str_work = WORK_NAMES[s.val_work]
-    _u_d = 'mm' if s.val_unit == UNIT_METRIC else 'in'
-    _u_v = 'm/m' if s.val_unit == UNIT_METRIC else 'SFM'
-    _u_f = 'mm/r' if s.val_unit == UNIT_METRIC else 'in/r'
-    _l_v = 'Vc  :' if s.val_unit == UNIT_METRIC else 'SFM :'
-    _diam_label = 'D-DIA:' if s.val_proc == PROC_DRILL else 'DIAM: '
+    _u_d = "mm" if s.val_unit == UNIT_METRIC else "in"
+    _u_v = "m/m" if s.val_unit == UNIT_METRIC else "SFM"
+    _u_f = "mm/r" if s.val_unit == UNIT_METRIC else "in/r"
+    _l_v = "Vc  :" if s.val_unit == UNIT_METRIC else "SFM :"
+    _diam_label = "D-DIA:" if s.val_proc == PROC_DRILL else "DIAM: "
 
     s.ui_left = [
         "UNIT: [{}]".format(_str_unit),
@@ -979,7 +1285,7 @@ def _calc_main(s, _pi):
         "TOOL: {}".format(_str_tool),
         "PROC: [{}]".format(_str_proc),
         "PASS: [{}]".format(_str_pass),
-        "[=] APPLY REC DOC"
+        "[=] APPLY REC DOC",
     ]
     s.ui_right = [
         "{} {} {}".format(_diam_label, s.val_diam, _u_d),
@@ -988,7 +1294,7 @@ def _calc_main(s, _pi):
         "FEED: {} {}".format(s.val_feed, _u_f),
         "DOC : {} {}".format(s.val_doc, _u_d),
         "[>] TOOLBOX",
-        "[?] HELP"
+        "[?] HELP",
     ]
     s.ui_rpm = str(int(s.rpm_result))
     s.ui_feed_m = str(s.feed_m_result)
@@ -998,13 +1304,20 @@ def _calc_main(s, _pi):
     s.ui_max_doc = "MAX DOC: {}".format(s.rec_doc)
     s.ui_rpm_warn = "! RPM CAPPED (MAX {})".format(int(_max_rpm))
 
+
 def _calc_taper(s, _pi):
     if s.tp_L > 0:
         _rads = math.atan(abs(s.tp_D - s.tp_d) / (2.0 * s.tp_L))
         s.tp_angle = round(_rads * (180.0 / _pi), 2)
-    _u = 'mm' if s.val_unit == UNIT_METRIC else 'in'
-    s.ui_rows = ['LARGE DIAM (D):  {} {}'.format(round(s.tp_D, 3), _u), 'SMALL DIAM (d):  {} {}'.format(round(s.tp_d, 3), _u), 'TAPER LEN  (L):  {} {}'.format(round(s.tp_L, 3), _u), '< RETURN TO TOOLBOX']
-    s.ui_res = '{} DEGREES'.format(s.tp_angle)
+    _u = "mm" if s.val_unit == UNIT_METRIC else "in"
+    s.ui_rows = [
+        "LARGE DIAM (D):  {} {}".format(round(s.tp_D, 3), _u),
+        "SMALL DIAM (d):  {} {}".format(round(s.tp_d, 3), _u),
+        "TAPER LEN  (L):  {} {}".format(round(s.tp_L, 3), _u),
+        "< RETURN TO TOOLBOX",
+    ]
+    s.ui_res = "{} DEGREES".format(s.tp_angle)
+
 
 def _calc_thread(s):
     _th_p = s.th_pitch if s.th_type == TH_METRIC else 1.0 / max(0.001, s.th_pitch)
@@ -1017,9 +1330,14 @@ def _calc_thread(s):
     else:
         s.th_pass_1 = min(0.012, max(0.004, _th_p * 0.15))
         s.th_pass_n = min(0.006, max(0.002, _th_p * 0.05))
-    _u = 'mm' if s.th_type == TH_METRIC else 'in'
-    s.ui_rows = ['NOMINAL DIAM :  {} {}'.format(s.th_diam, _u), 'PITCH/TPI    :  {}'.format(s.th_pitch), '< RETURN TO TOOLBOX']
-    s.ui_res = 'MINOR: {:.3f} | INFEED: {:.3f}'.format(s.th_minor, s.th_infeed)
+    _u = "mm" if s.th_type == TH_METRIC else "in"
+    s.ui_rows = [
+        "NOMINAL DIAM :  {} {}".format(s.th_diam, _u),
+        "PITCH/TPI    :  {}".format(s.th_pitch),
+        "< RETURN TO TOOLBOX",
+    ]
+    s.ui_res = "MINOR: {:.3f} | INFEED: {:.3f}".format(s.th_minor, s.th_infeed)
+
 
 def _calc_convert(s):
     if s.cv_unit == UNIT_METRIC:
@@ -1029,77 +1347,165 @@ def _calc_convert(s):
     _whole = int(s.cv_inch)
     _rem = s.cv_inch - _whole
     _num, _den = int(_rem * 64.0 + 0.5), 64
-    if _num == 64: _whole += 1; _num = 0
-    while _num > 0 and _num % 2 == 0 and _den > 1: _num //= 2; _den //= 2
-    if _num == 0: s.cv_frac = '{} "'.format(_whole) if _whole > 0 else '0"'
-    else: s.cv_frac = '{} {}/{}"'.format(str(_whole) + ' ' if _whole > 0 else '', _num, _den)
-    s.ui_rows = ['CONVERT VALUE:  {}'.format(s.cv_val), 'FROM UNIT    :  {}'.format('METRIC (mm)' if s.cv_unit == UNIT_METRIC else 'IMPERIAL (in)'), '< RETURN TO TOOLBOX']
-    s.ui_res = '{} mm | {:.4f} in'.format(s.cv_mm, s.cv_inch)
+    if _num == 64:
+        _whole += 1
+        _num = 0
+    while _num > 0 and _num % 2 == 0 and _den > 1:
+        _num //= 2
+        _den //= 2
+    if _num == 0:
+        s.cv_frac = '{} "'.format(_whole) if _whole > 0 else '0"'
+    else:
+        s.cv_frac = '{} {}/{}"'.format(
+            str(_whole) + " " if _whole > 0 else "", _num, _den
+        )
+    s.ui_rows = [
+        "CONVERT VALUE:  {}".format(s.cv_val),
+        "FROM UNIT    :  {}".format(
+            "METRIC (mm)" if s.cv_unit == UNIT_METRIC else "IMPERIAL (in)"
+        ),
+        "< RETURN TO TOOLBOX",
+    ]
+    s.ui_res = "{} mm | {:.4f} in".format(s.cv_mm, s.cv_inch)
+
 
 def _calc_wire(s):
     _wr_p = s.wr_pitch if s.wr_type == TH_METRIC else 1.0 / max(0.001, s.wr_pitch)
     s.wr_best = 0.57735 * _wr_p
     s.wr_result = s.wr_diam - 0.866025 * _wr_p + 3.0 * s.wr_wire
-    _u = 'mm' if s.wr_type == TH_METRIC else 'in'
-    s.ui_rows = ['NOMINAL DIAM :  {} {}'.format(s.wr_diam, _u), 'PITCH/TPI    :  {}'.format(s.wr_pitch), 'WIRE SIZE    :  {} {}'.format(s.wr_wire, _u), '< RETURN TO TOOLBOX']
-    s.ui_res = 'M-MEAS: {:.4f} | BEST: {:.4f}'.format(s.wr_result, s.wr_best)
+    _u = "mm" if s.wr_type == TH_METRIC else "in"
+    s.ui_rows = [
+        "NOMINAL DIAM :  {} {}".format(s.wr_diam, _u),
+        "PITCH/TPI    :  {}".format(s.wr_pitch),
+        "WIRE SIZE    :  {} {}".format(s.wr_wire, _u),
+        "< RETURN TO TOOLBOX",
+    ]
+    s.ui_res = "M-MEAS: {:.4f} | BEST: {:.4f}".format(s.wr_result, s.wr_best)
+
 
 def _calc_weight(s, _pi):
     _wt_densities = (7.85, 2.7, 8.53, 7.93, 7.2, 4.5, 8.96, 1.2)
     _d = _wt_densities[s.wt_matl]
-    if s.val_unit == UNIT_METRIC: s.wt_result = _pi * (s.wt_diam / 20.0) ** 2 * (s.wt_len / 10.0) * _d / 1000.0
-    else: s.wt_result = _pi * (s.wt_diam / 2.0) ** 2 * s.wt_len * (_d * 0.0361273)
-    _u = 'mm' if s.val_unit == UNIT_METRIC else 'in'
-    _mat = ('STEEL', 'ALUMINUM', 'BRASS', 'STAINLESS', 'CAST IRON', 'TITANIUM', 'COPPER', 'PLASTIC')[s.wt_matl]
-    s.ui_rows = ['MATL : [ {} ]'.format(_mat), 'DIAM :   {} {}'.format(round(s.wt_diam, 3), _u), 'LEN  :   {} {}'.format(round(s.wt_len, 3), _u), '< RETURN TO TOOLBOX']
-    s.ui_res = '{:.3f} {}'.format(s.wt_result, 'kg' if s.val_unit == UNIT_METRIC else 'lbs')
-    _u = 'mm' if s.val_unit == UNIT_METRIC else 'in'
-    _mat = ['STEEL', 'ALUM', 'BRASS', 'STAIN', 'IRON', 'TITAN', 'COPPER', 'PLAST'][s.wt_matl]
-    s.ui_rows = ['MATERIAL     :  {}'.format(_mat), 'DIAMETER     :  {} {}'.format(s.wt_diam, _u), 'LENGTH       :  {} {}'.format(s.wt_len, _u), '< RETURN TO TOOLBOX']
-    s.ui_res = 'TOTAL WEIGHT: {:.3f} {}'.format(s.wt_result, 'kg' if s.val_unit == UNIT_METRIC else 'lb')
+    if s.val_unit == UNIT_METRIC:
+        s.wt_result = _pi * (s.wt_diam / 20.0) ** 2 * (s.wt_len / 10.0) * _d / 1000.0
+    else:
+        s.wt_result = _pi * (s.wt_diam / 2.0) ** 2 * s.wt_len * (_d * 0.0361273)
+    _u = "mm" if s.val_unit == UNIT_METRIC else "in"
+    _mat = (
+        "STEEL",
+        "ALUMINUM",
+        "BRASS",
+        "STAINLESS",
+        "CAST IRON",
+        "TITANIUM",
+        "COPPER",
+        "PLASTIC",
+    )[s.wt_matl]
+    s.ui_rows = [
+        "MATL : [ {} ]".format(_mat),
+        "DIAM :   {} {}".format(round(s.wt_diam, 3), _u),
+        "LEN  :   {} {}".format(round(s.wt_len, 3), _u),
+        "< RETURN TO TOOLBOX",
+    ]
+    s.ui_res = "{:.3f} {}".format(
+        s.wt_result, "kg" if s.val_unit == UNIT_METRIC else "lbs"
+    )
+    _u = "mm" if s.val_unit == UNIT_METRIC else "in"
+    _mat = ["STEEL", "ALUM", "BRASS", "STAIN", "IRON", "TITAN", "COPPER", "PLAST"][
+        s.wt_matl
+    ]
+    s.ui_rows = [
+        "MATERIAL     :  {}".format(_mat),
+        "DIAMETER     :  {} {}".format(s.wt_diam, _u),
+        "LENGTH       :  {} {}".format(s.wt_len, _u),
+        "< RETURN TO TOOLBOX",
+    ]
+    s.ui_res = "TOTAL WEIGHT: {:.3f} {}".format(
+        s.wt_result, "kg" if s.val_unit == UNIT_METRIC else "lb"
+    )
+
 
 def _calc_speed(s, _pi):
-    if s.sp_diam > 0: s.sp_rpm = s.sp_vc * 1000.0 / (_pi * s.sp_diam) if s.val_unit == UNIT_METRIC else s.sp_vc * 12.0 / (_pi * s.sp_diam)
-    else: s.sp_rpm = 0.0
-    _u_d, _u_v = ('mm', 'm/min') if s.val_unit == UNIT_METRIC else ('in', 'SFM')
-    _v_lbl = 'Vc  :    ' if s.val_unit == UNIT_METRIC else 'SFM :    '
-    s.ui_rows = ['DIAM:    {} {}'.format(round(s.sp_diam, 3), _u_d), '{}{} {}'.format(_v_lbl, round(s.sp_vc, 2), _u_v), '< RETURN TO TOOLBOX']
-    s.ui_res = '{} RPM'.format(int(s.sp_rpm))
+    if s.sp_diam > 0:
+        s.sp_rpm = (
+            s.sp_vc * 1000.0 / (_pi * s.sp_diam)
+            if s.val_unit == UNIT_METRIC
+            else s.sp_vc * 12.0 / (_pi * s.sp_diam)
+        )
+    else:
+        s.sp_rpm = 0.0
+    _u_d, _u_v = ("mm", "m/min") if s.val_unit == UNIT_METRIC else ("in", "SFM")
+    _v_lbl = "Vc  :    " if s.val_unit == UNIT_METRIC else "SFM :    "
+    s.ui_rows = [
+        "DIAM:    {} {}".format(round(s.sp_diam, 3), _u_d),
+        "{}{} {}".format(_v_lbl, round(s.sp_vc, 2), _u_v),
+        "< RETURN TO TOOLBOX",
+    ]
+    s.ui_res = "{} RPM".format(int(s.sp_rpm))
+
 
 def _calc_gears(s):
     s.gr_results = []
-    available_gears = sorted(list(set([int(g.strip()) for g in s.gr_gears.split(',') if g.strip().isdigit()])))
-    if not available_gears: s.gr_results = ['Error: No valid gears']; return
-    is_metric, pitch_cut, pitch_ls = s.val_unit == UNIT_METRIC, s.gr_pitch_cut, s.gr_pitch_ls
-    if pitch_cut <= 0 or pitch_ls <= 0: s.gr_results = ['Error: Pitches must be > 0']; return
+    available_gears = sorted(
+        list(
+            set([int(g.strip()) for g in s.gr_gears.split(",") if g.strip().isdigit()])
+        )
+    )
+    if not available_gears:
+        s.gr_results = ["Error: No valid gears"]
+        return
+    is_metric, pitch_cut, pitch_ls = (
+        s.val_unit == UNIT_METRIC,
+        s.gr_pitch_cut,
+        s.gr_pitch_ls,
+    )
+    if pitch_cut <= 0 or pitch_ls <= 0:
+        s.gr_results = ["Error: Pitches must be > 0"]
+        return
     target_ratio = pitch_cut / pitch_ls if is_metric else pitch_ls / pitch_cut
     for g1 in available_gears:
         for g2 in available_gears:
-            if g1 == g2: continue
-            if abs((g1/g2) - target_ratio) < 0.0001:
-                s.gr_results.append('{} / {}'.format(g1, g2))
-                if len(s.gr_results) >= 10: break
+            if g1 == g2:
+                continue
+            if abs((g1 / g2) - target_ratio) < 0.0001:
+                s.gr_results.append("{} / {}".format(g1, g2))
+                if len(s.gr_results) >= 10:
+                    break
     if len(s.gr_results) < 10:
         r_map = {}
         for g1 in available_gears:
             for g2 in available_gears:
-                if g1 == g2: continue
+                if g1 == g2:
+                    continue
                 r = g1 / g2
-                if r not in r_map: r_map[r] = (g1, g2)
+                if r not in r_map:
+                    r_map[r] = (g1, g2)
         for r1 in r_map:
-            if len(s.gr_results) >= 10: break
-            try: r2_target = target_ratio / r1
-            except ZeroDivisionError: continue
+            if len(s.gr_results) >= 10:
+                break
+            try:
+                r2_target = target_ratio / r1
+            except ZeroDivisionError:
+                continue
             for r2 in r_map:
                 if abs(r2 - r2_target) < 0.0001:
-                    a, b = r_map[r1]; c, d = r_map[r2]; used = [a, b, c, d]
+                    a, b = r_map[r1]
+                    c, d = r_map[r2]
+                    used = [a, b, c, d]
                     if all(used.count(g) <= available_gears.count(g) for g in used):
-                        sol = '({}/{}) * ({}/{})'.format(a, b, c, d)
+                        sol = "({}/{}) * ({}/{})".format(a, b, c, d)
                         if sol not in s.gr_results:
                             s.gr_results.append(sol)
-                            if len(s.gr_results) >= 10: break
-    _u = 'mm' if is_metric else 'TPI'
-    s.ui_rows = ['PITCH TO CUT: {} {}'.format(s.gr_pitch_cut, _u), 'LEADSCREW   : {} {}'.format(s.gr_pitch_ls, _u), 'AVAIL GEARS : {}...'.format(s.gr_gears[:20]), '< RETURN TO TOOLBOX']
+                            if len(s.gr_results) >= 10:
+                                break
+    _u = "mm" if is_metric else "TPI"
+    s.ui_rows = [
+        "PITCH TO CUT: {} {}".format(s.gr_pitch_cut, _u),
+        "LEADSCREW   : {} {}".format(s.gr_pitch_ls, _u),
+        "AVAIL GEARS : {}...".format(s.gr_gears[:20]),
+        "< RETURN TO TOOLBOX",
+    ]
+
 
 def _calc_bolt_circle(s, _pi):
     s.bc_results = []
@@ -1107,67 +1513,137 @@ def _calc_bolt_circle(s, _pi):
         radius, angle_step = s.bc_diam / 2.0, 360.0 / s.bc_holes
         for i in range(s.bc_holes):
             angle_rad = (i * angle_step) * (_pi / 180.0)
-            s.bc_results.append((round(radius * math.sin(angle_rad), 4), round(radius * math.cos(angle_rad), 4)))
+            s.bc_results.append(
+                (
+                    round(radius * math.sin(angle_rad), 4),
+                    round(radius * math.cos(angle_rad), 4),
+                )
+            )
     s.bc_rows = []
     for j, (rx, ry) in enumerate(s.bc_results):
-        s.bc_rows.append('{}: ({}, {})'.format(j + 1, rx, ry))
-    _u = 'mm' if s.val_unit == UNIT_METRIC else 'in'
-    s.ui_rows = ['CIRCLE DIAM: {} {}'.format(s.bc_diam, _u), 'NUM HOLES  : {}'.format(s.bc_holes), '< RETURN TO TOOLBOX']
+        s.bc_rows.append("{}: ({}, {})".format(j + 1, rx, ry))
+    _u = "mm" if s.val_unit == UNIT_METRIC else "in"
+    s.ui_rows = [
+        "CIRCLE DIAM: {} {}".format(s.bc_diam, _u),
+        "NUM HOLES  : {}".format(s.bc_holes),
+        "< RETURN TO TOOLBOX",
+    ]
+
 
 def _calc_triangle(s):
     s.tr_A = s.tr_B = s.tr_C = s.tr_ang_a = s.tr_ang_b = 0.0
     try:
         m, v1, v2 = s.tr_mode, s.tr_v1, s.tr_v2
         rad, deg = math.pi / 180.0, 180.0 / math.pi
-        if m == 0: s.tr_A, s.tr_B = v1, v2; s.tr_C = math.sqrt(v1*v1 + v2*v2); s.tr_ang_a = math.atan2(v1, v2) * deg if v2 != 0 else 90.0
-        elif m == 1: s.tr_A, s.tr_C = v1, v2; s.tr_B = math.sqrt(v2*v2 - v1*v1) if v2 > v1 else 0; s.tr_ang_a = math.asin(v1/v2)*deg if v2 > v1 else 0
-        elif m == 2: s.tr_B, s.tr_C = v1, v2; s.tr_A = math.sqrt(v2*v2 - v1*v1) if v2 > v1 else 0; s.tr_ang_a = math.acos(v1/v2)*deg if v2 > v1 else 0
-        elif m == 3: s.tr_A, s.tr_ang_a = v1, v2; s.tr_B, s.tr_C = (v1 / math.tan(v2*rad), v1 / math.sin(v2*rad)) if 0 < v2 < 90 else (0,0)
-        elif m == 4: s.tr_B, s.tr_ang_a = v1, v2; s.tr_A, s.tr_C = (v1 * math.tan(v2*rad), v1 / math.cos(v2*rad)) if 0 < v2 < 90 else (0,0)
-        elif m == 5: s.tr_C, s.tr_ang_a = v1, v2; s.tr_A, s.tr_B = (v1 * math.sin(v2*rad), v1 * math.cos(v2*rad)) if 0 < v2 < 90 else (0,0)
-        if s.tr_ang_a > 0: s.tr_ang_b = 90.0 - s.tr_ang_a
-    except: pass
-    _modes = ('A & B', 'A & C', 'B & C', 'A & Ang(a)', 'B & Ang(a)', 'C & Ang(a)')
-    _v1_lbls = ('SIDE A', 'SIDE A', 'SIDE B', 'SIDE A', 'SIDE B', 'SIDE C')
-    _v2_lbls = ('SIDE B', 'SIDE C', 'SIDE C', 'ANGLE a', 'ANGLE a', 'ANGLE a')
-    s.ui_rows = ['GIVEN: < {} >'.format(_modes[s.tr_mode]), '{}: {}'.format(_v1_lbls[s.tr_mode], round(s.tr_v1, 4)), '{}: {}'.format(_v2_lbls[s.tr_mode], round(s.tr_v2, 4)), '< RETURN TO TOOLBOX']
+        if m == 0:
+            s.tr_A, s.tr_B = v1, v2
+            s.tr_C = math.sqrt(v1 * v1 + v2 * v2)
+            s.tr_ang_a = math.atan2(v1, v2) * deg if v2 != 0 else 90.0
+        elif m == 1:
+            s.tr_A, s.tr_C = v1, v2
+            s.tr_B = math.sqrt(v2 * v2 - v1 * v1) if v2 > v1 else 0
+            s.tr_ang_a = math.asin(v1 / v2) * deg if v2 > v1 else 0
+        elif m == 2:
+            s.tr_B, s.tr_C = v1, v2
+            s.tr_A = math.sqrt(v2 * v2 - v1 * v1) if v2 > v1 else 0
+            s.tr_ang_a = math.acos(v1 / v2) * deg if v2 > v1 else 0
+        elif m == 3:
+            s.tr_A, s.tr_ang_a = v1, v2
+            s.tr_B, s.tr_C = (
+                (v1 / math.tan(v2 * rad), v1 / math.sin(v2 * rad))
+                if 0 < v2 < 90
+                else (0, 0)
+            )
+        elif m == 4:
+            s.tr_B, s.tr_ang_a = v1, v2
+            s.tr_A, s.tr_C = (
+                (v1 * math.tan(v2 * rad), v1 / math.cos(v2 * rad))
+                if 0 < v2 < 90
+                else (0, 0)
+            )
+        elif m == 5:
+            s.tr_C, s.tr_ang_a = v1, v2
+            s.tr_A, s.tr_B = (
+                (v1 * math.sin(v2 * rad), v1 * math.cos(v2 * rad))
+                if 0 < v2 < 90
+                else (0, 0)
+            )
+        if s.tr_ang_a > 0:
+            s.tr_ang_b = 90.0 - s.tr_ang_a
+    except:
+        pass
+    _modes = ("A & B", "A & C", "B & C", "A & Ang(a)", "B & Ang(a)", "C & Ang(a)")
+    _v1_lbls = ("SIDE A", "SIDE A", "SIDE B", "SIDE A", "SIDE B", "SIDE C")
+    _v2_lbls = ("SIDE B", "SIDE C", "SIDE C", "ANGLE a", "ANGLE a", "ANGLE a")
+    s.ui_rows = [
+        "GIVEN: < {} >".format(_modes[s.tr_mode]),
+        "{}: {}".format(_v1_lbls[s.tr_mode], round(s.tr_v1, 4)),
+        "{}: {}".format(_v2_lbls[s.tr_mode], round(s.tr_v2, 4)),
+        "< RETURN TO TOOLBOX",
+    ]
+
 
 def _calc_arc(s):
     s.ar_arc_len = s.ar_chord = 0.0
     if s.ar_radius > 0 and s.ar_angle > 0:
         _rad = s.ar_angle * (math.pi / 180.0)
-        s.ar_arc_len, s.ar_chord = s.ar_radius * _rad, 2.0 * s.ar_radius * math.sin(_rad / 2.0)
-    _u = 'mm' if s.val_unit == UNIT_METRIC else 'in'
-    s.ui_rows = ['ARC RADIUS   :  {} {}'.format(s.ar_radius, _u), 'INCL. ANGLE  :  {} DEG'.format(s.ar_angle), '< RETURN TO TOOLBOX']
-    s.ui_res = 'LEN: {:.3f} | CHORD: {:.3f}'.format(s.ar_arc_len, s.ar_chord)
+        s.ar_arc_len, s.ar_chord = s.ar_radius * _rad, 2.0 * s.ar_radius * math.sin(
+            _rad / 2.0
+        )
+    _u = "mm" if s.val_unit == UNIT_METRIC else "in"
+    s.ui_rows = [
+        "ARC RADIUS   :  {} {}".format(s.ar_radius, _u),
+        "INCL. ANGLE  :  {} DEG".format(s.ar_angle),
+        "< RETURN TO TOOLBOX",
+    ]
+    s.ui_res = "LEN: {:.3f} | CHORD: {:.3f}".format(s.ar_arc_len, s.ar_chord)
+
 
 def _calc_drill_pt(s):
     if s.dp_diam > 0 and s.dp_angle > 0:
         s.dp_result = s.dp_diam / 2.0 / math.tan((s.dp_angle / 2.0) * (math.pi / 180.0))
-    else: s.dp_result = 0.0
-    _u = 'mm' if s.val_unit == UNIT_METRIC else 'in'
-    s.ui_rows = ['DRILL DIAM   :  {} {}'.format(s.dp_diam, _u), 'POINT ANGLE  :  {} DEG'.format(s.dp_angle), '< RETURN TO TOOLBOX']
-    s.ui_res = 'TIP DEPTH: {:.3f} {}'.format(s.dp_result, _u)
+    else:
+        s.dp_result = 0.0
+    _u = "mm" if s.val_unit == UNIT_METRIC else "in"
+    s.ui_rows = [
+        "DRILL DIAM   :  {} {}".format(s.dp_diam, _u),
+        "POINT ANGLE  :  {} DEG".format(s.dp_angle),
+        "< RETURN TO TOOLBOX",
+    ]
+    s.ui_res = "TIP DEPTH: {:.3f} {}".format(s.dp_result, _u)
+
 
 def _calc_tap_hole(s):
     if s.td_diam > 0 and s.td_pitch > 0:
-        s.td_result = max(0.0, s.td_diam - (s.td_pitch if s.val_unit == UNIT_METRIC else 1.0 / s.td_pitch))
-    else: s.td_result = 0.0
-    _u = 'mm' if s.val_unit == UNIT_METRIC else 'in'
-    s.ui_rows = ['THREAD DIAM  :  {} {}'.format(s.td_diam, _u), 'PITCH/TPI    :  {}'.format(s.td_pitch), '< RETURN TO TOOLBOX']
-    s.ui_res = 'TAP DRILL: {:.3f} {}'.format(s.td_result, _u)
+        s.td_result = max(
+            0.0,
+            s.td_diam - (s.td_pitch if s.val_unit == UNIT_METRIC else 1.0 / s.td_pitch),
+        )
+    else:
+        s.td_result = 0.0
+    _u = "mm" if s.val_unit == UNIT_METRIC else "in"
+    s.ui_rows = [
+        "THREAD DIAM  :  {} {}".format(s.td_diam, _u),
+        "PITCH/TPI    :  {}".format(s.td_pitch),
+        "< RETURN TO TOOLBOX",
+    ]
+    s.ui_res = "TAP DRILL: {:.3f} {}".format(s.td_result, _u)
 
 
 def _calc_options(s):
-    themes = ('0: DARK THEME', '1: TERMINAL', '2: BLUEPRINT', '3: LIGHT MODE')
-    _u = 'mm/m' if s.val_unit == UNIT_METRIC else 'in/m'
+    themes = ("0: DARK THEME", "1: TERMINAL", "2: BLUEPRINT", "3: LIGHT MODE")
+    _u = "mm/m" if s.val_unit == UNIT_METRIC else "in/m"
     _limit_val = s.max_feed_m if s.val_unit == UNIT_METRIC else s.max_feed_i
     _rpm_cap = s.max_rpm_hobby if s.val_type == TYPE_HOBBY else s.max_rpm_indust
-    _ra_disp = 'N-GRADE' if s.ra_as_ngrade else 'um' if s.val_unit == UNIT_METRIC else 'uin'
+    _ra_disp = (
+        "N-GRADE" if s.ra_as_ngrade else "um" if s.val_unit == UNIT_METRIC else "uin"
+    )
     _pwr_kw = s.motor_kw_hobby if s.val_type == TYPE_HOBBY else s.motor_kw_indust
-    _pwr_u = 'HP' if s.val_unit == UNIT_IMP else 'kW'
-    _pwr_disp = round(_pwr_kw * 1.34102, 2) if s.val_unit == UNIT_IMP else round(_pwr_kw, 2)
-    _auto_doc_str = 'ON' if s.auto_rec_doc else 'OFF'
+    _pwr_u = "HP" if s.val_unit == UNIT_IMP else "kW"
+    _pwr_disp = (
+        round(_pwr_kw * 1.34102, 2) if s.val_unit == UNIT_IMP else round(_pwr_kw, 2)
+    )
+    _auto_doc_str = "ON" if s.auto_rec_doc else "OFF"
     s.ui_rows = [
         "UI THEME: < {} >".format(themes[s.theme_id]),
         "MAX FEED:   {} {}".format(round(_limit_val, 3), _u),
@@ -1176,48 +1652,69 @@ def _calc_options(s):
         "MTR PWR :   {} {}".format(_pwr_disp, _pwr_u),
         "MTR EFF :   {} %".format(int(s.motor_eff * 100)),
         "AUTO DOC: < {} >".format(_auto_doc_str),
-        "< RETURN TO TOOLBOX"
+        "< RETURN TO TOOLBOX",
     ]
+
 
 def _calc_tool_mgr(s):
     active_tool = s.tool_profiles[s.active_tool_idx]
-    _t_str = 'HSS' if active_tool['type'] == CUT_HSS else 'CARBIDE'
-    _r_str = "{} mm".format(round(active_tool['rad_m'], 3)) if s.val_unit == UNIT_METRIC else "{} in".format(round(active_tool['rad_i'], 4))
-    _a_str = "{} DEG".format(round(active_tool.get('angle', 0.0), 1))
+    _t_str = "HSS" if active_tool["type"] == CUT_HSS else "CARBIDE"
+    _r_str = (
+        "{} mm".format(round(active_tool["rad_m"], 3))
+        if s.val_unit == UNIT_METRIC
+        else "{} in".format(round(active_tool["rad_i"], 4))
+    )
+    _a_str = "{} DEG".format(round(active_tool.get("angle", 0.0), 1))
     s.ui_rows = [
         "< RETURN TO TOOLBOX",
         "+ CREATE NEW TOOL",
         "- DELETE CURR TOOL",
-        "SELECT: < {} >".format(active_tool['name']),
+        "SELECT: < {} >".format(active_tool["name"]),
         "RENAME: [PRESS CENTER]",
         "TYPE  : < {} >".format(_t_str),
         "RADIUS: < {} >".format(_r_str),
-        "ANGLE : < {} >".format(_a_str)
+        "ANGLE : < {} >".format(_a_str),
     ]
+
 
 def _calculate():
     s = state
     _pi = 3.14159
     s.warn_coolant = s.warn_rpm_cap = s.warn_carbide_spd = s.warn_high_feed = False
     s.warn_poor_finish = s.warn_power_cap = False
-    s.time_result = '0m 0s'
+    s.time_result = "0m 0s"
 
     cur = s.current_screen
-    if cur == SCREEN_CALC or cur == SCREEN_GRAPH: _calc_main(s, _pi)
-    elif cur == SCREEN_TAPER: _calc_taper(s, _pi)
-    elif cur == SCREEN_THREAD: _calc_thread(s)
-    elif cur == SCREEN_CONVERT: _calc_convert(s)
-    elif cur == SCREEN_WIRE: _calc_wire(s)
-    elif cur == SCREEN_WEIGHT: _calc_weight(s, _pi)
-    elif cur == SCREEN_SPEED: _calc_speed(s, _pi)
-    elif cur == SCREEN_GEARS: _calc_gears(s)
-    elif cur == SCREEN_BOLT_CIRCLE: _calc_bolt_circle(s, _pi)
-    elif cur == SCREEN_TRIANGLE: _calc_triangle(s)
-    elif cur == SCREEN_ARC: _calc_arc(s)
-    elif cur == SCREEN_DRILL_PT: _calc_drill_pt(s)
-    elif cur == SCREEN_TAP_HOLE: _calc_tap_hole(s)
-    elif cur == SCREEN_OPTIONS: _calc_options(s)
-    elif cur == SCREEN_TOOL_MGR: _calc_tool_mgr(s)
+    if cur == SCREEN_CALC or cur == SCREEN_GRAPH:
+        _calc_main(s, _pi)
+    elif cur == SCREEN_TAPER:
+        _calc_taper(s, _pi)
+    elif cur == SCREEN_THREAD:
+        _calc_thread(s)
+    elif cur == SCREEN_CONVERT:
+        _calc_convert(s)
+    elif cur == SCREEN_WIRE:
+        _calc_wire(s)
+    elif cur == SCREEN_WEIGHT:
+        _calc_weight(s, _pi)
+    elif cur == SCREEN_SPEED:
+        _calc_speed(s, _pi)
+    elif cur == SCREEN_GEARS:
+        _calc_gears(s)
+    elif cur == SCREEN_BOLT_CIRCLE:
+        _calc_bolt_circle(s, _pi)
+    elif cur == SCREEN_TRIANGLE:
+        _calc_triangle(s)
+    elif cur == SCREEN_ARC:
+        _calc_arc(s)
+    elif cur == SCREEN_DRILL_PT:
+        _calc_drill_pt(s)
+    elif cur == SCREEN_TAP_HOLE:
+        _calc_tap_hole(s)
+    elif cur == SCREEN_OPTIONS:
+        _calc_options(s)
+    elif cur == SCREEN_TOOL_MGR:
+        _calc_tool_mgr(s)
 
 
 def start(view_manager):
@@ -1268,9 +1765,19 @@ def _draw_ui(view_manager):
         _draw_graph(view_manager)
     elif state.current_screen == SCREEN_TAP_HOLE:
         _draw_tap_hole(view_manager)
-    elif state.current_screen in (SCREEN_CHART, SCREEN_TAP, SCREEN_DRILL,
-        SCREEN_CENTER, SCREEN_MORSE, SCREEN_CLEAR, SCREEN_SURFACE,
-        SCREEN_FITS, SCREEN_HELP, SCREEN_KNURL, SCREEN_HARDNESS):
+    elif state.current_screen in (
+        SCREEN_CHART,
+        SCREEN_TAP,
+        SCREEN_DRILL,
+        SCREEN_CENTER,
+        SCREEN_MORSE,
+        SCREEN_CLEAR,
+        SCREEN_SURFACE,
+        SCREEN_FITS,
+        SCREEN_HELP,
+        SCREEN_KNURL,
+        SCREEN_HARDNESS,
+    ):
         _draw_text_screen(view_manager, state.current_screen)
 
 
@@ -1283,47 +1790,47 @@ def _draw_text_screen(view_manager, mode):
     if mode == SCREEN_CHART:
         v_pos.x = 5
         v_pos.y = 5
-        _draw.text(v_pos, 'SYSTEM DATA CHARTS', s.c_fg)
+        _draw.text(v_pos, "SYSTEM DATA CHARTS", s.c_fg)
     elif mode == SCREEN_TAP:
         v_pos.x = 5
         v_pos.y = 5
-        _draw.text(v_pos, 'TAP & CLEARANCE SIZES', s.c_fg)
+        _draw.text(v_pos, "TAP & CLEARANCE SIZES", s.c_fg)
     elif mode == SCREEN_DRILL:
         v_pos.x = 5
         v_pos.y = 5
-        _draw.text(v_pos, 'DRILL SIZE CHART', s.c_fg)
+        _draw.text(v_pos, "DRILL SIZE CHART", s.c_fg)
     elif mode == SCREEN_CENTER:
         v_pos.x = 5
         v_pos.y = 5
-        _draw.text(v_pos, 'CENTER DRILL SIZES', s.c_fg)
+        _draw.text(v_pos, "CENTER DRILL SIZES", s.c_fg)
     elif mode == SCREEN_MORSE:
         v_pos.x = 5
         v_pos.y = 5
-        _draw.text(v_pos, 'MORSE TAPER DIMS', s.c_fg)
+        _draw.text(v_pos, "MORSE TAPER DIMS", s.c_fg)
     elif mode == SCREEN_CLEAR:
         v_pos.x = 5
         v_pos.y = 5
-        _draw.text(v_pos, 'SHCS CLEARANCES', s.c_fg)
+        _draw.text(v_pos, "SHCS CLEARANCES", s.c_fg)
     elif mode == SCREEN_SURFACE:
         v_pos.x = 5
         v_pos.y = 5
-        _draw.text(v_pos, 'SURFACE FINISHES', s.c_fg)
+        _draw.text(v_pos, "SURFACE FINISHES", s.c_fg)
     elif mode == SCREEN_FITS:
         v_pos.x = 5
         v_pos.y = 5
-        _draw.text(v_pos, 'ISO FITS (H7 BASE)', s.c_fg)
+        _draw.text(v_pos, "ISO FITS (H7 BASE)", s.c_fg)
     elif mode == SCREEN_KNURL:
         v_pos.x = 5
         v_pos.y = 5
-        _draw.text(v_pos, 'KNURLING REFERENCE', s.c_fg)
+        _draw.text(v_pos, "KNURLING REFERENCE", s.c_fg)
     elif mode == SCREEN_HARDNESS:
         v_pos.x = 5
         v_pos.y = 5
-        _draw.text(v_pos, 'HARDNESS CONVERSION', s.c_fg)
+        _draw.text(v_pos, "HARDNESS CONVERSION", s.c_fg)
     else:
         v_pos.x = 5
         v_pos.y = 5
-        _draw.text(v_pos, 'HELP & ABBREVIATIONS', s.c_fg)
+        _draw.text(v_pos, "HELP & ABBREVIATIONS", s.c_fg)
     v_pos.x = 0
     v_pos.y = 22
     v_size.x = 320
@@ -1345,9 +1852,9 @@ def _draw_text_screen(view_manager, mode):
         v_size.x = 313
         v_size.y = 275
         _draw.line(v_pos, v_size, s.c_sec)
-        _th = max((_vis  // _tot * 245), 10)
+        _th = max((_vis // _tot * 245), 10)
         _ms = _tot - _vis
-        _ty = _sy + (s.scroll_pos  // _ms * (245 - _th)) if _ms > 0 else _sy
+        _ty = _sy + (s.scroll_pos // _ms * (245 - _th)) if _ms > 0 else _sy
         v_pos.x = 311
         v_pos.y = _ty
         v_size.x = 4
@@ -1360,7 +1867,7 @@ def _draw_text_screen(view_manager, mode):
     _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     v_pos.x = 5
     v_pos.y = 295
-    _draw.text(v_pos, '[UP/DOWN] SCROLL | [BACK] EXIT', s.c_sec)
+    _draw.text(v_pos, "[UP/DOWN] SCROLL | [BACK] EXIT", s.c_sec)
     _draw.swap()
 
 
@@ -1372,36 +1879,57 @@ def _draw_graph(view_manager):
     _draw.clear(color=s.c_bg)
     v_pos.x = 5
     v_pos.y = 5
-    _draw.text(v_pos, 'RPM vs MATERIAL', s.c_fg)
+    _draw.text(v_pos, "RPM vs MATERIAL", s.c_fg)
     v_pos.x = 0
     v_pos.y = 22
     v_size.x = 320
     v_size.y = 1
     _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    _u_d = 'mm' if s.val_unit == UNIT_METRIC else 'in'
+    _u_d = "mm" if s.val_unit == UNIT_METRIC else "in"
     v_pos.x = 5
     v_pos.y = 28
-    _draw.text(v_pos, '{}{} | Tool: '.format('Diam: {}'.format(s.val_diam),
-        _u_d) + ('HSS' if s.tool_profiles[s.active_tool_idx]['type'] ==
-        CUT_HSS else 'CARB'), s.c_ok)
-    _active_type = s.tool_profiles[s.active_tool_idx]['type']
+    _draw.text(
+        v_pos,
+        "{}{} | Tool: ".format("Diam: {}".format(s.val_diam), _u_d)
+        + ("HSS" if s.tool_profiles[s.active_tool_idx]["type"] == CUT_HSS else "CARB"),
+        s.c_ok,
+    )
+    _active_type = s.tool_profiles[s.active_tool_idx]["type"]
     if s.val_type == TYPE_HOBBY:
-        vc_map = [60.0, 45.0, 18.0, 12.0, 12.0, 85.0, 10.0, 30.0, 12.0,
-            10.0, 3.0] if _active_type == CUT_HSS else [150.0, 100.0, 70.0,
-            50.0, 60.0, 150.0, 35.0, 100.0, 60.0, 40.0, 20.0]
+        vc_map = (
+            [60.0, 45.0, 18.0, 12.0, 12.0, 85.0, 10.0, 30.0, 12.0, 10.0, 3.0]
+            if _active_type == CUT_HSS
+            else [150.0, 100.0, 70.0, 50.0, 60.0, 150.0, 35.0, 100.0, 60.0, 40.0, 20.0]
+        )
     else:
-        vc_map = [75.0, 50.0, 27.0, 17.0, 20.0, 120.0, 12.0, 37.0, 21.0,
-            15.0, 4.0] if _active_type == CUT_HSS else [200.0, 150.0, 100.0,
-            80.0, 100.0, 200.0, 50.0, 120.0, 80.0, 65.0, 30.0]
+        vc_map = (
+            [75.0, 50.0, 27.0, 17.0, 20.0, 120.0, 12.0, 37.0, 21.0, 15.0, 4.0]
+            if _active_type == CUT_HSS
+            else [
+                200.0,
+                150.0,
+                100.0,
+                80.0,
+                100.0,
+                200.0,
+                50.0,
+                120.0,
+                80.0,
+                65.0,
+                30.0,
+            ]
+        )
     _pi = 3.14159
-    _max_rpm = (s.max_rpm_hobby if s.val_type == TYPE_HOBBY else s.
-        max_rpm_indust)
+    _max_rpm = s.max_rpm_hobby if s.val_type == TYPE_HOBBY else s.max_rpm_indust
     rpms = []
     for i in range(11):
         base_vc = vc_map[i]
         if s.val_unit == UNIT_IMP:
-            vc = (base_vc * 3.28084 if s.val_pass == PASS_ROUGH else
-                base_vc * 3.28084 * 1.3)
+            vc = (
+                base_vc * 3.28084
+                if s.val_pass == PASS_ROUGH
+                else base_vc * 3.28084 * 1.3
+            )
             rpm = vc * 12.0 / (_pi * s.val_diam) if s.val_diam > 0 else 0
         else:
             vc = base_vc if s.val_pass == PASS_ROUGH else base_vc * 1.3
@@ -1409,14 +1937,14 @@ def _draw_graph(view_manager):
         rpms.append(min(rpm, _max_rpm))
     _max_plotted = max(rpms) if rpms and max(rpms) > 0 else 1.0
     plot_max = _max_plotted * 1.15
-    labels = ['AL', 'BR', 'MS', 'SS', 'CI', 'PL', 'TI', 'CU', 'HC', 'TS', 'SA']
+    labels = ["AL", "BR", "MS", "SS", "CI", "PL", "TI", "CU", "HC", "TS", "SA"]
     bar_w = 22
     spacing = 6
     start_x = 8
     base_y = 250
     max_h = 180
     for i in range(11):
-        h = (rpms[i]  // plot_max * max_h)
+        h = rpms[i] // plot_max * max_h
         x = start_x + i * (bar_w + spacing)
         c = s.c_hlt if i == s.val_work else s.c_fg
         if h > 0:
@@ -1432,7 +1960,7 @@ def _draw_graph(view_manager):
             v_pos.x = x - 4
             v_pos.y = base_y - h - 15
             _draw.text(v_pos, str(int(rpms[i])), s.c_ok)
-    limit_h = (_max_rpm  // plot_max * max_h)
+    limit_h = _max_rpm // plot_max * max_h
     if limit_h <= max_h:
         limit_y = base_y - limit_h
         v_size.x = 4
@@ -1443,7 +1971,7 @@ def _draw_graph(view_manager):
             _draw.fill_rectangle(v_pos, v_size, s.c_err)
         v_pos.x = 180
         v_pos.y = limit_y - 12
-        _draw.text(v_pos, 'LIMIT: {}'.format(int(_max_rpm)), s.c_err)
+        _draw.text(v_pos, "LIMIT: {}".format(int(_max_rpm)), s.c_err)
     v_pos.x = 0
     v_pos.y = 282
     v_size.x = 320
@@ -1451,7 +1979,7 @@ def _draw_graph(view_manager):
     _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     v_pos.x = 5
     v_pos.y = 295
-    _draw.text(v_pos, '[BACK] RETURN TO TOOLBOX', s.c_sec)
+    _draw.text(v_pos, "[BACK] RETURN TO TOOLBOX", s.c_sec)
     _draw.swap()
 
 
@@ -1463,7 +1991,7 @@ def _draw_toolbox(view_manager):
     _draw.clear(color=s.c_bg)
     v_pos.x = 5
     v_pos.y = 5
-    _draw.text(v_pos, 'SHOP TOOLBOX', s.c_fg)
+    _draw.text(v_pos, "SHOP TOOLBOX", s.c_fg)
     v_pos.x = 0
     v_pos.y = 22
     v_size.x = 320
@@ -1477,7 +2005,7 @@ def _draw_toolbox(view_manager):
         color = s.c_hlt if i == s.sel_tb_cat else s.c_fg
         if s.sel_tb_col == 0 and i == s.sel_tb_cat:
             v_pos.x, v_pos.y = cat_x, y
-            _draw.text(v_pos, '> {}'.format(cat_name), color)
+            _draw.text(v_pos, "> {}".format(cat_name), color)
         else:
             v_pos.x, v_pos.y = cat_x + 10, y
             _draw.text(v_pos, cat_name, color)
@@ -1498,7 +2026,7 @@ def _draw_toolbox(view_manager):
         color = s.c_hlt if i == s.sel_tb_item else s.c_fg
         if s.sel_tb_col == 1 and i == s.sel_tb_item:
             v_pos.x, v_pos.y = item_x, y
-            _draw.text(v_pos, '> {}'.format(item_name), color)
+            _draw.text(v_pos, "> {}".format(item_name), color)
         else:
             v_pos.x, v_pos.y = item_x + 10, y
             _draw.text(v_pos, item_name, color)
@@ -1507,364 +2035,712 @@ def _draw_toolbox(view_manager):
     if s.sel_tb_col == 0 and s.sel_tb_cat == len(TOOLBOX_MENU):
         v_pos.x = cat_x
         v_pos.y = back_y
-        _draw.text(v_pos, '> < RETURN TO MAIN', back_color)
+        _draw.text(v_pos, "> < RETURN TO MAIN", back_color)
     else:
         v_pos.x = cat_x + 10
         v_pos.y = back_y
-        _draw.text(v_pos, '< RETURN TO MAIN', back_color)
+        _draw.text(v_pos, "< RETURN TO MAIN", back_color)
     _draw.swap()
 
 
 def _draw_options(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0); _draw = view_manager.draw
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
+    _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5; _draw.text(v_pos, 'PERSONALIZATION', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "PERSONALIZATION", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i, row in enumerate(s.ui_rows):
         v_pos.y = 40 + i * 25
         c = s.c_hlt if i == s.sel_opt else s.c_fg
-        if i == s.sel_opt: v_pos.x = 5; _draw.text(v_pos, '>', c)
-        v_pos.x = 20; _draw.text(v_pos, row, c)
+        if i == s.sel_opt:
+            v_pos.x = 5
+            _draw.text(v_pos, ">", c)
+        v_pos.x = 20
+        _draw.text(v_pos, row, c)
     _draw.swap()
 
 
 def _draw_tool_mgr(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0); _draw = view_manager.draw
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
+    _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5; _draw.text(v_pos, 'TOOL MANAGER', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "TOOL MANAGER", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i, row in enumerate(s.ui_rows):
         v_pos.y = 40 + i * 25
         c = s.c_hlt if i == s.sel_tm else s.c_fg
-        if i == s.sel_tm: v_pos.x = 5; _draw.text(v_pos, '>', c)
-        v_pos.x = 20; _draw.text(v_pos, row, c)
+        if i == s.sel_tm:
+            v_pos.x = 5
+            _draw.text(v_pos, ">", c)
+        v_pos.x = 20
+        _draw.text(v_pos, row, c)
     _draw.swap()
 
 
 def _draw_taper(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0)
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
     _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5; _draw.text(v_pos, 'TAPER ANGLE CALCULATOR', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "TAPER ANGLE CALCULATOR", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i, row in enumerate(s.ui_rows):
-        _y = 40 + i * 25; v_pos.y = _y
+        _y = 40 + i * 25
+        v_pos.y = _y
         color = s.c_hlt if i == s.sel_tp else s.c_fg
-        if i == s.sel_tp: v_pos.x = 5; _draw.text(v_pos, '>', color)
-        v_pos.x = 20; _draw.text(v_pos, row, color)
-    v_pos.x = 0; v_pos.y = 160; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 5; v_pos.y = 175; _draw.text(v_pos, 'REQUIRED COMPOUND SETTING:', s.c_ok)
-    v_pos.x = 5; v_pos.y = 205; _draw.text(v_pos, s.ui_res, s.c_fg)
-    v_pos.x = 5; v_pos.y = 235; _draw.text(v_pos, '(Angle from centerline)', s.c_fg)
+        if i == s.sel_tp:
+            v_pos.x = 5
+            _draw.text(v_pos, ">", color)
+        v_pos.x = 20
+        _draw.text(v_pos, row, color)
+    v_pos.x = 0
+    v_pos.y = 160
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 175
+    _draw.text(v_pos, "REQUIRED COMPOUND SETTING:", s.c_ok)
+    v_pos.x = 5
+    v_pos.y = 205
+    _draw.text(v_pos, s.ui_res, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 235
+    _draw.text(v_pos, "(Angle from centerline)", s.c_fg)
     _draw.swap()
 
 
 def _draw_thread(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0)
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
     _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5; _draw.text(v_pos, 'THREADING ASSISTANT (60 DEG)', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "THREADING ASSISTANT (60 DEG)", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i, row in enumerate(s.ui_rows):
-        _y = 40 + i * 25; v_pos.y = _y
+        _y = 40 + i * 25
+        v_pos.y = _y
         color = s.c_hlt if i == s.sel_th else s.c_fg
-        if i == s.sel_th: v_pos.x = 5; _draw.text(v_pos, '>', color)
-        v_pos.x = 20; _draw.text(v_pos, row, color)
-    v_pos.x = 0; v_pos.y = 160; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 5; v_pos.y = 175; _draw.text(v_pos, 'RESULTS:', s.c_ok)
-    v_pos.x = 5; v_pos.y = 195; _draw.text(v_pos, s.ui_res, s.c_fg)
-    v_pos.x = 5; v_pos.y = 215; _draw.text(v_pos, 'PASS 1: {:.3f} | PASS N: {:.3f}'.format(s.th_pass_1, s.th_pass_n), s.c_fg)
-    v_pos.x = 5; v_pos.y = 235; _draw.text(v_pos, 'NOTE: Compound set at 29.5 deg', s.c_fg)
+        if i == s.sel_th:
+            v_pos.x = 5
+            _draw.text(v_pos, ">", color)
+        v_pos.x = 20
+        _draw.text(v_pos, row, color)
+    v_pos.x = 0
+    v_pos.y = 160
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 175
+    _draw.text(v_pos, "RESULTS:", s.c_ok)
+    v_pos.x = 5
+    v_pos.y = 195
+    _draw.text(v_pos, s.ui_res, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 215
+    _draw.text(
+        v_pos,
+        "PASS 1: {:.3f} | PASS N: {:.3f}".format(s.th_pass_1, s.th_pass_n),
+        s.c_fg,
+    )
+    v_pos.x = 5
+    v_pos.y = 235
+    _draw.text(v_pos, "NOTE: Compound set at 29.5 deg", s.c_fg)
     _draw.swap()
 
 
 def _draw_convert(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0)
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
     _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5; _draw.text(v_pos, 'UNIT CONVERTER', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "UNIT CONVERTER", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i, row in enumerate(s.ui_rows):
-        _y = 40 + i * 25; v_pos.y = _y
+        _y = 40 + i * 25
+        v_pos.y = _y
         color = s.c_hlt if i == s.sel_cv else s.c_fg
-        if i == s.sel_cv: v_pos.x = 5; _draw.text(v_pos, '>', color)
-        v_pos.x = 20; _draw.text(v_pos, row, color)
-    v_pos.x = 0; v_pos.y = 160; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 5; v_pos.y = 175; _draw.text(v_pos, 'RESULT:', s.c_ok)
-    v_pos.x = 5; v_pos.y = 205; _draw.text(v_pos, s.ui_res, s.c_fg)
-    v_pos.x = 5; v_pos.y = 235; _draw.text(v_pos, 'FRAC : {}'.format(s.cv_frac), s.c_fg)
+        if i == s.sel_cv:
+            v_pos.x = 5
+            _draw.text(v_pos, ">", color)
+        v_pos.x = 20
+        _draw.text(v_pos, row, color)
+    v_pos.x = 0
+    v_pos.y = 160
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 175
+    _draw.text(v_pos, "RESULT:", s.c_ok)
+    v_pos.x = 5
+    v_pos.y = 205
+    _draw.text(v_pos, s.ui_res, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 235
+    _draw.text(v_pos, "FRAC : {}".format(s.cv_frac), s.c_fg)
     _draw.swap()
 
 
 def _draw_wire(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0)
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
     _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5; _draw.text(v_pos, '3-WIRE PITCH CHECK', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "3-WIRE PITCH CHECK", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i, row in enumerate(s.ui_rows):
-        _y = 40 + i * 25; v_pos.y = _y
+        _y = 40 + i * 25
+        v_pos.y = _y
         color = s.c_hlt if i == s.sel_wr else s.c_fg
-        if i == s.sel_wr: v_pos.x = 5; _draw.text(v_pos, '>', color)
-        v_pos.x = 20; _draw.text(v_pos, row, color)
-    v_pos.x = 0; v_pos.y = 160; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 5; v_pos.y = 175; _draw.text(v_pos, 'CALCULATED DIMENSIONS:', s.c_ok)
-    v_pos.x = 5; v_pos.y = 205; _draw.text(v_pos, s.ui_res, s.c_fg)
-    v_pos.x = 5; v_pos.y = 235; _draw.text(v_pos, '(Using 60 deg thread profile)', s.c_fg)
+        if i == s.sel_wr:
+            v_pos.x = 5
+            _draw.text(v_pos, ">", color)
+        v_pos.x = 20
+        _draw.text(v_pos, row, color)
+    v_pos.x = 0
+    v_pos.y = 160
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 175
+    _draw.text(v_pos, "CALCULATED DIMENSIONS:", s.c_ok)
+    v_pos.x = 5
+    v_pos.y = 205
+    _draw.text(v_pos, s.ui_res, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 235
+    _draw.text(v_pos, "(Using 60 deg thread profile)", s.c_fg)
     _draw.swap()
 
 
 def _draw_weight(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0)
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
     _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5; _draw.text(v_pos, 'STOCK WEIGHT CALCULATOR', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "STOCK WEIGHT CALCULATOR", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i, row in enumerate(s.ui_rows):
-        _y = 40 + i * 25; v_pos.y = _y
+        _y = 40 + i * 25
+        v_pos.y = _y
         color = s.c_hlt if i == s.sel_wt else s.c_fg
-        if i == s.sel_wt: v_pos.x = 5; _draw.text(v_pos, '>', color)
-        v_pos.x = 20; _draw.text(v_pos, row, color)
-    v_pos.x = 0; v_pos.y = 160; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 5; v_pos.y = 175; _draw.text(v_pos, 'ESTIMATED MASS:', s.c_ok)
-    v_pos.x = 5; v_pos.y = 205; _draw.text(v_pos, s.ui_res, s.c_fg)
+        if i == s.sel_wt:
+            v_pos.x = 5
+            _draw.text(v_pos, ">", color)
+        v_pos.x = 20
+        _draw.text(v_pos, row, color)
+    v_pos.x = 0
+    v_pos.y = 160
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 175
+    _draw.text(v_pos, "ESTIMATED MASS:", s.c_ok)
+    v_pos.x = 5
+    v_pos.y = 205
+    _draw.text(v_pos, s.ui_res, s.c_fg)
     _draw.swap()
 
 
 def _draw_speed(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0)
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
     _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5; _draw.text(v_pos, 'SPEEDS & FEEDS CALC', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "SPEEDS & FEEDS CALC", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i, row in enumerate(s.ui_rows):
-        _y = 40 + i * 25; v_pos.y = _y
+        _y = 40 + i * 25
+        v_pos.y = _y
         color = s.c_hlt if i == s.sel_sp else s.c_fg
-        if i == s.sel_sp: v_pos.x = 5; _draw.text(v_pos, '>', color)
-        v_pos.x = 20; _draw.text(v_pos, row, color)
-    v_pos.x = 0; v_pos.y = 160; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 5; v_pos.y = 175; _draw.text(v_pos, 'IDEAL SPEED:', s.c_ok)
-    v_pos.x = 5; v_pos.y = 205; _draw.text(v_pos, s.ui_res, s.c_fg)
+        if i == s.sel_sp:
+            v_pos.x = 5
+            _draw.text(v_pos, ">", color)
+        v_pos.x = 20
+        _draw.text(v_pos, row, color)
+    v_pos.x = 0
+    v_pos.y = 160
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 175
+    _draw.text(v_pos, "IDEAL SPEED:", s.c_ok)
+    v_pos.x = 5
+    v_pos.y = 205
+    _draw.text(v_pos, s.ui_res, s.c_fg)
     _draw.swap()
 
 
 def _draw_bolt_circle(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0); _draw = view_manager.draw
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
+    _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5; _draw.text(v_pos, 'BOLT CIRCLE CALCULATOR', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "BOLT CIRCLE CALCULATOR", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i, row in enumerate(s.ui_rows):
         v_pos.y = 40 + i * 25
         c = s.c_hlt if i == s.sel_bc else s.c_fg
-        if i == s.sel_bc: v_pos.x = 5; _draw.text(v_pos, '>', c)
-        v_pos.x = 20; _draw.text(v_pos, row, c)
-    v_pos.x = 0; v_pos.y = 125; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 5; v_pos.y = 135; _draw.text(v_pos, 'HOLE COORDINATES (X, Y):', s.c_ok)
+        if i == s.sel_bc:
+            v_pos.x = 5
+            _draw.text(v_pos, ">", c)
+        v_pos.x = 20
+        _draw.text(v_pos, row, c)
+    v_pos.x = 0
+    v_pos.y = 125
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 135
+    _draw.text(v_pos, "HOLE COORDINATES (X, Y):", s.c_ok)
     _vis, _lh, _sy = 6, 20, 160
     s.bc_scroll_pos = min(s.bc_scroll_pos, max(0, len(s.bc_results) - _vis))
     v_pos.x = 10
     for i in range(_vis):
         _idx = s.bc_scroll_pos + i
         if _idx < len(s.bc_rows):
-            v_pos.y = _sy + i * _lh; _draw.text(v_pos, s.bc_rows[_idx], s.c_fg)
+            v_pos.y = _sy + i * _lh
+            _draw.text(v_pos, s.bc_rows[_idx], s.c_fg)
     _draw.swap()
 
 
 def _draw_gears(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0); _draw = view_manager.draw
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
+    _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5; _draw.text(v_pos, 'CHANGE GEAR CALCULATOR', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "CHANGE GEAR CALCULATOR", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i, row in enumerate(s.ui_rows):
         v_pos.y = 40 + i * 25
         c = s.c_hlt if i == s.sel_gr else s.c_fg
-        if i == s.sel_gr: v_pos.x = 5; _draw.text(v_pos, '>', c)
-        v_pos.x = 20; _draw.text(v_pos, row, c)
-    v_pos.x = 0; v_pos.y = 150; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 5; v_pos.y = 160; _draw.text(v_pos, 'POSSIBLE GEAR COMBINATIONS:', s.c_ok)
+        if i == s.sel_gr:
+            v_pos.x = 5
+            _draw.text(v_pos, ">", c)
+        v_pos.x = 20
+        _draw.text(v_pos, row, c)
+    v_pos.x = 0
+    v_pos.y = 150
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 160
+    _draw.text(v_pos, "POSSIBLE GEAR COMBINATIONS:", s.c_ok)
     if not s.gr_results:
-        v_pos.x = 10; v_pos.y = 185; _draw.text(v_pos, 'No solutions found.', s.c_warn)
+        v_pos.x = 10
+        v_pos.y = 185
+        _draw.text(v_pos, "No solutions found.", s.c_warn)
     else:
         for i, res in enumerate(s.gr_results):
-            if i < 5: v_pos.x = 10; v_pos.y = 185 + i * 20; _draw.text(v_pos, res, s.c_fg)
+            if i < 5:
+                v_pos.x = 10
+                v_pos.y = 185 + i * 20
+                _draw.text(v_pos, res, s.c_fg)
     _draw.swap()
 
 
 def _draw_triangle(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0); _draw = view_manager.draw
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
+    _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5; _draw.text(v_pos, 'RIGHT TRIANGLE SOLVER', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "RIGHT TRIANGLE SOLVER", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i, row in enumerate(s.ui_rows):
         v_pos.y = 40 + i * 25
         c = s.c_hlt if i == s.sel_tr else s.c_fg
-        if i == s.sel_tr: v_pos.x = 5; _draw.text(v_pos, '>', c)
-        v_pos.x = 20; _draw.text(v_pos, row, c)
-    v_pos.x = 0; v_pos.y = 150; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 5; v_pos.y = 160; _draw.text(v_pos, 'RESULTS:', s.c_ok)
-    v_pos.x = 10; v_pos.y = 185; _draw.text(v_pos, 'Side A : {}'.format(round(s.tr_A, 4)), s.c_fg)
-    v_pos.x = 10; v_pos.y = 205; _draw.text(v_pos, 'Side B : {}'.format(round(s.tr_B, 4)), s.c_fg)
-    v_pos.x = 10; v_pos.y = 225; _draw.text(v_pos, 'Side C : {}'.format(round(s.tr_C, 4)), s.c_fg)
-    v_pos.x = 160; v_pos.y = 185; _draw.text(v_pos, 'Ang(a): {} DEG'.format(round(s.tr_ang_a, 3)), s.c_fg)
-    v_pos.x = 160; v_pos.y = 205; _draw.text(v_pos, 'Ang(b): {} DEG'.format(round(s.tr_ang_b, 3)), s.c_fg)
-    v_pos.x = 160; v_pos.y = 225; _draw.text(v_pos, 'Ang(c): 90 DEG', s.c_fg)
+        if i == s.sel_tr:
+            v_pos.x = 5
+            _draw.text(v_pos, ">", c)
+        v_pos.x = 20
+        _draw.text(v_pos, row, c)
+    v_pos.x = 0
+    v_pos.y = 150
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 160
+    _draw.text(v_pos, "RESULTS:", s.c_ok)
+    v_pos.x = 10
+    v_pos.y = 185
+    _draw.text(v_pos, "Side A : {}".format(round(s.tr_A, 4)), s.c_fg)
+    v_pos.x = 10
+    v_pos.y = 205
+    _draw.text(v_pos, "Side B : {}".format(round(s.tr_B, 4)), s.c_fg)
+    v_pos.x = 10
+    v_pos.y = 225
+    _draw.text(v_pos, "Side C : {}".format(round(s.tr_C, 4)), s.c_fg)
+    v_pos.x = 160
+    v_pos.y = 185
+    _draw.text(v_pos, "Ang(a): {} DEG".format(round(s.tr_ang_a, 3)), s.c_fg)
+    v_pos.x = 160
+    v_pos.y = 205
+    _draw.text(v_pos, "Ang(b): {} DEG".format(round(s.tr_ang_b, 3)), s.c_fg)
+    v_pos.x = 160
+    v_pos.y = 225
+    _draw.text(v_pos, "Ang(c): 90 DEG", s.c_fg)
     _draw.swap()
 
 
 def _draw_arc(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0); _draw = view_manager.draw
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
+    _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5; _draw.text(v_pos, 'ARC / CHORD CALCULATOR', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "ARC / CHORD CALCULATOR", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i, row in enumerate(s.ui_rows):
-        _y = 40 + i * 25; v_pos.y = _y
+        _y = 40 + i * 25
+        v_pos.y = _y
         color = s.c_hlt if i == s.sel_ar else s.c_fg
-        if i == s.sel_ar: v_pos.x = 5; _draw.text(v_pos, '>', color)
-        v_pos.x = 20; _draw.text(v_pos, row, color)
-    v_pos.x = 0; v_pos.y = 160; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 5; v_pos.y = 175; _draw.text(v_pos, 'RESULTS:', s.c_ok)
-    v_pos.x = 5; v_pos.y = 205; _draw.text(v_pos, s.ui_res, s.c_fg)
+        if i == s.sel_ar:
+            v_pos.x = 5
+            _draw.text(v_pos, ">", color)
+        v_pos.x = 20
+        _draw.text(v_pos, row, color)
+    v_pos.x = 0
+    v_pos.y = 160
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 175
+    _draw.text(v_pos, "RESULTS:", s.c_ok)
+    v_pos.x = 5
+    v_pos.y = 205
+    _draw.text(v_pos, s.ui_res, s.c_fg)
     _draw.swap()
 
 
 def _draw_drill_pt(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0); _draw = view_manager.draw
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
+    _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5; _draw.text(v_pos, 'DRILL POINT DEPTH CALC', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "DRILL POINT DEPTH CALC", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i, row in enumerate(s.ui_rows):
-        _y = 40 + i * 25; v_pos.y = _y
+        _y = 40 + i * 25
+        v_pos.y = _y
         color = s.c_hlt if i == s.sel_dp else s.c_fg
-        if i == s.sel_dp: v_pos.x = 5; _draw.text(v_pos, '>', color)
-        v_pos.x = 20; _draw.text(v_pos, row, color)
-    v_pos.x = 0; v_pos.y = 160; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 5; v_pos.y = 175; _draw.text(v_pos, 'POINT DEPTH (X):', s.c_ok)
-    v_pos.x = 5; v_pos.y = 205; _draw.text(v_pos, s.ui_res, s.c_fg)
+        if i == s.sel_dp:
+            v_pos.x = 5
+            _draw.text(v_pos, ">", color)
+        v_pos.x = 20
+        _draw.text(v_pos, row, color)
+    v_pos.x = 0
+    v_pos.y = 160
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 175
+    _draw.text(v_pos, "POINT DEPTH (X):", s.c_ok)
+    v_pos.x = 5
+    v_pos.y = 205
+    _draw.text(v_pos, s.ui_res, s.c_fg)
     _draw.swap()
 
 
 def _draw_tap_hole(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0); _draw = view_manager.draw
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
+    _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5; _draw.text(v_pos, 'TAP DRILL CALCULATOR', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "TAP DRILL CALCULATOR", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i, row in enumerate(s.ui_rows):
-        _y = 40 + i * 25; v_pos.y = _y
+        _y = 40 + i * 25
+        v_pos.y = _y
         color = s.c_hlt if i == s.sel_td else s.c_fg
-        if i == s.sel_td: v_pos.x = 5; _draw.text(v_pos, '>', color)
-        v_pos.x = 20; _draw.text(v_pos, row, color)
-    v_pos.x = 0; v_pos.y = 160; v_size.x = 320; v_size.y = 1; _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 5; v_pos.y = 175; _draw.text(v_pos, 'RECOMMENDED DRILL:', s.c_ok)
-    v_pos.x = 5; v_pos.y = 205; _draw.text(v_pos, s.ui_res, s.c_fg)
+        if i == s.sel_td:
+            v_pos.x = 5
+            _draw.text(v_pos, ">", color)
+        v_pos.x = 20
+        _draw.text(v_pos, row, color)
+    v_pos.x = 0
+    v_pos.y = 160
+    v_size.x = 320
+    v_size.y = 1
+    _draw.fill_rectangle(v_pos, v_size, s.c_fg)
+    v_pos.x = 5
+    v_pos.y = 175
+    _draw.text(v_pos, "RECOMMENDED DRILL:", s.c_ok)
+    v_pos.x = 5
+    v_pos.y = 205
+    _draw.text(v_pos, s.ui_res, s.c_fg)
     _draw.swap()
 
 
 def _draw_calc(view_manager):
     s = state
-    v_pos = Vector(0, 0); v_size = Vector(0, 0)
+    v_pos = Vector(0, 0)
+    v_size = Vector(0, 0)
     _draw = view_manager.draw
     _draw.clear(color=s.c_bg)
-    v_pos.x = 5; v_pos.y = 5
-    _draw.text(v_pos, 'LATHE-CALC v2.1', s.c_fg)
-    v_pos.x = 0; v_pos.y = 22; v_size.x = 320; v_size.y = 1
+    v_pos.x = 5
+    v_pos.y = 5
+    _draw.text(v_pos, "LATHE-CALC v2.1", s.c_fg)
+    v_pos.x = 0
+    v_pos.y = 22
+    v_size.x = 320
+    v_size.y = 1
     _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 155; v_pos.y = 30; v_size.x = 1; v_size.y = 150
+    v_pos.x = 155
+    v_pos.y = 30
+    v_size.x = 1
+    v_size.y = 150
     _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     for i in range(7):
         v_pos.y = 32 + i * 21
         if i == s.sel_main:
-            v_pos.x = 2; _draw.text(v_pos, '>', s.c_hlt)
-            v_pos.x = 12; _draw.text(v_pos, s.ui_left[i], s.c_hlt)
+            v_pos.x = 2
+            _draw.text(v_pos, ">", s.c_hlt)
+            v_pos.x = 12
+            _draw.text(v_pos, s.ui_left[i], s.c_hlt)
         else:
-            v_pos.x = 12; _draw.text(v_pos, s.ui_left[i], s.c_fg)
+            v_pos.x = 12
+            _draw.text(v_pos, s.ui_left[i], s.c_fg)
         r_idx = i + 7
         if r_idx < 14:
-            _rf_color = s.c_err if r_idx == FIELD_FEED and s.warn_high_feed else s.c_hlt if r_idx == s.sel_main else s.c_fg
+            _rf_color = (
+                s.c_err
+                if r_idx == FIELD_FEED and s.warn_high_feed
+                else s.c_hlt if r_idx == s.sel_main else s.c_fg
+            )
             if r_idx == s.sel_main:
-                v_pos.x = 160; _draw.text(v_pos, '>', _rf_color)
-                v_pos.x = 170; _draw.text(v_pos, s.ui_right[i], _rf_color)
+                v_pos.x = 160
+                _draw.text(v_pos, ">", _rf_color)
+                v_pos.x = 170
+                _draw.text(v_pos, s.ui_right[i], _rf_color)
             else:
-                v_pos.x = 170; _draw.text(v_pos, s.ui_right[i], _rf_color)
-    v_pos.x = 0; v_pos.y = 182; v_size.x = 320; v_size.y = 1
+                v_pos.x = 170
+                _draw.text(v_pos, s.ui_right[i], _rf_color)
+    v_pos.x = 0
+    v_pos.y = 182
+    v_size.x = 320
+    v_size.y = 1
     _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 5; v_pos.y = 186
-    _draw.text(v_pos, 'SPINDLE (RPM)', s.c_ok)
+    v_pos.x = 5
+    v_pos.y = 186
+    _draw.text(v_pos, "SPINDLE (RPM)", s.c_ok)
     if s.warn_coolant:
-        v_pos.x = 108; v_pos.y = 184; v_size.x = 44; v_size.y = 11
+        v_pos.x = 108
+        v_pos.y = 184
+        v_size.x = 44
+        v_size.y = 11
         _draw.fill_round_rectangle(v_pos, v_size, 4, s.c_sec)
-        v_pos.x = 112; v_pos.y = 186; _draw.text(v_pos, 'FLUID', s.c_bg)
-    v_pos.x = 160; v_pos.y = 186
-    _draw.text(v_pos, 'FEED(mm/m)' if s.val_unit == UNIT_METRIC else 'FEED(in/m)', s.c_ok)
-    v_pos.x = 5; v_pos.y = 202
+        v_pos.x = 112
+        v_pos.y = 186
+        _draw.text(v_pos, "FLUID", s.c_bg)
+    v_pos.x = 160
+    v_pos.y = 186
+    _draw.text(
+        v_pos, "FEED(mm/m)" if s.val_unit == UNIT_METRIC else "FEED(in/m)", s.c_ok
+    )
+    v_pos.x = 5
+    v_pos.y = 202
     _draw.text(v_pos, s.ui_rpm, s.c_warn if s.warn_rpm_cap else s.c_fg)
-    v_pos.x = 160; v_pos.y = 202
+    v_pos.x = 160
+    v_pos.y = 202
     _draw.text(v_pos, s.ui_feed_m, s.c_err if s.warn_high_feed else s.c_fg)
-    v_pos.x = 0; v_pos.y = 216; v_size.x = 320; v_size.y = 1
+    v_pos.x = 0
+    v_pos.y = 216
+    v_size.x = 320
+    v_size.y = 1
     _draw.fill_rectangle(v_pos, v_size, s.c_fg)
-    v_pos.x = 5; v_pos.y = 221
+    v_pos.x = 5
+    v_pos.y = 221
     _draw.text(v_pos, s.ui_pwr, s.c_err if s.warn_power_cap else s.c_fg)
-    v_pos.x = 160; v_pos.y = 221
+    v_pos.x = 160
+    v_pos.y = 221
     _draw.text(v_pos, s.ui_time, s.c_err if s.warn_high_feed else s.c_hlt)
-    v_pos.x = 5; v_pos.y = 237
+    v_pos.x = 5
+    v_pos.y = 237
     _draw.text(v_pos, s.ui_ra, s.c_warn if s.warn_poor_finish else s.c_fg)
-    v_pos.x = 160; v_pos.y = 237
+    v_pos.x = 160
+    v_pos.y = 237
     _draw.text(v_pos, s.ui_max_doc, s.c_fg)
-    v_pos.x = 0; v_pos.y = 253; v_size.x = 320; v_size.y = 1
+    v_pos.x = 0
+    v_pos.y = 253
+    v_size.x = 320
+    v_size.y = 1
     _draw.fill_rectangle(v_pos, v_size, s.c_fg)
     _y_warn = 259
     if s.warn_rpm_cap:
-        v_pos.x = 5; v_pos.y = _y_warn; _draw.text(v_pos, s.ui_rpm_warn, s.c_warn)
+        v_pos.x = 5
+        v_pos.y = _y_warn
+        _draw.text(v_pos, s.ui_rpm_warn, s.c_warn)
         _y_warn += 11
     if s.warn_carbide_spd:
-        v_pos.x = 5; v_pos.y = _y_warn; _draw.text(v_pos, '! DIAM TOO SML FOR CARBIDE', s.c_err)
+        v_pos.x = 5
+        v_pos.y = _y_warn
+        _draw.text(v_pos, "! DIAM TOO SML FOR CARBIDE", s.c_err)
         _y_warn += 11
     if s.warn_high_feed:
-        v_pos.x = 5; v_pos.y = _y_warn; _draw.text(v_pos, '! LINEAR FEED EXCEEDED', s.c_err)
+        v_pos.x = 5
+        v_pos.y = _y_warn
+        _draw.text(v_pos, "! LINEAR FEED EXCEEDED", s.c_err)
         _y_warn += 11
     if s.warn_poor_finish:
-        v_pos.x = 5; v_pos.y = _y_warn; _draw.text(v_pos, '! POOR SURFACE FINISH', s.c_warn)
+        v_pos.x = 5
+        v_pos.y = _y_warn
+        _draw.text(v_pos, "! POOR SURFACE FINISH", s.c_warn)
         _y_warn += 11
     if s.warn_power_cap:
-        v_pos.x = 5; v_pos.y = _y_warn; _draw.text(v_pos, '! MOTOR POWER EXCEEDED', s.c_err)
+        v_pos.x = 5
+        v_pos.y = _y_warn
+        _draw.text(v_pos, "! MOTOR POWER EXCEEDED", s.c_err)
     _draw.swap()
 
 
 def run(view_manager):
     global dirty_save, save_timer
     s = state
-    from picoware.system.buttons import BUTTON_BACK, BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_CENTER
-    _im = view_manager.input_manager
-    _btn = _im.button
+    from picoware.system.buttons import (
+        BUTTON_BACK,
+        BUTTON_UP,
+        BUTTON_DOWN,
+        BUTTON_LEFT,
+        BUTTON_RIGHT,
+        BUTTON_CENTER,
+    )
+
+    _btn = view_manager.button
     _needs_redraw = False
     if dirty_save and _btn == -1:
         if save_timer > 0:
             save_timer -= 1
         else:
             save_settings(view_manager)
-    if s.current_screen in (SCREEN_CHART, SCREEN_TAP, SCREEN_DRILL,
-        SCREEN_CENTER, SCREEN_MORSE, SCREEN_CLEAR, SCREEN_SURFACE,
-        SCREEN_FITS, SCREEN_HELP, SCREEN_KNURL, SCREEN_HARDNESS):
+    if s.current_screen in (
+        SCREEN_CHART,
+        SCREEN_TAP,
+        SCREEN_DRILL,
+        SCREEN_CENTER,
+        SCREEN_MORSE,
+        SCREEN_CLEAR,
+        SCREEN_SURFACE,
+        SCREEN_FITS,
+        SCREEN_HELP,
+        SCREEN_KNURL,
+        SCREEN_HARDNESS,
+    ):
         if _btn == BUTTON_BACK:
-            s.current_screen = (SCREEN_TOOLBOX if s.current_screen !=
-                SCREEN_HELP else SCREEN_CALC)
+            s.current_screen = (
+                SCREEN_TOOLBOX if s.current_screen != SCREEN_HELP else SCREEN_CALC
+            )
             _calculate()
             s.text_lines = []
             gc.collect()
-            _im.reset()
             _draw_ui(view_manager)
         elif _btn == BUTTON_UP:
             if s.scroll_pos > 0:
@@ -1875,7 +2751,6 @@ def run(view_manager):
                 s.scroll_pos += 1
                 _needs_redraw = True
         if _needs_redraw:
-            _im.reset()
             _draw_ui(view_manager)
         return
     if s.is_typing:
@@ -1885,22 +2760,29 @@ def run(view_manager):
                 s.is_typing = False
                 s.kb_force = False
                 kb.reset()
-                _im.reset()
+                view_manager.input_manager.reset()
                 _draw_ui(view_manager)
             s.kb_force = False
         else:
             try:
                 if s.current_screen == SCREEN_TOOL_MGR and s.sel_tm in (
-                    TM_RENAME, TM_NEW):
+                    TM_RENAME,
+                    TM_NEW,
+                ):
                     _str_val = kb.response.strip()
                     if _str_val:
                         if s.sel_tm == TM_RENAME:
-                            s.tool_profiles[s.active_tool_idx]['name'
-                                ] = _str_val[:12]
+                            s.tool_profiles[s.active_tool_idx]["name"] = _str_val[:12]
                         else:
-                            s.tool_profiles.append({'name': _str_val[:12],
-                                'type': CUT_HSS, 'rad_m': 0.4, 'rad_i':
-                                0.015, 'angle': 0.0})
+                            s.tool_profiles.append(
+                                {
+                                    "name": _str_val[:12],
+                                    "type": CUT_HSS,
+                                    "rad_m": 0.4,
+                                    "rad_i": 0.015,
+                                    "angle": 0.0,
+                                }
+                            )
                             s.active_tool_idx = len(s.tool_profiles) - 1
                 else:
                     new_val = float(kb.response)
@@ -1991,8 +2873,9 @@ def run(view_manager):
                             else:
                                 s.max_rpm_indust = max(100, min(50000.0, new_val))
                         elif s.sel_opt == OPT_MOTOR_PWR:
-                            _new_kw = (new_val / 1.34102 if s.val_unit ==
-                                UNIT_IMP else new_val)
+                            _new_kw = (
+                                new_val / 1.34102 if s.val_unit == UNIT_IMP else new_val
+                            )
                             if s.val_type == TYPE_HOBBY:
                                 s.motor_kw_hobby = max(0.01, min(1000.0, _new_kw))
                             else:
@@ -2002,14 +2885,15 @@ def run(view_manager):
                     elif s.current_screen == SCREEN_TOOL_MGR:
                         if s.sel_tm == TM_RAD:
                             if s.val_unit == UNIT_METRIC:
-                                s.tool_profiles[s.active_tool_idx]['rad_m'
-                                    ] = max(0.001, new_val)
+                                s.tool_profiles[s.active_tool_idx]["rad_m"] = max(
+                                    0.001, new_val
+                                )
                             else:
-                                s.tool_profiles[s.active_tool_idx]['rad_i'
-                                    ] = max(0.001, new_val)
+                                s.tool_profiles[s.active_tool_idx]["rad_i"] = max(
+                                    0.001, new_val
+                                )
                         elif s.sel_tm == TM_ANGLE:
-                            s.tool_profiles[s.active_tool_idx]['angle'
-                                ] = new_val
+                            s.tool_profiles[s.active_tool_idx]["angle"] = new_val
                 _calculate()
                 save_settings(view_manager, force=True)
             except Exception:
@@ -2017,22 +2901,35 @@ def run(view_manager):
             s.is_typing = False
             s.kb_force = False
             kb.reset()
-            _im.reset()
             _draw_ui(view_manager)
         return
     if _btn == BUTTON_BACK:
         if s.current_screen == SCREEN_CALC:
-            _im.reset()
             view_manager.back()
         else:
-            s.current_screen = SCREEN_TOOLBOX if s.current_screen in (
-                SCREEN_TAPER, SCREEN_THREAD, SCREEN_CONVERT, SCREEN_OPTIONS,
-                SCREEN_TOOL_MGR, SCREEN_WIRE, SCREEN_WEIGHT, SCREEN_SPEED,
-                SCREEN_GEARS, SCREEN_BOLT_CIRCLE, SCREEN_TRIANGLE,
-                SCREEN_ARC, SCREEN_DRILL_PT, SCREEN_GRAPH, SCREEN_TAP_HOLE
-                ) else SCREEN_CALC
+            s.current_screen = (
+                SCREEN_TOOLBOX
+                if s.current_screen
+                in (
+                    SCREEN_TAPER,
+                    SCREEN_THREAD,
+                    SCREEN_CONVERT,
+                    SCREEN_OPTIONS,
+                    SCREEN_TOOL_MGR,
+                    SCREEN_WIRE,
+                    SCREEN_WEIGHT,
+                    SCREEN_SPEED,
+                    SCREEN_GEARS,
+                    SCREEN_BOLT_CIRCLE,
+                    SCREEN_TRIANGLE,
+                    SCREEN_ARC,
+                    SCREEN_DRILL_PT,
+                    SCREEN_GRAPH,
+                    SCREEN_TAP_HOLE,
+                )
+                else SCREEN_CALC
+            )
             _calculate()
-            _im.reset()
             _draw_ui(view_manager)
         return
     if s.current_screen == SCREEN_TOOLBOX:
@@ -2073,17 +2970,31 @@ def run(view_manager):
             elif s.sel_tb_cat < num_cats:
                 num_items = len(TOOLBOX_MENU[s.sel_tb_cat][1])
                 if num_items > 0:
-                    target_screen = TOOLBOX_MENU[s.sel_tb_cat][1][s.sel_tb_item
-                        ][1]
-                if target_screen in (SCREEN_CHART, SCREEN_TAP, SCREEN_DRILL,
-                    SCREEN_CENTER, SCREEN_MORSE, SCREEN_CLEAR,
-                    SCREEN_SURFACE, SCREEN_FITS, SCREEN_KNURL, SCREEN_HARDNESS
-                    ):
-                    text_map = {SCREEN_CHART: 'CHART', SCREEN_TAP: 'TAP',
-                        SCREEN_DRILL: 'DRILL', SCREEN_CENTER: 'CENTER',
-                        SCREEN_MORSE: 'MORSE', SCREEN_CLEAR: 'CLEAR',
-                        SCREEN_SURFACE: 'SURFACE', SCREEN_FITS: 'FITS',
-                        SCREEN_KNURL: 'KNURL', SCREEN_HARDNESS: 'HARDNESS'}
+                    target_screen = TOOLBOX_MENU[s.sel_tb_cat][1][s.sel_tb_item][1]
+                if target_screen in (
+                    SCREEN_CHART,
+                    SCREEN_TAP,
+                    SCREEN_DRILL,
+                    SCREEN_CENTER,
+                    SCREEN_MORSE,
+                    SCREEN_CLEAR,
+                    SCREEN_SURFACE,
+                    SCREEN_FITS,
+                    SCREEN_KNURL,
+                    SCREEN_HARDNESS,
+                ):
+                    text_map = {
+                        SCREEN_CHART: "CHART",
+                        SCREEN_TAP: "TAP",
+                        SCREEN_DRILL: "DRILL",
+                        SCREEN_CENTER: "CENTER",
+                        SCREEN_MORSE: "MORSE",
+                        SCREEN_CLEAR: "CLEAR",
+                        SCREEN_SURFACE: "SURFACE",
+                        SCREEN_FITS: "FITS",
+                        SCREEN_KNURL: "KNURL",
+                        SCREEN_HARDNESS: "HARDNESS",
+                    }
                     s.current_screen = target_screen
                     _load_text(text_map[target_screen])
                 else:
@@ -2106,11 +3017,13 @@ def run(view_manager):
                 _needs_redraw = True
             elif s.sel_opt == OPT_FEED_CAP:
                 if s.val_unit == UNIT_METRIC:
-                    s.max_feed_m = max(10.0, s.max_feed_m + (10.0 if _btn ==
-                        BUTTON_RIGHT else -10.0))
+                    s.max_feed_m = max(
+                        10.0, s.max_feed_m + (10.0 if _btn == BUTTON_RIGHT else -10.0)
+                    )
                 else:
-                    s.max_feed_i = max(1.0, s.max_feed_i + (1.0 if _btn ==
-                        BUTTON_RIGHT else -1.0))
+                    s.max_feed_i = max(
+                        1.0, s.max_feed_i + (1.0 if _btn == BUTTON_RIGHT else -1.0)
+                    )
                 _calculate()
                 queue_save()
                 _needs_redraw = True
@@ -2129,8 +3042,10 @@ def run(view_manager):
                 queue_save()
                 _needs_redraw = True
             elif s.sel_opt == OPT_MOTOR_EFF:
-                s.motor_eff = max(0.1, min(1.0, s.motor_eff + (0.05 if _btn ==
-                    BUTTON_RIGHT else -0.05)))
+                s.motor_eff = max(
+                    0.1,
+                    min(1.0, s.motor_eff + (0.05 if _btn == BUTTON_RIGHT else -0.05)),
+                )
                 _calculate()
                 queue_save()
                 _needs_redraw = True
@@ -2147,47 +3062,53 @@ def run(view_manager):
             elif s.sel_opt == OPT_FEED_CAP:
                 kb = view_manager.keyboard
                 kb.reset()
-                kb.title = 'MAX FEED LIMIT'
-                kb.response = str(s.max_feed_m if s.val_unit == UNIT_METRIC
-                     else s.max_feed_i)
+                kb.title = "MAX FEED LIMIT"
+                kb.response = str(
+                    s.max_feed_m if s.val_unit == UNIT_METRIC else s.max_feed_i
+                )
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
             elif s.sel_opt == OPT_RPM_CAP:
                 kb = view_manager.keyboard
                 kb.reset()
-                _sys_str = 'HOBBY' if s.val_type == TYPE_HOBBY else 'INDUST'
-                kb.title = 'MAX RPM (' + _sys_str + ')'
-                kb.response = str(int(s.max_rpm_hobby if s.val_type ==
-                    TYPE_HOBBY else s.max_rpm_indust))
+                _sys_str = "HOBBY" if s.val_type == TYPE_HOBBY else "INDUST"
+                kb.title = "MAX RPM (" + _sys_str + ")"
+                kb.response = str(
+                    int(
+                        s.max_rpm_hobby
+                        if s.val_type == TYPE_HOBBY
+                        else s.max_rpm_indust
+                    )
+                )
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
             elif s.sel_opt == OPT_MOTOR_PWR:
                 kb = view_manager.keyboard
                 kb.reset()
-                _sys_str = 'HOBBY' if s.val_type == TYPE_HOBBY else 'INDUST'
-                _pwr_u = 'HP' if s.val_unit == UNIT_IMP else 'kW'
-                _pwr_kw = (s.motor_kw_hobby if s.val_type == TYPE_HOBBY else
-                    s.motor_kw_indust)
-                _pwr_disp = round(_pwr_kw * 1.34102, 2
-                    ) if s.val_unit == UNIT_IMP else round(_pwr_kw, 2)
-                kb.title = 'MOTOR POWER (' + _sys_str + ' ' + _pwr_u + ')'
+                _sys_str = "HOBBY" if s.val_type == TYPE_HOBBY else "INDUST"
+                _pwr_u = "HP" if s.val_unit == UNIT_IMP else "kW"
+                _pwr_kw = (
+                    s.motor_kw_hobby if s.val_type == TYPE_HOBBY else s.motor_kw_indust
+                )
+                _pwr_disp = (
+                    round(_pwr_kw * 1.34102, 2)
+                    if s.val_unit == UNIT_IMP
+                    else round(_pwr_kw, 2)
+                )
+                kb.title = "MOTOR POWER (" + _sys_str + " " + _pwr_u + ")"
                 kb.response = str(_pwr_disp)
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
             elif s.sel_opt == OPT_MOTOR_EFF:
                 kb = view_manager.keyboard
                 kb.reset()
-                kb.title = 'MOTOR EFFICIENCY (%)'
+                kb.title = "MOTOR EFFICIENCY (%)"
                 kb.response = str(int(s.motor_eff * 100))
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     elif s.current_screen == SCREEN_TOOL_MGR:
         if _btn == BUTTON_DOWN:
@@ -2199,36 +3120,38 @@ def run(view_manager):
         elif _btn in (BUTTON_LEFT, BUTTON_RIGHT):
             _dir = 1 if _btn == BUTTON_RIGHT else -1
             if s.sel_tm == TM_SELECT:
-                s.active_tool_idx = (s.active_tool_idx + _dir) % len(s.
-                    tool_profiles)
+                s.active_tool_idx = (s.active_tool_idx + _dir) % len(s.tool_profiles)
                 _calculate()
                 queue_save()
                 _needs_redraw = True
             elif s.sel_tm == TM_TYPE:
-                s.tool_profiles[s.active_tool_idx]['type'
-                    ] = CUT_CARB if s.tool_profiles[s.active_tool_idx]['type'
-                    ] == CUT_HSS else CUT_HSS
+                s.tool_profiles[s.active_tool_idx]["type"] = (
+                    CUT_CARB
+                    if s.tool_profiles[s.active_tool_idx]["type"] == CUT_HSS
+                    else CUT_HSS
+                )
                 _calculate()
                 queue_save()
                 _needs_redraw = True
             elif s.sel_tm == TM_RAD:
                 if s.val_unit == UNIT_METRIC:
-                    new_rad = s.tool_profiles[s.active_tool_idx]['rad_m'
-                        ] + 0.1 * _dir
-                    s.tool_profiles[s.active_tool_idx]['rad_m'] = round(max
-                        (0.001, new_rad), 3)
+                    new_rad = s.tool_profiles[s.active_tool_idx]["rad_m"] + 0.1 * _dir
+                    s.tool_profiles[s.active_tool_idx]["rad_m"] = round(
+                        max(0.001, new_rad), 3
+                    )
                 else:
-                    new_rad = s.tool_profiles[s.active_tool_idx]['rad_i'
-                        ] + 0.005 * _dir
-                    s.tool_profiles[s.active_tool_idx]['rad_i'] = round(max
-                        (0.001, new_rad), 4)
+                    new_rad = s.tool_profiles[s.active_tool_idx]["rad_i"] + 0.005 * _dir
+                    s.tool_profiles[s.active_tool_idx]["rad_i"] = round(
+                        max(0.001, new_rad), 4
+                    )
                 _calculate()
                 queue_save()
                 _needs_redraw = True
             elif s.sel_tm == TM_ANGLE:
-                new_ang = s.tool_profiles[s.active_tool_idx].get('angle', 0.0
-                    ) + 1.0 * _dir
-                s.tool_profiles[s.active_tool_idx]['angle'] = round(new_ang, 1)
+                new_ang = (
+                    s.tool_profiles[s.active_tool_idx].get("angle", 0.0) + 1.0 * _dir
+                )
+                s.tool_profiles[s.active_tool_idx]["angle"] = round(new_ang, 1)
                 _calculate()
                 queue_save()
                 _needs_redraw = True
@@ -2240,20 +3163,18 @@ def run(view_manager):
             elif s.sel_tm == TM_NEW:
                 kb = view_manager.keyboard
                 kb.reset()
-                kb.title = 'NEW TOOL NAME'
-                kb.response = 'Tool ' + str(len(s.tool_profiles) + 1)
+                kb.title = "NEW TOOL NAME"
+                kb.response = "Tool " + str(len(s.tool_profiles) + 1)
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
             elif s.sel_tm == TM_RENAME:
                 kb = view_manager.keyboard
                 kb.reset()
-                kb.title = 'RENAME TOOL'
-                kb.response = s.tool_profiles[s.active_tool_idx]['name']
+                kb.title = "RENAME TOOL"
+                kb.response = s.tool_profiles[s.active_tool_idx]["name"]
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
             elif s.sel_tm == TM_DEL:
                 if len(s.tool_profiles) > 1:
@@ -2265,23 +3186,22 @@ def run(view_manager):
             elif s.sel_tm == TM_RAD:
                 kb = view_manager.keyboard
                 kb.reset()
-                kb.title = 'NOSE RADIUS'
-                kb.response = str(s.tool_profiles[s.active_tool_idx][
-                    'rad_m'] if s.val_unit == UNIT_METRIC else s.
-                    tool_profiles[s.active_tool_idx]['rad_i'])
+                kb.title = "NOSE RADIUS"
+                kb.response = str(
+                    s.tool_profiles[s.active_tool_idx]["rad_m"]
+                    if s.val_unit == UNIT_METRIC
+                    else s.tool_profiles[s.active_tool_idx]["rad_i"]
+                )
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
             elif s.sel_tm == TM_ANGLE:
                 kb = view_manager.keyboard
                 kb.reset()
-                kb.title = 'TOOL ANGLE (DEG)'
-                kb.response = str(s.tool_profiles[s.active_tool_idx].get(
-                    'angle', 0.0))
+                kb.title = "TOOL ANGLE (DEG)"
+                kb.response = str(s.tool_profiles[s.active_tool_idx].get("angle", 0.0))
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     elif s.current_screen == SCREEN_GEARS:
         if _btn == BUTTON_DOWN:
@@ -2295,11 +3215,9 @@ def run(view_manager):
             _step = 0.05 if s.val_unit == UNIT_METRIC else 1.0
             _rnd = 3 if s.val_unit == UNIT_METRIC else 4
             if s.sel_gr == GR_PITCH_CUT:
-                s.gr_pitch_cut = round(max(0.01, s.gr_pitch_cut + _dir *
-                    _step), _rnd)
+                s.gr_pitch_cut = round(max(0.01, s.gr_pitch_cut + _dir * _step), _rnd)
             elif s.sel_gr == GR_PITCH_LS:
-                s.gr_pitch_ls = round(max(0.01, s.gr_pitch_ls + _dir *
-                    _step), _rnd)
+                s.gr_pitch_ls = round(max(0.01, s.gr_pitch_ls + _dir * _step), _rnd)
             _calculate()
             queue_save()
             _needs_redraw = True
@@ -2312,25 +3230,25 @@ def run(view_manager):
                 kb = view_manager.keyboard
                 kb.reset()
                 if s.sel_gr == GR_PITCH_CUT:
-                    kb.title = 'PITCH TO CUT'
+                    kb.title = "PITCH TO CUT"
                     kb.response = str(s.gr_pitch_cut)
                 elif s.sel_gr == GR_PITCH_LS:
-                    kb.title = 'LEADSCREW PITCH'
+                    kb.title = "LEADSCREW PITCH"
                     kb.response = str(s.gr_pitch_ls)
                 elif s.sel_gr == GR_GEARS:
-                    kb.title = 'AVAILABLE GEARS (CSV)'
+                    kb.title = "AVAILABLE GEARS (CSV)"
                     kb.response = s.gr_gears
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     elif s.current_screen == SCREEN_BOLT_CIRCLE:
         if _btn == BUTTON_DOWN:
             if s.sel_bc < 2:
                 s.sel_bc += 1
             else:
-                s.bc_scroll_pos = min(s.bc_scroll_pos + 1, max(0, len(s.
-                    bc_results) - 6))
+                s.bc_scroll_pos = min(
+                    s.bc_scroll_pos + 1, max(0, len(s.bc_results) - 6)
+                )
             _needs_redraw = True
         elif _btn == BUTTON_UP:
             if s.sel_bc > 0:
@@ -2342,8 +3260,13 @@ def run(view_manager):
             _dir = 1.0 if _btn == BUTTON_RIGHT else -1.0
             _rnd = 3 if s.val_unit == UNIT_METRIC else 4
             if s.sel_bc == BC_DIAM:
-                s.bc_diam = round(max(0.001, s.bc_diam + _dir * (1.0 if s.
-                    val_unit == UNIT_METRIC else 0.1)), _rnd)
+                s.bc_diam = round(
+                    max(
+                        0.001,
+                        s.bc_diam + _dir * (1.0 if s.val_unit == UNIT_METRIC else 0.1),
+                    ),
+                    _rnd,
+                )
             elif s.sel_bc == BC_HOLES:
                 s.bc_holes = max(2, s.bc_holes + int(_dir))
             _calculate()
@@ -2358,14 +3281,13 @@ def run(view_manager):
                 kb = view_manager.keyboard
                 kb.reset()
                 if s.sel_bc == BC_DIAM:
-                    kb.title = 'CIRCLE DIAMETER'
+                    kb.title = "CIRCLE DIAMETER"
                     kb.response = str(s.bc_diam)
                 else:
-                    kb.title = 'NUMBER OF HOLES'
+                    kb.title = "NUMBER OF HOLES"
                     kb.response = str(s.bc_holes)
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     elif s.current_screen == SCREEN_TRIANGLE:
         if _btn == BUTTON_DOWN:
@@ -2393,10 +3315,15 @@ def run(view_manager):
             elif s.sel_tr in (TR_V1, TR_V2):
                 kb = view_manager.keyboard
                 kb.reset()
-                _v1_lbls = ['SIDE A', 'SIDE A', 'SIDE B', 'SIDE A',
-                    'SIDE B', 'SIDE C']
-                _v2_lbls = ['SIDE B', 'SIDE C', 'SIDE C', 'ANGLE a',
-                    'ANGLE a', 'ANGLE a']
+                _v1_lbls = ["SIDE A", "SIDE A", "SIDE B", "SIDE A", "SIDE B", "SIDE C"]
+                _v2_lbls = [
+                    "SIDE B",
+                    "SIDE C",
+                    "SIDE C",
+                    "ANGLE a",
+                    "ANGLE a",
+                    "ANGLE a",
+                ]
                 if s.sel_tr == TR_V1:
                     kb.title = _v1_lbls[s.tr_mode]
                     kb.response = str(s.tr_v1)
@@ -2405,7 +3332,6 @@ def run(view_manager):
                     kb.response = str(s.tr_v2)
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     elif s.current_screen == SCREEN_ARC:
         if _btn == BUTTON_DOWN:
@@ -2433,14 +3359,13 @@ def run(view_manager):
                 kb = view_manager.keyboard
                 kb.reset()
                 if s.sel_ar == AR_RADIUS:
-                    kb.title = 'RADIUS'
+                    kb.title = "RADIUS"
                     kb.response = str(s.ar_radius)
                 else:
-                    kb.title = 'ANGLE (DEG)'
+                    kb.title = "ANGLE (DEG)"
                     kb.response = str(s.ar_angle)
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     elif s.current_screen == SCREEN_DRILL_PT:
         if _btn == BUTTON_DOWN:
@@ -2453,16 +3378,20 @@ def run(view_manager):
             _dir = 1.0 if _btn == BUTTON_RIGHT else -1.0
             _rnd = 3 if s.val_unit == UNIT_METRIC else 4
             if s.sel_dp == DP_DIAM:
-                s.dp_diam = round(max(0.001, s.dp_diam + _dir * (1.0 if s.
-                    val_unit == UNIT_METRIC else 0.1)), _rnd)
+                s.dp_diam = round(
+                    max(
+                        0.001,
+                        s.dp_diam + _dir * (1.0 if s.val_unit == UNIT_METRIC else 0.1),
+                    ),
+                    _rnd,
+                )
             elif s.sel_dp == DP_ANGLE:
                 if s.dp_angle == 118.0 and _dir > 0:
                     s.dp_angle = 135.0
                 elif s.dp_angle == 135.0 and _dir < 0:
                     s.dp_angle = 118.0
                 else:
-                    s.dp_angle = round(max(1.0, min(179.0, s.dp_angle +
-                        _dir * 1.0)), 1)
+                    s.dp_angle = round(max(1.0, min(179.0, s.dp_angle + _dir * 1.0)), 1)
             _calculate()
             queue_save()
             _needs_redraw = True
@@ -2475,14 +3404,13 @@ def run(view_manager):
                 kb = view_manager.keyboard
                 kb.reset()
                 if s.sel_dp == DP_DIAM:
-                    kb.title = 'DRILL DIAMETER'
+                    kb.title = "DRILL DIAMETER"
                     kb.response = str(s.dp_diam)
                 else:
-                    kb.title = 'POINT ANGLE (DEG)'
+                    kb.title = "POINT ANGLE (DEG)"
                     kb.response = str(s.dp_angle)
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     elif s.current_screen == SCREEN_TAP_HOLE:
         if _btn == BUTTON_DOWN:
@@ -2495,11 +3423,21 @@ def run(view_manager):
             _dir = 1.0 if _btn == BUTTON_RIGHT else -1.0
             _rnd = 3 if s.val_unit == UNIT_METRIC else 4
             if s.sel_td == TD_DIAM:
-                s.td_diam = round(max(0.001, s.td_diam + _dir * (1.0 if s.
-                    val_unit == UNIT_METRIC else 0.1)), _rnd)
+                s.td_diam = round(
+                    max(
+                        0.001,
+                        s.td_diam + _dir * (1.0 if s.val_unit == UNIT_METRIC else 0.1),
+                    ),
+                    _rnd,
+                )
             elif s.sel_td == TD_PITCH:
-                s.td_pitch = round(max(0.01, s.td_pitch + _dir * (0.1 if s.
-                    val_unit == UNIT_METRIC else 1.0)), _rnd)
+                s.td_pitch = round(
+                    max(
+                        0.01,
+                        s.td_pitch + _dir * (0.1 if s.val_unit == UNIT_METRIC else 1.0),
+                    ),
+                    _rnd,
+                )
             _calculate()
             queue_save()
             _needs_redraw = True
@@ -2512,14 +3450,13 @@ def run(view_manager):
                 kb = view_manager.keyboard
                 kb.reset()
                 if s.sel_td == TD_DIAM:
-                    kb.title = 'MAJOR DIAMETER'
+                    kb.title = "MAJOR DIAMETER"
                     kb.response = str(s.td_diam)
                 else:
-                    kb.title = 'PITCH / TPI'
+                    kb.title = "PITCH / TPI"
                     kb.response = str(s.td_pitch)
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     elif s.current_screen == SCREEN_TAPER:
         if _btn == BUTTON_DOWN:
@@ -2550,17 +3487,16 @@ def run(view_manager):
                 kb = view_manager.keyboard
                 kb.reset()
                 if s.sel_tp == TP_D:
-                    kb.title = 'LARGE DIAMETER'
+                    kb.title = "LARGE DIAMETER"
                     kb.response = str(s.tp_D)
                 elif s.sel_tp == TP_d:
-                    kb.title = 'SMALL DIAMETER'
+                    kb.title = "SMALL DIAMETER"
                     kb.response = str(s.tp_d)
                 elif s.sel_tp == TP_L:
-                    kb.title = 'TAPER LENGTH'
+                    kb.title = "TAPER LENGTH"
                     kb.response = str(s.tp_L)
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     elif s.current_screen == SCREEN_THREAD:
         if _btn == BUTTON_DOWN:
@@ -2575,11 +3511,21 @@ def run(view_manager):
             if s.sel_th == TH_TYPE:
                 s.th_type = TH_UNIFIED if s.th_type == TH_METRIC else TH_METRIC
             elif s.sel_th == TH_DIAM:
-                s.th_diam = round(max(0.001, s.th_diam + _dir * (1.0 if s.
-                    th_type == TH_METRIC else 0.01)), _rnd)
+                s.th_diam = round(
+                    max(
+                        0.001,
+                        s.th_diam + _dir * (1.0 if s.th_type == TH_METRIC else 0.01),
+                    ),
+                    _rnd,
+                )
             elif s.sel_th == TH_PITCH:
-                s.th_pitch = round(max(0.01, s.th_pitch + _dir * (0.05 if s
-                    .th_type == TH_METRIC else 1.0)), _rnd)
+                s.th_pitch = round(
+                    max(
+                        0.01,
+                        s.th_pitch + _dir * (0.05 if s.th_type == TH_METRIC else 1.0),
+                    ),
+                    _rnd,
+                )
             _calculate()
             queue_save()
             _needs_redraw = True
@@ -2592,14 +3538,13 @@ def run(view_manager):
                 kb = view_manager.keyboard
                 kb.reset()
                 if s.sel_th == TH_DIAM:
-                    kb.title = 'MAJOR DIAMETER'
+                    kb.title = "MAJOR DIAMETER"
                     kb.response = str(s.th_diam)
                 elif s.sel_th == TH_PITCH:
-                    kb.title = 'PITCH / TPI'
+                    kb.title = "PITCH / TPI"
                     kb.response = str(s.th_pitch)
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     elif s.current_screen == SCREEN_CONVERT:
         if _btn == BUTTON_DOWN:
@@ -2610,13 +3555,17 @@ def run(view_manager):
             _needs_redraw = True
         elif _btn in (BUTTON_LEFT, BUTTON_RIGHT):
             if s.sel_cv == CV_UNIT:
-                s.cv_unit = (UNIT_IMP if s.cv_unit == UNIT_METRIC else
-                    UNIT_METRIC)
+                s.cv_unit = UNIT_IMP if s.cv_unit == UNIT_METRIC else UNIT_METRIC
             elif s.sel_cv == CV_VAL:
                 _step = 1.0 if s.cv_unit == UNIT_METRIC else 0.1
                 _rnd = 3 if s.cv_unit == UNIT_METRIC else 4
-                s.cv_val = round(max(0.001, s.cv_val + (1.0 if _btn ==
-                    BUTTON_RIGHT else -1.0) * _step), _rnd)
+                s.cv_val = round(
+                    max(
+                        0.001,
+                        s.cv_val + (1.0 if _btn == BUTTON_RIGHT else -1.0) * _step,
+                    ),
+                    _rnd,
+                )
             _calculate()
             queue_save()
             _needs_redraw = True
@@ -2628,11 +3577,10 @@ def run(view_manager):
             elif s.sel_cv == CV_VAL:
                 kb = view_manager.keyboard
                 kb.reset()
-                kb.title = 'CONVERT VALUE'
+                kb.title = "CONVERT VALUE"
                 kb.response = str(s.cv_val)
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     elif s.current_screen == SCREEN_WIRE:
         if _btn == BUTTON_DOWN:
@@ -2647,14 +3595,29 @@ def run(view_manager):
             if s.sel_wr == WR_TYPE:
                 s.wr_type = TH_UNIFIED if s.wr_type == TH_METRIC else TH_METRIC
             elif s.sel_wr == WR_DIAM:
-                s.wr_diam = round(max(0.001, s.wr_diam + _dir * (1.0 if s.
-                    wr_type == TH_METRIC else 0.01)), _rnd)
+                s.wr_diam = round(
+                    max(
+                        0.001,
+                        s.wr_diam + _dir * (1.0 if s.wr_type == TH_METRIC else 0.01),
+                    ),
+                    _rnd,
+                )
             elif s.sel_wr == WR_PITCH:
-                s.wr_pitch = round(max(0.01, s.wr_pitch + _dir * (0.05 if s
-                    .wr_type == TH_METRIC else 1.0)), _rnd)
+                s.wr_pitch = round(
+                    max(
+                        0.01,
+                        s.wr_pitch + _dir * (0.05 if s.wr_type == TH_METRIC else 1.0),
+                    ),
+                    _rnd,
+                )
             elif s.sel_wr == WR_WIRE:
-                s.wr_wire = round(max(0.001, s.wr_wire + _dir * (0.1 if s.
-                    wr_type == TH_METRIC else 0.005)), _rnd + 1)
+                s.wr_wire = round(
+                    max(
+                        0.001,
+                        s.wr_wire + _dir * (0.1 if s.wr_type == TH_METRIC else 0.005),
+                    ),
+                    _rnd + 1,
+                )
             _calculate()
             queue_save()
             _needs_redraw = True
@@ -2667,17 +3630,16 @@ def run(view_manager):
                 kb = view_manager.keyboard
                 kb.reset()
                 if s.sel_wr == WR_DIAM:
-                    kb.title = 'MAJOR DIAMETER'
+                    kb.title = "MAJOR DIAMETER"
                     kb.response = str(s.wr_diam)
                 elif s.sel_wr == WR_PITCH:
-                    kb.title = 'PITCH / TPI'
+                    kb.title = "PITCH / TPI"
                     kb.response = str(s.wr_pitch)
                 elif s.sel_wr == WR_WIRE:
-                    kb.title = 'WIRE DIAMETER'
+                    kb.title = "WIRE DIAMETER"
                     kb.response = str(s.wr_wire)
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     elif s.current_screen == SCREEN_WEIGHT:
         if _btn == BUTTON_DOWN:
@@ -2692,11 +3654,21 @@ def run(view_manager):
             if s.sel_wt == WT_MATL:
                 s.wt_matl = int((s.wt_matl + _dir) % 8)
             elif s.sel_wt == WT_DIAM:
-                s.wt_diam = round(max(0.001, s.wt_diam + _dir * (1.0 if s.
-                    val_unit == UNIT_METRIC else 0.1)), _rnd)
+                s.wt_diam = round(
+                    max(
+                        0.001,
+                        s.wt_diam + _dir * (1.0 if s.val_unit == UNIT_METRIC else 0.1),
+                    ),
+                    _rnd,
+                )
             elif s.sel_wt == WT_LEN:
-                s.wt_len = round(max(0.001, s.wt_len + _dir * (5.0 if s.
-                    val_unit == UNIT_METRIC else 0.5)), _rnd)
+                s.wt_len = round(
+                    max(
+                        0.001,
+                        s.wt_len + _dir * (5.0 if s.val_unit == UNIT_METRIC else 0.5),
+                    ),
+                    _rnd,
+                )
             _calculate()
             queue_save()
             _needs_redraw = True
@@ -2709,14 +3681,13 @@ def run(view_manager):
                 kb = view_manager.keyboard
                 kb.reset()
                 if s.sel_wt == WT_DIAM:
-                    kb.title = 'STOCK DIAMETER'
+                    kb.title = "STOCK DIAMETER"
                     kb.response = str(s.wt_diam)
                 elif s.sel_wt == WT_LEN:
-                    kb.title = 'STOCK LENGTH'
+                    kb.title = "STOCK LENGTH"
                     kb.response = str(s.wt_len)
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     elif s.current_screen == SCREEN_SPEED:
         if _btn == BUTTON_DOWN:
@@ -2729,11 +3700,21 @@ def run(view_manager):
             _dir = 1.0 if _btn == BUTTON_RIGHT else -1.0
             _rnd = 3 if s.val_unit == UNIT_METRIC else 4
             if s.sel_sp == SP_DIAM:
-                s.sp_diam = round(max(0.001, s.sp_diam + _dir * (1.0 if s.
-                    val_unit == UNIT_METRIC else 0.1)), _rnd)
+                s.sp_diam = round(
+                    max(
+                        0.001,
+                        s.sp_diam + _dir * (1.0 if s.val_unit == UNIT_METRIC else 0.1),
+                    ),
+                    _rnd,
+                )
             elif s.sel_sp == SP_VC:
-                s.sp_vc = round(max(1.0, s.sp_vc + _dir * (5.0 if s.
-                    val_unit == UNIT_METRIC else 10.0)), 2)
+                s.sp_vc = round(
+                    max(
+                        1.0,
+                        s.sp_vc + _dir * (5.0 if s.val_unit == UNIT_METRIC else 10.0),
+                    ),
+                    2,
+                )
             _calculate()
             queue_save()
             _needs_redraw = True
@@ -2746,14 +3727,13 @@ def run(view_manager):
                 kb = view_manager.keyboard
                 kb.reset()
                 if s.sel_sp == SP_DIAM:
-                    kb.title = 'DIAMETER'
+                    kb.title = "DIAMETER"
                     kb.response = str(s.sp_diam)
                 elif s.sel_sp == SP_VC:
-                    kb.title = 'CUTTING SPEED'
+                    kb.title = "CUTTING SPEED"
                     kb.response = str(s.sp_vc)
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     elif s.current_screen == SCREEN_CALC:
         if _btn == BUTTON_DOWN:
@@ -2765,8 +3745,7 @@ def run(view_manager):
         elif _btn in (BUTTON_LEFT, BUTTON_RIGHT):
             _dir = 1.0 if _btn == BUTTON_RIGHT else -1.0
             if s.sel_main == FIELD_UNIT:
-                s.val_unit = (UNIT_IMP if s.val_unit == UNIT_METRIC else
-                    UNIT_METRIC)
+                s.val_unit = UNIT_IMP if s.val_unit == UNIT_METRIC else UNIT_METRIC
                 if s.val_unit == UNIT_IMP:
                     s.val_diam = round(s.val_diam / 25.4, 4)
                     s.val_len = round(s.val_len / 25.4, 4)
@@ -2774,39 +3753,78 @@ def run(view_manager):
                     s.val_diam = round(s.val_diam * 25.4, 2)
                     s.val_len = round(s.val_len * 25.4, 2)
             elif s.sel_main == FIELD_CUTTER:
-                s.active_tool_idx = (s.active_tool_idx + int(_dir)) % len(s
-                    .tool_profiles)
+                s.active_tool_idx = (s.active_tool_idx + int(_dir)) % len(
+                    s.tool_profiles
+                )
             elif s.sel_main == FIELD_WORK:
                 s.val_work = (s.val_work + int(_dir)) % 11
             elif s.sel_main == FIELD_TYPE:
-                s.val_type = (TYPE_INDUST if s.val_type == TYPE_HOBBY else
-                    TYPE_HOBBY)
+                s.val_type = TYPE_INDUST if s.val_type == TYPE_HOBBY else TYPE_HOBBY
             elif s.sel_main == FIELD_PROC:
                 s.val_proc = (s.val_proc + int(_dir)) % 6
             elif s.sel_main == FIELD_PASS:
-                s.val_pass = (PASS_FINISH if s.val_pass == PASS_ROUGH else
-                    PASS_ROUGH)
+                s.val_pass = PASS_FINISH if s.val_pass == PASS_ROUGH else PASS_ROUGH
             elif s.sel_main == FIELD_DIAM:
                 _rnd = 3 if s.val_unit == UNIT_METRIC else 4
-                s.val_diam = round(min(5000.0, max(0.001, s.val_diam + _dir * (1.0 if s
-                    .val_unit == UNIT_METRIC else 0.1))), _rnd)
+                s.val_diam = round(
+                    min(
+                        5000.0,
+                        max(
+                            0.001,
+                            s.val_diam
+                            + _dir * (1.0 if s.val_unit == UNIT_METRIC else 0.1),
+                        ),
+                    ),
+                    _rnd,
+                )
             elif s.sel_main == FIELD_LEN:
                 _rnd = 3 if s.val_unit == UNIT_METRIC else 4
-                s.val_len = round(min(5000.0, max(0.001, s.val_len + _dir * (5.0 if s.
-                    val_unit == UNIT_METRIC else 0.5))), _rnd)
+                s.val_len = round(
+                    min(
+                        5000.0,
+                        max(
+                            0.001,
+                            s.val_len
+                            + _dir * (5.0 if s.val_unit == UNIT_METRIC else 0.5),
+                        ),
+                    ),
+                    _rnd,
+                )
             elif s.sel_main == FIELD_VC:
-                s.val_vc = round(max(1.0, s.val_vc + _dir * (5.0 if s.
-                    val_unit == UNIT_METRIC else 10.0)), 2)
+                s.val_vc = round(
+                    max(
+                        1.0,
+                        s.val_vc + _dir * (5.0 if s.val_unit == UNIT_METRIC else 10.0),
+                    ),
+                    2,
+                )
             elif s.sel_main == FIELD_FEED:
-                s.val_feed = min(50.0, max(0.001, s.val_feed + _dir * (0.01 if s.
-                    val_unit == UNIT_METRIC else 0.001)))
+                s.val_feed = min(
+                    50.0,
+                    max(
+                        0.001,
+                        s.val_feed
+                        + _dir * (0.01 if s.val_unit == UNIT_METRIC else 0.001),
+                    ),
+                )
                 s.val_feed = round(s.val_feed, 4)
             elif s.sel_main == FIELD_DOC:
-                s.val_doc = min(100.0, max(0.001, s.val_doc + _dir * (0.1 if s.
-                    val_unit == UNIT_METRIC else 0.01)))
+                s.val_doc = min(
+                    100.0,
+                    max(
+                        0.001,
+                        s.val_doc + _dir * (0.1 if s.val_unit == UNIT_METRIC else 0.01),
+                    ),
+                )
                 s.val_doc = round(s.val_doc, 3)
-            if s.sel_main in (FIELD_UNIT, FIELD_CUTTER, FIELD_WORK,
-                FIELD_TYPE, FIELD_PROC, FIELD_PASS):
+            if s.sel_main in (
+                FIELD_UNIT,
+                FIELD_CUTTER,
+                FIELD_WORK,
+                FIELD_TYPE,
+                FIELD_PROC,
+                FIELD_PASS,
+            ):
                 _apply_safe_defaults()
             _calculate()
             queue_save()
@@ -2818,17 +3836,17 @@ def run(view_manager):
                 _needs_redraw = True
             elif s.sel_main == FIELD_MAIN_HELP:
                 s.current_screen = SCREEN_HELP
-                _load_text('HELP')
+                _load_text("HELP")
                 _calculate()
                 _needs_redraw = True
             elif s.sel_main == FIELD_APPLY_DOC:
-                _str = s.rec_doc.replace('mm', '').replace('in', '').replace(
-                    '+', '')
+                _str = s.rec_doc.replace("mm", "").replace("in", "").replace("+", "")
                 try:
-                    if '-' in _str:
-                        _parts = _str.split('-')
-                        s.val_doc = round((float(_parts[0]) + float(_parts[
-                            1])) / 2.0, 4)
+                    if "-" in _str:
+                        _parts = _str.split("-")
+                        s.val_doc = round(
+                            (float(_parts[0]) + float(_parts[1])) / 2.0, 4
+                        )
                     else:
                         s.val_doc = round(float(_str), 4)
                     _calculate()
@@ -2836,33 +3854,32 @@ def run(view_manager):
                     _needs_redraw = True
                 except Exception:
                     pass
-            elif s.sel_main in (FIELD_DIAM, FIELD_LEN, FIELD_VC, FIELD_FEED,
-                FIELD_DOC):
+            elif s.sel_main in (FIELD_DIAM, FIELD_LEN, FIELD_VC, FIELD_FEED, FIELD_DOC):
                 kb = view_manager.keyboard
                 kb.reset()
-                _u_d = 'mm' if s.val_unit == UNIT_METRIC else 'in'
-                _u_v = 'm/m' if s.val_unit == UNIT_METRIC else 'SFM'
-                _u_f = 'mm/r' if s.val_unit == UNIT_METRIC else 'in/r'
+                _u_d = "mm" if s.val_unit == UNIT_METRIC else "in"
+                _u_v = "m/m" if s.val_unit == UNIT_METRIC else "SFM"
+                _u_f = "mm/r" if s.val_unit == UNIT_METRIC else "in/r"
                 if s.sel_main == FIELD_DIAM:
-                    _t_title = ('DRILL DIAMETER' if s.val_proc ==
-                        PROC_DRILL else 'DIAMETER')
-                    kb.title = _t_title + ' (' + _u_d + ')'
+                    _t_title = (
+                        "DRILL DIAMETER" if s.val_proc == PROC_DRILL else "DIAMETER"
+                    )
+                    kb.title = _t_title + " (" + _u_d + ")"
                     kb.response = str(s.val_diam)
                 elif s.sel_main == FIELD_LEN:
-                    kb.title = 'LENGTH (' + _u_d + ')'
+                    kb.title = "LENGTH (" + _u_d + ")"
                     kb.response = str(s.val_len)
                 elif s.sel_main == FIELD_VC:
-                    kb.title = 'SPEED (' + _u_v + ')'
+                    kb.title = "SPEED (" + _u_v + ")"
                     kb.response = str(s.val_vc)
                 elif s.sel_main == FIELD_FEED:
-                    kb.title = 'FEED (' + _u_f + ')'
+                    kb.title = "FEED (" + _u_f + ")"
                     kb.response = str(s.val_feed)
                 elif s.sel_main == FIELD_DOC:
-                    kb.title = 'DEPTH OF CUT (' + _u_d + ')'
+                    kb.title = "DEPTH OF CUT (" + _u_d + ")"
                     kb.response = str(s.val_doc)
                 s.is_typing = True
                 s.kb_force = True
-                _im.reset()
                 return
     if _needs_redraw:
         _im.reset()
@@ -2872,6 +3889,7 @@ def run(view_manager):
 def stop(view_manager):
     """Stop the app, execute a final save, and clear memory"""
     from gc import collect
+
     global state, storage, dirty_save, save_timer, _last_saved_json
     save_settings(view_manager, force=True)
     if view_manager.keyboard:
@@ -2881,5 +3899,5 @@ def stop(view_manager):
     storage = None
     dirty_save = False
     save_timer = 0
-    _last_saved_json = ''
+    _last_saved_json = ""
     collect()

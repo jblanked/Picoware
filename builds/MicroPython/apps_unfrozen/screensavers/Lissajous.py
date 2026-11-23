@@ -116,9 +116,8 @@ def start(view_manager) -> bool:
 def run(view_manager) -> None:
     global phase, color_phase, a_freq, b_freq, morph_timer
 
-    inp = view_manager.input_manager
-    if inp.button == BUTTON_BACK:
-        inp.reset()
+    button = view_manager.button
+    if button == BUTTON_BACK:
         view_manager.back()
         return
 

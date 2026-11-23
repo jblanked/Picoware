@@ -16,11 +16,9 @@ def run(view_manager):
 
     from picoware.system.buttons import BUTTON_BACK
 
-    inp = view_manager.input_manager
-    but = inp.button
+    but = view_manager.button
 
     if but == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
     else:
         _loading.animate()

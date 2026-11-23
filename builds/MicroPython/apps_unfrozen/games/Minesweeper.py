@@ -38,23 +38,39 @@ def draw_cell(draw, value, is_revealed, is_flagged) -> None:
     reusable_vec.x = pos_vec.x * CELL_SIZE + _offset_x
     reusable_vec.y = pos_vec.y * CELL_SIZE + _offset_y
     if is_revealed:
-        draw._fill_rectangle(reusable_vec.x, reusable_vec.y, CELL_SIZE, CELL_SIZE, 0xFFFF if is_flipper else TFT_ORANGE)
+        draw._fill_rectangle(
+            reusable_vec.x,
+            reusable_vec.y,
+            CELL_SIZE,
+            CELL_SIZE,
+            0xFFFF if is_flipper else TFT_ORANGE,
+        )
     else:
-        draw._fill_rectangle(reusable_vec.x, reusable_vec.y, CELL_SIZE, CELL_SIZE, TFT_BLACK)
+        draw._fill_rectangle(
+            reusable_vec.x, reusable_vec.y, CELL_SIZE, CELL_SIZE, TFT_BLACK
+        )
     # On Flipper, use black border on revealed cells (white border invisible on white)
-    border_color = TFT_BLACK if (is_flipper and is_revealed) else (0xFFFF if is_flipper else TFT_BLUE)
+    border_color = (
+        TFT_BLACK
+        if (is_flipper and is_revealed)
+        else (0xFFFF if is_flipper else TFT_BLUE)
+    )
     draw._rectangle(reusable_vec.x, reusable_vec.y, CELL_SIZE, CELL_SIZE, border_color)
     reusable_vec.x += _text_off_x
     reusable_vec.y += _text_off_y
     if is_revealed:
         # On Flipper, use black text on white revealed background for visibility
-        text_color = TFT_BLACK if is_flipper else (TFT_RED if value == -1 else TFT_WHITE)
+        text_color = (
+            TFT_BLACK if is_flipper else (TFT_RED if value == -1 else TFT_WHITE)
+        )
         if value == -1:
             draw._text(reusable_vec.x, reusable_vec.y, "*", text_color)
         elif value > 0:
             draw._text(reusable_vec.x, reusable_vec.y, str(value), text_color)
     elif is_flagged:
-        draw._text(reusable_vec.x, reusable_vec.y, "F", 0xFFFF if is_flipper else TFT_GREEN)
+        draw._text(
+            reusable_vec.x, reusable_vec.y, "F", 0xFFFF if is_flipper else TFT_GREEN
+        )
 
 
 def draw_grid(draw) -> None:
@@ -67,7 +83,13 @@ def draw_grid(draw) -> None:
     cx, cy = cursor
     reusable_vec.x = cx * CELL_SIZE + _offset_x
     reusable_vec.y = cy * CELL_SIZE + _offset_y
-    draw._rectangle(reusable_vec.x, reusable_vec.y, CELL_SIZE, CELL_SIZE, 0xFFFF if is_flipper else TFT_GREEN)
+    draw._rectangle(
+        reusable_vec.x,
+        reusable_vec.y,
+        CELL_SIZE,
+        CELL_SIZE,
+        0xFFFF if is_flipper else TFT_GREEN,
+    )
     draw.swap()
 
 
@@ -181,29 +203,22 @@ def run(view_manager) -> None:
 
     global mines_placed, game_over, win
 
-    inp = view_manager.input_manager
     draw = view_manager.draw
-    button = inp.button
+    button = view_manager.button
 
     if any([button == BUTTON_BACK, game_over, win]):
-        inp.reset()
         view_manager.back()
         return
 
     if button == BUTTON_UP and cursor[1] > 0:
-        inp.reset()
         cursor[1] -= 1
     elif button == BUTTON_DOWN and cursor[1] < GRID_H - 1:
-        inp.reset()
         cursor[1] += 1
     elif button == BUTTON_RIGHT and cursor[0] < GRID_W - 1:
-        inp.reset()
         cursor[0] += 1
     elif button == BUTTON_LEFT and cursor[0] > 0:
-        inp.reset()
         cursor[0] -= 1
     elif button == BUTTON_SPACE:  # Reveal
-        inp.reset()
         if not mines_placed:
             place_mines(cursor[0], cursor[1])
             mines_placed = True
@@ -215,7 +230,6 @@ def run(view_manager) -> None:
             else:
                 reveal(cursor[0], cursor[1])
     elif button == BUTTON_F:  # Flag
-        inp.reset()
         if not revealed[cursor[1]][cursor[0]]:
             flagged[cursor[1]][cursor[0]] = not flagged[cursor[1]][cursor[0]]
     draw_grid(draw)

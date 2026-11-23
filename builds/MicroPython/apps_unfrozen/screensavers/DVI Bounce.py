@@ -4509,12 +4509,10 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app"""
-    input_manager = view_manager.input_manager
-    input_button = input_manager.button
+    button = view_manager.button
 
-    if input_button == BUTTON_BACK:
+    if button == BUTTON_BACK:
         view_manager.back()
-        input_manager.reset()
         return
 
     global x, y, vx, vy

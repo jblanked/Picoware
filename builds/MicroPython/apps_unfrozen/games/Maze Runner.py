@@ -130,11 +130,9 @@ def run(view_manager) -> None:
     """Run the app"""
     global player_x, player_y, moves, game_won, maze, offset_x, offset_y, pos, size
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
         return
 
@@ -143,7 +141,7 @@ def run(view_manager) -> None:
     if game_won:
         # If game is won, wait for button press
         if button == BUTTON_CENTER:
-            inp.reset()
+
             reset_game()
             return
     else:
@@ -151,16 +149,16 @@ def run(view_manager) -> None:
         new_x, new_y = player_x, player_y
 
         if button == BUTTON_UP:
-            inp.reset()
+
             new_y -= 1
         elif button == BUTTON_DOWN:
-            inp.reset()
+
             new_y += 1
         elif button == BUTTON_LEFT:
-            inp.reset()
+
             new_x -= 1
         elif button == BUTTON_RIGHT:
-            inp.reset()
+
             new_x += 1
 
         # Check if move is valid
@@ -188,7 +186,9 @@ def run(view_manager) -> None:
                 draw._fill_rectangle(pos.x, pos.y, size.x, size.y, TFT_WHITE)
             elif x == exit_x and y == exit_y:
                 # Exit
-                draw._fill_rectangle(pos.x, pos.y, size.x, size.y, 0xFFFF if is_flipper else TFT_GREEN)
+                draw._fill_rectangle(
+                    pos.x, pos.y, size.x, size.y, 0xFFFF if is_flipper else TFT_GREEN
+                )
 
     # Draw player
     player_pos.x, player_pos.y = (
@@ -197,11 +197,20 @@ def run(view_manager) -> None:
     )
     player_size.x, player_size.y = (cell_size - 4, cell_size - 4)
     draw._fill_rectangle(
-        player_pos.x, player_pos.y, player_size.x, player_size.y, 0xFFFF if is_flipper else TFT_RED
+        player_pos.x,
+        player_pos.y,
+        player_size.x,
+        player_size.y,
+        0xFFFF if is_flipper else TFT_RED,
     )
 
     # Draw moves counter
-    draw._text(draw.scale_x(5), draw.scale_y(5), f"Moves:{moves}", 0xFFFF if is_flipper else TFT_YELLOW)
+    draw._text(
+        draw.scale_x(5),
+        draw.scale_y(5),
+        f"Moves:{moves}",
+        0xFFFF if is_flipper else TFT_YELLOW,
+    )
 
     # Draw win message
     if game_won:
@@ -217,7 +226,9 @@ def run(view_manager) -> None:
         moves_msg_pos = Vector(screen_size.x // 2 - 40, screen_size.y // 2 - 5)
         draw.text(moves_msg_pos, f"Moves:{moves}", TFT_WHITE)
         restart_msg_pos = Vector(screen_size.x // 2 - 60, screen_size.y // 2 + 10)
-        draw.text(restart_msg_pos, "Press to Enter play", 0xFFFF if is_flipper else TFT_YELLOW)
+        draw.text(
+            restart_msg_pos, "Press to Enter play", 0xFFFF if is_flipper else TFT_YELLOW
+        )
 
     draw.swap()
 

@@ -80,12 +80,10 @@ def run(view_manager) -> None:
     """Run the app"""
     global current_frame
 
-    inp = view_manager.input_manager
     storage = view_manager.storage
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
     else:
         # Direct read into pre-allocated buffer
@@ -99,7 +97,9 @@ def run(view_manager) -> None:
 
         # Draw the frame
         draw = view_manager.draw
-        draw._bytearray(position.x, position.y, size.x, size.y, memoryview(frame_data)[:bytes_read])
+        draw._bytearray(
+            position.x, position.y, size.x, size.y, memoryview(frame_data)[:bytes_read]
+        )
         draw.swap()
 
         # Advance to next frame

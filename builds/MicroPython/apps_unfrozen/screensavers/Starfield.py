@@ -75,12 +75,10 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app"""
-    input_manager = view_manager.input_manager
-    input_button = input_manager.button
+    input_button = view_manager.button
 
     if input_button in (BUTTON_LEFT, BUTTON_BACK):
         view_manager.back()
-        input_manager.reset()
         return
 
     tft = view_manager.draw

@@ -387,7 +387,12 @@ def draw_button(draw, button: CalcButton, is_selected: bool = False):
     """Draw a calculator button"""
     # Draw button background
     draw._fill_round_rectangle(
-        button.pos.x, button.pos.y, button.size.x, button.size.y, draw.scale_x(10), button.color
+        button.pos.x,
+        button.pos.y,
+        button.size.x,
+        button.size.y,
+        draw.scale_x(10),
+        button.color,
     )
 
     # Draw selection highlight border if selected
@@ -578,14 +583,12 @@ def run(view_manager) -> None:
     global selected_button_index
 
     draw = view_manager.draw
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == -1:
         return
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
         return
 
@@ -597,13 +600,11 @@ def run(view_manager) -> None:
         selected_button_index = (selected_button_index + 1) % len_buttons
         if old_index != selected_button_index:
             needs_redraw = True
-        inp.reset()
     elif button == BUTTON_LEFT:
         old_index = selected_button_index
         selected_button_index = (selected_button_index - 1) % len_buttons
         if old_index != selected_button_index:
             needs_redraw = True
-        inp.reset()
     elif button == BUTTON_DOWN:
         old_index = selected_button_index
         # Move down one row (4 buttons per row for most rows)
@@ -611,7 +612,6 @@ def run(view_manager) -> None:
             selected_button_index = min(selected_button_index + 4, len_buttons - 1)
         if old_index != selected_button_index:
             needs_redraw = True
-        inp.reset()
     elif button == BUTTON_UP:
         old_index = selected_button_index
         # Move up one row
@@ -619,13 +619,11 @@ def run(view_manager) -> None:
             selected_button_index = max(selected_button_index - 4, 0)
         if old_index != selected_button_index:
             needs_redraw = True
-        inp.reset()
     elif button == BUTTON_CENTER:
         # Activate the selected button
         selected_btn = buttons[selected_button_index]
         handle_button_action(selected_btn.action)
         needs_redraw = True
-        inp.reset()
     # Handle direct number input
     elif button == BUTTON_0:
         handle_number(0)
@@ -633,70 +631,60 @@ def run(view_manager) -> None:
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button == BUTTON_1:
         handle_number(1)
         btn_idx = find_button_by_action("1")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button == BUTTON_2:
         handle_number(2)
         btn_idx = find_button_by_action("2")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button == BUTTON_3:
         handle_number(3)
         btn_idx = find_button_by_action("3")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button == BUTTON_4:
         handle_number(4)
         btn_idx = find_button_by_action("4")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button == BUTTON_5:
         handle_number(5)
         btn_idx = find_button_by_action("5")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button == BUTTON_6:
         handle_number(6)
         btn_idx = find_button_by_action("6")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button == BUTTON_7:
         handle_number(7)
         btn_idx = find_button_by_action("7")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button == BUTTON_8:
         handle_number(8)
         btn_idx = find_button_by_action("8")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button == BUTTON_9:
         handle_number(9)
         btn_idx = find_button_by_action("9")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     # Handle operator input
     elif button == BUTTON_PERIOD:
         handle_button_action("decimal")
@@ -704,49 +692,42 @@ def run(view_manager) -> None:
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button in (BUTTON_SLASH, BUTTON_BACKSLASH):
         handle_button_action("divide")
         btn_idx = find_button_by_action("divide")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button == BUTTON_ASTERISK:
         handle_button_action("multiply")
         btn_idx = find_button_by_action("multiply")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button == BUTTON_MINUS:
         handle_button_action("subtract")
         btn_idx = find_button_by_action("subtract")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button == BUTTON_PLUS:
         handle_button_action("add")
         btn_idx = find_button_by_action("add")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button in (BUTTON_EQUAL, BUTTON_SPACE):
         handle_button_action("equals")
         btn_idx = find_button_by_action("equals")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     elif button == BUTTON_ESCAPE:
         handle_button_action("clear")
         btn_idx = find_button_by_action("clear")
         if btn_idx is not None:
             selected_button_index = btn_idx
         needs_redraw = True
-        inp.reset()
     # Handle backspace (delete last character)
     elif button == BUTTON_BACKSPACE:
         global display_text, current_value, new_number
@@ -774,7 +755,6 @@ def run(view_manager) -> None:
                         current_value = 0
                         new_number = True
         needs_redraw = True
-        inp.reset()
 
     # Redraw if needed
     if needs_redraw:

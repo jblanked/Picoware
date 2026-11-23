@@ -17,7 +17,6 @@ from picoware.system.boards import (
     BOARD_ID,
 )
 
-
 _FONT_W = const(7)
 _FONT_H = const(9)
 _FONT_ADVANCE = const(8)
@@ -367,7 +366,9 @@ def _draw_text(draw, x, y, text, color, scale=1, max_width=0):
     start_x = x
     advance = _FONT_ADVANCE * scale
     line_height = (_FONT_H + 2) * scale
-    available = min(max_width, _screen_w - start_x) if max_width > 0 else _screen_w - start_x
+    available = (
+        min(max_width, _screen_w - start_x) if max_width > 0 else _screen_w - start_x
+    )
     characters_per_line = max(1, (available + scale) // advance)
     line = ""
     for character in text:
@@ -412,9 +413,7 @@ def _blit_plate_text(draw, x, y, text, color, background, scale=2):
         _draw_plate_text(draw, x, y, text, color, scale)
         return
 
-    background_view = (
-        _plate_blank_view if background == _BOOT_MAGENTA else _blank_view
-    )
+    background_view = _plate_blank_view if background == _BOOT_MAGENTA else _blank_view
     _text_view[:size] = background_view[:size]
     packed_color = _rgb565_to_332(color)
     advance = _FONT_ADVANCE * scale
@@ -535,7 +534,9 @@ def _draw_typed(draw, x, y, text, resolved, color, max_width):
                 line = ""
                 y += line_height
             cursor_x = start_x + len(line) * _FONT_ADVANCE
-            wrong = 1 + ((_frame * 11 + count * 7) % (len(_FONT_DATA) // _FONT_ROWS - 1))
+            wrong = 1 + (
+                (_frame * 11 + count * 7) % (len(_FONT_DATA) // _FONT_ROWS - 1)
+            )
             _draw_glyph(draw, cursor_x, y, wrong, _AMBER)
 
 
@@ -571,6 +572,7 @@ def _draw_frame_effects(draw, color):
     if _frame > 0 and _frame % 47 == 0:
         band_y = y + 2 + _rand() % max(1, height - 4)
         _fill_rect(draw, x + 1, band_y, width - 2, 2, _BLACK)
+
 
 def _render_registration(draw, elapsed):
     """Red registration card seen during the ship's wake sequence."""
@@ -678,8 +680,12 @@ def _render_bootstrap(draw, elapsed):
 
     footer_y = y + height - 19
     draw._line(x + 8, footer_y - 5, x + width - 9, footer_y - 5, _GREEN_DIM)
-    footer = "SYSTEM READY _" if progress >= 100 and (_frame // 5) % 2 else "SYSTEM CHECK"
-    _draw_text(draw, x + 8, footer_y, footer, _GREEN_BRIGHT if progress >= 100 else _GREEN_DIM)
+    footer = (
+        "SYSTEM READY _" if progress >= 100 and (_frame // 5) % 2 else "SYSTEM CHECK"
+    )
+    _draw_text(
+        draw, x + 8, footer_y, footer, _GREEN_BRIGHT if progress >= 100 else _GREEN_DIM
+    )
 
 
 def _render_boot(draw, elapsed):
@@ -726,7 +732,9 @@ def _render_matrix(draw, elapsed):
     draw._line(x + 4, sweep_y + 1, x + width - 5, sweep_y + 1, _GREEN_BRIGHT)
 
     glitch_row = (_frame // 3) % max(1, rows)
-    glitch_x = x + 8 + ((_frame * 5) % max(1, (width - 24) // _FONT_ADVANCE)) * _FONT_ADVANCE
+    glitch_x = (
+        x + 8 + ((_frame * 5) % max(1, (width - 24) // _FONT_ADVANCE)) * _FONT_ADVANCE
+    )
     _draw_glyph(
         draw,
         glitch_x,
@@ -883,9 +891,7 @@ def _render_approach(draw, elapsed):
         previous_y = _terrain_y(terrain_top, terrain_height, depth, 0, phase)
         for column in range(1, 9):
             point_x = _terrain_x(center_x, plot_width, depth, column)
-            point_y = _terrain_y(
-                terrain_top, terrain_height, depth, column, phase
-            )
+            point_y = _terrain_y(terrain_top, terrain_height, depth, column, phase)
             draw._line(
                 previous_x,
                 previous_y,
@@ -897,16 +903,12 @@ def _render_approach(draw, elapsed):
             previous_y = point_y
         if depth > 1:
             for column in range(9):
-                previous_x = _terrain_x(
-                    center_x, plot_width, depth - 1, column
-                )
+                previous_x = _terrain_x(center_x, plot_width, depth - 1, column)
                 previous_y = _terrain_y(
                     terrain_top, terrain_height, depth - 1, column, phase
                 )
                 point_x = _terrain_x(center_x, plot_width, depth, column)
-                point_y = _terrain_y(
-                    terrain_top, terrain_height, depth, column, phase
-                )
+                point_y = _terrain_y(terrain_top, terrain_height, depth, column, phase)
                 draw._line(previous_x, previous_y, point_x, point_y, _GREEN_DIM)
 
     corridor_left = center_x - max(8, plot_width // 10)
@@ -918,18 +920,24 @@ def _render_approach(draw, elapsed):
     horizon_base = plot_bottom - max(12, plot_height // 8)
     previous_x = plot_left
     delta = previous_x - center_x
-    previous_y = horizon_base - (half_width * half_width - delta * delta) // max(1, plot_width * 4)
+    previous_y = horizon_base - (half_width * half_width - delta * delta) // max(
+        1, plot_width * 4
+    )
     point_x = plot_left + 8
     while point_x <= plot_right:
         delta = point_x - center_x
-        point_y = horizon_base - (half_width * half_width - delta * delta) // max(1, plot_width * 4)
+        point_y = horizon_base - (half_width * half_width - delta * delta) // max(
+            1, plot_width * 4
+        )
         draw._line(previous_x, previous_y, point_x, point_y, _AMBER)
         previous_x = point_x
         previous_y = point_y
         point_x += 8
 
     ship_x = plot_left + 8 + (_frame * 3) % max(9, plot_width - 24)
-    ship_y = plot_top + 12 + _TRIG[(_frame // 2) & 15] * max(5, plot_height // 12) // 256
+    ship_y = (
+        plot_top + 12 + _TRIG[(_frame // 2) & 15] * max(5, plot_height // 12) // 256
+    )
     _draw_glyph(draw, ship_x, ship_y, _glyph_index("$"), _CYAN)
 
     if side_width:
@@ -944,7 +952,9 @@ def _render_approach(draw, elapsed):
         _draw_text(draw, side_x + 6, plot_top + 84, "VECTOR", _CYAN)
         _draw_text(draw, side_x + 6, plot_top + 97, str(vector) + ".26", _GREEN)
         _draw_text(draw, side_x + 6, plot_top + 122, "AUTODEC", _CYAN)
-        _draw_text(draw, side_x + 6, plot_top + 135, "-" + str((elapsed // 10) % 9999), _RED)
+        _draw_text(
+            draw, side_x + 6, plot_top + 135, "-" + str((elapsed // 10) % 9999), _RED
+        )
         _draw_text(draw, side_x + 6, plot_bottom - 16, "LOCK @", _GREEN_BRIGHT)
     elif height >= 180:
         _draw_text(
@@ -974,9 +984,7 @@ def _render_compact(draw, elapsed):
         box_height = min(height - 6, _FONT_H * scale * 2 + 16)
         box_y = y + (height - box_height) // 2
         divider_y = box_y + _FONT_H * scale + 7
-        _draw_plate_frame(
-            draw, box_x, box_y, box_width, box_height, divider_y, _CYAN
-        )
+        _draw_plate_frame(draw, box_x, box_y, box_width, box_height, divider_y, _CYAN)
         title_x = center_x - _text_width("NOSTROMO", scale) // 2
         number_x = center_x - _text_width("180924609", scale) // 2
         _blit_plate_text(
@@ -1139,7 +1147,6 @@ def run(view_manager):
     # A screensaver should dismiss immediately on any real input.  The button
     # used to launch it is reset by ViewManager before this view's first tick.
     if view_manager.button != BUTTON_NONE:
-        view_manager.input_manager.reset()
         view_manager.back()
         return
 

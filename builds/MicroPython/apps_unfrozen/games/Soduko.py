@@ -327,7 +327,9 @@ def draw_sudoku(display):
     diff_text = f"{game.difficulty[0].upper()}{game.difficulty[1:]}"
 
     display._text(4, info_y, diff_text, TFT_CYAN)
-    display._text(display.size.x - display.len(timer_text) - 4, info_y, timer_text, TFT_CYAN)
+    display._text(
+        display.size.x - display.len(timer_text) - 4, info_y, timer_text, TFT_CYAN
+    )
 
     display.swap()
 
@@ -418,16 +420,13 @@ def run(view_manager) -> None:
         TFT_GREEN,
         TFT_YELLOW,
     )
-    from picoware.system.vector import Vector
 
     global game
 
-    inp = view_manager.input_manager
-    key = inp.button
+    key = view_manager.button
     draw = view_manager.draw
 
     if key == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
         return
 
@@ -442,24 +441,24 @@ def run(view_manager) -> None:
         center_text(draw, "Congratulations!", draw.scale_y(120), TFT_GREEN)
         center_text(draw, "Puzzle Complete!", draw.scale_y(150), TFT_GREEN)
         center_text(draw, f"Time: {mins:02d}:{secs:02d}", draw.scale_y(180), TFT_CYAN)
-        draw._text(draw.scale_x(8), draw.scale_y(290), "Press any key to continue...", TFT_YELLOW)
+        draw._text(
+            draw.scale_x(8),
+            draw.scale_y(290),
+            "Press any key to continue...",
+            TFT_YELLOW,
+        )
         view_manager.back()
         return
 
     if key == BUTTON_UP:  # Up
-        inp.reset()
         game.cursor_row = (game.cursor_row - 1) % 9
     elif key == BUTTON_DOWN:  # Down
-        inp.reset()
         game.cursor_row = (game.cursor_row + 1) % 9
     elif key == BUTTON_LEFT:  # Left
-        inp.reset()
         game.cursor_col = (game.cursor_col - 1) % 9
     elif key == BUTTON_RIGHT:  # Right
-        inp.reset()
         game.cursor_col = (game.cursor_col + 1) % 9
     elif key in (BUTTON_0, BUTTON_BACKSPACE):
-        inp.reset()
         game.set_cell(game.cursor_row, game.cursor_col, 0)
     elif key != -1:
         from picoware.system.buttons import (
@@ -487,7 +486,6 @@ def run(view_manager) -> None:
         }
         num = button_map.get(key)
         if num:
-            inp.reset()
             game.set_cell(game.cursor_row, game.cursor_col, num)
 
     # Game loop

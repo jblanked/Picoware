@@ -134,6 +134,7 @@ def draw(display):
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
+
     global _current_grid, _next_grid, _neighbor_counts, _COLORS, GRID_PIXELS, CELL_SIZE, GRID_SIZE, GRID_BYTES, is_flipper
 
     is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
@@ -165,16 +166,13 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app"""
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
         return
 
     if button == BUTTON_CENTER:
-        inp.reset()
         random_grid()
 
     draw(view_manager.draw)

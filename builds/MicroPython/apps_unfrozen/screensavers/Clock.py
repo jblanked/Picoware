@@ -21,11 +21,9 @@ def run(view_manager) -> None:
     from picoware.system.colors import TFT_WHITE, TFT_RED, TFT_GREEN, TFT_ORANGE
     from math import sin, cos, pi
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
         return
 
@@ -111,7 +109,11 @@ def run(view_manager) -> None:
     line_vec_pos.x, line_vec_pos.y = center_x, center_y
     line_vec_size.x, line_vec_size.y = minute_x, minute_y
     draw._line(
-        line_vec_pos.x, line_vec_pos.y, line_vec_size.x, line_vec_size.y, 0xFFFF if is_flipper else TFT_GREEN
+        line_vec_pos.x,
+        line_vec_pos.y,
+        line_vec_size.x,
+        line_vec_size.y,
+        0xFFFF if is_flipper else TFT_GREEN,
     )
 
     # Draw second hand (longest, thinnest)
@@ -121,7 +123,11 @@ def run(view_manager) -> None:
     line_vec_pos.x, line_vec_pos.y = center_x, center_y
     line_vec_size.x, line_vec_size.y = second_x, second_y
     draw._line(
-        line_vec_pos.x, line_vec_pos.y, line_vec_size.x, line_vec_size.y, 0xFFFF if is_flipper else TFT_RED
+        line_vec_pos.x,
+        line_vec_pos.y,
+        line_vec_size.x,
+        line_vec_size.y,
+        0xFFFF if is_flipper else TFT_RED,
     )
 
     # Draw digital time display below the clock

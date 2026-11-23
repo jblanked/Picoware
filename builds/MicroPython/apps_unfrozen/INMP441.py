@@ -231,6 +231,7 @@ def start(view_manager) -> bool:
     d.swap()
 
     inp = view_manager.input_manager
+    inp.reset()
     while True:
         but = inp.button
         if but != -1:
@@ -251,11 +252,9 @@ def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         if _mic and _mic.is_recording:
             _mic.stop()
         view_manager.back()
@@ -270,7 +269,6 @@ def run(view_manager) -> None:
     if _mic.is_recording:
         # Recording is in progress — animate and listen for stop
         if button == BUTTON_CENTER:
-            inp.reset()
             _mic.stop()
         else:
             __loading_run(view_manager, "Recording...")

@@ -582,13 +582,15 @@ def _draw_plot(draw):
     global _toast
     draw.fill_screen(C_BG)
     draw._fill_rectangle(
-        _px0, _py0,
-        _px1 - _px0 + 1, _py1 - _py0 + 1,
+        _px0,
+        _py0,
+        _px1 - _px0 + 1,
+        _py1 - _py0 + 1,
         C_PLOT,
     )
 
     if _zs is None:
-        draw._text(draw.scale_x(24),_sh // 2, "No surface", C_ERR, FONT_MEDIUM)
+        draw._text(draw.scale_x(24), _sh // 2, "No surface", C_ERR, FONT_MEDIUM)
         _paint_chrome(draw, "empty", "BACK  menu", "ENTER  type equation")
         draw.swap()
         return
@@ -681,9 +683,12 @@ def _draw_plot(draw):
         for depth, t, a, b, c, cool in faces:
             col = _shade_color(t, _face_shade(a, b, c), cool)
             draw._fill_triangle(
-                a[0], a[1],
-                b[0], b[1],
-                c[0], c[1],
+                a[0],
+                a[1],
+                b[0],
+                b[1],
+                c[0],
+                c[1],
                 col,
             )
 
@@ -693,8 +698,10 @@ def _draw_plot(draw):
 
     _draw_gizmo(draw)
     draw._rectangle(
-        _px0, _py0,
-        _px1 - _px0, _py1 - _py0,
+        _px0,
+        _py0,
+        _px1 - _px0,
+        _py1 - _py0,
         C_FRAME,
     )
 
@@ -714,8 +721,20 @@ def _draw_plot(draw):
 
 def _draw_error(draw):
     draw.fill_screen(C_BG)
-    draw._fill_rectangle(draw.scale_x(14), draw.scale_y(70), _sw - draw.scale_x(28), draw.scale_y(132), C_PANEL)
-    draw._rectangle(draw.scale_x(14), draw.scale_y(70), _sw - draw.scale_x(28), draw.scale_y(132), C_ERR)
+    draw._fill_rectangle(
+        draw.scale_x(14),
+        draw.scale_y(70),
+        _sw - draw.scale_x(28),
+        draw.scale_y(132),
+        C_PANEL,
+    )
+    draw._rectangle(
+        draw.scale_x(14),
+        draw.scale_y(70),
+        _sw - draw.scale_x(28),
+        draw.scale_y(132),
+        C_ERR,
+    )
     draw._text(draw.scale_x(26), draw.scale_y(84), "Could not plot", C_ERR, FONT_MEDIUM)
     msg = _error_msg or "Unknown error"
     if len(msg) > 34:
@@ -723,8 +742,12 @@ def _draw_error(draw):
         draw._text(draw.scale_x(26), draw.scale_y(128), msg[34:68], C_TITLE, FONT_SMALL)
     else:
         draw._text(draw.scale_x(26), draw.scale_y(114), msg, C_TITLE, FONT_SMALL)
-    draw._text(draw.scale_x(26), draw.scale_y(156), "ENTER  fix equation", C_ACCENT, FONT_SMALL)
-    draw._text(draw.scale_x(26), draw.scale_y(172), "BACK   main menu", C_MUTED, FONT_SMALL)
+    draw._text(
+        draw.scale_x(26), draw.scale_y(156), "ENTER  fix equation", C_ACCENT, FONT_SMALL
+    )
+    draw._text(
+        draw.scale_x(26), draw.scale_y(172), "BACK   main menu", C_MUTED, FONT_SMALL
+    )
     _paint_chrome(draw, "error", "ENTER  edit", "BACK  menu")
     draw.swap()
 
@@ -739,13 +762,21 @@ def _draw_settings(draw):
         ("Reset camera", "pitch / yaw / zoom"),
         ("Done", "back to menu"),
     )
-    y = HEAD_H + draw.scale_y(16) 
-    draw._text(draw.scale_x(16), y, "UP/DOWN select   LEFT/RIGHT change", C_MUTED, FONT_SMALL)
+    y = HEAD_H + draw.scale_y(16)
+    draw._text(
+        draw.scale_x(16), y, "UP/DOWN select   LEFT/RIGHT change", C_MUTED, FONT_SMALL
+    )
     y += draw.scale_y(22)
     for i, (lab, val) in enumerate(rows):
         sel = i == _set_row
         if sel:
-            draw._fill_rectangle(draw.scale_x(10), y - draw.scale_y(3), _sw - draw.scale_x(20), draw.scale_y(22), C_SEL)
+            draw._fill_rectangle(
+                draw.scale_x(10),
+                y - draw.scale_y(3),
+                _sw - draw.scale_x(20),
+                draw.scale_y(22),
+                C_SEL,
+            )
         col = C_TITLE if sel else C_MUTED
         vcol = C_AMBER if sel else C_ACCENT
         draw._text(draw.scale_x(18), y, lab, col, FONT_SMALL)
@@ -934,8 +965,10 @@ def _begin_input(view_manager, second=False):
 def _draw_slice(draw):
     draw.fill_screen(C_BG)
     draw._fill_rectangle(
-       _px0, _py0,
-       _px1 - _px0 + 1, _py1 - _py0 + 1,
+        _px0,
+        _py0,
+        _px1 - _px0 + 1,
+        _py1 - _py0 + 1,
         C_PLOT,
     )
     if _zs is None:
@@ -1019,7 +1052,13 @@ def _goto_plot(view_manager):
     _layout(draw)
     draw.fill_screen(C_BG)
     _paint_chrome(draw, "working", "Sampling f(x,y)...", "")
-    draw._text(draw.scale_x(28), _sh // 2 - draw.scale_y(8), "Sampling surface...", C_ACCENT, FONT_MEDIUM)
+    draw._text(
+        draw.scale_x(28),
+        _sh // 2 - draw.scale_y(8),
+        "Sampling surface...",
+        C_ACCENT,
+        FONT_MEDIUM,
+    )
     draw.swap()
     if _need_eval or _zs is None:
         if not _eval_grid():
@@ -1092,8 +1131,7 @@ def run(view_manager) -> None:
     global _pitch, _yaw, _zoom, _auto, _style
     global _range, _grid_n, _set_row, _slice_axis, _slice_idx, _toast
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
     draw = view_manager.draw
 
     if _state == ST_MENU:

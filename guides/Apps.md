@@ -60,11 +60,10 @@ Although apps can be created and tested on-device, developers can also use Thonn
 
 ## Best Practices
 
-1. Always handle BACK/LEFT buttons to allow users to exit
-2. Call `input_manager.reset()` after handling each button press
-3. Clean up all resources in the `stop()` function
-4. Use global variables sparingly and clean them up properly
-5. Test your app thoroughly before deployment
+1. Always handle BACK buttons to allow users to exit
+2. Clean up all resources in the `stop()` function
+3. Use global variables sparingly and clean them up properly
+4. Test your app thoroughly before deployment
 
 ## Main GUI Components
 

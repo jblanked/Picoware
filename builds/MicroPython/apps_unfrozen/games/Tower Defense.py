@@ -359,7 +359,13 @@ class Game:
 
         # Draw path
         for x, y in self.path:
-            fb._fill_rectangle(x * self.grid_size, y * self.grid_size + self.twenty_y, self.grid_size, self.grid_size, TFT_YELLOW)
+            fb._fill_rectangle(
+                x * self.grid_size,
+                y * self.grid_size + self.twenty_y,
+                self.grid_size,
+                self.grid_size,
+                TFT_YELLOW,
+            )
 
         # Draw towers
         for tower in self.towers:
@@ -368,11 +374,25 @@ class Game:
                 tower.y * self.grid_size + self.twenty_y + self.grid_size // 2 - 3
             )
             if tower.type == TOWER_BASIC:
-                fb._fill_rectangle(tow_pos_x, tow_pos_y, self.tower_size.x, self.tower_size.y, TFT_BLUE)
+                fb._fill_rectangle(
+                    tow_pos_x, tow_pos_y, self.tower_size.x, self.tower_size.y, TFT_BLUE
+                )
             elif tower.type == TOWER_FAST:
-                fb._fill_rectangle(tow_pos_x, tow_pos_y, self.tower_size.x, self.tower_size.y, TFT_GREEN)
+                fb._fill_rectangle(
+                    tow_pos_x,
+                    tow_pos_y,
+                    self.tower_size.x,
+                    self.tower_size.y,
+                    TFT_GREEN,
+                )
             elif tower.type == TOWER_SPLASH:
-                fb._fill_rectangle(tow_pos_x, tow_pos_y, self.tower_size.x, self.tower_size.y, TFT_VIOLET)
+                fb._fill_rectangle(
+                    tow_pos_x,
+                    tow_pos_y,
+                    self.tower_size.x,
+                    self.tower_size.y,
+                    TFT_VIOLET,
+                )
 
         # Draw mobs
         health_vec = Vector(0, 0)
@@ -384,7 +404,9 @@ class Game:
                 mob_vec_y = (
                     my * self.grid_size + self.twenty_y + self.grid_size // 2 - 3
                 )
-                fb._fill_rectangle(mob_vec_x, mob_vec_y, self.tower_size.x, self.tower_size.y, TFT_RED)
+                fb._fill_rectangle(
+                    mob_vec_x, mob_vec_y, self.tower_size.x, self.tower_size.y, TFT_RED
+                )
 
                 # HP bar
                 hp_pct = mob.hp / mob.max_hp
@@ -393,10 +415,22 @@ class Game:
                     health_vec.x = mx * self.grid_size + 2
                     health_vec.y = my * self.grid_size + self.twenty_y + 2
                     health_vec_size.x = bar_w
-                    fb._fill_rectangle(health_vec.x, health_vec.y, health_vec_size.x, health_vec_size.y, TFT_GREEN)
+                    fb._fill_rectangle(
+                        health_vec.x,
+                        health_vec.y,
+                        health_vec_size.x,
+                        health_vec_size.y,
+                        TFT_GREEN,
+                    )
 
         # Draw cursor
-        fb._rectangle(self.cursor_x * self.grid_size, self.cursor_y * self.grid_size + self.twenty_y, self.grid_size, self.grid_size, TFT_WHITE)
+        fb._rectangle(
+            self.cursor_x * self.grid_size,
+            self.cursor_y * self.grid_size + self.twenty_y,
+            self.grid_size,
+            self.grid_size,
+            TFT_WHITE,
+        )
 
         # Draw UI
         cost = TOWER_PROPS[self.selected_tower_type][0]
@@ -411,10 +445,20 @@ class Game:
 
         # Draw instructions
         if not self.wave_active and len(self.mobs) == 0:
-            fb._text(self.space_text_vec.x, self.space_text_vec.y, "SPACE: Start Wave", TFT_YELLOW)
+            fb._text(
+                self.space_text_vec.x,
+                self.space_text_vec.y,
+                "SPACE: Start Wave",
+                TFT_YELLOW,
+            )
         # Game over / won
         if self.game_over:
-            fb._text(self.game_over_text_vec.x, self.game_over_text_vec.y, "GAME OVER!", TFT_RED)
+            fb._text(
+                self.game_over_text_vec.x,
+                self.game_over_text_vec.y,
+                "GAME OVER!",
+                TFT_RED,
+            )
             fb._text(
                 self.score_text_vec.x,
                 self.score_text_vec.y,
@@ -422,7 +466,9 @@ class Game:
                 TFT_WHITE,
             )
         elif self.won:
-            fb._text(self.you_win_text_vec.x, self.you_win_text_vec.y, "YOU WIN!", TFT_GREEN)
+            fb._text(
+                self.you_win_text_vec.x, self.you_win_text_vec.y, "YOU WIN!", TFT_GREEN
+            )
             fb._text(
                 self.score_text_vec.x,
                 self.score_text_vec.y,
@@ -450,17 +496,14 @@ def run(view_manager) -> None:
     """Run the app."""
     from picoware.system.buttons import BUTTON_BACK
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
         return
 
     if game:
-        if game.handle_input(button):
-            inp.reset()
+        game.handle_input(button)
         game.update()
         game.draw(view_manager.draw)
 

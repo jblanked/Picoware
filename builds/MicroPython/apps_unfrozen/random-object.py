@@ -17,13 +17,11 @@ def run(view_manager):
     from picoware.system.vector import Vector
     from picoware.system.colors import TFT_WHITE, TFT_BLUE, TFT_RED, TFT_YELLOW
 
-    input_manager = view_manager.input_manager
-    button = input_manager.button
+    button = view_manager.button
 
     colors = [TFT_WHITE, TFT_BLUE, TFT_RED, TFT_YELLOW]
 
     if button == BUTTON_CENTER:
-        input_manager.reset()
 
         draw = view_manager.draw
         draw.clear()
@@ -58,7 +56,6 @@ def run(view_manager):
         draw.swap()
 
     elif button == BUTTON_BACK:
-        input_manager.reset()
         view_manager.back()
 
 

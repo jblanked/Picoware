@@ -127,10 +127,22 @@ ENTER_INDEX = ACTION_INDEX["enter"]
 
 # Financial values use the cash-flow sign convention: receipts +, payments -.
 FIN_PAGES = ("tvm", "amort", "interest", "cash", "margin", "markup")
-FIN_DEFAULTS = {"N": 0.0, "I/YR": 0.0, "PV": 0.0, "PMT": 0.0,
-                "FV": 0.0, "P/YR": 12.0, "NOM": 0.0, "EFF": 0.0,
-                "COST": 0.0, "PRICE": 0.0, "MARG": 0.0, "MARK": 0.0,
-                "FIRST": 1.0, "LAST": 12.0}
+FIN_DEFAULTS = {
+    "N": 0.0,
+    "I/YR": 0.0,
+    "PV": 0.0,
+    "PMT": 0.0,
+    "FV": 0.0,
+    "P/YR": 12.0,
+    "NOM": 0.0,
+    "EFF": 0.0,
+    "COST": 0.0,
+    "PRICE": 0.0,
+    "MARG": 0.0,
+    "MARK": 0.0,
+    "FIRST": 1.0,
+    "LAST": 12.0,
+}
 MAX_CASH_GROUPS = 50
 MAX_FIN_PERIODS = 1000000
 MAX_AMORT_PERIODS = 100000
@@ -325,7 +337,7 @@ def _money_units(value, digits):
     if abs(value) >= 10 ** (15 - digits):
         mantissa, power = _decimal_parts(value, True)
     power += digits
-    units = mantissa * (10 ** power) if power >= 0 else _round_ratio(mantissa, 10 ** -power)
+    units = mantissa * (10**power) if power >= 0 else _round_ratio(mantissa, 10**-power)
     return -units if value < 0 else units
 
 
@@ -337,9 +349,10 @@ def _units_value(units, digits):
 
 def _rate_root(residual, guess, periods=1, certify=None):
     """Bracket across representable rates; a small residual alone is not a root."""
-    lower = log(2.0 ** -53)
+    lower = log(2.0**-53)
     upper = _log1p(1.7976931348623157e308 / (100 * periods))
     center = max(lower, min(upper, _log1p(guess)))
+
     def zero(t):
         rate = _expm1(t)
         if certify is not None and not certify(rate):
@@ -429,7 +442,9 @@ def _cash_divide(top, bottom, bits):
         denominator <<= -shift
     sign = -1 if (numerator < 0) != (denominator < 0) else 1
     quotient, remainder = divmod(abs(numerator), abs(denominator))
-    if 2 * remainder > abs(denominator) or (2 * remainder == abs(denominator) and quotient & 1):
+    if 2 * remainder > abs(denominator) or (
+        2 * remainder == abs(denominator) and quotient & 1
+    ):
         quotient += 1
     return sign * quotient, exponent - shift
 
@@ -440,11 +455,15 @@ def _cash_factors(discount, count, bits):
     block_power = block_total = discount
     while count:
         if count & 1:
-            total = _cash_trim(_binary_add(total, _cash_product(power, block_total)), bits)
+            total = _cash_trim(
+                _binary_add(total, _cash_product(power, block_total)), bits
+            )
             power = _cash_trim(_cash_product(power, block_power), bits)
         count >>= 1
         if count:
-            block_total = _cash_trim(_binary_add(block_total, _cash_product(block_power, block_total)), bits)
+            block_total = _cash_trim(
+                _binary_add(block_total, _cash_product(block_power, block_total)), bits
+            )
             block_power = _cash_trim(_cash_product(block_power, block_power), bits)
     return power, total
 
@@ -473,30 +492,39 @@ def _cash_balance(flows, annual, frequency):
             continue
         money = _sum_products(((amount,),), True)
         if count == 1:
-            balance = _cash_divide(_cash_product(_binary_add(balance, money), unit), growth, bits)
+            balance = _cash_divide(
+                _cash_product(_binary_add(balance, money), unit), growth, bits
+            )
         elif abs(count * log_rate) >= 0.5:
             # Combine the balance and repeated-payment coefficient before
             # applying the exponential. This both preserves cancellation
             # and avoids powering large groups at every IRR trial.
             payment = _cash_product(money, unit)
-            coefficient = _binary_add(_cash_product(balance, annual_binary),
-                                      (-payment[0], payment[1]))
+            coefficient = _binary_add(
+                _cash_product(balance, annual_binary), (-payment[0], payment[1])
+            )
             discounted = _binary_exp(coefficient, -count * log_rate)
-            balance = _cash_divide(_binary_add(discounted, payment), annual_binary, bits)
+            balance = _cash_divide(
+                _binary_add(discounted, payment), annual_binary, bits
+            )
         else:
             if discount is None:
                 discount = _cash_divide(unit, growth, bits)
             if count not in factors:
                 factors[count] = _cash_factors(discount, count, bits)
             power, total = factors[count]
-            balance = _binary_add(_cash_product(balance, power), _cash_product(money, total))
+            balance = _binary_add(
+                _cash_product(balance, power), _cash_product(money, total)
+            )
     return _binary_add(balance, _sum_products(((flows[0][0],),), True))
 
 
 def _cash_exact_root(flows, rate):
     """Certify an unbracketed zero on short schedules using exact integers."""
     if rate == 0:
-        return not _sum_products(tuple((amount, count) for amount, count in flows), True)[0]
+        return not _sum_products(
+            tuple((amount, count) for amount, count in flows), True
+        )[0]
     if sum(count for _, count in flows[1:]) > 64:
         return False
     numerator, power = _sum_products(((1,), (rate,)), True)
@@ -507,7 +535,9 @@ def _cash_exact_root(flows, rate):
     numerator <<= max(power, 0)
     amounts = [_sum_products(((amount,),), True) for amount, _ in flows]
     unit = min(exponent for amount, exponent in amounts if amount)
-    coefficients = [amount << (exponent - unit) if amount else 0 for amount, exponent in amounts]
+    coefficients = [
+        amount << (exponent - unit) if amount else 0 for amount, exponent in amounts
+    ]
     value, divisor = coefficients[0], 1
     for index in range(1, len(flows)):
         for _ in range(flows[index][1]):
@@ -552,10 +582,12 @@ def _tvm_residual(t, n, pv, pmt, fv, logs):
     if pv:
         terms.append((1 if pv > 0 else -1, logs[0]))
     if pmt and remaining:
-        annuity = (_log_abs_expm1(-remaining * t) - _log_abs_expm1(t)
-                   if t else log(abs(remaining)))
-        terms.append((1 if (pmt > 0) == (remaining > 0) else -1,
-                      logs[1] + annuity))
+        annuity = (
+            _log_abs_expm1(-remaining * t) - _log_abs_expm1(t)
+            if t
+            else log(abs(remaining))
+        )
+        terms.append((1 if (pmt > 0) == (remaining > 0) else -1, logs[1] + annuity))
     if fv:
         terms.append((1 if fv > 0 else -1, logs[2] - n * t))
     if not terms:
@@ -645,17 +677,24 @@ def _tvm_exact_root(t, n, pv, pmt, fv):
         whole = int(x)
         old_a, a = a, whole * a + old_a
         old_b, b = b, whole * b + old_b
-        if b > 1000000 or a > 10 ** 15:
+        if b > 1000000 or a > 10**15:
             break
         if a and b:
-            ad, bd = a ** denominator, b ** denominator
+            ad, bd = a**denominator, b**denominator
             result = _binary_ratio((ad - bd, 0), (bd, 0))
             if result > -1 and abs(_log1p(result) - t) < 1e-9:
                 if ad == bd:
-                    valid = (pv + fv) * denominator + pmt * (numerator - denominator) == 0
+                    valid = (pv + fv) * denominator + pmt * (
+                        numerator - denominator
+                    ) == 0
                 else:
-                    an, bn = a ** numerator, b ** numerator
-                    valid = pv * an * (ad - bd) + pmt * (an * bd - ad * bn) + fv * bn * (ad - bd) == 0
+                    an, bn = a**numerator, b**numerator
+                    valid = (
+                        pv * an * (ad - bd)
+                        + pmt * (an * bd - ad * bn)
+                        + fv * bn * (ad - bd)
+                        == 0
+                    )
                 if valid:
                     return result
         fraction = x - whole
@@ -697,7 +736,7 @@ def _tvm_rate(n, pv, pmt, fv, begin, guess, periods=1):
     # Search the representable domain, including rates outside exp(+/-30).
     # 2**-53 is the smallest 1+r for a binary64 rate strictly above -1;
     # the upper bound also leaves room to convert the rate to annual percent.
-    lower = log(2.0 ** -53)
+    lower = log(2.0**-53)
     upper = _log1p(1.7976931348623157e308 / (100 * periods))
     points = [lower, upper]
     # The discounted balance has at most one turning point. Split there
@@ -740,8 +779,9 @@ def _tvm_rate(n, pv, pmt, fv, begin, guess, periods=1):
         fm = residual(mid)
         # At large log-rates adjacent floats can be farther apart than
         # 1e-13. Stop when bisection cannot move, still checking the residual.
-        if fm == 0 or ((right - left <= 1e-13 or mid == left or mid == right)
-                       and abs(fm) <= 1e-12):
+        if fm == 0 or (
+            (right - left <= 1e-13 or mid == left or mid == right) and abs(fm) <= 1e-12
+        ):
             return _expm1(mid)
         if fl * fm < 0:
             right = mid
@@ -766,10 +806,18 @@ class FinancialState:
         self.cash_result = None
 
     def snapshot(self):
-        return {"values": dict(self.values), "mode": self.mode, "page": self.page,
-                "begin": self.begin, "decimals": self.decimals, "pending": self.pending,
-                "flows": [row[:] for row in self.flows], "cash_index": self.cash_index,
-                "amort_result": self.amort_result, "cash_result": self.cash_result}
+        return {
+            "values": dict(self.values),
+            "mode": self.mode,
+            "page": self.page,
+            "begin": self.begin,
+            "decimals": self.decimals,
+            "pending": self.pending,
+            "flows": [row[:] for row in self.flows],
+            "cash_index": self.cash_index,
+            "amort_result": self.amort_result,
+            "cash_result": self.cash_result,
+        }
 
     @staticmethod
     def restored(data):
@@ -806,7 +854,11 @@ class FinancialState:
             state.amort_result = tuple(_finite(v) for v in result)
         result = data.get("cash_result")
         if result is not None:
-            if not isinstance(result, (list, tuple)) or len(result) != 3 or result[0] not in ("NPV", "IRR"):
+            if (
+                not isinstance(result, (list, tuple))
+                or len(result) != 3
+                or result[0] not in ("NPV", "IRR")
+            ):
                 raise ValueError("INVALID CASH RESULT")
             state.cash_result = (result[0], _finite(result[1]), bool(result[2]))
         return state
@@ -825,14 +877,18 @@ class FinancialState:
 
     def solve(self, name):
         v = self.values
-        n, annual, pv, pmt, fv, periods = (v[k] for k in ("N", "I/YR", "PV", "PMT", "FV", "P/YR"))
+        n, annual, pv, pmt, fv, periods = (
+            v[k] for k in ("N", "I/YR", "PV", "PMT", "FV", "P/YR")
+        )
         rate = annual / (100 * periods)
         if name == "I/YR":
             if n <= 0:
                 raise ValueError("N MUST BE POSITIVE")
             if not min(pv, pmt, fv) < 0 < max(pv, pmt, fv):
                 raise ValueError("RATE NEEDS + AND - VALUES")
-            return _finite(_tvm_rate(n, pv, pmt, fv, self.begin, rate, periods) * 100 * periods)
+            return _finite(
+                _tvm_rate(n, pv, pmt, fv, self.begin, rate, periods) * 100 * periods
+            )
         if name in ("N", "PV", "PMT", "FV"):
             t = _log1p(rate)
             timing = 1 + rate if self.begin else 1
@@ -848,8 +904,11 @@ class FinancialState:
                 else:
                     denominator = _sum_products(payment_terms + [(pv, annual)], True)
                     numerator = _sum_products(payment_terms + [(-fv, annual)], True)
-                    if (not denominator[0] or not numerator[0]
-                            or (denominator[0] > 0) != (numerator[0] > 0)):
+                    if (
+                        not denominator[0]
+                        or not numerator[0]
+                        or (denominator[0] > 0) != (numerator[0] > 0)
+                    ):
                         raise ValueError("NO VALID N")
                     result = _binary_log_ratio(numerator, denominator) / t
                 if not 0 < result <= MAX_FIN_PERIODS:
@@ -882,13 +941,16 @@ class FinancialState:
                     return -_sum_products(((pv, 1), (pmt, n)))
                 power = n * t
                 if abs(power) < 0.5:
-                    return -_sum_products(((pv, exp(power)),
-                        (pmt, timing, _expm1(power) / rate)))
+                    return -_sum_products(
+                        ((pv, exp(power)), (pmt, timing, _expm1(power) / rate))
+                    )
                 coefficient = _sum_products(payment_terms + [(pv, annual)], True)
                 # Avoid subtracting nearly equal discounted balances and
                 # magnifying that error by dividing by a tiny discount.
                 growth = _binary_exp(coefficient, power)
-                numerator = _binary_add(_sum_products(payment_terms, True), (-growth[0], growth[1]))
+                numerator = _binary_add(
+                    _sum_products(payment_terms, True), (-growth[0], growth[1])
+                )
                 return _binary_ratio(numerator, _sum_products(((annual,),), True))
             if name == "PMT" and rate < 0:
                 # At negative rates the future-value form stays bounded;
@@ -917,9 +979,15 @@ class FinancialState:
         cost, price = v["COST"], v["PRICE"]
         percent = v["MARG" if self.page == "margin" else "MARK"] / 100
         if name == "COST":
-            return _finite(price * (1 - percent) if self.page == "margin" else price / (1 + percent))
+            return _finite(
+                price * (1 - percent)
+                if self.page == "margin"
+                else price / (1 + percent)
+            )
         if name == "PRICE":
-            return _finite(cost / (1 - percent) if self.page == "margin" else cost * (1 + percent))
+            return _finite(
+                cost / (1 - percent) if self.page == "margin" else cost * (1 + percent)
+            )
         if name in ("MARG", "MARK"):
             profit = _sum_products(((price, 100), (-cost, 100)), True)
             base = price if name == "MARG" else cost
@@ -934,8 +1002,9 @@ class FinancialState:
         return state
 
     def npv(self):
-        return _binary_float(_cash_balance(self.flows, self.values["I/YR"],
-                                           100 * self.values["P/YR"]))
+        return _binary_float(
+            _cash_balance(self.flows, self.values["I/YR"], 100 * self.values["P/YR"])
+        )
 
     def irr(self):
         signs = [1 if row[0] > 0 else -1 for row in self.flows if row[0] != 0]
@@ -954,7 +1023,7 @@ class FinancialState:
         flows = [[amount, 1]]
         if repeats > 1:
             flows.append([amount, repeats - 1])
-        flows.extend(self.flows[first + 1:last])
+        flows.extend(self.flows[first + 1 : last])
         periods = self.values["P/YR"]
         guess = self.values["I/YR"] / (100 * periods)
         count = sum(row[1] for row in flows[1:])
@@ -969,6 +1038,7 @@ class FinancialState:
             a, b, c = _cash_integers(*amounts)
             rate = _tvm_quadratic(a, 2 * a + b, a + b + c, guess)
         else:
+
             def residual(rate):
                 value = _cash_balance(flows, rate, 1)
                 fraction, power = _binary_normalize(value)
@@ -976,8 +1046,13 @@ class FinancialState:
                 # Clamp only the exponent so tiny nonzero balances cannot
                 # underflow to an apparent root, nor large ones overflow.
                 return ldexp(fraction, max(-1073, min(1023, power)))
-            rate = _rate_root(residual, guess, periods,
-                              lambda r: changes == 1 or _cash_exact_root(flows, r))
+
+            rate = _rate_root(
+                residual,
+                guess,
+                periods,
+                lambda r: changes == 1 or _cash_exact_root(flows, r),
+            )
         return _finite(rate * 100 * periods), changes > 1
 
     def amortization(self):
@@ -999,13 +1074,17 @@ class FinancialState:
             numerator = -numerator
         denominator = 100 * int(v["P/YR"])
         if power >= 0:
-            numerator *= 10 ** power
+            numerator *= 10**power
         else:
-            denominator *= 10 ** -power
+            denominator *= 10**-power
         principal_total = interest_total = 0
         limit = 10 ** (309 + self.decimals)
         for period in range(1, last + 1):
-            interest = 0 if self.begin and period == 1 else _round_ratio(-balance * numerator, denominator)
+            interest = (
+                0
+                if self.begin and period == 1
+                else _round_ratio(-balance * numerator, denominator)
+            )
             principal = payment - interest
             balance += principal
             if abs(balance) >= limit:
@@ -1015,8 +1094,10 @@ class FinancialState:
                 interest_total += interest
             if period % 8 == 0 and period < last:
                 yield period, None
-        yield last, tuple(_units_value(value, self.decimals)
-                          for value in (principal_total, interest_total, balance))
+        yield last, tuple(
+            _units_value(value, self.decimals)
+            for value in (principal_total, interest_total, balance)
+        )
 
 
 def format_number(value):
@@ -1064,9 +1145,14 @@ class RPNStack:
 
     def snapshot(self):
         """Persist this mode's working memory independently of the other mode."""
-        return {"stack": self.stack, "entry": self.entry, "entering": self.entering,
-                "lift_on_entry": self.lift_on_entry, "variables": self.variables,
-                "variable_set": self.variable_set}
+        return {
+            "stack": self.stack,
+            "entry": self.entry,
+            "entering": self.entering,
+            "lift_on_entry": self.lift_on_entry,
+            "variables": self.variables,
+            "variable_set": self.variable_set,
+        }
 
     @staticmethod
     def restored(saved):
@@ -1092,8 +1178,11 @@ class RPNStack:
             raise ValueError("INVALID CALCULATOR MEMORY")
         # Entry allows 15 digits plus an optional decimal point and sign.
         unsigned = entry[1:] if entry.startswith("-") else entry
-        if (len(unsigned.replace(".", "")) > 15 or unsigned.count(".") > 1
-                or any(c not in "0123456789." for c in unsigned)):
+        if (
+            len(unsigned.replace(".", "")) > 15
+            or unsigned.count(".") > 1
+            or any(c not in "0123456789." for c in unsigned)
+        ):
             raise ValueError("INVALID CALCULATOR MEMORY")
         if entering and entry not in ("", "-", ".", "-."):
             _finite(entry)
@@ -1480,7 +1569,7 @@ def _state_checksum(text):
         data = map(ord, text)
     value = 2166136261
     for byte in data:
-        value = ((value ^ byte) * 16777619) & 0xffffffff
+        value = ((value ^ byte) * 16777619) & 0xFFFFFFFF
     return "%08x" % value
 
 
@@ -1495,16 +1584,24 @@ def _display_status():
         return save_error
     if calculator.status.startswith("SAVE FAILED:"):
         return calculator.status
-    return "RCL: SELECT KEY" if financial.mode and fin_recall else calculator.error or calculator.status
+    return (
+        "RCL: SELECT KEY"
+        if financial.mode and fin_recall
+        else calculator.error or calculator.status
+    )
 
 
 def _state_json():
     """Serialize the complete calculator memory for the next app cycle."""
     # Keep the top-level memory as Standard, regardless of the visible mode.
     state_data = standard_calculator.snapshot()
-    state_data.update({"version": STATE_VERSION,
-                       "financial_stack": financial_calculator.snapshot(),
-                       "financial": financial.snapshot()})
+    state_data.update(
+        {
+            "version": STATE_VERSION,
+            "financial_stack": financial_calculator.snapshot(),
+            "financial": financial.snapshot(),
+        }
+    )
     serialized = json.dumps(state_data)
     checksum = _state_checksum(serialized)
     serialized = serialized[:-1] + ', "_checksum": "' + checksum + '"}'
@@ -1545,7 +1642,6 @@ def _load_state_file(path):
         if saved.get("version") not in (1, 2, STATE_VERSION):
             return False
 
-
         restored_financial = FinancialState.restored(saved.get("financial", {}))
         restored_standard = RPNStack.restored(saved)
         if saved.get("version") == STATE_VERSION:
@@ -1579,8 +1675,11 @@ def _queue_save():
 def _write_verified_state(path, serialized):
     if not storage.write(path, serialized, "w"):
         raise OSError("SAVE FAILED")
-    if (not storage.exists(path) or storage.size(path) != len(serialized)
-            or storage.read(path, "r") != serialized):
+    if (
+        not storage.exists(path)
+        or storage.size(path) != len(serialized)
+        or storage.read(path, "r") != serialized
+    ):
         raise OSError("SAVE VERIFY FAILED")
 
 
@@ -1611,7 +1710,12 @@ def _save_state(force=False):
         if last_saved_state:
             previous = last_saved_state
             if ', "_checksum": ' not in previous:
-                previous = previous[:-1] + ', "_checksum": "' + _state_checksum(previous) + '"}'
+                previous = (
+                    previous[:-1]
+                    + ', "_checksum": "'
+                    + _state_checksum(previous)
+                    + '"}'
+                )
             _write_verified_state(STATE_BACKUP, previous)
         _write_verified_state(STATE_FILE, serialized)
         last_saved_state = serialized
@@ -1629,72 +1733,184 @@ def _save_state(force=False):
 
 
 FIN_TOP = {
-    "tvm": (("N", "@N"), ("I/YR", "@I/YR"), ("PV", "@PV"), ("PMT", "@PMT"),
-            ("FV", "@FV"), ("P/YR", "@P/YR"), ("SOLVE", "solve_menu"), ("MORE", "more")),
-    "interest": (("NOM", "@NOM"), ("EFF", "@EFF"), ("P/YR", "@P/YR"), ("MORE", "more"),
-                 ("REGS", "registers"), ("FIX", "decimals"), ("TVM", "page:tvm"), ("B/E", "begin")),
-    "amort": (("FROM", "@FIRST"), ("TO", "@LAST"), ("CALC", "amortize"), ("MORE", "more"),
-              ("REGS", "registers"), ("FIX", "decimals"), ("TVM", "page:tvm"), ("B/E", "begin")),
-    "cash": (("CF0", "@CF0"), ("AMT", "@AMT"), ("TIMES", "@TIMES"), ("EDIT", "cashlist"),
-             ("I/YR", "@I/YR"), ("NPV", "npv"), ("IRR", "irr"), ("MORE", "more")),
-    "margin": (("COST", "@COST"), ("PRICE", "@PRICE"), ("MARG", "@MARG"), ("MORE", "more"),
-               ("REGS", "registers"), ("FIX", "decimals"), ("TVM", "page:tvm"), ("B/E", "begin")),
-    "markup": (("COST", "@COST"), ("PRICE", "@PRICE"), ("MARK", "@MARK"), ("MORE", "more"),
-               ("REGS", "registers"), ("FIX", "decimals"), ("TVM", "page:tvm"), ("B/E", "begin")),
+    "tvm": (
+        ("N", "@N"),
+        ("I/YR", "@I/YR"),
+        ("PV", "@PV"),
+        ("PMT", "@PMT"),
+        ("FV", "@FV"),
+        ("P/YR", "@P/YR"),
+        ("SOLVE", "solve_menu"),
+        ("MORE", "more"),
+    ),
+    "interest": (
+        ("NOM", "@NOM"),
+        ("EFF", "@EFF"),
+        ("P/YR", "@P/YR"),
+        ("MORE", "more"),
+        ("REGS", "registers"),
+        ("FIX", "decimals"),
+        ("TVM", "page:tvm"),
+        ("B/E", "begin"),
+    ),
+    "amort": (
+        ("FROM", "@FIRST"),
+        ("TO", "@LAST"),
+        ("CALC", "amortize"),
+        ("MORE", "more"),
+        ("REGS", "registers"),
+        ("FIX", "decimals"),
+        ("TVM", "page:tvm"),
+        ("B/E", "begin"),
+    ),
+    "cash": (
+        ("CF0", "@CF0"),
+        ("AMT", "@AMT"),
+        ("TIMES", "@TIMES"),
+        ("EDIT", "cashlist"),
+        ("I/YR", "@I/YR"),
+        ("NPV", "npv"),
+        ("IRR", "irr"),
+        ("MORE", "more"),
+    ),
+    "margin": (
+        ("COST", "@COST"),
+        ("PRICE", "@PRICE"),
+        ("MARG", "@MARG"),
+        ("MORE", "more"),
+        ("REGS", "registers"),
+        ("FIX", "decimals"),
+        ("TVM", "page:tvm"),
+        ("B/E", "begin"),
+    ),
+    "markup": (
+        ("COST", "@COST"),
+        ("PRICE", "@PRICE"),
+        ("MARK", "@MARK"),
+        ("MORE", "more"),
+        ("REGS", "registers"),
+        ("FIX", "decimals"),
+        ("TVM", "page:tvm"),
+        ("B/E", "begin"),
+    ),
 }
 FIN_TAIL = (
-    ("7", "7", "number"), ("8", "8", "number"), ("9", "9", "number"), ("/", "divide", "operator"),
-    ("4", "4", "number"), ("5", "5", "number"), ("6", "6", "number"), ("*", "multiply", "operator"),
-    ("1", "1", "number"), ("2", "2", "number"), ("3", "3", "number"), ("-", "subtract", "operator"),
-    ("+/-", "negate", "function"), ("0", "0", "number"), (".", "decimal", "number"), ("+", "add", "operator"),
-    ("RCL", "fin_recall", "memory"), ("ENTER", "enter", "enter"), ("UNDO", "undo", "function"), ("MODE", "mode", "function"),
+    ("7", "7", "number"),
+    ("8", "8", "number"),
+    ("9", "9", "number"),
+    ("/", "divide", "operator"),
+    ("4", "4", "number"),
+    ("5", "5", "number"),
+    ("6", "6", "number"),
+    ("*", "multiply", "operator"),
+    ("1", "1", "number"),
+    ("2", "2", "number"),
+    ("3", "3", "number"),
+    ("-", "subtract", "operator"),
+    ("+/-", "negate", "function"),
+    ("0", "0", "number"),
+    (".", "decimal", "number"),
+    ("+", "add", "operator"),
+    ("RCL", "fin_recall", "memory"),
+    ("ENTER", "enter", "enter"),
+    ("UNDO", "undo", "function"),
+    ("MODE", "mode", "function"),
 )
-FIN_KEYS = {page: tuple((label, action, "memory") for label, action in top) + FIN_TAIL
-            for page, top in FIN_TOP.items()}
+FIN_KEYS = {
+    page: tuple((label, action, "memory") for label, action in top) + FIN_TAIL
+    for page, top in FIN_TOP.items()
+}
 FIN_KEYS["tvm"] = FIN_KEYS["tvm"][:-1] + (("CLR TVM", "confirm_tvm", "function"),)
-FIN_MENU = (("Time value of money", "page:tvm"), ("Amortization", "page:amort"),
-            ("Interest conversion", "page:interest"), ("Cash flows", "page:cash"),
-            ("Margin", "page:margin"), ("Markup", "page:markup"),
-            ("Registers / full precision", "registers"), ("Decimal places", "decimals"),
-            ("Clear financial", "confirm_clear"), ("Solve register", "solve_menu"),
-            ("Toggle BEGIN / END", "begin"), ("Mode / Help", "mode"))
+FIN_MENU = (
+    ("Time value of money", "page:tvm"),
+    ("Amortization", "page:amort"),
+    ("Interest conversion", "page:interest"),
+    ("Cash flows", "page:cash"),
+    ("Margin", "page:margin"),
+    ("Markup", "page:markup"),
+    ("Registers / full precision", "registers"),
+    ("Decimal places", "decimals"),
+    ("Clear financial", "confirm_clear"),
+    ("Solve register", "solve_menu"),
+    ("Toggle BEGIN / END", "begin"),
+    ("Mode / Help", "mode"),
+)
 FIN_ENTER_ACTIONS = ("more", "solve_menu", "confirm_tvm")
 FIN_HELP = (
-    (("FINANCIAL MODE", COLOR_AMBER),
-     ("F switches Standard / Financial.", TFT_WHITE),
-     ("MODE or MORE > Mode / Help opens Help.", TFT_WHITE),
-     ("Type a value, select its register, then press SPACE to STORE.", TFT_WHITE),
-     ("CTRL + small key number stores X directly, without moving selection. Numbers follow the current page.", TFT_WHITE),
-     ("Register keys always STORE X. SOLVE selects an unknown to calculate.", TFT_WHITE),
-     ("RCL then a register recalls. No RETURN needed to store.", TFT_WHITE),
-     ("RETURN opens highlighted MORE, SOLVE or CLR TVM; elsewhere it duplicates X into Y.", TFT_WHITE),
-     ("C / CLR TVM clears N, I/YR, PV, PMT and FV after confirmation. Stack unchanged; UNDO restores TVM.", TFT_WHITE),
-     ("Receipts positive; payments negative.", COLOR_AMBER),
-     ("N counts periods. I/YR is annual %. P/YR defaults to 12.", TFT_WHITE),
-     ("MORE > Toggle BEGIN / END sets payment timing; B/E on other pages toggles it.", TFT_WHITE),
-     ("Loan: N=12, I/YR=0, PV=1200, FV=0; solve PMT=-100.", TFT_WHITE),
-     ("Savings: N=1, P/YR=1, I/YR=5, PV=-1000, PMT=0; FV=1050.", TFT_WHITE)),
-    (("MORE FINANCIAL TOOLS", COLOR_AMBER),
-     ("Amortization: FROM/TO store X; CALC totals that payment range.", TFT_WHITE),
-     ("Principal and interest use cash-flow signs. Balance follows PV's sign.", TFT_WHITE),
-     ("Payments and interest round each period to FIX decimals.", TFT_WHITE),
-     ("Interest: NOM/EFF convert annual rates using P/YR; TVM rate stays unchanged.", TFT_WHITE),
-     ("Margin: (PRICE-COST)/PRICE * 100.", TFT_WHITE),
-     ("Markup: (PRICE-COST)/COST * 100.", TFT_WHITE),
-     ("Store known values; use MORE > Solve register for the unknown.", TFT_WHITE),
-     ("REGS shows full precision; FIX sets 0-9 decimal places (default 2).", TFT_WHITE),
-     ("Display rounding changes no values except amortization calculations.", TFT_WHITE)),
-    (("CASH FLOWS", COLOR_AMBER),
-     ("CF0 is time zero. EDIT selects, adds or deletes later groups.", TFT_WHITE),
-     ("AMT stores X in the selected group; TIMES sets its repeat count.", TFT_WHITE),
-     ("RCL then CF0/AMT/TIMES recalls. Space alone always stores X.", TFT_WHITE),
-     ("NPV discounts at I/YR with P/YR periods/year. IRR returns annual nominal %.", TFT_WHITE),
-     ("IRR uses I/YR as its guess. Multiple sign changes: result may not be unique.", COLOR_AMBER),
-     ("No solution? Check signs or enter another I/YR guess.", TFT_WHITE),
-     ("Limits: 50 groups after CF0; repeats and N up to 1,000,000.", TFT_WHITE),
-     ("Amortization TO <= 100,000; P/YR 1-10,000. Counts must be whole.", TFT_WHITE),
-     ("UNDO restores one financial change. Clear financial asks first.", TFT_WHITE),
-     ("Mode, settings and cash flows save with the RPN stack.", TFT_WHITE)),
+    (
+        ("FINANCIAL MODE", COLOR_AMBER),
+        ("F switches Standard / Financial.", TFT_WHITE),
+        ("MODE or MORE > Mode / Help opens Help.", TFT_WHITE),
+        ("Type a value, select its register, then press SPACE to STORE.", TFT_WHITE),
+        (
+            "CTRL + small key number stores X directly, without moving selection. Numbers follow the current page.",
+            TFT_WHITE,
+        ),
+        (
+            "Register keys always STORE X. SOLVE selects an unknown to calculate.",
+            TFT_WHITE,
+        ),
+        ("RCL then a register recalls. No RETURN needed to store.", TFT_WHITE),
+        (
+            "RETURN opens highlighted MORE, SOLVE or CLR TVM; elsewhere it duplicates X into Y.",
+            TFT_WHITE,
+        ),
+        (
+            "C / CLR TVM clears N, I/YR, PV, PMT and FV after confirmation. Stack unchanged; UNDO restores TVM.",
+            TFT_WHITE,
+        ),
+        ("Receipts positive; payments negative.", COLOR_AMBER),
+        ("N counts periods. I/YR is annual %. P/YR defaults to 12.", TFT_WHITE),
+        (
+            "MORE > Toggle BEGIN / END sets payment timing; B/E on other pages toggles it.",
+            TFT_WHITE,
+        ),
+        ("Loan: N=12, I/YR=0, PV=1200, FV=0; solve PMT=-100.", TFT_WHITE),
+        ("Savings: N=1, P/YR=1, I/YR=5, PV=-1000, PMT=0; FV=1050.", TFT_WHITE),
+    ),
+    (
+        ("MORE FINANCIAL TOOLS", COLOR_AMBER),
+        ("Amortization: FROM/TO store X; CALC totals that payment range.", TFT_WHITE),
+        (
+            "Principal and interest use cash-flow signs. Balance follows PV's sign.",
+            TFT_WHITE,
+        ),
+        ("Payments and interest round each period to FIX decimals.", TFT_WHITE),
+        (
+            "Interest: NOM/EFF convert annual rates using P/YR; TVM rate stays unchanged.",
+            TFT_WHITE,
+        ),
+        ("Margin: (PRICE-COST)/PRICE * 100.", TFT_WHITE),
+        ("Markup: (PRICE-COST)/COST * 100.", TFT_WHITE),
+        ("Store known values; use MORE > Solve register for the unknown.", TFT_WHITE),
+        (
+            "REGS shows full precision; FIX sets 0-9 decimal places (default 2).",
+            TFT_WHITE,
+        ),
+        (
+            "Display rounding changes no values except amortization calculations.",
+            TFT_WHITE,
+        ),
+    ),
+    (
+        ("CASH FLOWS", COLOR_AMBER),
+        ("CF0 is time zero. EDIT selects, adds or deletes later groups.", TFT_WHITE),
+        ("AMT stores X in the selected group; TIMES sets its repeat count.", TFT_WHITE),
+        ("RCL then CF0/AMT/TIMES recalls. Space alone always stores X.", TFT_WHITE),
+        (
+            "NPV discounts at I/YR with P/YR periods/year. IRR returns annual nominal %.",
+            TFT_WHITE,
+        ),
+        (
+            "IRR uses I/YR as its guess. Multiple sign changes: result may not be unique.",
+            COLOR_AMBER,
+        ),
+        ("No solution? Check signs or enter another I/YR guess.", TFT_WHITE),
+        ("Limits: 50 groups after CF0; repeats and N up to 1,000,000.", TFT_WHITE),
+        ("Amortization TO <= 100,000; P/YR 1-10,000. Counts must be whole.", TFT_WHITE),
+        ("UNDO restores one financial change. Clear financial asks first.", TFT_WHITE),
+        ("Mode, settings and cash flows save with the RPN stack.", TFT_WHITE),
+    ),
 )
 
 
@@ -1715,8 +1931,12 @@ def _fin_rows():
     if financial.page == "cash":
         i = financial.cash_index
         amount, count = financial.flows[i]
-        rows = [("CF", str(i)), ("AMT", _fin_format(amount)), ("TIMES", str(count)),
-                ("I/YR", _fin_format(v["I/YR"]))]
+        rows = [
+            ("CF", str(i)),
+            ("AMT", _fin_format(amount)),
+            ("TIMES", str(count)),
+            ("I/YR", _fin_format(v["I/YR"])),
+        ]
         if financial.cash_result:
             name, result, warning = financial.cash_result
             rows.append((name + ("!" if warning else ""), _fin_format(result)))
@@ -1724,12 +1944,17 @@ def _fin_rows():
     if financial.page == "amort":
         rows = [("FROM", str(int(v["FIRST"]))), ("TO", str(int(v["LAST"])))]
         if financial.amort_result:
-            rows.extend((name, _fin_format(value)) for name, value in
-                        zip(("PRIN", "INT", "BAL"), financial.amort_result))
+            rows.extend(
+                (name, _fin_format(value))
+                for name, value in zip(("PRIN", "INT", "BAL"), financial.amort_result)
+            )
         return rows
-    names = {"tvm": ("N", "I/YR", "PV", "PMT", "FV"),
-             "interest": ("NOM", "EFF"), "margin": ("COST", "PRICE", "MARG"),
-             "markup": ("COST", "PRICE", "MARK")}[financial.page]
+    names = {
+        "tvm": ("N", "I/YR", "PV", "PMT", "FV"),
+        "interest": ("NOM", "EFF"),
+        "margin": ("COST", "PRICE", "MARG"),
+        "markup": ("COST", "PRICE", "MARK"),
+    }[financial.page]
     return [(name, _fin_format(v[name])) for name in names]
 
 
@@ -1743,7 +1968,12 @@ def _draw_header(draw):
     else:
         draw.text(Vector(7, 6), "SimpleRPN", TFT_WHITE, FONT_SMALL)
         if financial.mode:
-            draw.text(Vector(90, 9), "FIN " + financial.page.upper(), COLOR_AMBER, FONT_XTRA_SMALL)
+            draw.text(
+                Vector(90, 9),
+                "FIN " + financial.page.upper(),
+                COLOR_AMBER,
+                FONT_XTRA_SMALL,
+            )
         elif width >= 240:
             draw.text(Vector(90, 9), "4-LEVEL", COLOR_MUTED, FONT_XTRA_SMALL)
         if not financial.mode:
@@ -1776,11 +2006,17 @@ def _draw_financial(draw, partial=False):
         draw.fill_rectangle(Vector(x + 2, y + 3), Vector(w, h), COLOR_SHADOW)
         draw.fill_rectangle(Vector(x, y), Vector(w, h), COLOR_EDGE)
         draw.fill_rectangle(Vector(x + 2, y + 2), Vector(w - 4, h - 4), COLOR_LCD)
-    settings = "P%d %s D%d" % (financial.values["P/YR"], "BGN" if financial.begin else "END", financial.decimals)
+    settings = "P%d %s D%d" % (
+        financial.values["P/YR"],
+        "BGN" if financial.begin else "END",
+        financial.decimals,
+    )
     # Long P/YR settings are abbreviated here and fully shown in REGS.
     settings_x = _draw_register_label_number(draw, x + 5, y + 4, "P/YR", not partial)
     if partial:
-        draw.fill_rectangle(Vector(settings_x, y + 4), Vector(x + w - 2 - settings_x, 9), COLOR_LCD)
+        draw.fill_rectangle(
+            Vector(settings_x, y + 4), Vector(x + w - 2 - settings_x, 9), COLOR_LCD
+        )
     settings, font = _fit_value(draw, settings, x + w - 5 - settings_x, FONT_XTRA_SMALL)
     draw.text(Vector(settings_x, y + 4), settings, COLOR_LCD_MID, font)
     for row, (name, value) in enumerate(_fin_rows()):
@@ -1788,10 +2024,14 @@ def _draw_financial(draw, partial=False):
         label_x = _draw_register_label_number(draw, x + 5, row_y, name, not partial)
         value_left = label_x + 4 + draw.len(name, FONT_XTRA_SMALL)
         if partial:
-            draw.fill_rectangle(Vector(value_left, row_y), Vector(x + w - 2 - value_left, 9), COLOR_LCD)
+            draw.fill_rectangle(
+                Vector(value_left, row_y), Vector(x + w - 2 - value_left, 9), COLOR_LCD
+            )
         else:
             draw.text(Vector(label_x, row_y), name, COLOR_LCD_MID, FONT_XTRA_SMALL)
-        _right_text(draw, x + w - 5, row_y, value, COLOR_LCD_DARK, FONT_XTRA_SMALL, value_left)
+        _right_text(
+            draw, x + w - 5, row_y, value, COLOR_LCD_DARK, FONT_XTRA_SMALL, value_left
+        )
     x_y = y + 61
     if partial:
         draw.fill_rectangle(Vector(x + 16, x_y), Vector(w - 18, 9), COLOR_LCD)
@@ -1799,10 +2039,22 @@ def _draw_financial(draw, partial=False):
         draw.fill_rectangle(Vector(x + 2, y + 71), Vector(w - 4, h - 73), COLOR_LCD)
     else:
         draw.text(Vector(x + 5, x_y), "X", COLOR_LCD_MID, FONT_XTRA_SMALL)
-    value = calculator.entry if calculator.entering else _fin_format(calculator.stack[0])
-    _right_text(draw, x + w - 5, x_y, value, COLOR_LCD_DARK, FONT_XTRA_SMALL,
-                x + 16, calculator.entering)
-    draw.text(Vector(x + 5, y + 71), _financial_preview(), COLOR_LCD_DARK, FONT_XTRA_SMALL)
+    value = (
+        calculator.entry if calculator.entering else _fin_format(calculator.stack[0])
+    )
+    _right_text(
+        draw,
+        x + w - 5,
+        x_y,
+        value,
+        COLOR_LCD_DARK,
+        FONT_XTRA_SMALL,
+        x + 16,
+        calculator.entering,
+    )
+    draw.text(
+        Vector(x + 5, y + 71), _financial_preview(), COLOR_LCD_DARK, FONT_XTRA_SMALL
+    )
     status = _display_status()
     lines = _wrap_text(draw, status, w - 10)
     if len(lines) > 2:
@@ -1812,8 +2064,12 @@ def _draw_financial(draw, partial=False):
             last = last[:-1]
         lines[-1] = last + "..."
     for row, line in enumerate(lines):
-        draw.text(Vector(x + 5, y + h - 5 - len(lines) * 9 + row * 9), line,
-                  COLOR_ERROR if calculator.error and amort_job is None else COLOR_LCD_MID, FONT_XTRA_SMALL)
+        draw.text(
+            Vector(x + 5, y + h - 5 - len(lines) * 9 + row * 9),
+            line,
+            COLOR_ERROR if calculator.error and amort_job is None else COLOR_LCD_MID,
+            FONT_XTRA_SMALL,
+        )
     fin_panel_key = key
 
 
@@ -1825,36 +2081,71 @@ def _fin_menu_items():
     if fin_overlay == "solve_menu":
         if financial.page not in ("tvm", "interest", "margin", "markup"):
             return (("Choose TVM, Interest, Margin or Markup first", "close"),)
-        return tuple(("Solve " + label, "solve:" + action[1:])
-                     for label, action, _ in _keys()
-                     if action.startswith("@") and action != "@P/YR")
+        return tuple(
+            ("Solve " + label, "solve:" + action[1:])
+            for label, action, _ in _keys()
+            if action.startswith("@") and action != "@P/YR"
+        )
     if fin_overlay == "decimals":
-        return tuple((str(i) + " decimal places", "digits:" + str(i)) for i in range(10))
+        return tuple(
+            (str(i) + " decimal places", "digits:" + str(i)) for i in range(10)
+        )
     if fin_overlay == "registers":
-        names = ("N", "I/YR", "PV", "PMT", "FV", "P/YR", "NOM", "EFF",
-                 "COST", "PRICE", "MARG", "MARK", "FIRST", "LAST")
+        names = (
+            "N",
+            "I/YR",
+            "PV",
+            "PMT",
+            "FV",
+            "P/YR",
+            "NOM",
+            "EFF",
+            "COST",
+            "PRICE",
+            "MARG",
+            "MARK",
+            "FIRST",
+            "LAST",
+        )
         rows = [(name + " = %.15g" % financial.values[name], "noop") for name in names]
-        rows.extend((("Timing: " + ("BEGIN" if financial.begin else "END"), "noop"),
-                     ("Decimals: " + str(financial.decimals), "noop"),
-                     ("X = %.15g" % calculator.stack[0], "noop"),
-                     ("Y = %.15g" % calculator.stack[1], "noop"),
-                     ("Z = %.15g" % calculator.stack[2], "noop"),
-                     ("T = %.15g" % calculator.stack[3], "noop"),
-                     ("Status: " + _display_status(), "noop")))
+        rows.extend(
+            (
+                ("Timing: " + ("BEGIN" if financial.begin else "END"), "noop"),
+                ("Decimals: " + str(financial.decimals), "noop"),
+                ("X = %.15g" % calculator.stack[0], "noop"),
+                ("Y = %.15g" % calculator.stack[1], "noop"),
+                ("Z = %.15g" % calculator.stack[2], "noop"),
+                ("T = %.15g" % calculator.stack[3], "noop"),
+                ("Status: " + _display_status(), "noop"),
+            )
+        )
         if financial.cash_result and financial.cash_result[2]:
             rows.append(("IRR MAY NOT BE UNIQUE", "noop"))
         return rows
     if fin_overlay == "cashlist":
-        rows = [("CF%d = %.15g x%d" % (i, value, count), "cash:" + str(i))
-                for i, (value, count) in enumerate(financial.flows)]
-        rows.extend((("Add group from X", "cash_add"), ("Delete selected group", "confirm_delete")))
+        rows = [
+            ("CF%d = %.15g x%d" % (i, value, count), "cash:" + str(i))
+            for i, (value, count) in enumerate(financial.flows)
+        ]
+        rows.extend(
+            (
+                ("Add group from X", "cash_add"),
+                ("Delete selected group", "confirm_delete"),
+            )
+        )
         return rows
     if fin_overlay == "confirm_tvm":
         return (("Cancel", "close"), ("Clear N, I/YR, PV, PMT, FV? YES", "clear_tvm"))
     if fin_overlay == "confirm_clear":
-        return (("Cancel", "close"), ("Clear all financial data? YES", "clear_financial"))
+        return (
+            ("Cancel", "close"),
+            ("Clear all financial data? YES", "clear_financial"),
+        )
     if fin_overlay == "confirm_delete":
-        return (("Cancel", "cashlist"), ("Delete CF%d? YES" % financial.cash_index, "cash_delete"))
+        return (
+            ("Cancel", "cashlist"),
+            ("Delete CF%d? YES" % financial.cash_index, "cash_delete"),
+        )
     return tuple((line, "close") for line in fin_message) or (("Back", "close"),)
 
 
@@ -1862,8 +2153,11 @@ def _open_fin_menu(view_manager, name):
     global fin_overlay, fin_selection, flash_index, fin_recall, fin_menu_cache
     fin_menu_cache = None
     fin_overlay = name
-    fin_selection = (financial.decimals if name == "decimals" else
-                     financial.cash_index if name == "cashlist" else 0)
+    fin_selection = (
+        financial.decimals
+        if name == "decimals"
+        else financial.cash_index if name == "cashlist" else 0
+    )
     flash_index = -1
     fin_recall = False
     _draw_fin_menu(view_manager)
@@ -1875,10 +2169,18 @@ def _draw_fin_menu(view_manager):
     draw = view_manager.draw
     width, height = int(draw.size.x), int(draw.size.y)
     draw.clear(size=draw.size, color=COLOR_BG)
-    title = {"mode": "MODE", "more": "FINANCIAL", "registers": "REGISTERS",
-             "decimals": "DECIMAL PLACES", "cashlist": "CASH FLOW EDITOR",
-             "confirm_clear": "CLEAR FINANCIAL", "confirm_delete": "DELETE GROUP",
-             "confirm_tvm": "CLEAR TVM", "solve_menu": "SOLVE REGISTER", "message": "FINANCIAL MESSAGE"}.get(fin_overlay, "FINANCIAL")
+    title = {
+        "mode": "MODE",
+        "more": "FINANCIAL",
+        "registers": "REGISTERS",
+        "decimals": "DECIMAL PLACES",
+        "cashlist": "CASH FLOW EDITOR",
+        "confirm_clear": "CLEAR FINANCIAL",
+        "confirm_delete": "DELETE GROUP",
+        "confirm_tvm": "CLEAR TVM",
+        "solve_menu": "SOLVE REGISTER",
+        "message": "FINANCIAL MESSAGE",
+    }.get(fin_overlay, "FINANCIAL")
     draw.fill_rectangle(Vector(0, 0), Vector(width, 20), COLOR_KEY_OP)
     draw.text(Vector(5, 5), title, TFT_WHITE, FONT_XTRA_SMALL)
     save_failed = _save_failed()
@@ -1903,21 +2205,34 @@ def _draw_fin_menu(view_manager):
         fin_menu_cache = (key, items, pages)
     else:
         _, items, pages = fin_menu_cache
-    page_index = next(n for n, page in enumerate(pages)
-                      if any(i == fin_selection for i, _, _ in page))
+    page_index = next(
+        n for n, page in enumerate(pages) if any(i == fin_selection for i, _, _ in page)
+    )
     visible = pages[page_index]
-    _right_text(draw, width - 5, 5, "%d/%d" % (page_index + 1, len(pages)),
-                TFT_WHITE, FONT_XTRA_SMALL)
+    _right_text(
+        draw,
+        width - 5,
+        5,
+        "%d/%d" % (page_index + 1, len(pages)),
+        TFT_WHITE,
+        FONT_XTRA_SMALL,
+    )
     y = 24 + banner_height
     for i, lines, size in visible:
         selected = i == fin_selection
         if selected:
             draw.fill_rectangle(Vector(4, y), Vector(width - 8, size), COLOR_AMBER)
         for row, line in enumerate(lines):
-            draw.text(Vector(8, y + 2 + row * 9), line,
-                      COLOR_LCD_DARK if selected else TFT_WHITE, FONT_XTRA_SMALL)
+            draw.text(
+                Vector(8, y + 2 + row * 9),
+                line,
+                COLOR_LCD_DARK if selected else TFT_WHITE,
+                FONT_XTRA_SMALL,
+            )
         y += size
-    draw.text(Vector(5, height - 22), "UP/DN SELECT  ENTER ACT", COLOR_MUTED, FONT_XTRA_SMALL)
+    draw.text(
+        Vector(5, height - 22), "UP/DN SELECT  ENTER ACT", COLOR_MUTED, FONT_XTRA_SMALL
+    )
     draw.text(Vector(5, height - 11), "ESC/BACK CLOSE", COLOR_MUTED, FONT_XTRA_SMALL)
     draw.swap()
 
@@ -1953,8 +2268,16 @@ def _fin_complete_x(value, lift=False):
     calculator.error = ""
 
 
-def _commit_financial(view_manager, updated, status, result=None, recalling=False,
-                      stored=False, undo_label=None, redraw=False):
+def _commit_financial(
+    view_manager,
+    updated,
+    status,
+    result=None,
+    recalling=False,
+    stored=False,
+    undo_label=None,
+    redraw=False,
+):
     """Commit a validated financial change with one Undo snapshot and redraw."""
     global financial, fin_recall, fin_overlay, flash_index
     old_page, old_overlay, old_flash = financial.page, fin_overlay, flash_index
@@ -1985,7 +2308,17 @@ def _financial_action(view_manager, action):
     # A clear-all confirmation is valid only until another action occurs.
     if action != "clear":
         escape_armed = False
-    if action in ("mode", "more", "registers", "decimals", "cashlist", "confirm_clear", "confirm_delete", "solve_menu", "confirm_tvm"):
+    if action in (
+        "mode",
+        "more",
+        "registers",
+        "decimals",
+        "cashlist",
+        "confirm_clear",
+        "confirm_delete",
+        "solve_menu",
+        "confirm_tvm",
+    ):
         _open_fin_menu(view_manager, action)
         return True
     if action in ("standard", "financial"):
@@ -2017,8 +2350,22 @@ def _financial_action(view_manager, action):
         _queue_save()
         _redraw(view_manager)
         return True
-    if not (action.startswith("@") or action.startswith("solve:") or action.startswith("digits:") or action in
-            ("begin", "amortize", "npv", "irr", "cash_add", "cash_delete", "clear_financial", "clear_tvm")):
+    if not (
+        action.startswith("@")
+        or action.startswith("solve:")
+        or action.startswith("digits:")
+        or action
+        in (
+            "begin",
+            "amortize",
+            "npv",
+            "irr",
+            "cash_add",
+            "cash_delete",
+            "clear_financial",
+            "clear_tvm",
+        )
+    ):
         return False
     try:
         updated = financial.clone()
@@ -2030,7 +2377,11 @@ def _financial_action(view_manager, action):
             index = 0 if name == "CF0" else updated.cash_index
             intent = _financial_intent(fin_recall)
             if intent == "RCL":
-                result = updated.flows[index][1 if name == "TIMES" else 0] if cash_field else updated.values[name]
+                result = (
+                    updated.flows[index][1 if name == "TIMES" else 0]
+                    if cash_field
+                    else updated.values[name]
+                )
                 recalling = True
                 status = "RCL " + name
             elif intent == "STO":
@@ -2062,7 +2413,12 @@ def _financial_action(view_manager, action):
             status = "FIX " + str(updated.decimals)
         elif action == "amortize":
             if updated.values["LAST"] > 360:
-                amort_job = (updated, updated.amortization_steps(), calculator.status, ticks_add(ticks_ms(), -250))
+                amort_job = (
+                    updated,
+                    updated.amortization_steps(),
+                    calculator.status,
+                    ticks_add(ticks_ms(), -250),
+                )
                 _advance_amortization(view_manager)
                 return True
             updated.amort_result = updated.amortization()
@@ -2117,14 +2473,22 @@ def _advance_amortization(view_manager):
                 updated.amort_result = result
                 updated.pending = False
                 amort_job = None
-                _commit_financial(view_manager, updated, "PRINCIPAL / INTEREST / BALANCE",
-                                  result[2], undo_label="AMORTIZATION", redraw=True)
+                _commit_financial(
+                    view_manager,
+                    updated,
+                    "PRINCIPAL / INTEREST / BALANCE",
+                    result[2],
+                    undo_label="AMORTIZATION",
+                    redraw=True,
+                )
                 return
             if ticks_diff(ticks_ms(), started) >= 8:
                 break
         now = ticks_ms()
         if ticks_diff(now, last_draw) >= 250:
-            calculator.status = "CALC %d%% ESC CANCEL" % (progress * 100 // updated.values["LAST"])
+            calculator.status = "CALC %d%% ESC CANCEL" % (
+                progress * 100 // updated.values["LAST"]
+            )
             _refresh_stack(view_manager)
             amort_job = (updated, steps, previous_status, now)
     except (ValueError, OverflowError, ZeroDivisionError) as error:
@@ -2135,7 +2499,11 @@ def _advance_amortization(view_manager):
 
 def _financial_error(view_manager, error):
     global fin_message
-    reason = str(error) if isinstance(error, ValueError) else "DIVISION BY ZERO" if isinstance(error, ZeroDivisionError) else "OVERFLOW"
+    reason = (
+        str(error)
+        if isinstance(error, ValueError)
+        else "DIVISION BY ZERO" if isinstance(error, ZeroDivisionError) else "OVERFLOW"
+    )
     fin_message = (reason or "INVALID INPUT", "Previous values retained.")
     _open_fin_menu(view_manager, "message")
 
@@ -2147,7 +2515,9 @@ def _run_fin_menu(view_manager, button):
         _redraw(view_manager)
     elif button in (BUTTON_UP, BUTTON_LEFT, BUTTON_DOWN, BUTTON_RIGHT):
         count = len(fin_menu_cache[1]) if fin_menu_cache else len(_fin_menu_items())
-        fin_selection = (fin_selection + (-1 if button in (BUTTON_UP, BUTTON_LEFT) else 1)) % count
+        fin_selection = (
+            fin_selection + (-1 if button in (BUTTON_UP, BUTTON_LEFT) else 1)
+        ) % count
         _draw_fin_menu(view_manager)
     elif button in (BUTTON_CENTER, BUTTON_SPACE, BUTTON_EQUAL, BUTTON_TAB):
         items = fin_menu_cache[1] if fin_menu_cache else _fin_menu_items()
@@ -2242,13 +2612,24 @@ def _draw_stack(draw, width):
         preferred = FONT_MEDIUM if row == 3 and row_h >= 18 else FONT_SMALL
         if row_h < 14:
             preferred = FONT_XTRA_SMALL
-        _right_text(draw, x + w - 6, row_y, calculator.display(3 - row),
-                    COLOR_LCD_DARK, preferred, x + 16,
-                    row == 3 and calculator.entering)
+        _right_text(
+            draw,
+            x + w - 6,
+            row_y,
+            calculator.display(3 - row),
+            COLOR_LCD_DARK,
+            preferred,
+            x + 16,
+            row == 3 and calculator.entering,
+        )
     status_y = y + h - 5 - status_rows * 9
     for line in status_lines:
-        draw.text(Vector(x + 6, status_y), line,
-                  COLOR_ERROR if calculator.error and amort_job is None else COLOR_LCD_MID, FONT_XTRA_SMALL)
+        draw.text(
+            Vector(x + 6, status_y),
+            line,
+            COLOR_ERROR if calculator.error and amort_job is None else COLOR_LCD_MID,
+            FONT_XTRA_SMALL,
+        )
         status_y += 9
 
 
@@ -2257,14 +2638,20 @@ def _key_geometry(draw):
 
 
 # Compact 3x5 digits reserve space even on the Cardputer's narrow keys.
-_SHORTCUT_DIGITS = ((2, 6, 2, 2, 7), (7, 1, 7, 4, 7), (7, 1, 7, 1, 7),
-                    (5, 5, 7, 1, 1), (7, 4, 7, 1, 7), (7, 4, 7, 5, 7))
+_SHORTCUT_DIGITS = (
+    (2, 6, 2, 2, 7),
+    (7, 1, 7, 4, 7),
+    (7, 1, 7, 1, 7),
+    (5, 5, 7, 1, 1),
+    (7, 4, 7, 1, 7),
+    (7, 4, 7, 5, 7),
+)
 
 
 def _register_shortcut(index):
     if not financial.mode or not _keys()[index][1].startswith("@"):
         return 0
-    return sum(1 for _, action, _ in _keys()[:index + 1] if action.startswith("@"))
+    return sum(1 for _, action, _ in _keys()[: index + 1] if action.startswith("@"))
 
 
 def _draw_shortcut_number(draw, x, y, number, color):
@@ -2279,7 +2666,9 @@ def _draw_register_label_number(draw, x, y, label, paint=True):
     for index, (key_label, action, _) in enumerate(_keys()):
         if key_label == label and action.startswith("@"):
             if paint:
-                _draw_shortcut_number(draw, x, y + 1, _register_shortcut(index), COLOR_LCD_MID)
+                _draw_shortcut_number(
+                    draw, x, y + 1, _register_shortcut(index), COLOR_LCD_MID
+                )
             return x + 6
     return x
 
@@ -2308,7 +2697,9 @@ def _draw_key(draw, index, selected, flashed=False):
     else:
         color = COLOR_KEY
 
-    draw.fill_rectangle(Vector(x + 2, y + 2), Vector(key_width, key_height), COLOR_SHADOW)
+    draw.fill_rectangle(
+        Vector(x + 2, y + 2), Vector(key_width, key_height), COLOR_SHADOW
+    )
     draw.fill_rectangle(Vector(x, y), Vector(key_width, key_height), color)
     draw.line_custom(
         Vector(x + 1, y + 1),
@@ -2317,7 +2708,9 @@ def _draw_key(draw, index, selected, flashed=False):
     )
 
     if selected:
-        draw.rect(Vector(x - 1, y - 1), Vector(key_width + 2, key_height + 2), COLOR_AMBER)
+        draw.rect(
+            Vector(x - 1, y - 1), Vector(key_width + 2, key_height + 2), COLOR_AMBER
+        )
         draw.rect(Vector(x, y), Vector(key_width, key_height), COLOR_AMBER)
 
     number = _register_shortcut(index)
@@ -2361,8 +2754,11 @@ def _variable_layout(draw):
         controls = "ENTER/= RCL  SPACE STORE?"
         close = "DEL CLEAR?  ESC/BACK CLOSE"
     footer = [("SAVE FAILED - RETRYING", COLOR_ERROR)] if _save_failed() else []
-    for text, color in ((calculator.status, COLOR_AMBER),
-                        (controls, COLOR_MUTED), (close, COLOR_MUTED)):
+    for text, color in (
+        (calculator.status, COLOR_AMBER),
+        (controls, COLOR_MUTED),
+        (close, COLOR_MUTED),
+    ):
         for line in _wrap_text(draw, text, width - 14):
             footer.append((line, color))
     footer_y = height - 5 - len(footer) * 9
@@ -2394,8 +2790,9 @@ def _draw_variable_viewer(view_manager):
         page_end = 26
 
     draw.fill_rectangle(Vector(0, 0), Vector(width, 23), COLOR_KEY_OP)
-    draw.text(Vector(7, 5), title, TFT_WHITE,
-              FONT_SMALL if width >= 240 else FONT_XTRA_SMALL)
+    draw.text(
+        Vector(7, 5), title, TFT_WHITE, FONT_SMALL if width >= 240 else FONT_XTRA_SMALL
+    )
     range_text = chr(ord("A") + page_start) + "-" + chr(ord("A") + page_end - 1)
     draw.text(
         Vector(width - draw.len(range_text, FONT_XTRA_SMALL) - 7, 8),
@@ -2474,7 +2871,14 @@ def _help_lines(section):
             ("ARROWS       move keypad cursor", TFT_WHITE),
             ("0-9 . + - * / \\  direct input", TFT_WHITE),
             ("BS / DEL     edit entry / clear X", TFT_WHITE),
-            ("C            clear TVM (confirm)" if financial.mode else "C / ESC      clear X; again: all", TFT_WHITE),
+            (
+                (
+                    "C            clear TVM (confirm)"
+                    if financial.mode
+                    else "C / ESC      clear X; again: all"
+                ),
+                TFT_WHITE,
+            ),
             ("SYSTEM EXIT KEY x2  exit app", TFT_WHITE),
             ("STACK TOOLS", COLOR_AMBER),
             ("D drop     S swap     Z undo", TFT_WHITE),
@@ -2560,10 +2964,20 @@ def _draw_help(view_manager):
     help_page = min(help_page, len(pages) - 1)
     draw.clear(size=draw.size, color=COLOR_BG)
     draw.fill_rectangle(Vector(0, 0), Vector(width, 23), COLOR_KEY_OP)
-    draw.text(Vector(7, 5), "SimpleRPN HELP", TFT_WHITE,
-              FONT_SMALL if width >= 240 else FONT_XTRA_SMALL)
-    _right_text(draw, width - 7, 7, str(help_page + 1) + "/" + str(len(pages)),
-                COLOR_AMBER, FONT_XTRA_SMALL)
+    draw.text(
+        Vector(7, 5),
+        "SimpleRPN HELP",
+        TFT_WHITE,
+        FONT_SMALL if width >= 240 else FONT_XTRA_SMALL,
+    )
+    _right_text(
+        draw,
+        width - 7,
+        7,
+        str(help_page + 1) + "/" + str(len(pages)),
+        COLOR_AMBER,
+        FONT_XTRA_SMALL,
+    )
     y = 29
     if _save_failed():
         draw.text(Vector(7, y), "SAVE FAILED - RETRYING", COLOR_ERROR, FONT_XTRA_SMALL)
@@ -2571,7 +2985,9 @@ def _draw_help(view_manager):
     for text, color in pages[help_page]:
         draw.text(Vector(8, y), text, color, font)
         y += step
-    draw.text(Vector(7, height - 12), "L/R PAGE  H/BACK CLOSE", COLOR_MUTED, FONT_XTRA_SMALL)
+    draw.text(
+        Vector(7, height - 12), "L/R PAGE  H/BACK CLOSE", COLOR_MUTED, FONT_XTRA_SMALL
+    )
     draw.swap()
 
 
@@ -2717,8 +3133,12 @@ def _key_hint(view_manager):
 
 
 def _refresh_stack(view_manager, swap=True):
-    if (financial.mode and calculator.entering and _keys()[selected_index][1].startswith("@")
-            and calculator.status in ("ENTER VALUE", "EDIT X", "SIGN CHANGED")):
+    if (
+        financial.mode
+        and calculator.entering
+        and _keys()[selected_index][1].startswith("@")
+        and calculator.status in ("ENTER VALUE", "EDIT X", "SIGN CHANGED")
+    ):
         calculator.status = _key_hint(view_manager)
     draw = view_manager.draw
     if financial.mode:
@@ -2807,7 +3227,9 @@ def _run_variable_viewer(view_manager, button):
 
     if button == BUTTON_SPACE:
         if variable_view_mode != "view":
-            _complete_variable_action(view_manager, selected_variable, variable_view_mode)
+            _complete_variable_action(
+                view_manager, selected_variable, variable_view_mode
+            )
             return
         _arm_variable_confirmation("store")
         _draw_variable_viewer(view_manager)
@@ -2899,8 +3321,7 @@ def run(view_manager):
     global selected_index, help_visible, help_page, escape_armed, back_exit_armed
     global flash_index, fin_recall
     global amort_job
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
     if amort_job is not None:
         if button in (BUTTON_ESCAPE, BUTTON_BACK):
             calculator.status = amort_job[2]
@@ -2908,13 +3329,20 @@ def run(view_manager):
             _redraw(view_manager)
         else:
             _advance_amortization(view_manager)
-        inp.reset()
         return
     if button == -1:
-        if state_dirty and storage is not None and ticks_diff(ticks_ms(), save_due) >= 0:
+        if (
+            state_dirty
+            and storage is not None
+            and ticks_diff(ticks_ms(), save_due) >= 0
+        ):
             previous_status, previous_save_error = calculator.status, save_error
             saved = _save_state()
-            if not saved or calculator.status != previous_status or save_error != previous_save_error:
+            if (
+                not saved
+                or calculator.status != previous_status
+                or save_error != previous_save_error
+            ):
                 if fin_overlay is not None:
                     _draw_fin_menu(view_manager)
                 elif help_visible:
@@ -2932,12 +3360,10 @@ def run(view_manager):
 
     if variable_view_mode is not None:
         _run_variable_viewer(view_manager, button)
-        inp.reset()
         return
 
     if button == BUTTON_F:
         _set_fin_mode(view_manager, not financial.mode)
-        inp.reset()
         return
 
     if fin_overlay is not None:
@@ -2945,7 +3371,6 @@ def run(view_manager):
             _financial_action(view_manager, "help")
         else:
             _run_fin_menu(view_manager, button)
-        inp.reset()
         return
 
     if BUTTON_CTRL_0 is not None and BUTTON_CTRL_0 <= button <= BUTTON_CTRL_0 + 9:
@@ -2960,12 +3385,10 @@ def run(view_manager):
                     if fin_overlay is None:
                         _flash_action(view_manager, action)
                     break
-        inp.reset()
         return
 
     if fin_recall and button in (BUTTON_ESCAPE, BUTTON_BACK):
         fin_recall = False
-        inp.reset()
         _refresh_stack(view_manager)
         return
 
@@ -2973,24 +3396,19 @@ def run(view_manager):
         if button in (BUTTON_H, BUTTON_ESCAPE, BUTTON_BACK):
             help_visible = False
             flash_index = -1
-            inp.reset()
             _redraw(view_manager)
             return
         if button == BUTTON_LEFT:
             help_page = (help_page - 1) % len(_help_pages(view_manager.draw)[0])
-            inp.reset()
             _draw_help(view_manager)
             return
         if button == BUTTON_RIGHT:
             help_page = (help_page + 1) % len(_help_pages(view_manager.draw)[0])
-            inp.reset()
             _draw_help(view_manager)
             return
-        inp.reset()
         return
 
     if button == BUTTON_H:
-        inp.reset()
         _open_help(view_manager)
         return
 
@@ -2998,22 +3416,18 @@ def run(view_manager):
         if calculator.entering:
             _edit_entry()
             back_exit_armed = False
-            inp.reset()
             _refresh_stack(view_manager)
             return
         escape_armed = False
         if not back_exit_armed:
             back_exit_armed = True
             calculator.status = "BACK AGAIN: EXIT"
-            inp.reset()
             _refresh_stack(view_manager)
             return
         back_exit_armed = False
         if storage is not None and not _save_state(force=True):
-            inp.reset()
             _refresh_stack(view_manager)
             return
-        inp.reset()
         view_manager.back()
         return
 
@@ -3031,11 +3445,13 @@ def run(view_manager):
     elif button == BUTTON_CENTER:
         # Return opens financial menus; otherwise preserve the RPN Enter key.
         selected_action = _keys()[selected_index][1]
-        if inp.has_touch_support or (financial.mode and selected_action in FIN_ENTER_ACTIONS):
+        if view_manager.input_manager.has_touch_support or (
+            financial.mode and selected_action in FIN_ENTER_ACTIONS
+        ):
             action = selected_action
         else:
             action = "enter"
-        direct_action = not inp.has_touch_support
+        direct_action = not view_manager.input_manager.has_touch_support
     elif button == BUTTON_SPACE:
         action = _keys()[selected_index][1]
         direct_action = True
@@ -3123,20 +3539,22 @@ def run(view_manager):
 
     if action is not None:
         if _financial_action(view_manager, action):
-            if direct_action and fin_overlay is None and not help_visible and amort_job is None:
+            if (
+                direct_action
+                and fin_overlay is None
+                and not help_visible
+                and amort_job is None
+            ):
                 _flash_action(view_manager, action)
-            inp.reset()
             return
         if action in ("store", "recall", "variables"):
             mode = action if action != "variables" else "view"
-            inp.reset()
             _open_variable_viewer(view_manager, mode)
             return
         _perform(action)
         if action == "undo":
             flash_index = -1
             _redraw(view_manager)
-            inp.reset()
             return
         if direct_action:
             _refresh_stack(view_manager, False)
@@ -3155,8 +3573,6 @@ def run(view_manager):
         _draw_key(draw, old_selected_index, False)
         _draw_key(draw, selected_index, True)
         draw.swap()
-
-    inp.reset()
 
 
 def stop(view_manager):

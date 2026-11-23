@@ -362,11 +362,9 @@ def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if any([button == BUTTON_BACK, game is None, not game.running]):
-        inp.reset()
         view_manager.back()
         if game is not None:
             game.running = False
@@ -374,8 +372,7 @@ def run(view_manager) -> None:
 
     if game:
         # Check input
-        if game.check_input(button):
-            inp.reset()
+        game.check_input(button)
 
         # Update game state
         game.update()

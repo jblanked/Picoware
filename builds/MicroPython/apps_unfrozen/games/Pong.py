@@ -96,7 +96,9 @@ class Ball:
     def draw(self, draw):
         """Draw the ball"""
         self.pos_vec.x, self.pos_vec.y = (int(self.x), int(self.y))
-        draw._fill_rectangle(self.pos_vec.x, self.pos_vec.y, self.size_vec.x, self.size_vec.y, TFT_WHITE)
+        draw._fill_rectangle(
+            self.pos_vec.x, self.pos_vec.y, self.size_vec.x, self.size_vec.y, TFT_WHITE
+        )
 
     def check_paddle_collision(self, paddle):
         """Check collision with paddle"""
@@ -157,11 +159,9 @@ def run(view_manager) -> None:
     """Run the app"""
     global score_left, score_right
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
         return
 
@@ -169,10 +169,8 @@ def run(view_manager) -> None:
 
     # Player controls (left paddle)
     if button == BUTTON_UP:
-        inp.reset()
         paddle_left.move(-PADDLE_SPEED)
     elif button == BUTTON_DOWN:
-        inp.reset()
         paddle_left.move(PADDLE_SPEED)
 
     # Simple AI for right paddle

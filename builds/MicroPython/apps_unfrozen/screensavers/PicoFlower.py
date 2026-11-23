@@ -180,11 +180,9 @@ def run(view_manager) -> None:
     """Run the app"""
     global shift
 
-    input_manager = view_manager.input_manager
-    input_button = input_manager.button
+    input_button = view_manager.button
 
     if input_button in (BUTTON_LEFT, BUTTON_BACK):
-        input_manager.reset()
         view_manager.back()
         return
 

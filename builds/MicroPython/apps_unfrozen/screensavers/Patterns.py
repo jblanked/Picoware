@@ -55,7 +55,7 @@ def start(view_manager) -> bool:
     # Prompt to advance
     size = draw.len("Press Center")
     draw._text(
-        draw.size.x // 2 - size // 2, 
+        draw.size.x // 2 - size // 2,
         draw.size.y // 2,
         "Press Center",
         TFT_WHITE,
@@ -84,7 +84,13 @@ def _draw_pattern(draw):
         r = int(150 * s)
         for i in range(0, 360, 10):
             angle = math.radians(i)
-            draw._line(cx, cy, cx + r * math.cos(angle), cy + r * math.sin(angle), colors[i // 10 % len(colors)])
+            draw._line(
+                cx,
+                cy,
+                cx + r * math.cos(angle),
+                cy + r * math.sin(angle),
+                colors[i // 10 % len(colors)],
+            )
 
     elif _demo_state == 1:
         # Concentric circles
@@ -110,7 +116,13 @@ def _draw_pattern(draw):
         step = max(5, int(15 * s))
         size_step = max(10, int(30 * s))
         for i in range(6):
-            draw._rectangle(pad + i * step, pad + i * step, init_size - i * size_step, init_size - i * size_step, colors[i])
+            draw._rectangle(
+                pad + i * step,
+                pad + i * step,
+                init_size - i * size_step,
+                init_size - i * size_step,
+                colors[i],
+            )
 
     elif _demo_state == 4:
         # Overlapping rects
@@ -131,7 +143,15 @@ def _draw_pattern(draw):
         right_x = 280 * s
         for i in range(6):
             off = i * 25 * s
-            draw._triangle(mid_x, top_y + off, left_x + off, bottom_y - off, right_x - off, bottom_y - off, colors[i])
+            draw._triangle(
+                mid_x,
+                top_y + off,
+                left_x + off,
+                bottom_y - off,
+                right_x - off,
+                bottom_y - off,
+                colors[i],
+            )
 
     elif _demo_state == 6:
         # Checkerboard
@@ -164,7 +184,13 @@ def _draw_pattern(draw):
             lin_pos_y = cy + inner * math.sin(angle)
             lin_size_x = cx + outer * math.cos(angle)
             lin_size_y = cy + outer * math.sin(angle)
-            draw._line(lin_pos_x, lin_pos_y, lin_size_x, lin_size_y, colors[i // 5 % len(colors)])
+            draw._line(
+                lin_pos_x,
+                lin_pos_y,
+                lin_size_x,
+                lin_size_y,
+                colors[i // 5 % len(colors)],
+            )
 
     elif _demo_state == 9:
         # Diamond grid
@@ -198,15 +224,15 @@ def run(view_manager) -> None:
     """Run the screensaver - auto-advance patterns."""
     global _demo_state, _frame_count
 
-    inp = view_manager.input_manager
     draw = view_manager.draw
+    button = view_manager.button
 
     # Exit on button
-    if inp.button == BUTTON_BACK:
-        inp.reset()
+    if button == BUTTON_BACK:
+        button.reset()
         view_manager.back()
-    elif inp.button == BUTTON_CENTER:
-        inp.reset()
+    elif button == BUTTON_CENTER:
+        button.reset()
         _draw_pattern(draw)
         _demo_state = (_demo_state + 1) % 11
         draw.swap()

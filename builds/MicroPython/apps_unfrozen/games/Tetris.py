@@ -260,7 +260,13 @@ class Tetris:
                         GRID_X + c * CELL_SIZE,
                         GRID_Y + r * CELL_SIZE,
                     )
-                    draw._fill_rectangle(self.grid_pos.x, self.grid_pos.y, self.grid_size.x, self.grid_size.y, color)
+                    draw._fill_rectangle(
+                        self.grid_pos.x,
+                        self.grid_pos.y,
+                        self.grid_size.x,
+                        self.grid_size.y,
+                        color,
+                    )
 
         # Render current piece
         if self.current is not None:
@@ -273,7 +279,13 @@ class Tetris:
                             GRID_X + (self.x + c) * CELL_SIZE,
                             GRID_Y + (self.y + r) * CELL_SIZE,
                         )
-                        draw._fill_rectangle(self.grid_pos.x, self.grid_pos.y, self.grid_size.x, self.grid_size.y, color)
+                        draw._fill_rectangle(
+                            self.grid_pos.x,
+                            self.grid_pos.y,
+                            self.grid_size.x,
+                            self.grid_size.y,
+                            color,
+                        )
 
         # Next piece preview
         self.text_pos.x, self.text_pos.y = (tx, int(20 * s))
@@ -290,7 +302,13 @@ class Tetris:
                             px + c * CELL_SIZE,
                             py + r * CELL_SIZE,
                         )
-                        draw._fill_rectangle(self.grid_pos.x, self.grid_pos.y, self.grid_size.x, self.grid_size.y, next_color)
+                        draw._fill_rectangle(
+                            self.grid_pos.x,
+                            self.grid_pos.y,
+                            self.grid_size.x,
+                            self.grid_size.y,
+                            next_color,
+                        )
 
         # Score, level, lines
         self.text_pos.x, self.text_pos.y = (tx, int(120 * s))
@@ -355,6 +373,7 @@ class Tetris:
 def start(view_manager) -> bool:
     """Start the app."""
     from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
+
     global _game, GRID_W, GRID_H, CELL_SIZE, GRID_X, GRID_Y, _scale, is_flipper
 
     is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
@@ -384,18 +403,13 @@ def run(view_manager) -> None:
     if _game is None:
         return
 
-    input_manager = view_manager.input_manager
-    button = input_manager.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        input_manager.reset()
         view_manager.back()
         return
 
     _game.update(button)
-
-    if button != -1:
-        input_manager.reset()
 
 
 def stop(view_manager) -> None:

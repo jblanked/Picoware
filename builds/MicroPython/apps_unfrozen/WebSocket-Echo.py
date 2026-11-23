@@ -204,26 +204,20 @@ def run(view_manager) -> None:
     if not _textbox:
         return
 
-    input_manager = view_manager.input_manager
-    button = input_manager.button
+    button = view_manager.button
 
     # Handle input
     if button == BUTTON_BACK:
-        input_manager.reset()
         view_manager.back()
         return
 
     if button == BUTTON_CENTER:
-        input_manager.reset()
         _send_message()
     elif button == BUTTON_UP:
-        input_manager.reset()
         _send_ping()
     elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-        input_manager.reset()
         _textbox.scroll_down()
     elif button == BUTTON_LEFT:
-        input_manager.reset()
         _textbox.scroll_up()
 
     if _should_update:

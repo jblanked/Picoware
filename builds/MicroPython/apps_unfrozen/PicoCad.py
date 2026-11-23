@@ -1009,24 +1009,19 @@ def run(view_manager) -> None:
     global _state, _dirty, _mode, _style, _pitch, _yaw, _zoom
     global _toast, _sel, _file_mode
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
     draw = view_manager.draw
 
     if _state == ST_MENU:
         if _menu is None:
             _make_menu(view_manager)
         if button == BUTTON_UP:
-            inp.reset()
             _menu.scroll_up()
         elif button == BUTTON_DOWN:
-            inp.reset()
             _menu.scroll_down()
         elif button == BUTTON_BACK:
-            inp.reset()
             view_manager.back()
         elif button == BUTTON_CENTER:
-            inp.reset()
             idx = _menu.selected_index
             if idx == 0:
                 _goto_work(view_manager)
@@ -1056,18 +1051,14 @@ def run(view_manager) -> None:
         if _add_menu is None:
             _make_add(view_manager)
         if button == BUTTON_UP:
-            inp.reset()
             _add_menu.scroll_up()
         elif button == BUTTON_DOWN:
-            inp.reset()
             _add_menu.scroll_down()
         elif button == BUTTON_BACK:
-            inp.reset()
             _kill("add")
             _state = ST_MENU
             _make_menu(view_manager)
         elif button == BUTTON_CENTER:
-            inp.reset()
             _add_kind(_add_menu.selected_index)
             _kill("add")
             _goto_work(view_manager)
@@ -1076,18 +1067,14 @@ def run(view_manager) -> None:
         if _list_menu is None:
             _make_list(view_manager)
         if button == BUTTON_UP:
-            inp.reset()
             _list_menu.scroll_up()
         elif button == BUTTON_DOWN:
-            inp.reset()
             _list_menu.scroll_down()
         elif button == BUTTON_BACK:
-            inp.reset()
             _kill("list")
             _state = ST_MENU
             _make_menu(view_manager)
         elif button == BUTTON_CENTER:
-            inp.reset()
             if _parts:
                 _sel = _list_menu.selected_index
                 if _sel < 0:
@@ -1101,18 +1088,14 @@ def run(view_manager) -> None:
         if _file_menu is None:
             _make_files(view_manager, _file_mode == 0)
         if button == BUTTON_UP:
-            inp.reset()
             _file_menu.scroll_up()
         elif button == BUTTON_DOWN:
-            inp.reset()
             _file_menu.scroll_down()
         elif button == BUTTON_BACK:
-            inp.reset()
             _kill("file")
             _state = ST_MENU
             _make_menu(view_manager)
         elif button == BUTTON_CENTER:
-            inp.reset()
             idx = _file_menu.selected_index
             names = _list_models(_storage)
             if _file_mode == 0:
@@ -1143,115 +1126,91 @@ def run(view_manager) -> None:
         if _help_box is None:
             _make_help(view_manager)
         if button == BUTTON_BACK:
-            inp.reset()
             _kill("help")
             _state = ST_MENU
             _make_menu(view_manager)
         elif button == BUTTON_UP:
-            inp.reset()
             _help_box.scroll_up()
         elif button == BUTTON_DOWN:
-            inp.reset()
             _help_box.scroll_down()
 
     elif _state == ST_WORK:
         moved = False
         if button == BUTTON_BACK:
-            inp.reset()
             _state = ST_MENU
             _make_menu(view_manager)
             return
         if button == BUTTON_LEFT:
-            inp.reset()
             if _mode == MD_ORBIT:
                 _yaw -= 0.16
             else:
                 _apply_arrows(-1, 0)
             moved = True
         elif button == BUTTON_RIGHT:
-            inp.reset()
             if _mode == MD_ORBIT:
                 _yaw += 0.16
             else:
                 _apply_arrows(1, 0)
             moved = True
         elif button == BUTTON_UP:
-            inp.reset()
             if _mode == MD_ORBIT:
                 _pitch = _clamp(_pitch + 0.11, -0.2, 1.4)
             else:
                 _apply_arrows(0, 1)
             moved = True
         elif button == BUTTON_DOWN:
-            inp.reset()
             if _mode == MD_ORBIT:
                 _pitch = _clamp(_pitch - 0.11, -0.2, 1.4)
             else:
                 _apply_arrows(0, -1)
             moved = True
         elif button in (BUTTON_PLUS, BUTTON_EQUAL):
-            inp.reset()
             _apply_plus(1)
             moved = True
         elif button == BUTTON_MINUS:
-            inp.reset()
             _apply_plus(-1)
             moved = True
         elif button == BUTTON_O:
-            inp.reset()
             _mode = MD_ORBIT
             moved = True
         elif button in (BUTTON_G, BUTTON_M):
-            inp.reset()
             _mode = MD_MOVE
             moved = True
         elif button == BUTTON_T:
-            inp.reset()
             _mode = MD_SCALE
             moved = True
         elif button == BUTTON_Y:
-            inp.reset()
             _mode = MD_ROT
             moved = True
         elif button == BUTTON_TAB:
-            inp.reset()
             _cycle_sel(1)
             moved = True
         elif button == BUTTON_N:
-            inp.reset()
             _state = ST_ADD
             _make_add(view_manager)
             return
         elif button == BUTTON_1:
-            inp.reset()
             _add_kind(KIND_BOX)
             moved = True
         elif button == BUTTON_2:
-            inp.reset()
             _add_kind(KIND_CYL)
             moved = True
         elif button == BUTTON_3:
-            inp.reset()
             _add_kind(KIND_WEDGE)
             moved = True
         elif button == BUTTON_4:
-            inp.reset()
             _add_kind(KIND_PYR)
             moved = True
         elif button == BUTTON_5:
-            inp.reset()
             _add_kind(KIND_PLATE)
             moved = True
         elif button == BUTTON_D:
-            inp.reset()
             _dup_sel()
             moved = True
         elif button == BUTTON_X:
-            inp.reset()
             _del_sel()
             moved = True
         elif button == BUTTON_C:
-            inp.reset()
             if _parts:
                 p = _parts[_sel]
                 try:
@@ -1261,19 +1220,15 @@ def run(view_manager) -> None:
                 p["col"] = PALETTE[(i + 1) % len(PALETTE)]
             moved = True
         elif button == BUTTON_W:
-            inp.reset()
             _style = 0
             moved = True
         elif button == BUTTON_S:
-            inp.reset()
             _style = (_style + 1) % 3
             moved = True
         elif button == BUTTON_R:
-            inp.reset()
             _reset_cam()
             moved = True
         elif button == BUTTON_P:
-            inp.reset()
             if _ensure_dir(_storage):
                 name = _next_name(_storage, "shot", ".bmp")
                 try:
@@ -1285,22 +1240,18 @@ def run(view_manager) -> None:
                 _toast = "no SD"
             moved = True
         elif button == BUTTON_E:
-            inp.reset()
             _state = ST_FILES
             _make_files(view_manager, True)
             return
         elif button == BUTTON_L:
-            inp.reset()
             _state = ST_FILES
             _make_files(view_manager, False)
             return
         elif button in (BUTTON_H, BUTTON_QUESTION):
-            inp.reset()
             _state = ST_HELP
             _make_help(view_manager)
             return
         elif button == BUTTON_CENTER:
-            inp.reset()
             _cycle_sel(1)
             moved = True
 

@@ -38,12 +38,9 @@ def run(view_manager):
     """Run the app."""
     global clr
 
-    input_manager = view_manager.input_manager
-    button = input_manager.button
+    button = view_manager.button
 
     if button == BUTTON_CENTER:
-        input_manager.reset()
-
         draw = view_manager.draw
         draw.clear()
         _pos = draw.scale(130, 160)
@@ -53,7 +50,6 @@ def run(view_manager):
         clr = randint(0, 4)
 
     elif button == BUTTON_BACK:
-        input_manager.reset()
         view_manager.back()
 
 

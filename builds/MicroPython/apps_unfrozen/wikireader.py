@@ -2388,24 +2388,18 @@ def run_main_menu(view_manager):
     global active_ui, settings, help_origin_state, article_origin_state, _is_random_article, current_list_type
     if not active_ui:
         return
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_UP:
         active_ui.scroll_up()
-        inp.reset()
     elif button == BUTTON_DOWN:
         active_ui.scroll_down()
-        inp.reset()
     elif button == BUTTON_BACK:
-        inp.reset()
         change_state(view_manager, STATE_EXIT)
     elif button == BUTTON_1:
-        inp.reset()
         change_state(view_manager, STATE_SEARCH_KEYBOARD)
     elif button == BUTTON_CENTER:
         selected = active_ui.current_item
-        inp.reset()
         if selected == "Search":
             change_state(view_manager, STATE_SEARCH_KEYBOARD)
         elif selected == "Random Article":
@@ -2493,9 +2487,8 @@ def run_loading(view_manager):
     """Display the loading animation."""
     global http_client, _http_response_data, current_state, _request_start_time, _http_lock, loading_spinner, _current_request_type, current_article_title, article_textbox
 
-    inp = view_manager.input_manager
-    if inp.button == BUTTON_BACK:
-        inp.reset()
+    button = view_manager.button
+    if button == BUTTON_BACK:
 
         # Guardian RAM Rules: Kill the active HTTP request immediately to stop background thread accumulation
         if http_client:
@@ -2559,26 +2552,20 @@ def run_search_results(view_manager):
     global current_article_title, current_article_page_id, article_origin_state, active_ui, search_results, loading_spinner, _is_random_article
     if not active_ui:
         return
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_UP:
         active_ui.scroll_up()
-        inp.reset()
     elif button == BUTTON_DOWN:
         active_ui.scroll_down()
-        inp.reset()
     elif button == BUTTON_BACK:
-        inp.reset()
         change_state(view_manager, STATE_MAIN_MENU)
     elif button == BUTTON_1:
-        inp.reset()
         change_state(view_manager, STATE_SEARCH_KEYBOARD)
     elif button == BUTTON_CENTER:
         if search_results:
             selected_index = active_ui.selected_index
             current_article_title, current_article_page_id = search_results[selected_index]
-            inp.reset()
 
             article_origin_state = STATE_SEARCH_RESULTS
             _is_random_article = False
@@ -2588,7 +2575,6 @@ def run_search_results(view_manager):
                 loading_spinner.text = _replace_umlauts(f"Loading '{current_article_title}'...")
             fetch_article(view_manager, current_article_page_id)
         else:
-            inp.reset()
             change_state(view_manager, STATE_SEARCH_KEYBOARD)
 
 
@@ -2598,55 +2584,44 @@ def run_view_article(view_manager):
     if not article_textbox:
         return
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     needs_redraw = False
 
     if button == BUTTON_UP:
         article_textbox.scroll_up(2)
-        inp.reset()
         needs_redraw = True
     elif button == BUTTON_DOWN:
         article_textbox.scroll_down(2)
-        inp.reset()
         needs_redraw = True
     elif button == BUTTON_LEFT:
         article_textbox.page_up()
-        inp.reset()
         needs_redraw = True
     elif button == BUTTON_RIGHT:
         article_textbox.page_down()
-        inp.reset()
         needs_redraw = True
     elif button == BUTTON_BACK:
-        inp.reset()
         _go_back_from_article(view_manager)
         return
     elif button == BUTTON_0:
-        inp.reset()
         if article_textbox:
             article_textbox.jump_to_line(0)
             needs_redraw = True
     elif button == BUTTON_9:
-        inp.reset()
         if article_textbox and article_textbox.num_lines > 0:
             article_textbox.jump_to_line(article_textbox.num_lines - 1)
             needs_redraw = True
     elif button == BUTTON_COMMA:
-        inp.reset()
         if article_textbox:
             if not article_textbox.prev_heading():
                 show_toast(view_manager, "Top of article", 1)
             needs_redraw = True
     elif button == BUTTON_PERIOD:
-        inp.reset()
         if article_textbox:
             if not article_textbox.next_heading():
                 show_toast(view_manager, "Bottom of article", 1)
             needs_redraw = True
     elif button == BUTTON_S:
-        inp.reset()
         settings["font_size"] = 1 if settings.get("font_size", 0) == 0 else 0
         _settings_dirty = True
         save_settings_to_sd(view_manager)
@@ -2668,34 +2643,27 @@ def run_view_article(view_manager):
             gc.collect()
             needs_redraw = True
     elif button == BUTTON_H:
-        inp.reset()
         help_origin_state = STATE_VIEW_ARTICLE
         change_state(view_manager, STATE_HELP)
         return
     elif button == BUTTON_L:
         language_menu_origin_state = STATE_VIEW_ARTICLE
         change_state(view_manager, STATE_LANGUAGES)
-        inp.reset()
         return
     elif button == BUTTON_F:
-        inp.reset()
         _toggle_favorite(view_manager)
         needs_redraw = True
     elif button == BUTTON_D:
-        inp.reset()
         _toggle_offline(view_manager)
         needs_redraw = True
     elif button == BUTTON_T:
-        inp.reset()
         current_list_type = "toc"
         change_state(view_manager, STATE_LIST_VIEW)
         return
     elif button == BUTTON_CENTER:
-        inp.reset()
         change_state(view_manager, STATE_QUICK_ACTIONS)
         return
     elif button == BUTTON_W:
-        inp.reset()
 
         if article_textbox and not article_textbox.links_preloaded:
             _current_request_type = REQ_PRELOAD_LINKS
@@ -2719,7 +2687,6 @@ def run_view_article(view_manager):
             show_toast(view_manager, "No links on screen.", 1)
             needs_redraw = True
     elif button == BUTTON_R:
-        inp.reset()
         if _is_random_article:
             if article_textbox:
                 del article_textbox
@@ -2764,21 +2731,16 @@ def run_settings(view_manager):
     global language_menu_origin_state, active_ui, settings, _settings_dirty
     if not active_ui:
         return
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_UP:
         active_ui.scroll_up()
-        inp.reset()
     elif button == BUTTON_DOWN:
         active_ui.scroll_down()
-        inp.reset()
     elif button == BUTTON_BACK:
-        inp.reset()
         # Don't save on back
         change_state(view_manager, STATE_MAIN_MENU)
     elif button == BUTTON_CENTER:
-        inp.reset()
         selected_index = active_ui.selected_index
         if selected_index == 0:  # Full Article
             settings["full_article"] = not settings["full_article"]
@@ -2831,20 +2793,15 @@ def run_clear_data(view_manager):
     global active_ui, settings, _settings_dirty
     if not active_ui:
         return
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_UP:
         active_ui.scroll_up()
-        inp.reset()
     elif button == BUTTON_DOWN:
         active_ui.scroll_down()
-        inp.reset()
     elif button == BUTTON_BACK:
-        inp.reset()
         change_state(view_manager, STATE_SETTINGS)
     elif button == BUTTON_CENTER:
-        inp.reset()
         selected_index = active_ui.selected_index
         if selected_index == 0:  # Clear Cache
             clear_cache(view_manager)
@@ -2913,17 +2870,13 @@ def run_languages(view_manager):
     global _target_language, _current_request_type, active_ui, settings, language_menu_origin_state, loading_spinner, http_client, current_article_page_id, _request_start_time, _settings_dirty
     if not active_ui:
         return
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_UP:
         active_ui.scroll_up()
-        inp.reset()
     elif button == BUTTON_DOWN:
         active_ui.scroll_down()
-        inp.reset()
     elif button == BUTTON_BACK:
-        inp.reset()
         if language_menu_origin_state == STATE_VIEW_ARTICLE:
             change_state(view_manager, STATE_VIEW_ARTICLE)
             if article_textbox:
@@ -2933,7 +2886,6 @@ def run_languages(view_manager):
     elif button == BUTTON_CENTER:
         new_lang = active_ui.current_item
         old_lang = settings["language"]
-        inp.reset()
         if language_menu_origin_state == STATE_VIEW_ARTICLE and new_lang != old_lang:
             _target_language = new_lang
             change_state(view_manager, STATE_LOADING)
@@ -2964,17 +2916,13 @@ def run_list_view(view_manager):
     global active_ui, current_list_type, current_article_title, current_article_page_id, article_origin_state, loading_spinner, _is_random_article, settings, links_data, article_textbox, article_nav_stack
     if not active_ui:
         return
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_UP:
         active_ui.scroll_up()
-        inp.reset()
     elif button == BUTTON_DOWN:
         active_ui.scroll_down()
-        inp.reset()
     elif button == BUTTON_BACK:
-        inp.reset()
         if current_list_type in ("history", "favorites", "offline"):
             change_state(view_manager, STATE_MAIN_MENU)
         else:  # toc, links
@@ -2982,10 +2930,8 @@ def run_list_view(view_manager):
             if article_textbox:
                 article_textbox.draw_viewer(current_article_title)
     elif button == BUTTON_1 and current_list_type in ("history", "favorites", "offline"):
-        inp.reset()
         change_state(view_manager, STATE_SEARCH_KEYBOARD)
     elif button == BUTTON_CENTER:
-        inp.reset()
         if current_list_type in ("history", "favorites", "offline"):
             items = settings.get(current_list_type, [])
             if items and active_ui.selected_index < len(items):
@@ -3040,23 +2986,18 @@ def run_quick_actions(view_manager):
     global active_ui, article_textbox, current_article_title, links_data, _current_request_type, loading_spinner, current_article_page_id, _is_random_article, current_list_type
     if not active_ui:
         return
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_UP:
         active_ui.scroll_up()
-        inp.reset()
     elif button == BUTTON_DOWN:
         active_ui.scroll_down()
-        inp.reset()
     elif button == BUTTON_BACK:
-        inp.reset()
         change_state(view_manager, STATE_VIEW_ARTICLE)
         if article_textbox:
             article_textbox.draw_viewer(current_article_title)
     elif button == BUTTON_CENTER:
         selected = active_ui.current_item
-        inp.reset()
 
         if selected == "Cancel":
             change_state(view_manager, STATE_VIEW_ARTICLE)
@@ -3142,23 +3083,16 @@ def run_help(view_manager):
     global active_ui, help_origin_state
     if not active_ui:
         return
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_UP:
         active_ui.scroll_up()
-        inp.reset()
     elif button == BUTTON_DOWN:
         active_ui.scroll_down()
-        inp.reset()
     elif button == BUTTON_BACK:
-        inp.reset()
         change_state(view_manager, help_origin_state)
         if help_origin_state == STATE_VIEW_ARTICLE and article_textbox:
             article_textbox.draw_viewer(current_article_title)
-
-# --- Picoware App Lifecycle ---
-
 
 def start(view_manager):
     """Called when the application is launched."""
@@ -3293,7 +3227,7 @@ def run(view_manager):
     # Guardian CPU Rules: If no button is pressed, and we aren't in a state
     # that requires continuous polling (like loading/keyboard), instantly return!
     # This completely eliminates unnecessary function call overhead on idle ticks.
-    if view_manager.input_manager.button == -1 and current_state not in (STATE_LOADING, STATE_SEARCH_KEYBOARD) and not needs_redraw:
+    if view_manager.button == -1 and current_state not in (STATE_LOADING, STATE_SEARCH_KEYBOARD) and not needs_redraw:
         return
 
     # State machine

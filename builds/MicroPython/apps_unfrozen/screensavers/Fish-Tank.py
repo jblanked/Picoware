@@ -1,4 +1,4 @@
-# Aquarium-like Screensaver, made with Swift-1.5-Qwen3.8:27b
+# Aquarium-like Screensaver, made with Swift-1.5-Qwen3.8:27b and Kintsugi-27B
 from random import randint, uniform
 from math import sin
 from time import ticks_ms, ticks_diff, sleep_ms
@@ -31,23 +31,23 @@ view_manager = None
 
 
 def make_fish():
-    '''Create one random fish'''
+    """Create one random fish"""
     direction = 1 if randint(0, 1) else -1
     size = randint(6, 12)
     return {
-        'x': uniform(0, screen_w),
-        'y': uniform(30, sand_top - 30),
-        'base_y': 0.0,
-        'dir': direction,
-        'speed': uniform(0.4, 1.4) * direction,
-        'size': size,
-        'color': randint(0, 5),
-        'phase': uniform(0, 6.28),
+        "x": uniform(0, screen_w),
+        "y": uniform(30, sand_top - 30),
+        "base_y": 0.0,
+        "dir": direction,
+        "speed": uniform(0.4, 1.4) * direction,
+        "size": size,
+        "color": randint(0, 5),
+        "phase": uniform(0, 6.28),
     }
 
 
 def colors_for(index):
-    '''Map index to a fish color'''
+    """Map index to a fish color"""
     table = (
         TFT_ORANGE,
         TFT_PINK,
@@ -60,53 +60,56 @@ def colors_for(index):
 
 
 def draw_water():
-    '''Draw the water gradient'''
+    """Draw the water gradient"""
     draw = view_manager.draw
     bands = ((WATER_TOP, 0), (WATER_1, 60), (WATER_2, 140), (WATER_3, 220))
     for color, y in bands:
         draw._fill_rectangle(0, y, screen_w, screen_h - y, color)
     draw._fill_rectangle(0, sand_top, screen_w, screen_h - sand_top, SAND)
     for x in range(0, screen_w, 8):
-        draw._line(
-            x, sand_top, x + 4, sand_top - 2, SAND
-        )
+        draw._line(x, sand_top, x + 4, sand_top - 2, SAND)
 
 
 def draw_weeds():
-    '''Draw swaying seaweed'''
+    """Draw swaying seaweed"""
     draw = view_manager.draw
     for i, base_x in enumerate((18, 46, 250, 285)):
         sway = sin(ticks_ms() / 900 + i) * 6
         color = TFT_GREEN if i % 2 else TFT_DARKGREEN
         draw._line(base_x, sand_top, base_x + sway / 2, sand_top - 26, color)
-        draw._line(base_x + sway / 2, sand_top - 26, base_x + sway, sand_top - 50, color)
+        draw._line(
+            base_x + sway / 2, sand_top - 26, base_x + sway, sand_top - 50, color
+        )
 
 
 def draw_bubbles():
-    '''Draw and advance bubbles'''
+    """Draw and advance bubbles"""
     draw = view_manager.draw
     for bubble in bubbles[:]:
-        bubble['y'] -= bubble['v']
-        bubble['x'] += sin(bubble['y'] / 9) * 0.3
-        if bubble['y'] < 4:
+        bubble["y"] -= bubble["v"]
+        bubble["x"] += sin(bubble["y"] / 9) * 0.3
+        if bubble["y"] < 4:
             bubbles.remove(bubble)
             continue
-        draw._circle(int(bubble['x']), int(bubble['y']), bubble['r'], FOAM)
+        draw._circle(int(bubble["x"]), int(bubble["y"]), bubble["r"], FOAM)
 
 
 def draw_fish(f):
-    '''Draw one fish with tail and eye'''
+    """Draw one fish with tail and eye"""
     draw = view_manager.draw
-    x = int(f['x'])
-    y = int(f['base_y'] + sin(f['phase']) * 5)
-    r = f['size']
-    d = f['dir']
-    color = colors_for(f['color'])
+    x = int(f["x"])
+    y = int(f["base_y"] + sin(f["phase"]) * 5)
+    r = f["size"]
+    d = f["dir"]
+    color = colors_for(f["color"])
     draw._fill_circle(x, y, r, color)
     draw._fill_triangle(
-        x - d * r, y,
-        x - d * (r * 2), y - r,
-        x - d * (r * 2), y + r,
+        x - d * r,
+        y,
+        x - d * (r * 2),
+        y - r,
+        x - d * (r * 2),
+        y + r,
         color,
     )
     draw._fill_circle(x + d * (r + 1), y - 2, 2, 0xFFFF)
@@ -114,35 +117,37 @@ def draw_fish(f):
 
 
 def update():
-    '''Advance fish and bubbles'''
+    """Advance fish and bubbles"""
     for f in fish:
-        f['x'] += f['speed']
-        f['phase'] += 0.12 + abs(f['speed']) * 0.05
+        f["x"] += f["speed"]
+        f["phase"] += 0.12 + abs(f["speed"]) * 0.05
         limit = 25
-        if f['x'] > screen_w + limit:
-            f['x'] = -limit
-        elif f['x'] < -limit:
-            f['x'] = screen_w + limit
+        if f["x"] > screen_w + limit:
+            f["x"] = -limit
+        elif f["x"] < -limit:
+            f["x"] = screen_w + limit
     if len(bubbles) < 20 and randint(1, 4) == 1:
-        bubbles.append({
-            'x': uniform(10, screen_w - 10),
-            'y': sand_top - 5,
-            'v': uniform(0.5, 1.2),
-            'r': randint(1, 3),
-        })
+        bubbles.append(
+            {
+                "x": uniform(10, screen_w - 10),
+                "y": sand_top - 5,
+                "v": uniform(0.5, 1.2),
+                "r": randint(1, 3),
+            }
+        )
 
 
 def start(view_manager):
-    '''Start the app'''
+    """Start the app"""
     global fish, bubbles, last_frame, screen_w, screen_h, sand_top
-    globals()['view_manager'] = view_manager
+    globals()["view_manager"] = view_manager
     draw = view_manager.draw
     screen_w = draw.size.x
     screen_h = draw.size.y
     sand_top = screen_h - 26
     fish = [make_fish() for _ in range(6)]
     for f in fish:
-        f['base_y'] = f['y']
+        f["base_y"] = f["y"]
     bubbles = []
     last_frame = ticks_ms()
     draw_water()
@@ -153,7 +158,7 @@ def start(view_manager):
 
 
 def run(view_manager):
-    '''Run the app'''
+    """Run the app"""
     global last_frame
     draw = view_manager.draw
     if view_manager.button == BUTTON_BACK:
@@ -173,8 +178,9 @@ def run(view_manager):
 
 
 def stop(view_manager):
-    '''Stop the app'''
+    """Stop the app"""
     from gc import collect
+
     fish.clear()
     bubbles.clear()
     collect()

@@ -99,18 +99,15 @@ def run(view_manager) -> None:
     global _location_last_update, _location_dot_count
     global _weather_last_update, _weather_dot_count
 
-    input_manager = view_manager.input_manager
-    button = input_manager.button
+    button = view_manager.button
     draw = view_manager.draw
 
     if button in (BUTTON_LEFT, BUTTON_BACK):
-        input_manager.reset()
         __reset_weather_state()
         view_manager.back()
         return
 
     if button in (BUTTON_RIGHT, BUTTON_CENTER):
-        input_manager.reset()
         __reset_weather_state()
         draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
         draw.text(Vector(5, 5), "Fetching location data...")

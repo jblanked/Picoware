@@ -548,23 +548,18 @@ def run(view_manager) -> None:
 
     global _state, _menu, _data_fetched, _data_loaded, _http, _news_data, _news_scroll, _news_view_dirty, _info_view_dirty
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if _state == STATE_MENU:
         if button == BUTTON_BACK:
-            inp.reset()
             view_manager.back()
         elif button in (BUTTON_UP, BUTTON_LEFT):
-            inp.reset()
             _menu.scroll_up()
 
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-            inp.reset()
             _menu.scroll_down()
 
         elif button == BUTTON_CENTER:
-            inp.reset()
             _state = _menu.selected_index
             if _state in (STATE_OFFSET, STATE_KEY, STATE_SOURCE):
                 # load current setting for keyboard input
@@ -574,7 +569,6 @@ def run(view_manager) -> None:
                 __keyboard_start(view_manager, title, save_key, initial_text)
     elif _state == STATE_VIEW:
         if button == BUTTON_BACK:
-            inp.reset()
             _state = STATE_MENU
             __menu_start(view_manager)
         # first we fetch news (and show loading animation)
@@ -618,12 +612,10 @@ def run(view_manager) -> None:
             ) or 13
             total = len(_news_data)
             if button in (BUTTON_UP, BUTTON_LEFT):
-                inp.reset()
                 if _news_scroll > 0:
                     _news_scroll -= 1
                     _news_view_dirty = True
             elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-                inp.reset()
                 if _news_scroll + visible < total:
                     _news_scroll += 1
                     _news_view_dirty = True
@@ -639,7 +631,6 @@ def run(view_manager) -> None:
             __draw_info_view(view_manager)
             _info_view_dirty = False
         if button == BUTTON_BACK:
-            inp.reset()
             _state = STATE_MENU
             __menu_start(view_manager)
 

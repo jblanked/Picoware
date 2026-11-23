@@ -1,182 +1,205 @@
-# 
-# ADSB-Radar.py 
-# 
-# Picoware ADS-B Radar v1 
-# 
-# Controls 
-# -------- 
-# UP        Range + 
-# DOWN      Range - 
-# RIGHT     Setup 
-# LEFT      Exit 
-# 
+#
+# ADSB-Radar.py
+#
+# Picoware ADS-B Radar v1
+#
+# Controls
+# --------
+# UP        Range +
+# DOWN      Range -
+# RIGHT     Setup
+# LEFT      Exit
+#
 
-import math 
+import math
 
-from json import loads 
-from json import dumps 
+from json import loads
+from json import dumps
 
-from micropython import const 
+from micropython import const
 
-try: 
-  from utime import ticks_ms 
-except: 
-  from supervisor import ticks_ms 
+try:
+    from utime import ticks_ms
+except:
+    from supervisor import ticks_ms
 
-############################################################################## 
-# STATES 
-############################################################################## 
+##############################################################################
+# STATES
+##############################################################################
 
-STATE_RADAR = const(0) 
-STATE_EDIT_LAT = const(1) 
-STATE_EDIT_LON = const(2) 
- 
-############################################################################## 
-# CONFIG 
-############################################################################## 
+STATE_RADAR = const(0)
+STATE_EDIT_LAT = const(1)
+STATE_EDIT_LON = const(2)
 
-CONFIG_FILE = "picoware/adsb/config.json" 
+##############################################################################
+# CONFIG
+##############################################################################
 
-DEFAULT_LAT = 51.2574 
-DEFAULT_LON = 3.0021 
+CONFIG_FILE = "picoware/adsb/config.json"
 
-DEFAULT_RANGE = 25 
+DEFAULT_LAT = 51.2574
+DEFAULT_LON = 3.0021
 
-############################################################################## 
-# RADAR GEOMETRY 
-############################################################################## 
+DEFAULT_RANGE = 25
 
-RADAR_X = 160 
-RADAR_Y = 160 
-RADAR_RADIUS = 125 
+##############################################################################
+# RADAR GEOMETRY
+##############################################################################
 
-############################################################################## 
-# FETCH 
-############################################################################## 
+RADAR_X = 160
+RADAR_Y = 160
+RADAR_RADIUS = 125
 
-FETCH_INTERVAL = 10000 
+##############################################################################
+# FETCH
+##############################################################################
 
-############################################################################## 
-# GLOBALS 
-############################################################################## 
+FETCH_INTERVAL = 10000
 
-_state = STATE_RADAR 
+##############################################################################
+# GLOBALS
+##############################################################################
 
-_http = None 
+_state = STATE_RADAR
 
-_radar_lat = DEFAULT_LAT 
-_radar_lon = DEFAULT_LON 
-_radar_range = DEFAULT_RANGE 
+_http = None
 
-_aircraft = [] 
+_radar_lat = DEFAULT_LAT
+_radar_lon = DEFAULT_LON
+_radar_range = DEFAULT_RANGE
 
-_last_fetch = 0 
+_aircraft = []
 
-_download_running = False 
+_last_fetch = 0
 
-_status = "Starting" 
+_download_running = False
+
+_status = "Starting"
 
 
-############################################################################## 
-# HELPERS 
-############################################################################## 
+##############################################################################
+# HELPERS
+##############################################################################
 
-def load_config(view_manager): 
 
-    global _radar_lat 
-    global _radar_lon 
-    global _radar_range 
-    global _status 
+def load_config(view_manager):
 
-    storage = view_manager.storage 
+    global _radar_lat
+    global _radar_lon
+    global _radar_range
+    global _status
 
-    try: 
-        if storage.exists(CONFIG_FILE): 
-            cfg = loads(storage.read(CONFIG_FILE)) 
+    storage = view_manager.storage
+
+    try:
+        if storage.exists(CONFIG_FILE):
+            cfg = loads(storage.read(CONFIG_FILE))
             _radar_lat = cfg.get("lat", DEFAULT_LAT)
-            _radar_lon = cfg.get("lon", DEFAULT_LON) 
-            _radar_range = cfg.get("range", DEFAULT_RANGE) 
-    except Exception as e: 
+            _radar_lon = cfg.get("lon", DEFAULT_LON)
+            _radar_range = cfg.get("range", DEFAULT_RANGE)
+    except Exception as e:
         _status = "ERROR: " + e
-        pass 
-
-def save_config(view_manager): 
-
-    storage = view_manager.storage 
-
-    storage.mkdir("picoware/adsb") 
-
-    storage.write(CONFIG_FILE, 
-        dumps( 
-            { 
-                "lat": _radar_lat, 
-                "lon": _radar_lon, 
-                "range": _radar_range, 
-            } 
-        ), 
-    ) 
+        pass
 
 
-############################################################################## 
-# GEO 
-############################################################################## 
+def save_config(view_manager):
 
-def haversine(lat1, lon1, lat2, lon2): 
+    storage = view_manager.storage
 
-    dlat = math.radians(lat2 - lat1) 
-    dlon = math.radians(lon2 - lon1) 
-    a = (math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2) 
+    storage.mkdir("picoware/adsb")
 
-    return (6371 * 2 * math.atan2(math.sqrt(a),math.sqrt(1 - a))) 
-
-def bearing(lat1, lon1, lat2, lon2): 
-
-    dlon = math.radians(lon2 - lon1) 
-
-    y = (math.sin(dlon) * math.cos(math.radians(lat2))) 
-    x = (math.cos(math.radians(lat1)) * math.sin(math.radians(lat2)) - math.sin(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.cos(dlon)) 
-
-    return (math.degrees(math.atan2(y, x)) + 360) % 360 
+    storage.write(
+        CONFIG_FILE,
+        dumps(
+            {
+                "lat": _radar_lat,
+                "lon": _radar_lon,
+                "range": _radar_range,
+            }
+        ),
+    )
 
 
-############################################################################## 
-# SETUP 
-############################################################################## 
+##############################################################################
+# GEO
+##############################################################################
 
-def edit_latitude(view_manager): 
 
-    global _state 
+def haversine(lat1, lon1, lat2, lon2):
 
-    kb = view_manager.keyboard 
-    kb.reset() 
-    kb.title = "Latitude" 
-    kb.response = str(_radar_lat) 
-    kb.run(force=True) 
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(dlon / 2) ** 2
+    )
 
-    _state = STATE_EDIT_LAT 
+    return 6371 * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-def edit_longitude(view_manager): 
 
-    global _state 
+def bearing(lat1, lon1, lat2, lon2):
 
-    kb = view_manager.keyboard 
-    kb.reset() 
-    kb.title = "Longitude" 
-    kb.response = str(_radar_lon) 
-    kb.run(force=True) 
+    dlon = math.radians(lon2 - lon1)
 
-    _state = STATE_EDIT_LON 
+    y = math.sin(dlon) * math.cos(math.radians(lat2))
+    x = math.cos(math.radians(lat1)) * math.sin(math.radians(lat2)) - math.sin(
+        math.radians(lat1)
+    ) * math.cos(math.radians(lat2)) * math.cos(dlon)
 
- 
-############################################################################## 
-# ADSB 
-############################################################################## 
+    return (math.degrees(math.atan2(y, x)) + 360) % 360
 
-def build_url(): 
 
-    nm = (_radar_range / 1.852) 
+##############################################################################
+# SETUP
+##############################################################################
 
-    return ("https://opendata.adsb.fi/api/v3/lat/" + str(round(_radar_lat, 5)) + "/lon/" + str(round(_radar_lon, 5)) + "/dist/" + str(round(nm, 1))) 
+
+def edit_latitude(view_manager):
+
+    global _state
+
+    kb = view_manager.keyboard
+    kb.reset()
+    kb.title = "Latitude"
+    kb.response = str(_radar_lat)
+    kb.run(force=True)
+
+    _state = STATE_EDIT_LAT
+
+
+def edit_longitude(view_manager):
+
+    global _state
+
+    kb = view_manager.keyboard
+    kb.reset()
+    kb.title = "Longitude"
+    kb.response = str(_radar_lon)
+    kb.run(force=True)
+
+    _state = STATE_EDIT_LON
+
+
+##############################################################################
+# ADSB
+##############################################################################
+
+
+def build_url():
+
+    nm = _radar_range / 1.852
+
+    return (
+        "https://opendata.adsb.fi/api/v3/lat/"
+        + str(round(_radar_lat, 5))
+        + "/lon/"
+        + str(round(_radar_lon, 5))
+        + "/dist/"
+        + str(round(nm, 1))
+    )
+
 
 def start_fetch(view_manager):
     global _http
@@ -199,11 +222,8 @@ def start_fetch(view_manager):
 
         started = _http.get_async(
             url,
-            headers={
-                "Accept": "application/json",
-                "User-Agent": "Picoware-ADSB"
-            },
-            timeout=15.0
+            headers={"Accept": "application/json", "User-Agent": "Picoware-ADSB"},
+            timeout=15.0,
         )
 
         if started:
@@ -219,6 +239,7 @@ def start_fetch(view_manager):
     except Exception as e:
         _download_running = False
         _status = "Fetch: " + str(e)
+
 
 def parse_aircraft():
     global _aircraft
@@ -272,13 +293,8 @@ def parse_aircraft():
                     "hex": ac.get("hex", ""),
                     "flight": str(flight).strip(),
                     "distance": dist,
-                    "bearing": bearing(
-                        _radar_lat,
-                        _radar_lon,
-                        lat,
-                        lon
-                    ),
-                    "alt": alt
+                    "bearing": bearing(_radar_lat, _radar_lon, lat, lon),
+                    "alt": alt,
                 }
             )
 
@@ -288,68 +304,76 @@ def parse_aircraft():
     except Exception as e:
         _aircraft = []
         _status = "Parse: " + str(e)
- 
 
-############################################################################## 
-# DRAW 
-############################################################################## 
 
-def radar_xy(bearing_deg, distance): 
+##############################################################################
+# DRAW
+##############################################################################
 
-    radius = (distance / _radar_range ) * RADAR_RADIUS 
-    a = math.radians(bearing_deg - 90) 
-    x = int(RADAR_X + math.cos(a) * radius) 
-    y = int(RADAR_Y + math.sin(a) * radius) 
 
-    return x, y 
+def radar_xy(bearing_deg, distance):
 
-def altitude_color(alt): 
+    radius = (distance / _radar_range) * RADAR_RADIUS
+    a = math.radians(bearing_deg - 90)
+    x = int(RADAR_X + math.cos(a) * radius)
+    y = int(RADAR_Y + math.sin(a) * radius)
 
-    from picoware.system.colors import (TFT_GREEN, TFT_YELLOW, TFT_ORANGE, TFT_RED) 
+    return x, y
 
-    if alt < 5000: 
-        return TFT_GREEN 
 
-    if alt < 15000: 
-        return TFT_YELLOW 
+def altitude_color(alt):
 
-    if alt < 30000: 
-        return TFT_ORANGE 
+    from picoware.system.colors import TFT_GREEN, TFT_YELLOW, TFT_ORANGE, TFT_RED
 
-    return TFT_RED 
+    if alt < 5000:
+        return TFT_GREEN
 
-def draw_radar(view_manager): 
+    if alt < 15000:
+        return TFT_YELLOW
 
-    from picoware.system.colors import (TFT_BLACK, TFT_GREEN, TFT_WHITE, TFT_CYAN) 
+    if alt < 30000:
+        return TFT_ORANGE
 
-    draw = view_manager.draw 
-    draw.fill_screen(TFT_BLACK) 
-    draw._circle(RADAR_X, RADAR_Y, RADAR_RADIUS, TFT_GREEN) 
-    draw._circle(RADAR_X, RADAR_Y, 95, TFT_GREEN) 
-    draw._circle(RADAR_X, RADAR_Y, 65, TFT_GREEN) 
-    draw._circle(RADAR_X, RADAR_Y, 35, TFT_GREEN) 
-    draw._line(RADAR_X - RADAR_RADIUS, RADAR_Y, RADAR_X + RADAR_RADIUS, RADAR_Y, TFT_GREEN) 
-    draw._line(RADAR_X, RADAR_Y - RADAR_RADIUS, RADAR_X, RADAR_Y + RADAR_RADIUS, TFT_GREEN) 
-    draw._text(156, 20, "N", TFT_GREEN) 
-    draw._text(156, 290, "S", TFT_GREEN) 
-    draw._text(20, 156, "W", TFT_GREEN) 
-    draw._text(290, 156, "E", TFT_GREEN) 
+    return TFT_RED
 
-    for plane in _aircraft: 
+
+def draw_radar(view_manager):
+
+    from picoware.system.colors import TFT_BLACK, TFT_GREEN, TFT_WHITE, TFT_CYAN
+
+    draw = view_manager.draw
+    draw.fill_screen(TFT_BLACK)
+    draw._circle(RADAR_X, RADAR_Y, RADAR_RADIUS, TFT_GREEN)
+    draw._circle(RADAR_X, RADAR_Y, 95, TFT_GREEN)
+    draw._circle(RADAR_X, RADAR_Y, 65, TFT_GREEN)
+    draw._circle(RADAR_X, RADAR_Y, 35, TFT_GREEN)
+    draw._line(
+        RADAR_X - RADAR_RADIUS, RADAR_Y, RADAR_X + RADAR_RADIUS, RADAR_Y, TFT_GREEN
+    )
+    draw._line(
+        RADAR_X, RADAR_Y - RADAR_RADIUS, RADAR_X, RADAR_Y + RADAR_RADIUS, TFT_GREEN
+    )
+    draw._text(156, 20, "N", TFT_GREEN)
+    draw._text(156, 290, "S", TFT_GREEN)
+    draw._text(20, 156, "W", TFT_GREEN)
+    draw._text(290, 156, "E", TFT_GREEN)
+
+    for plane in _aircraft:
         if plane["distance"] <= _radar_range:
-            x, y = radar_xy(plane["bearing"], plane["distance"]) 
-            draw._fill_circle(x, y, 4, altitude_color(plane["alt"])) 
-            label = (plane["flight"] or plane["hex"]) 
-            draw._text(x + 5, y - 5, label[:8], TFT_WHITE) 
+            x, y = radar_xy(plane["bearing"], plane["distance"])
+            draw._fill_circle(x, y, 4, altitude_color(plane["alt"]))
+            label = plane["flight"] or plane["hex"]
+            draw._text(x + 5, y - 5, label[:8], TFT_WHITE)
 
-    draw._text(5, 5, _status, TFT_WHITE) 
-    draw._text(230, 5, str(_radar_range) + "km", TFT_CYAN) 
-    draw.swap() 
- 
+    draw._text(5, 5, _status, TFT_WHITE)
+    draw._text(230, 5, str(_radar_range) + "km", TFT_CYAN)
+    draw.swap()
 
-############################################################################## 
-# APP 
-############################################################################## 
+
+##############################################################################
+# APP
+##############################################################################
+
 
 def start(view_manager):
     global _status
@@ -364,6 +388,7 @@ def start(view_manager):
     if not wifi.is_connected():
         _status = "Connecting WiFi"
         from picoware.applications.wifi.utils import connect_to_saved_wifi
+
         connect_to_saved_wifi(view_manager)
         return False
 
@@ -375,50 +400,47 @@ def start(view_manager):
     return True
 
 
-def run(view_manager): 
+def run(view_manager):
 
-    global _state 
-    global _radar_range 
-    global _last_fetch 
-    global _download_running 
-    global _radar_lat 
-    global _radar_lon 
-    global _status 
+    global _state
+    global _radar_range
+    global _last_fetch
+    global _download_running
+    global _radar_lat
+    global _radar_lon
+    global _status
 
-    from picoware.system.buttons import ( 
-        BUTTON_UP, 
-        BUTTON_DOWN, 
-        BUTTON_RIGHT, 
-        BUTTON_LEFT 
-    ) 
+    from picoware.system.buttons import (
+        BUTTON_UP,
+        BUTTON_DOWN,
+        BUTTON_RIGHT,
+        BUTTON_LEFT,
+    )
 
-    inp = view_manager.input_manager 
-    button = inp.button 
+    button = view_manager.button
 
-    if button == BUTTON_LEFT: 
-        inp.reset() 
-        view_manager.back() 
-        return 
+    if button == BUTTON_LEFT:
+        view_manager.back()
+        return
 
-    if _state == STATE_RADAR: 
-        if button == BUTTON_UP: 
-            _radar_range += 5 
-            save_config(view_manager) 
-            inp.reset() 
-        elif button == BUTTON_DOWN: 
-            _radar_range = max(5, _radar_range - 5) 
-            save_config(view_manager) 
-            inp.reset() 
-        elif button == BUTTON_RIGHT: 
-            inp.reset() 
-            edit_latitude(view_manager) 
-        now = ticks_ms() 
-        if (now - _last_fetch > FETCH_INTERVAL): 
-            _last_fetch = now 
+    if _state == STATE_RADAR:
+        if button == BUTTON_UP:
+            _radar_range += 5
+            save_config(view_manager)
+
+        elif button == BUTTON_DOWN:
+            _radar_range = max(5, _radar_range - 5)
+            save_config(view_manager)
+
+        elif button == BUTTON_RIGHT:
+            edit_latitude(view_manager)
+        now = ticks_ms()
+        if now - _last_fetch > FETCH_INTERVAL:
+            _last_fetch = now
             try:
                 start_fetch(view_manager)
             except Exception as e:
-               _status = str(e) 
+                _status = str(e)
         if _download_running:
             if _http is None:
                 _download_running = False
@@ -434,42 +456,44 @@ def run(view_manager):
                 else:
                     _status = "Parsing..."
                     parse_aircraft()
-        draw_radar(view_manager) 
-    elif _state == STATE_EDIT_LAT: 
-        kb = view_manager.keyboard 
-        if kb.is_finished: 
-            try: 
-                _radar_lat = float(kb.response) 
-            except: 
-                pass 
-            kb.reset() 
-            edit_longitude(view_manager) 
-        else: 
-            kb.run() 
-    elif _state == STATE_EDIT_LON: 
-        kb = view_manager.keyboard 
-        if kb.is_finished: 
-            try: 
-                _radar_lon = float(kb.response) 
-            except: 
-                pass 
-            save_config(view_manager) 
-            kb.reset() 
-            _state = STATE_RADAR 
-        else: 
-            kb.run() 
+        draw_radar(view_manager)
+    elif _state == STATE_EDIT_LAT:
+        kb = view_manager.keyboard
+        if kb.is_finished:
+            try:
+                _radar_lat = float(kb.response)
+            except:
+                pass
+            kb.reset()
+            edit_longitude(view_manager)
+        else:
+            kb.run()
+    elif _state == STATE_EDIT_LON:
+        kb = view_manager.keyboard
+        if kb.is_finished:
+            try:
+                _radar_lon = float(kb.response)
+            except:
+                pass
+            save_config(view_manager)
+            kb.reset()
+            _state = STATE_RADAR
+        else:
+            kb.run()
 
-def stop(view_manager): 
 
-    global _http 
+def stop(view_manager):
 
-    if _http: 
-        try: 
-            _http.close() 
-        except: 
-            pass 
+    global _http
 
-    view_manager.keyboard.reset() 
+    if _http:
+        try:
+            _http.close()
+        except:
+            pass
 
-    from gc import collect 
-    collect() 
+    view_manager.keyboard.reset()
+
+    from gc import collect
+
+    collect()

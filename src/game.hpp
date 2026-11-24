@@ -178,13 +178,13 @@ private:
     void walkPlayer(Player *player, Game *game);
 
     const float cameraDistance = 7.0f;
-    const float cameraIndoorDistance = 2.6f;
+    const float cameraIndoorDistance = 3.1f;
     const float carAccel = 0.15f;
     const float carBrake = 0.085f;
     const uint16_t carColors[6] = {0xF800, 0xFD20, 0x001F, 0x07FF, 0xF81F, 0x001F};
     const float carFriction = 0.012f;
     const float carMaxReverse = -0.35f;
-    const float carMaxSpeed = 1.5f;
+    const float carMaxSpeed = 1.8f;
     const float carSteer = 0.22f;
     Map cityMap;
     const float cityPi = 3.14159265358979323846f;
@@ -252,9 +252,9 @@ private:
         "Traffic 1", "Traffic 2", "Traffic 3", "Traffic 4", "Traffic 5", "Traffic 6"};
     const float trafficOffset = 1.2f;
     const float trafficSpeed = 0.45f;
-    const float turnLerp = 0.8f;
-    const float walkAccel = 0.35f;
+    const float turnLerp = 0.9f;
+    const float walkAccel = 0.30f;
     const float walkFriction = 0.24f;
-    const float walkSpeed = 1.5f;
-    const float walkTurn = 0.45f;
+    const float walkSpeed = 1.4f;
+    const float walkTurn = 0.5f;
 };

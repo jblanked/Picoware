@@ -49,6 +49,12 @@ namespace picogta
                 for (int k = 0; k < 12; k++)
                     sprite_3d->getTriangle(src + k, leg_base[block * 12 + k]);
             }
+            for (int block = 0; block < 6; block++)
+            {
+                const int src = 60 + block * 12;
+                for (int k = 0; k < 12; k++)
+                    sprite_3d->getTriangle(src + k, arm_base[block * 12 + k]);
+            }
         }
         is_visible = true;
     }
@@ -160,6 +166,29 @@ namespace picogta
                             n3z = knee_z + dz3 * knee_c + dy3 * knee_s;
                         }
                         sprite_3d->updateTriangle(src + k, b.x1, n1y, n1z, b.x2, n2y, n2z, b.x3, n3y, n3z,
+                                                  b.color, b.wireframe);
+                    }
+                }
+                const float arm_angle = walking ? sinf(walk_phase) * 0.45f * walk_weight : 0.0f;
+                const float arm_c = cosf(arm_angle);
+                const float arm_s = sinf(arm_angle);
+                for (int block = 0; block < 6; block++)
+                {
+                    const bool right_side = block == 1 || block >= 4;
+                    const float arm_ss = right_side ? arm_s : -arm_s;
+                    for (int k = 0; k < 12; k++)
+                    {
+                        Triangle3D &b = arm_base[block * 12 + k];
+                        const float oy1 = b.y1 - 1.36f;
+                        const float oy2 = b.y2 - 1.36f;
+                        const float oy3 = b.y3 - 1.36f;
+                        const float n1y = 1.36f + oy1 * arm_c - b.z1 * arm_ss;
+                        const float n1z = b.z1 * arm_c + oy1 * arm_ss;
+                        const float n2y = 1.36f + oy2 * arm_c - b.z2 * arm_ss;
+                        const float n2z = b.z2 * arm_c + oy2 * arm_ss;
+                        const float n3y = 1.36f + oy3 * arm_c - b.z3 * arm_ss;
+                        const float n3z = b.z3 * arm_c + oy3 * arm_ss;
+                        sprite_3d->updateTriangle(60 + block * 12 + k, b.x1, n1y, n1z, b.x2, n2y, n2z, b.x3, n3y, n3z,
                                                   b.color, b.wireframe);
                     }
                 }

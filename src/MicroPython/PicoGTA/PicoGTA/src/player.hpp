@@ -29,5 +29,6 @@ namespace picogta
         int walk_stop_frames = 0;
         bool leg_dirty = false;  // Legs need pose write-back.
         Triangle3D leg_base[96]; // Leg rest pose, 8 cubes.
+        Triangle3D arm_base[72];
     };
 } // namespace picogta

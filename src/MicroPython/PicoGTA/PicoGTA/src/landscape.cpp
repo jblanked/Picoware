@@ -86,23 +86,6 @@ bool Landscape::create(Level *level)
     buildingTriangleCapacity = ENGINE_MAX_TRIANGLES_PER_SPRITE < MAX_BUILDING_TRIANGLES
                                    ? ENGINE_MAX_TRIANGLES_PER_SPRITE
                                    : MAX_BUILDING_TRIANGLES;
-    for (int i = 0; i < MAX_BUILDING_CHUNKS; ++i)
-    {
-        RenderChunk &chunk = buildingChunks[i];
-        chunk.mesh = ENGINE_MEM_NEW Sprite3D(false);
-        if (!chunk.mesh || !chunk.mesh->reserveTriangles(buildingTriangleCapacity))
-        {
-            if (chunk.mesh)
-                ENGINE_MEM_DELETE chunk.mesh;
-            chunk = RenderChunk();
-            ENGINE_MEM_DELETE entity;
-            ENGINE_LOG_INFO("[Landscape:create] Failed to reserve building mesh pool\n");
-            release();
-            return false;
-        }
-        chunk.mesh->setWireframe(false);
-        chunk.mesh->setPosition(entity->position);
-    }
     entity->is_visible = false;
 
     const int oldCount = level->getEntityCount();
@@ -581,14 +564,30 @@ void Landscape::addBuilding(const BuildingSpec &spec, int chunkIndex, bool rebui
 
     RenderChunk &chunk = buildingChunks[chunkIndex];
     Sprite3D *mesh = chunk.mesh;
-    if (!mesh)
+    const bool isHouse = spec.type == 1;
+    const bool isTower = spec.type == 2;
+    // Match the geometry below: houses include a garage and parked car;
+    // other buildings have two cubes, windows, and an optional tower spire.
+    const uint16_t requiredTriangles = isHouse ? 60 :
+        (isTower ? 32 : (spec.height > 4.5f ? 24 : 20));
+    if (requiredTriangles > buildingTriangleCapacity)
     {
         geometryError = true;
         chunk.active = false;
         return;
     }
-    const bool isHouse = spec.type == 1;
-    const bool isTower = spec.type == 2;
+    if (!mesh)
+    {
+        chunk.mesh = mesh = ENGINE_MEM_NEW Sprite3D(false);
+        if (!mesh || !mesh->reserveTriangles(requiredTriangles))
+        {
+            if (mesh)
+                ENGINE_MEM_DELETE mesh;
+            chunk = RenderChunk();
+            geometryError = true;
+            return;
+        }
+    }
     if (rebuildMesh)
     {
         mesh->clear();
@@ -600,7 +599,7 @@ void Landscape::addBuilding(const BuildingSpec &spec, int chunkIndex, bool rebui
         Sprite3D *previousMesh = activeMesh;
         const uint16_t previousCapacity = activeTriangleCapacity;
         activeMesh = mesh;
-        activeTriangleCapacity = buildingTriangleCapacity;
+        activeTriangleCapacity = requiredTriangles;
         activeBoundsActive = true;
         activeBoundsValid = false;
         const float sceneZ = spec.z - SCENE_ANCHOR_Z;
@@ -718,6 +717,19 @@ void Landscape::fillCity(float centerX, float centerZ)
                 buildingChunks[chunkIndex].active = true;
                 break;
             }
+        }
+    }
+
+    // Release departed buildings before allocating replacements. Keep meshes
+    // still in the active area, including their cached geometry.
+    for (int chunkIndex = 0; chunkIndex < MAX_BUILDING_CHUNKS; ++chunkIndex)
+    {
+        RenderChunk &chunk = buildingChunks[chunkIndex];
+        if (!chunk.active)
+        {
+            if (chunk.mesh)
+                ENGINE_MEM_DELETE chunk.mesh;
+            chunk = RenderChunk();
         }
     }
 

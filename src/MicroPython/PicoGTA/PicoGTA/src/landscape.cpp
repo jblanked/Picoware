@@ -90,7 +90,7 @@ bool Landscape::create(Level *level)
     {
         RenderChunk &chunk = buildingChunks[i];
         chunk.mesh = ENGINE_MEM_NEW Sprite3D(false);
-        if (!chunk.mesh || !chunk.mesh->reserveTriangles(buildingTriangleCapacity))
+        if (!chunk.mesh || !chunk.mesh->reserveIndexedTriangles(buildingTriangleCapacity, 32))
         {
             if (chunk.mesh)
                 ENGINE_MEM_DELETE chunk.mesh;

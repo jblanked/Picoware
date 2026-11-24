@@ -39,6 +39,17 @@ private:
     uint16_t triangle_capacity;
     uint16_t triangle_count;
     Triangle3D *triangles;
+    // Optional lossless coordinate dictionaries, retained across clear().
+    struct IndexedTriangle
+    {
+        uint8_t coordinates[9];
+        bool wireframe;
+        uint16_t color;
+    };
+    float *coordinateStorage;
+    IndexedTriangle *indexedTriangles;
+    uint8_t coordinateCapacity;
+    uint8_t coordinateCounts[3];
 #ifdef ENGINE_USE_PSRAM
     TrianglePSRAM psramTriangles;
 #endif
@@ -89,6 +100,10 @@ public:
     bool initializeAsTree(Vector pos, float height, uint16_t color = 0x0000, bool wireframe = false);
     bool isActive() const { return active; }
     bool reserveTriangles(uint16_t count);
+    // Opt-in fixed heap storage for meshes with repeated coordinates. Requires
+    // an empty, unreserved, non-PSRAM mesh. No growth until clearTriangles().
+    // Updates can fail when a dictionary fills; clear() resets dictionaries.
+    bool reserveIndexedTriangles(uint16_t count, uint8_t coordinatesPerAxis);
     void setActive(bool state) { active = state; }
     void setPosition(Vector pos) { position = pos; }
     void setRotation(float rot) { rotation_y = rot; }

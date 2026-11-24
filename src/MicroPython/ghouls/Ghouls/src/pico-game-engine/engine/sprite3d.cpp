@@ -27,6 +27,8 @@ static uint16_t shadeColor565(uint16_t color, float factor)
 Sprite3D::Sprite3D(bool usePsram) : active(false), position(Vector(0, 0)), psramAllowed(usePsram),
                                     rotation_y(0), scale_factor(1.0f), depthSortEnabled(false),
                                     triangle_capacity(0), triangle_count(0), triangles(nullptr),
+                                    coordinateStorage(nullptr), indexedTriangles(nullptr),
+                                    coordinateCapacity(0), coordinateCounts{0, 0, 0},
                                     type(SPRITE_CUSTOM)
 {
 #ifdef ENGINE_USE_PSRAM
@@ -110,11 +112,18 @@ bool Sprite3D::bakeTransform()
 
 void Sprite3D::clear()
 {
+    coordinateCounts[0] = coordinateCounts[1] = coordinateCounts[2] = 0;
     triangle_count = 0;
 }
 
 void Sprite3D::clearTriangles()
 {
+    if (coordinateStorage)
+        ENGINE_MEM_FREE(coordinateStorage);
+    coordinateStorage = nullptr;
+    indexedTriangles = nullptr;
+    coordinateCapacity = 0;
+    coordinateCounts[0] = coordinateCounts[1] = coordinateCounts[2] = 0;
 #ifdef ENGINE_USE_PSRAM
     if (psramAllowed)
     {
@@ -690,6 +699,20 @@ bool Sprite3D::loadTriangle(uint16_t index, Triangle3D &out) const
     if (psramAllowed)
         return psramTriangles.at(index).read(out);
 #endif
+    if (indexedTriangles)
+    {
+        if (index >= triangle_count)
+            return false;
+        const IndexedTriangle &t = indexedTriangles[index];
+        const float *x = coordinateStorage;
+        const float *y = x + coordinateCapacity;
+        const float *z = y + coordinateCapacity;
+        out = Triangle3D(x[t.coordinates[0]], y[t.coordinates[1]], z[t.coordinates[2]],
+                         x[t.coordinates[3]], y[t.coordinates[4]], z[t.coordinates[5]],
+                         x[t.coordinates[6]], y[t.coordinates[7]], z[t.coordinates[8]],
+                         t.color, t.wireframe);
+        return true;
+    }
     if (triangles == nullptr)
         return false;
     out = triangles[index];
@@ -707,12 +730,32 @@ bool Sprite3D::reserveExtra(uint16_t extra)
     return true;
 }
 
+bool Sprite3D::reserveIndexedTriangles(uint16_t count, uint8_t coordinatesPerAxis)
+{
+    if (psramAllowed || triangle_capacity || !count || !coordinatesPerAxis ||
+        count > ENGINE_MAX_TRIANGLES_PER_SPRITE)
+        return false;
+    const size_t coordinateBytes = 3u * coordinatesPerAxis * sizeof(float);
+    float *storage = static_cast<float *>(ENGINE_MEM_MALLOC(
+        coordinateBytes + static_cast<size_t>(count) * sizeof(IndexedTriangle)));
+    if (!storage)
+        return false;
+    coordinateStorage = storage;
+    indexedTriangles = reinterpret_cast<IndexedTriangle *>(
+        reinterpret_cast<uint8_t *>(storage) + coordinateBytes);
+    coordinateCapacity = coordinatesPerAxis;
+    triangle_capacity = count;
+    return true;
+}
+
 bool Sprite3D::reserveTriangles(uint16_t count)
 {
     if (count > ENGINE_MAX_TRIANGLES_PER_SPRITE)
         return false;
     if (count <= triangle_capacity)
         return true;
+    if (indexedTriangles)
+        return false;
 
 #ifdef ENGINE_USE_PSRAM
     if (psramAllowed)
@@ -764,6 +807,53 @@ bool Sprite3D::storeTriangle(uint16_t index, const Triangle3D &triangle)
     if (psramAllowed)
         return psramTriangles.at(index).set(triangle);
 #endif
+    if (indexedTriangles)
+    {
+        if (index >= triangle_capacity)
+            return false;
+        const float values[9] = {triangle.x1, triangle.y1, triangle.z1,
+                                 triangle.x2, triangle.y2, triangle.z2,
+                                 triangle.x3, triangle.y3, triangle.z3};
+        float pending[3][3];
+        uint8_t added[3] = {0, 0, 0};
+        IndexedTriangle replacement;
+        // Stage additions first: exhaustion must leave the old triangle and
+        // dictionaries intact. Compare bits to preserve signed zero exactly.
+        for (int i = 0; i < 9; ++i)
+        {
+            const int axis = i % 3;
+            const float *dictionary = coordinateStorage + axis * coordinateCapacity;
+            unsigned slot = 0;
+            for (; slot < coordinateCounts[axis]; ++slot)
+                if (memcmp(dictionary + slot, values + i, sizeof(float)) == 0)
+                    break;
+            if (slot == coordinateCounts[axis])
+            {
+                unsigned extra = 0;
+                for (; extra < added[axis]; ++extra)
+                    if (memcmp(&pending[axis][extra], values + i, sizeof(float)) == 0)
+                        break;
+                slot += extra;
+                if (extra == added[axis])
+                {
+                    if (slot >= coordinateCapacity)
+                        return false;
+                    pending[axis][added[axis]++] = values[i];
+                }
+            }
+            replacement.coordinates[i] = static_cast<uint8_t>(slot);
+        }
+        for (int axis = 0; axis < 3; ++axis)
+        {
+            memcpy(coordinateStorage + axis * coordinateCapacity + coordinateCounts[axis],
+                   pending[axis], added[axis] * sizeof(float));
+            coordinateCounts[axis] += added[axis];
+        }
+        replacement.color = triangle.color;
+        replacement.wireframe = triangle.wireframe;
+        indexedTriangles[index] = replacement;
+        return true;
+    }
     if (triangles == nullptr)
         return false;
     triangles[index] = triangle;

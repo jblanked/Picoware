@@ -177,9 +177,9 @@ private:
     void updateMultiplayer();
     void walkPlayer(Player *player, Game *game);
 
-    const float cameraDistance = 8.2f;
+    const float cameraDistance = 6.5f;
     const float cameraIndoorDistance = 2.6f;
-    const float carAccel = 0.05f;
+    const float carAccel = 0.15f;
     const float carBrake = 0.085f;
     const uint16_t carColors[6] = {0xF800, 0xFD20, 0x001F, 0x07FF, 0xF81F, 0x001F};
     const float carFriction = 0.012f;
@@ -200,6 +200,7 @@ private:
     bool inputPressed;
     bool isGameRunning;
     int lastInput;
+    int lastWalkKey;
     Landscape landscape;
     char message[32];
     int messageTimer;
@@ -245,14 +246,15 @@ private:
     bool shouldExit;
     float speed;
     float steering;
+    float walkAimPending;
     Vehicle *traffic[TRAFFIC_COUNT];
     const char *const trafficNames[6] = {
         "Traffic 1", "Traffic 2", "Traffic 3", "Traffic 4", "Traffic 5", "Traffic 6"};
     const float trafficOffset = 1.2f;
     const float trafficSpeed = 0.45f;
     const float turnLerp = 0.5f;
-    const float walkAccel = 0.15f;
+    const float walkAccel = 0.35f;
     const float walkFriction = 0.12f;
-    const float walkSpeed = 1.5f;
+    const float walkSpeed = 2.6f;
     const float walkTurn = 0.28f;
 };

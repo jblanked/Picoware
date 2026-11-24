@@ -430,6 +430,7 @@ PicoGTA::PicoGTA(const char *username, const char *password)
       inputPressed(false),
       isGameRunning(false),
       lastInput(-1),
+      lastWalkKey(-1),
       landscape(),
       messageTimer(0),
       multiplayerConnectionState(CONNECTION_IDLE),
@@ -447,7 +448,8 @@ PicoGTA::PicoGTA(const char *username, const char *password)
       remotePlayerCount(0),
       shouldExit(false),
       speed(0.0f),
-      steering(0.0f)
+      steering(0.0f),
+      walkAimPending(0.0f)
 {
     multiplayerStatus[0] = '\0';
     multiplayerPlayerId[0] = '\0';
@@ -546,6 +548,8 @@ bool PicoGTA::initDraw()
 void PicoGTA::resetInput()
 {
     lastInput = -1;
+    lastWalkKey = -1;
+    walkAimPending = 0.0f;
     inputPressed = false;
     if (engine)
         engine->updateGameInput(-1);
@@ -956,10 +960,81 @@ void PicoGTA::updatePlayer(Player *activePlayer, Game *game)
 void PicoGTA::walkPlayer(Player *activePlayer, Game *game)
 {
     const int input = game->input;
+    // Engine camera follows player direction as heading
+    float aim_x = activePlayer->direction.x;
+    float aim_y = activePlayer->direction.y;
+    float aim_length = sqrtf(aim_x * aim_x + aim_y * aim_y);
+    if (aim_length >= 0.001f)
+    {
+        aim_x /= aim_length;
+        aim_y /= aim_length;
+    }
+    else
+    {
+        aim_x = 0.0f;
+        aim_y = 1.0f;
+    }
+
+    const int prevWalkKey = lastWalkKey;
+    lastWalkKey = input;
+
+    // One rotation queued per key press
+    if (input == INPUT_KEY_LEFT && prevWalkKey != INPUT_KEY_LEFT)
+        walkAimPending += walkTurn;
+    else if (input == INPUT_KEY_RIGHT && prevWalkKey != INPUT_KEY_RIGHT)
+        walkAimPending -= walkTurn;
+
+    // Ease rotation, keep pace with movement
+    float delta = walkAimPending * turnLerp;
+    walkAimPending -= delta;
+    if (delta != 0.0f)
+    {
+        float cos_delta = cosf(delta);
+        float sin_delta = sinf(delta);
+        float new_x = aim_x * cos_delta + aim_y * sin_delta;
+        float new_y = -aim_x * sin_delta + aim_y * cos_delta;
+        activePlayer->direction.x = new_x;
+        activePlayer->direction.y = new_y;
+        aim_x = new_x;
+        aim_y = new_y;
+    }
+
+    float move_x = 0.0f;
+    float move_y = 0.0f;
     if (input == INPUT_KEY_UP)
-        speed = minFloat(walkSpeed, speed + walkAccel);
+    {
+        move_x = aim_x;
+        move_y = aim_y;
+    }
     else if (input == INPUT_KEY_DOWN)
-        speed = maxFloat(-walkSpeed * 0.5f, speed - walkAccel);
+    {
+        move_x = -aim_x;
+        move_y = -aim_y;
+    }
+    else if (input == INPUT_KEY_LEFT)
+    {
+        // Walk screen-left, perpendicular to aim
+        move_x = aim_y;
+        move_y = -aim_x;
+    }
+    else if (input == INPUT_KEY_RIGHT)
+    {
+        // Walk screen-right, perpendicular to aim
+        move_x = -aim_y;
+        move_y = aim_x;
+    }
+    if (move_x != 0.0f || move_y != 0.0f)
+    {
+        speed = minFloat(walkSpeed, speed + walkAccel);
+        // Ease heading toward move direction
+        float targetHeading = atan2f(move_y, move_x);
+        float deltaH = targetHeading - heading;
+        while (deltaH > cityPi)
+            deltaH -= cityPi * 2.0f;
+        while (deltaH < -cityPi)
+            deltaH += cityPi * 2.0f;
+        heading += deltaH * turnLerp;
+    }
     else
     {
         if (speed > 0.0f)
@@ -967,17 +1042,6 @@ void PicoGTA::walkPlayer(Player *activePlayer, Game *game)
         else
             speed = minFloat(0.0f, speed + walkFriction);
     }
-
-    float steerTarget = 0.0f;
-    if (input == INPUT_KEY_LEFT)
-        steerTarget = -1.0f;
-    else if (input == INPUT_KEY_RIGHT)
-        steerTarget = 1.0f;
-    steering += (steerTarget - steering) * turnLerp;
-    if (steerTarget == 0.0f && absoluteFloat(steering) < 0.01f)
-        steering = 0.0f;
-    if (steering != 0.0f)
-        heading += steering * walkTurn;
 
     const float dx = cosf(heading);
     const float dz = sinf(heading);
@@ -1001,8 +1065,9 @@ void PicoGTA::walkPlayer(Player *activePlayer, Game *game)
         speed *= 0.25f;
     }
 
-    activePlayer->direction.x = dx;
-    activePlayer->direction.y = dz;
+    // Player direction drives the camera heading
+    activePlayer->direction.x = aim_x;
+    activePlayer->direction.y = aim_y;
     activePlayer->set3DSpriteRotation(atan2f(dz, dx) - cityPi * 0.5f);
     updateCameraDistance();
 }
@@ -1010,6 +1075,45 @@ void PicoGTA::walkPlayer(Player *activePlayer, Game *game)
 void PicoGTA::driveCar(Player *activePlayer, Game *game)
 {
     const int input = game->input;
+    // Engine camera follows player direction as heading
+    float aim_x = activePlayer->direction.x;
+    float aim_y = activePlayer->direction.y;
+    float aim_length = sqrtf(aim_x * aim_x + aim_y * aim_y);
+    if (aim_length >= 0.001f)
+    {
+        aim_x /= aim_length;
+        aim_y /= aim_length;
+    }
+    else
+    {
+        aim_x = 0.0f;
+        aim_y = 1.0f;
+    }
+
+    const int prevWalkKey = lastWalkKey;
+    lastWalkKey = input;
+
+    // One rotation queued per key press
+    if (input == INPUT_KEY_LEFT && prevWalkKey != INPUT_KEY_LEFT)
+        walkAimPending += walkTurn;
+    else if (input == INPUT_KEY_RIGHT && prevWalkKey != INPUT_KEY_RIGHT)
+        walkAimPending -= walkTurn;
+
+    // Ease rotation, keep pace with movement
+    float delta = walkAimPending * turnLerp;
+    walkAimPending -= delta;
+    if (delta != 0.0f)
+    {
+        float cos_delta = cosf(delta);
+        float sin_delta = sinf(delta);
+        float new_x = aim_x * cos_delta + aim_y * sin_delta;
+        float new_y = -aim_x * sin_delta + aim_y * cos_delta;
+        activePlayer->direction.x = new_x;
+        activePlayer->direction.y = new_y;
+        aim_x = new_x;
+        aim_y = new_y;
+    }
+
     if (input == INPUT_KEY_UP)
         speed += carAccel;
     else if (input == INPUT_KEY_DOWN)
@@ -1019,23 +1123,14 @@ void PicoGTA::driveCar(Player *activePlayer, Game *game)
     else
         speed = minFloat(0.0f, speed + carFriction);
 
-    float steerTarget = 0.0f;
-    if (input == INPUT_KEY_LEFT)
-        steerTarget = -1.0f;
-    else if (input == INPUT_KEY_RIGHT)
-        steerTarget = 1.0f;
-    steering += (steerTarget - steering) * turnLerp;
-    if (steerTarget == 0.0f && absoluteFloat(steering) < 0.01f)
-        steering = 0.0f;
-
-    if (steering != 0.0f)
-    {
-        float turnScale = 0.70f + minFloat(1.0f, absoluteFloat(speed) / carMaxSpeed) * 0.30f;
-        if (speed < 0.0f)
-            turnScale = -turnScale;
-        heading += steering * carSteer * turnScale;
-    }
-
+    // Ease heading toward camera aim
+    float targetHeading = atan2f(aim_y, aim_x);
+    float deltaH = targetHeading - heading;
+    while (deltaH > cityPi)
+        deltaH -= cityPi * 2.0f;
+    while (deltaH < -cityPi)
+        deltaH += cityPi * 2.0f;
+    heading += deltaH * turnLerp;
     speed = clampFloat(speed, carMaxReverse, carMaxSpeed);
     const float dx = cosf(heading);
     const float dz = sinf(heading);
@@ -1059,8 +1154,9 @@ void PicoGTA::driveCar(Player *activePlayer, Game *game)
         speed *= 0.25f;
     }
 
-    activePlayer->direction.x = dx;
-    activePlayer->direction.y = dz;
+    // Player direction drives the camera heading
+    activePlayer->direction.x = aim_x;
+    activePlayer->direction.y = aim_y;
     activePlayer->plane.x = -0.72f;
     activePlayer->plane.y = 0.0f;
     activePlayer->set3DSpriteRotation(atan2f(dz, dx) - cityPi * 0.5f);

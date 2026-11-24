@@ -25,13 +25,21 @@ static uint16_t shadeColor565(uint16_t color, float factor)
 }
 
 Sprite3D::Sprite3D(bool usePsram) : active(false), position(Vector(0, 0)), psramAllowed(usePsram),
+#ifdef ENGINE_USE_PSRAM
+                                    psramRetained(false),
+#endif
                                     rotation_y(0), scale_factor(1.0f), depthSortEnabled(false),
                                     triangle_capacity(0), triangle_count(0), triangles(nullptr),
+                                    triangleUvs(nullptr), uvTriangleCount(0), textureData(nullptr),
+                                    texturePsramAddress(0xFFFFFFFFu), textureWidth(0), textureHeight(0),
                                     type(SPRITE_CUSTOM)
 {
 #ifdef ENGINE_USE_PSRAM
     if (psramAllowed)
+    {
         TrianglePSRAM::retain();
+        psramRetained = true;
+    }
 #endif
 }
 
@@ -39,7 +47,7 @@ Sprite3D::~Sprite3D()
 {
     clearTriangles();
 #ifdef ENGINE_USE_PSRAM
-    if (psramAllowed)
+    if (psramRetained)
         TrianglePSRAM::release();
 #endif
 }
@@ -111,10 +119,24 @@ bool Sprite3D::bakeTransform()
 void Sprite3D::clear()
 {
     triangle_count = 0;
+    if (triangleUvs)
+        ENGINE_MEM_FREE(triangleUvs);
+    triangleUvs = nullptr;
+    uvTriangleCount = 0;
 }
 
 void Sprite3D::clearTriangles()
 {
+    if (triangleUvs)
+        ENGINE_MEM_FREE(triangleUvs);
+    triangleUvs = nullptr;
+    uvTriangleCount = 0;
+    if (textureData)
+        ENGINE_MEM_FREE(textureData);
+    textureData = nullptr;
+    texturePsramAddress = 0xFFFFFFFFu;
+    textureWidth = 0;
+    textureHeight = 0;
 #ifdef ENGINE_USE_PSRAM
     if (psramAllowed)
     {
@@ -548,6 +570,123 @@ bool Sprite3D::fromPath(const char *path, bool wireframe)
 #else
     return false;
 #endif
+}
+
+bool Sprite3D::fromUVPath(const char *path)
+{
+#ifdef ENGINE_STORAGE_READ
+    if (!path || path[0] == '\0' || triangle_count == 0)
+        return false;
+
+    const size_t uv_size = static_cast<size_t>(triangle_count) * 6 * sizeof(float);
+    if (ENGINE_STORAGE_SIZE(path) != uv_size)
+        return false;
+
+    float *new_uvs = static_cast<float *>(ENGINE_MEM_MALLOC(uv_size));
+    if (!new_uvs)
+        return false;
+    if (ENGINE_STORAGE_READ(path, new_uvs, uv_size) != uv_size)
+    {
+        ENGINE_MEM_FREE(new_uvs);
+        return false;
+    }
+
+    if (triangleUvs)
+        ENGINE_MEM_FREE(triangleUvs);
+    triangleUvs = new_uvs;
+    uvTriangleCount = triangle_count;
+    return true;
+#else
+    (void)path;
+    return false;
+#endif
+}
+
+bool Sprite3D::fromTexturePath(const char *path, uint16_t width, uint16_t height)
+{
+    return fromTexturePath(path, width, height, psramAllowed);
+}
+
+bool Sprite3D::fromTexturePath(const char *path, uint16_t width, uint16_t height, bool usePsram)
+{
+#ifdef ENGINE_STORAGE_READ
+    if (!path || path[0] == '\0' || width == 0 || height == 0)
+        return false;
+
+    const size_t pixel_count = static_cast<size_t>(width) * height;
+    if (pixel_count > static_cast<size_t>(-1) / sizeof(uint16_t))
+        return false;
+    const size_t texture_size = pixel_count * sizeof(uint16_t);
+#ifdef ENGINE_USE_PSRAM
+    if (usePsram && texture_size > 0xFFFFFFFFu)
+        return false;
+#else
+    (void)usePsram;
+#endif
+    if (ENGINE_STORAGE_SIZE(path) != texture_size)
+        return false;
+
+    uint16_t *new_texture = static_cast<uint16_t *>(ENGINE_MEM_MALLOC(texture_size));
+    if (!new_texture)
+        return false;
+    if (ENGINE_STORAGE_READ(path, new_texture, texture_size) != texture_size)
+    {
+        ENGINE_MEM_FREE(new_texture);
+        return false;
+    }
+
+#ifdef ENGINE_USE_PSRAM
+    if (usePsram)
+    {
+        const uint32_t address = TrianglePSRAM::reserveBytes(static_cast<uint32_t>(texture_size));
+        if (address == TrianglePSRAM::INVALID)
+        {
+            ENGINE_MEM_FREE(new_texture);
+            return false;
+        }
+        ENGINE_PSRAM_WRITE(address, new_texture, texture_size);
+        ENGINE_MEM_FREE(new_texture);
+        if (textureData)
+            ENGINE_MEM_FREE(textureData);
+        textureData = nullptr;
+        texturePsramAddress = address;
+        textureWidth = width;
+        textureHeight = height;
+        if (!psramRetained)
+        {
+            TrianglePSRAM::retain();
+            psramRetained = true;
+        }
+        return true;
+    }
+#endif
+
+    if (textureData)
+        ENGINE_MEM_FREE(textureData);
+    textureData = new_texture;
+    texturePsramAddress = 0xFFFFFFFFu;
+    textureWidth = width;
+    textureHeight = height;
+    return true;
+#else
+    (void)path;
+    (void)width;
+    (void)height;
+    (void)usePsram;
+    return false;
+#endif
+}
+
+bool Sprite3D::getTriangleUVs(uint16_t index, float uv[6]) const
+{
+    if (!uv || !triangleUvs || index >= uvTriangleCount || uvTriangleCount != triangle_count)
+        return false;
+
+    const float *source = triangleUvs + static_cast<size_t>(index) * 6;
+    if (source[0] < 0.0f || source[2] < 0.0f || source[4] < 0.0f)
+        return false;
+    memcpy(uv, source, 6 * sizeof(float));
+    return true;
 }
 
 bool Sprite3D::getTriangle(uint16_t index, Triangle3D &out) const

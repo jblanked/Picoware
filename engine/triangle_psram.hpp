@@ -76,10 +76,9 @@ public:
             reset();
     }
 
-    // Reserve `count` contiguous triangles. Returns the base address, or INVALID if PSRAM is full.
-    static uint32_t reserve(uint32_t count)
+    static uint32_t reserveBytes(uint32_t bytes)
     {
-        if (count == 0)
+        if (bytes == 0)
             return INVALID;
 
         uint32_t &n = next();
@@ -98,7 +97,6 @@ public:
         }
 
         const uint32_t end = (uint32_t)ENGINE_PSRAM_LIMIT;
-        const uint32_t bytes = count * (uint32_t)sizeof(Triangle3D);
         if (n > end || bytes > end - n)
             return INVALID;
 
@@ -107,6 +105,14 @@ public:
         used() += bytes;
         ENGINE_PSRAM_ADVANCE(n);
         return base;
+    }
+
+    // Reserve `count` contiguous triangles. Returns the base address, or INVALID if PSRAM is full.
+    static uint32_t reserve(uint32_t count)
+    {
+        if (count == 0 || count > 0xFFFFFFFFu / (uint32_t)sizeof(Triangle3D))
+            return INVALID;
+        return reserveBytes(count * (uint32_t)sizeof(Triangle3D));
     }
 
     static void reset()

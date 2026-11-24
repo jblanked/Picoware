@@ -14,7 +14,7 @@ public:
     static constexpr float BUILDING_REACH = 8.0f;
     static constexpr float CAR_RADIUS = 0.72f;
     static constexpr float CHUNK_LAG = 12.0f;
-    static constexpr float CITY_FIELD_OF_VIEW = 40.0f;
+    static constexpr float CITY_FIELD_OF_VIEW = 50.0f;
     static constexpr float MARK_HEIGHT = 0.10f;
     static constexpr float MARK_LENGTH = 2.6f;
     static constexpr float MARK_OFFSET = 7.0f;

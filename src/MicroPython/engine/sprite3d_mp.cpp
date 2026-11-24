@@ -405,6 +405,15 @@ mp_obj_t sprite3d_mp_initialize_as_tree(size_t n_args, const mp_obj_t *args)
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_initialize_as_tree_obj, 3, 4, sprite3d_mp_initialize_as_tree);
 
+mp_obj_t sprite3d_mp_set_depth_sort_enabled(mp_obj_t self_in, mp_obj_t enabled_obj)
+{
+    sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Sprite3D *ctx = sprite3d_get_context(self);
+    ctx->setDepthSortEnabled(mp_obj_is_true(enabled_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_mp_set_depth_sort_enabled_obj, sprite3d_mp_set_depth_sort_enabled);
+
 mp_obj_t sprite3d_mp_set_position(mp_obj_t self_in, mp_obj_t position_obj)
 {
     sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
@@ -516,6 +525,7 @@ static const mp_rom_map_elem_t sprite3d_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_initialize_as_pillar), MP_ROM_PTR(&sprite3d_mp_initialize_as_pillar_obj)},
     {MP_ROM_QSTR(MP_QSTR_initialize_as_tree), MP_ROM_PTR(&sprite3d_mp_initialize_as_tree_obj)},
 
+    {MP_ROM_QSTR(MP_QSTR_set_depth_sort_enabled), MP_ROM_PTR(&sprite3d_mp_set_depth_sort_enabled_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_position), MP_ROM_PTR(&sprite3d_mp_set_position_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_rotation_y), MP_ROM_PTR(&sprite3d_mp_set_rotation_y_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_scale), MP_ROM_PTR(&sprite3d_mp_set_scale_obj)},

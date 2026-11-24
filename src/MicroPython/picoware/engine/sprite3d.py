@@ -49,6 +49,7 @@ class Sprite3D(engine.Sprite3D):
         - initialize_as_humanoid(position, height, rotation, color=0x0000): Initialize a humanoid at a position. Returns True on success.
         - initialize_as_pillar(position, height, radius, color=0x0000): Initialize a pillar at a position. Returns True on success.
         - initialize_as_tree(position, height, color=0x0000): Initialize a tree at a position. Returns True on success.
+        - set_depth_sort_enabled(enabled): Enable or disable depth sorting.
         - set_position(position): Set the sprite position.
         - set_rotation_y(rotation_y): Set the Y-axis rotation.
         - set_scale(scale_factor): Set the sprite scale.

@@ -2,6 +2,13 @@ def init():
     return None
 
 
+def read_grove_adc():
+    """Read GPIO1 with the firmware's 12-bit Grove ADC range."""
+    from machine import ADC, Pin
+
+    return ADC(Pin(1)).read_u16() >> 4
+
+
 def get_voltage():
     try:
         import sim_runtime

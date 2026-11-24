@@ -94,6 +94,8 @@ def play_wav(path):
 
 
 def stop():
+    if _audio is None and not _temporary:
+        return
     if _audio is not None:
         _audio.stop()
     for path in _temporary:
@@ -101,4 +103,4 @@ def stop():
             os.remove(path)
         except OSError:
             pass
-    _temporary[:] = []
+    del _temporary[:]

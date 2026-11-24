@@ -33,12 +33,21 @@ private:
     bool active;
     Vector position;
     bool psramAllowed;
+#ifdef ENGINE_USE_PSRAM
+    bool psramRetained;
+#endif
     float rotation_y;
     float scale_factor;
     bool depthSortEnabled;
     uint16_t triangle_capacity;
     uint16_t triangle_count;
     Triangle3D *triangles;
+    float *triangleUvs;
+    uint16_t uvTriangleCount;
+    uint16_t *textureData;
+    uint32_t texturePsramAddress;
+    uint16_t textureWidth;
+    uint16_t textureHeight;
 #ifdef ENGINE_USE_PSRAM
     TrianglePSRAM psramTriangles;
 #endif
@@ -72,6 +81,9 @@ public:
     bool createSphere(float x, float y, float z, float radius, uint8_t segments, uint16_t color = 0x0000, bool wireframe = false);
     bool createTriangularPrism(float x, float y, float z, float width, float height, float depth, uint16_t color = 0x0000, bool wireframe = false);
     bool fromPath(const char *path, bool wireframe = false);
+    bool fromUVPath(const char *path);
+    bool fromTexturePath(const char *path, uint16_t width, uint16_t height);
+    bool fromTexturePath(const char *path, uint16_t width, uint16_t height, bool usePsram);
     Vector getPosition() const { return position; }
     bool getTriangle(uint16_t index, Triangle3D &out) const;
     bool getTriangle(uint16_t index, float &x1, float &y1, float &z1,
@@ -81,6 +93,12 @@ public:
     float getRotation() const { return rotation_y; }
     float getScale() const { return scale_factor; }
     bool getTransformedTriangle(uint16_t index, const Vector &camera_pos, Triangle3D &out, float camera_height = 0.5f) const;
+    bool getTriangleUVs(uint16_t index, float uv[6]) const;
+    bool hasTexture() const { return (textureData != nullptr || texturePsramAddress != 0xFFFFFFFFu) && textureWidth > 0 && textureHeight > 0; }
+    const uint16_t *getTextureData() const { return textureData; }
+    uint32_t getTexturePSRAMAddress() const { return texturePsramAddress; }
+    uint16_t getTextureWidth() const { return textureWidth; }
+    uint16_t getTextureHeight() const { return textureHeight; }
     uint16_t getTriangleCount() const { return triangle_count; }
     SpriteType getType() const { return type; }
     bool initializeAsHouse(Vector pos, float width, float height, float rot, uint16_t color = 0x0000, bool wireframe = false);

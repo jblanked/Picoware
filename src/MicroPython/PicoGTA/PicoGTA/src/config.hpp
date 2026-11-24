@@ -9,6 +9,8 @@
 #include ENGINE_LOG_INCLUDE
 #endif
 
+#define PICO_GTA_WALK_FRAMES 2
+
 #define ASSETS_FOLDER "picoware/apps/games/pico_gta/assets/"
 
 #define GROUND_ROWS 160

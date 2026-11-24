@@ -66,6 +66,9 @@ private:
     Entity **entities;
     Vector lightDirection;
     int *renderOrder;
+    uint16_t *spriteTriangleOrder;
+    float *spriteTriangleDepths;
+    uint16_t spriteTriangleCapacity;
     uint16_t shadowColor;
     Vector cam_last;
     bool cam_last_valid;

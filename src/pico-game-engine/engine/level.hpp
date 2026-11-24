@@ -56,7 +56,7 @@ private:
     void drawProjectedTriangle(Draw *draw, const Vector vertices[3], const Vector &screen, uint16_t color, bool wireframe, bool clamp, uint8_t alpha = 255);
     void drawProjectedTexturedTriangle(Draw *draw, const Vector vertices[3], const float uv[6], const Vector &screen,
                                        const uint16_t *texture, uint16_t texture_width, uint16_t texture_height,
-                                       uint32_t texture_psram_address, uint16_t tint, bool wireframe);
+                                       uint16_t tint, bool wireframe);
     float projectionBound(float value, float maximum);
     int projectionClip(const Vector *input, int count, Vector *output, const Vector &normal, float offset);
     float projectionDistance(const Vector &vertex, const Vector &normal, float offset);

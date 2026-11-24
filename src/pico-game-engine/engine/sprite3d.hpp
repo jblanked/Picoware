@@ -49,6 +49,10 @@ private:
     uint16_t textureWidth;
     uint16_t textureHeight;
 #ifdef ENGINE_USE_PSRAM
+    uint16_t *textureRow;
+    uint16_t textureRowCapacity;
+    uint16_t cachedTextureRow;
+    bool cachedTextureRowValid;
     TrianglePSRAM psramTriangles;
 #endif
     SpriteType type;
@@ -84,6 +88,8 @@ public:
     bool fromUVPath(const char *path);
     bool fromTexturePath(const char *path, uint16_t width, uint16_t height);
     bool fromTexturePath(const char *path, uint16_t width, uint16_t height, bool usePsram);
+    bool getTexture(const uint16_t *&pixels, uint16_t &width, uint16_t &height) const;
+    bool getTexture(uint16_t row, const uint16_t *&pixels);
     Vector getPosition() const { return position; }
     bool getTriangle(uint16_t index, Triangle3D &out) const;
     bool getTriangle(uint16_t index, float &x1, float &y1, float &z1,
@@ -95,10 +101,6 @@ public:
     bool getTransformedTriangle(uint16_t index, const Vector &camera_pos, Triangle3D &out, float camera_height = 0.5f) const;
     bool getTriangleUVs(uint16_t index, float uv[6]) const;
     bool hasTexture() const { return (textureData != nullptr || texturePsramAddress != 0xFFFFFFFFu) && textureWidth > 0 && textureHeight > 0; }
-    const uint16_t *getTextureData() const { return textureData; }
-    uint32_t getTexturePSRAMAddress() const { return texturePsramAddress; }
-    uint16_t getTextureWidth() const { return textureWidth; }
-    uint16_t getTextureHeight() const { return textureHeight; }
     uint16_t getTriangleCount() const { return triangle_count; }
     SpriteType getType() const { return type; }
     bool initializeAsHouse(Vector pos, float width, float height, float rot, uint16_t color = 0x0000, bool wireframe = false);

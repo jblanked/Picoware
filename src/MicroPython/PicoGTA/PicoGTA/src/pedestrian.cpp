@@ -13,6 +13,7 @@ Pedestrian::Pedestrian(PicoGTA *city, int index, const char *personName, Vector 
     direction.z = 1.0f;
     elapsed_move_timer = 0.0f;
     speed = 0.02f;
+    sprite_3d->setWireframe(false);
 }
 
 void Pedestrian::update(Game *game)

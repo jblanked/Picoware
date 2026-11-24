@@ -20,6 +20,9 @@ Level::Level()
       entities(nullptr),
       lightDirection(Vector(0.577f, 0.577f, 0.577f)),
       renderOrder(nullptr),
+      spriteTriangleOrder(nullptr),
+      spriteTriangleDepths(nullptr),
+      spriteTriangleCapacity(0),
       shadowColor(0),
       cam_last(Vector(0, 0)),
       cam_last_valid(false),
@@ -38,6 +41,9 @@ Level::Level(const char *name, const Vector &size, Game *game, CallbackLevel sta
       entities(nullptr),
       lightDirection(Vector(0.577f, 0.577f, 0.577f)),
       renderOrder(nullptr),
+      spriteTriangleOrder(nullptr),
+      spriteTriangleDepths(nullptr),
+      spriteTriangleCapacity(0),
       shadowColor(0),
       cam_last(Vector(0, 0)),
       cam_last_valid(false),
@@ -75,6 +81,11 @@ void Level::clear()
     cam_last_valid = false;
     ENGINE_MEM_FREE(renderOrder);
     renderOrder = nullptr;
+    ENGINE_MEM_FREE(spriteTriangleOrder);
+    spriteTriangleOrder = nullptr;
+    ENGINE_MEM_FREE(spriteTriangleDepths);
+    spriteTriangleDepths = nullptr;
+    spriteTriangleCapacity = 0;
 }
 
 // Get list of collisions for a given entity
@@ -690,10 +701,80 @@ void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &p
     const float slz = doShadow ? lightDirection.z / lightDirection.y : 0.0f;
 
     const uint16_t triangle_count = sprite3d->getTriangleCount();
-    for (uint16_t i = 0; i < triangle_count; ++i)
+    bool sort_triangles = sprite3d->isDepthSortEnabled() && triangle_count > 1;
+    if (sort_triangles && triangle_count > spriteTriangleCapacity)
     {
+        uint16_t *new_order = (uint16_t *)ENGINE_MEM_MALLOC(
+            triangle_count * sizeof(uint16_t));
+        float *new_depths = (float *)ENGINE_MEM_MALLOC(
+            triangle_count * sizeof(float));
+        if (new_order && new_depths)
+        {
+            ENGINE_MEM_FREE(spriteTriangleOrder);
+            ENGINE_MEM_FREE(spriteTriangleDepths);
+            spriteTriangleOrder = new_order;
+            spriteTriangleDepths = new_depths;
+            spriteTriangleCapacity = triangle_count;
+        }
+        else
+        {
+            ENGINE_MEM_FREE(new_order);
+            ENGINE_MEM_FREE(new_depths);
+            sort_triangles = false;
+        }
+    }
+    if (!spriteTriangleOrder || !spriteTriangleDepths)
+        sort_triangles = false;
+
+    uint16_t render_count = triangle_count;
+    if (sort_triangles)
+    {
+        uint16_t sorted_count = 0;
+        for (uint16_t triangle_index = 0; triangle_index < triangle_count; ++triangle_index)
+        {
+            Triangle3D triangle;
+            if (!sprite3d->getWorldTriangle(triangle_index, triangle))
+                continue;
+
+            const float center_x = (triangle.x1 + triangle.x2 + triangle.x3) / 3.0f;
+            const float center_z = (triangle.z1 + triangle.z2 + triangle.z3) / 3.0f;
+            const float delta_x = center_x - player_pos.x;
+            const float delta_z = center_z - player_pos.y;
+            spriteTriangleDepths[sorted_count] = delta_x * player_dir.x + delta_z * player_dir.y;
+            spriteTriangleOrder[sorted_count] = triangle_index;
+            ++sorted_count;
+        }
+
+        for (uint16_t gap = sorted_count / 2; gap > 0; gap /= 2)
+        {
+            for (uint16_t current = gap; current < sorted_count; ++current)
+            {
+                const uint16_t triangle_index = spriteTriangleOrder[current];
+                const float depth = spriteTriangleDepths[current];
+                uint16_t insert = current;
+                while (insert >= gap &&
+                       (spriteTriangleDepths[insert - gap] < depth ||
+                        (spriteTriangleDepths[insert - gap] == depth &&
+                         spriteTriangleOrder[insert - gap] > triangle_index)))
+                {
+                    spriteTriangleDepths[insert] = spriteTriangleDepths[insert - gap];
+                    spriteTriangleOrder[insert] = spriteTriangleOrder[insert - gap];
+                    insert -= gap;
+                }
+                spriteTriangleDepths[insert] = depth;
+                spriteTriangleOrder[insert] = triangle_index;
+            }
+        }
+        render_count = sorted_count;
+    }
+
+    for (uint16_t draw_index = 0; draw_index < render_count; ++draw_index)
+    {
+        const uint16_t triangle_index = sort_triangles
+                                            ? spriteTriangleOrder[draw_index]
+                                            : draw_index;
         Triangle3D triangle;
-        if (!sprite3d->getTransformedTriangle(i, player_pos, triangle))
+        if (!sprite3d->getTransformedTriangle(triangle_index, player_pos, triangle, view_height))
             continue;
 
         const float xs[] = {triangle.x1, triangle.x2, triangle.x3};

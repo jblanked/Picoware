@@ -25,7 +25,7 @@ static uint16_t shadeColor565(uint16_t color, float factor)
 }
 
 Sprite3D::Sprite3D(bool usePsram) : active(false), position(Vector(0, 0)), psramAllowed(usePsram),
-                                    rotation_y(0), scale_factor(1.0f),
+                                    rotation_y(0), scale_factor(1.0f), depthSortEnabled(false),
                                     triangle_capacity(0), triangle_count(0), triangles(nullptr),
                                     type(SPRITE_CUSTOM)
 {
@@ -607,7 +607,7 @@ bool Sprite3D::getWorldTriangle(uint16_t index, Triangle3D &out) const
     return true;
 }
 
-bool Sprite3D::getTransformedTriangle(uint16_t index, const Vector &camera_pos, Triangle3D &out) const
+bool Sprite3D::getTransformedTriangle(uint16_t index, const Vector &camera_pos, Triangle3D &out, float camera_height) const
 {
     if (!getWorldTriangle(index, out))
         return false;
@@ -635,8 +635,8 @@ bool Sprite3D::getTransformedTriangle(uint16_t index, const Vector &camera_pos, 
         const float cz = (out.z1 + out.z2 + out.z3) * (1.0f / 3.0f);
 
         const float tox = camera_pos.x - cx;
-        const float toy = 0.5f - cy;         // Camera height offset
-        const float toz = camera_pos.y - cz; // camera_pos.y is Z in world space
+        const float toy = camera_height - cy; // Camera height offset
+        const float toz = camera_pos.y - cz;  // camera_pos.y is Z in world space
 
         // Dot product: if positive, triangle faces camera
         isSet = (nx * tox + ny * toy + nz * toz) > 0.0f;

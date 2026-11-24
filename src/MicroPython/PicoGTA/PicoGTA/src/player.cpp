@@ -16,7 +16,7 @@ namespace picogta
         : Entity("", ENTITY_3D_SPRITE, Vector(3.35f, -10.0f), Vector(0.6f, 1.5f),
                  nullptr, nullptr, nullptr, CallbackEntityGame(), CallbackEntityGame(),
                  CallbackEntityGame(), CallbackEntityDrawGame(), CallbackEntityEntityGame(),
-                 false, SPRITE_3D_HUMANOID, 0xFD20)
+                 false, SPRITE_3D_CUSTOM, 0xFD20)
     {
         direction = Vector(0.0f, 1.0f);
         plane = Vector(-0.72f, 0.0f);
@@ -28,6 +28,17 @@ namespace picogta
         if (user_pass)
             snprintf(password, sizeof(password), "%s", user_pass);
         name = username;
+        const char *sprite_path = ASSETS_FOLDER "/woman.sprite3d";
+        sprite_3d = new Sprite3D(false);
+        if (!sprite_3d || !sprite_3d->fromPath(sprite_path, false))
+        {
+            delete sprite_3d;
+            sprite_3d = nullptr;
+        }
+        else
+        {
+            sprite_3d->setDepthSortEnabled(true);
+        }
         is_visible = true;
     }
 

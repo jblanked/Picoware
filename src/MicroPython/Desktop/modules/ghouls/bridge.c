@@ -20,7 +20,14 @@ void desktop_ghouls_pcm(const int16_t *samples, int count)
 
 void desktop_ghouls_stop(void)
 {
-    call_bridge("stop", 0, NULL);
+    // A silent game may never have loaded the audio bridge. Its finalizer
+    // must not import a new module while the collector has locked the heap.
+    mp_map_elem_t *module = mp_map_lookup(&MP_STATE_VM(mp_loaded_modules_dict).map,
+        MP_OBJ_NEW_QSTR(MP_QSTR_sim_ghouls), MP_MAP_LOOKUP);
+    if (module == NULL || !mp_obj_is_type(module->value, &mp_type_module))
+        return;
+    mp_obj_t function = mp_load_attr(module->value, MP_QSTR_stop);
+    mp_call_function_0(function);
 }
 
 void desktop_ghouls_tone(int left, int right, int duration)

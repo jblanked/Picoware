@@ -22,4 +22,5 @@ def get_key():
 
 
 def get_key_nonblocking():
-    return picoware_keyboard.get_key_nonblocking()
+    key = picoware_keyboard.get_key_nonblocking()
+    return -1 if key is None else key

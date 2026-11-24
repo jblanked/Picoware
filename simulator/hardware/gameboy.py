@@ -14,12 +14,6 @@ GB_BUTTON_B = 58
 GB_BUTTON_START = 57
 GB_BUTTON_SELECT = 54
 
-PICOWARE_BUTTON_CENTER = 4
-PICOWARE_BUTTON_X = 30
-PICOWARE_BUTTON_Z = 32
-PICOWARE_BUTTON_SPACE = 43
-PICOWARE_BUTTON_ENTER = 74
-
 
 class GameBoy:
     def __del__(self):
@@ -126,11 +120,16 @@ class GameBoy:
         self._native = False
         return None
 
-    def run(self, button=-1):
-        """Run one frame with the given button input."""
+    def run(self):
+        """Poll native input and run a frame, matching firmware GameBoy.run."""
         if not self.running:
-            return False
-        button = self._normalize_button(button)
+            return None
+        from picoware_desktop import read_button
+
+        button = read_button()
+        if button == 5:
+            self.stop()
+            return None
         button = self._effective_button(button)
         self.last_button = button
         if button != -1:
@@ -150,8 +149,8 @@ class GameBoy:
             self.frame = new_frame
             self._write_control(button, 0)
             self._blit_native_frame()
-            return True
-        return False
+            return None
+        return None
 
     def snapshot(self):
         return {
@@ -173,32 +172,6 @@ class GameBoy:
             except Exception:
                 return ""
         return ""
-
-    def _normalize_button(self, button):
-        """Map simulator/Picoware input to canonical GameBoy runner button codes."""
-        aliases = {
-            PICOWARE_BUTTON_X: GB_BUTTON_A,
-            ord("x"): GB_BUTTON_A,
-            ord("X"): GB_BUTTON_A,
-            ord("]"): GB_BUTTON_A,
-            PICOWARE_BUTTON_Z: GB_BUTTON_B,
-            ord("z"): GB_BUTTON_B,
-            ord("Z"): GB_BUTTON_B,
-            ord("["): GB_BUTTON_B,
-            PICOWARE_BUTTON_SPACE: GB_BUTTON_SELECT,
-            PICOWARE_BUTTON_CENTER: GB_BUTTON_START,
-            PICOWARE_BUTTON_ENTER: GB_BUTTON_START,
-            13: GB_BUTTON_START,
-            ord("="): GB_BUTTON_START,
-            ord("-"): GB_BUTTON_SELECT,
-        }
-        # The normal simulator path is raw key -> Input.button -> GameBoy.run().
-        # Raw ASCII space is also 32, matching Picoware BUTTON_Z, so direct
-        # GameBoy.run(32) remains B; real Space reaches here as BUTTON_SPACE.
-        try:
-            return aliases.get(int(button), int(button))
-        except Exception:
-            return BUTTON_NONE
 
     def _effective_button(self, button):
         if button != BUTTON_NONE:

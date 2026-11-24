@@ -140,6 +140,83 @@ void Level::drawProjectedTriangle(Draw *draw, const Vector vertices[3], const Ve
     }
 }
 
+void Level::drawProjectedTexturedTriangle(Draw *draw, const Vector vertices[3], const float uv[6], const Vector &screen,
+                                          const uint16_t *texture, uint16_t texture_width, uint16_t texture_height,
+                                          uint32_t texture_psram_address, uint16_t tint, bool wireframe)
+{
+    if (!draw || !vertices || !uv || (!texture && texture_psram_address == 0xFFFFFFFFu) || screen.x < 1 || screen.y < 1)
+        return;
+
+    Vector clipped_vertices[4];
+    float clipped_uv[8];
+    int clipped_count = 0;
+    Vector previous = vertices[2];
+    float previous_u = uv[4];
+    float previous_v = uv[5];
+    bool previous_inside = previous.z >= 0.1f;
+    for (int i = 0; i < 3; ++i)
+    {
+        const Vector current = vertices[i];
+        const float current_u = uv[i * 2];
+        const float current_v = uv[i * 2 + 1];
+        const bool current_inside = current.z >= 0.1f;
+        if (current_inside != previous_inside)
+        {
+            const float t = (0.1f - previous.z) / (current.z - previous.z);
+            clipped_vertices[clipped_count] = Vector(
+                previous.x + t * (current.x - previous.x),
+                previous.y + t * (current.y - previous.y),
+                0.1f);
+            clipped_uv[clipped_count * 2] = previous_u + t * (current_u - previous_u);
+            clipped_uv[clipped_count * 2 + 1] = previous_v + t * (current_v - previous_v);
+            ++clipped_count;
+        }
+        if (current_inside)
+        {
+            clipped_vertices[clipped_count] = current;
+            clipped_uv[clipped_count * 2] = current_u;
+            clipped_uv[clipped_count * 2 + 1] = current_v;
+            ++clipped_count;
+        }
+        previous = current;
+        previous_u = current_u;
+        previous_v = current_v;
+        previous_inside = current_inside;
+    }
+    if (clipped_count < 3)
+        return;
+
+    for (int fan = 1; fan + 1 < clipped_count; ++fan)
+    {
+        const int indices[3] = {0, fan, fan + 1};
+        Vector projected[3];
+        float projected_uv[6];
+        for (int i = 0; i < 3; ++i)
+        {
+            const int index = indices[i];
+            const Vector &vertex = clipped_vertices[index];
+            const float inverse_depth = 1.0f / vertex.z;
+            const float scale = screen.y * inverse_depth;
+            projected[i] = Vector(vertex.x * scale + screen.x * 0.5f,
+                                  -vertex.y * scale + screen.y * 0.5f,
+                                  inverse_depth);
+            projected_uv[i * 2] = clipped_uv[index * 2];
+            projected_uv[i * 2 + 1] = clipped_uv[index * 2 + 1];
+        }
+        draw->fillTexturedTriangle(projected, projected_uv, texture, texture_width, texture_height, tint, texture_psram_address);
+        if (wireframe)
+        {
+            for (int i = 0; i < 3; ++i)
+            {
+                const Vector &a = projected[i];
+                const Vector &b = projected[(i + 1) % 3];
+                draw->line(static_cast<uint16_t>(a.x), static_cast<uint16_t>(a.y),
+                           static_cast<uint16_t>(b.x), static_cast<uint16_t>(b.y));
+            }
+        }
+    }
+}
+
 // Add an entity to the level
 void Level::entity_add(Entity *entity)
 {
@@ -701,6 +778,10 @@ void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &p
     const float slz = doShadow ? lightDirection.z / lightDirection.y : 0.0f;
 
     const uint16_t triangle_count = sprite3d->getTriangleCount();
+    const uint16_t *texture_data = sprite3d->getTextureData();
+    const uint32_t texture_psram_address = sprite3d->getTexturePSRAMAddress();
+    const uint16_t texture_width = sprite3d->getTextureWidth();
+    const uint16_t texture_height = sprite3d->getTextureHeight();
     bool sort_triangles = sprite3d->isDepthSortEnabled() && triangle_count > 1;
     if (sort_triangles && triangle_count > spriteTriangleCapacity)
     {
@@ -797,7 +878,17 @@ void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &p
             const float wz = zs[j] - player_pos.y;
             vertices[j] = Vector(wx * camA + wz * camB, ys[j] - view_height, wx * camC + wz * camD);
         }
-        drawProjectedTriangle(draw, vertices, screenSize, triangle.color, triangle.wireframe, clamp);
+        float uv[6];
+        if ((texture_data || texture_psram_address != 0xFFFFFFFFu) && sprite3d->getTriangleUVs(triangle_index, uv))
+        {
+            drawProjectedTexturedTriangle(draw, vertices, uv, screenSize,
+                                          texture_data, texture_width, texture_height,
+                                          texture_psram_address, triangle.color, triangle.wireframe);
+        }
+        else
+        {
+            drawProjectedTriangle(draw, vertices, screenSize, triangle.color, triangle.wireframe, clamp);
+        }
     }
 }
 

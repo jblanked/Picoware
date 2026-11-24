@@ -24,5 +24,10 @@ namespace picogta
         PicoGTA *city = nullptr;
         char password[64] = {0};
         char username[64] = {0};
+        float walk_phase = 0.0f; // Walk cycle phase (radians).
+        float walk_phase_step = 0.0f;
+        int walk_stop_frames = 0;
+        bool leg_dirty = false;  // Legs need pose write-back.
+        Triangle3D leg_base[96]; // Leg rest pose, 8 cubes.
     };
 } // namespace picogta

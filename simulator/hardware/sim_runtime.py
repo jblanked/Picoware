@@ -371,6 +371,11 @@ def _link_assets():
         sd_root + "/picoware/apps/games/ghouls/assets",
         include_init=True,
     )
+    _link_app_files_into(
+        root + "/src/MicroPython/PicoGTA/PicoGTA/src/assets",
+        sd_root + "/picoware/apps/games/pico_gta/assets",
+        include_init=True,
+    )
 
 
 def _merge_json_defaults(path, defaults, fill_blank_keys=()):

@@ -19,11 +19,13 @@ if [ ! -x "$binary" ] || native_sources_newer || ! "$binary" -c 'import engine, 
 from micropython import alloc_emergency_exception_buf
 alloc_emergency_exception_buf(100)
 assert hasattr(pico_gta.PicoGTA, "run")
+assert hasattr(ghouls.Ghouls, "run")
 assert hasattr(input_mp.Input, "get_last_button")
 assert hasattr(engine, "Billboard")
 assert hasattr(engine.Entity, "set_billboard")
 assert hasattr(engine.Entity, "set_billboard_pose")
 assert hasattr(engine.Sprite3D, "reserve_triangles")
+assert hasattr(engine.Sprite3D, "set_depth_sort_enabled")
 engine.Image(vector.Vector(1, 1), True, bytes([255]), None, bytes([128]))
 js = mjs.MJS()
 js.run("let camera = import(\"camera\");")

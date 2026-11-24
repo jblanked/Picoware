@@ -1,5 +1,13 @@
 #include "py/runtime.h"
 #include "picoware_boards.h"
+#include "../input/input.h"
+#include "desktop_input.h"
+
+static mp_obj_t desktop_read_button(void)
+{
+    return mp_obj_new_int(input_char_to_button(desktop_input_read()));
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(desktop_read_button_obj, desktop_read_button);
 
 static mp_obj_t desktop_native_modules(void)
 {
@@ -29,6 +37,7 @@ static MP_DEFINE_CONST_FUN_OBJ_0(desktop_native_modules_obj,
 static const mp_rom_map_elem_t desktop_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_picoware_desktop)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_ID), MP_ROM_INT(BOARD_DESKTOP)},
+    {MP_ROM_QSTR(MP_QSTR_read_button), MP_ROM_PTR(&desktop_read_button_obj)},
     {MP_ROM_QSTR(MP_QSTR_native_modules),
      MP_ROM_PTR(&desktop_native_modules_obj)},
 };

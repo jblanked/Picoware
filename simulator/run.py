@@ -695,6 +695,7 @@ def _run_sim_check(opts):
     _run_stale_app_link_check(opts)
     _run_c_parity_check(opts)
     _run_ir_parity_check()
+    _run_cardputer_grove_check()
     _run_duplicate_app_link_check(opts)
     _seed_mmbasic_parity_fixture(opts)
     commands = (
@@ -972,6 +973,26 @@ def _run_cleanup_parity_check(opts):
     print("[sim-check:ok] ViewManager cleanup for 0..MAX_VIEWS, navigation stack, repeated cleanup, and recreation")
 
 
+def _run_cardputer_grove_check():
+    """Check the shared Grove ADC against injected GPIO1 samples."""
+    from machine import ADC
+    import cardputer_battery
+
+    original = ADC._values.get(1)
+    percentage = cardputer_battery.get_percentage()
+    try:
+        for sample, expected in ((0, 0), (32768, 2048), (65535, 4095)):
+            ADC.set_value(1, sample)
+            assert cardputer_battery.read_grove_adc() == expected
+            assert cardputer_battery.get_percentage() == percentage
+    finally:
+        if original is None:
+            ADC._values.pop(1, None)
+        else:
+            ADC.set_value(1, original)
+    print("[sim-check:ok] Cardputer Grove ADC range and battery independence")
+
+
 def _run_desktop_native_check(opts):
     """Exercise the compiled Desktop MMBasic module and its host bridge."""
     try:
@@ -1040,10 +1061,13 @@ def _run_desktop_native_check(opts):
     original_headless = sim_runtime.headless
     original_lcd = sim_runtime.get_lcd()
     original_sd_root = sim_runtime.sd_root
+    original_root = sim_runtime.root
     path = "sim_reports/mmbasic-native.bas"
     try:
         sim_runtime.headless = True
         sim_runtime.sd_root = opts["sd"]
+        sim_runtime.root = ROOT
+        sim_runtime._link_assets()
         lcd.LCD()
 
         engine = mmbasic.MMBasic(0xFFFF, 0, 0x07E0, 320, 320, 8, 8, 0, 0)
@@ -1075,6 +1099,14 @@ def _run_desktop_native_check(opts):
         # Exercise native method lookup, city rendering, and repeated teardown.
         from pico_gta import PicoGTA
         import sim_input
+        from engine import Sprite3D
+
+        # The player now loads a bundled mesh through native SD storage.
+        sprite = Sprite3D()
+        assert sprite.from_path("picoware/apps/games/pico_gta/assets/woman.sprite3d", False)
+        assert sprite.triangle_count > 0
+        del sprite
+        gc.collect()
 
         from input_mp import Input as NativeInput
         from picoware.system.buttons import BUTTON_CENTER, BUTTON_UP
@@ -1100,6 +1132,55 @@ def _run_desktop_native_check(opts):
             gc.collect()
         sim_input.init()
 
+        from gameboy import GameBoy
+        import cardputer_keyboard
+        from picoware.system.buttons import BUTTON_BACK, BUTTON_ESCAPE
+
+        # Exercise the same native key mapping used by firmware GameBoy,
+        # without launching a ROM/helper for this input contract check.
+        for back_button, raw_back in ((BUTTON_BACK, 8), (BUTTON_ESCAPE, 177)):
+            keyboard = NativeInput(back_button)
+            gameboy = GameBoy()
+            try:
+                gameboy.running = True
+                for raw, expected in ((181, 0), (182, 1), (183, 2),
+                                      (180, 3), (93, 59), (91, 58),
+                                      (45, 54), (61, 57)):
+                    sim_runtime.push_key(raw)
+                    assert gameboy.run() is None
+                    assert gameboy.last_button == expected
+                sim_runtime.push_key(raw_back)
+                assert gameboy.run() is None
+                assert not gameboy.running
+                assert cardputer_keyboard.get_key_nonblocking() == -1
+            finally:
+                gameboy.stop()
+                keyboard.deinit()
+            del gameboy, keyboard
+            gc.collect()
+        sim_input.init()
+
+        from ghouls import Ghouls
+
+        for cycle in range(2):
+            if cycle:
+                # Cleanup must also be allocation-free when the silent
+                # storage/audio bridge was already imported.
+                __import__("sim_ghouls")
+            game = Ghouls("simulator", "offline-test", False)
+            try:
+                assert game.is_active
+                assert not hasattr(game, "update_input")
+                assert not hasattr(game, "update_draw")
+                assert game.run() is None
+                sim_runtime.push_key(8)
+                assert game.run() is None
+                assert not game.is_active
+            finally:
+                del game
+                gc.collect()
+        sim_input.init()
+
         for _ in range(2):
             city = PicoGTA("simulator", "offline-test")
             try:
@@ -1121,9 +1202,10 @@ def _run_desktop_native_check(opts):
         sd_mp.remove(path)
         sim_runtime.set_lcd(original_lcd)
         sim_runtime.sd_root = original_sd_root
+        sim_runtime.root = original_root
         sim_runtime.headless = original_headless
         gc.collect()
-    print("[sim-check:ok] Desktop native logic, MMBasic bridge, and PicoGTA render/recreation")
+    print("[sim-check:ok] Desktop native logic, MMBasic bridge, Ghouls run/exit, and PicoGTA render/recreation")
 
 
 def _run_c_parity_check(opts):
@@ -1537,6 +1619,17 @@ def _run_polygon_parity_check(display):
         display.set_scaling(1, 1, False)
 
 
+class _KeyboardManagerProbe:
+    """Supply the current Keyboard ViewManager contract in input fixtures."""
+
+    def __init__(self, input_manager):
+        self.input_manager = input_manager
+
+    @property
+    def button(self):
+        return self.input_manager.button
+
+
 def _run_flipper_keyboard_preview_check():
     """Check firmware layout scaling and the shared Flipper keyboard preview."""
     import picoware_boards
@@ -1598,7 +1691,7 @@ def _run_flipper_keyboard_preview_check():
                 pass
 
         touch = TouchProbe()
-        keyboard = Keyboard(draw, touch)
+        keyboard = Keyboard(draw, _KeyboardManagerProbe(touch))
         # Exercise the shared keyboard event loop, including release unlatching.
         def tap_key(character):
             for row, keys in enumerate(keyboard.ROWS):
@@ -1627,7 +1720,7 @@ def _run_flipper_keyboard_preview_check():
 
         picoware_boards.BOARD_ID = boards.BOARD_ID = picoware_boards.BOARD_FLIPPER_ZERO
         draw = Draw()
-        keyboard = Keyboard(draw, InputProbe())
+        keyboard = Keyboard(draw, _KeyboardManagerProbe(InputProbe()))
         assert keyboard._is_flipper
         keyboard._draw_textbox()
         keyboard._draw_keyboard()
@@ -1724,6 +1817,9 @@ def _run_engine_parity_check():
         sprite = Sprite3D()
         assert sprite.add_triangle(*vertices, 0x07E0, False) is True
         assert sprite.update_triangle(0, *vertices, 0x07E0, False) is True
+        for enabled in (True, False, True):
+            assert sprite.set_depth_sort_enabled(enabled) is None
+            assert sprite.triangle_count == 1
         assert sprite.bake_transform() is True
         if not sprite.reserve_triangles(8) or sprite.triangle_count != 1:
             raise RuntimeError("native Sprite3D reservation changed triangle count")
@@ -2222,7 +2318,7 @@ def _run_gpio_buttons_check():
             sim_runtime.clear_touch()
             inp._poll_touch()
             assert inp.touch_down is False and inp.point == (0, 0)
-        keyboard = Keyboard(Draw(), inp)
+        keyboard = Keyboard(Draw(), _KeyboardManagerProbe(inp))
 
         def touch_key(character):
             for row, keys in enumerate(keyboard.ROWS):

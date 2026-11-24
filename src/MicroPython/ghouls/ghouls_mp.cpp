@@ -81,7 +81,7 @@ void ghouls_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     }
 }
 
-mp_obj_t ghouls_mp_update_draw(mp_obj_t self_in)
+mp_obj_t ghouls_mp_run(mp_obj_t self_in)
 {
     ghouls_mp_obj_t *self = static_cast<ghouls_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
     if (self->freed)
@@ -90,31 +90,13 @@ mp_obj_t ghouls_mp_update_draw(mp_obj_t self_in)
     }
     GhoulsGame *ctx = ghouls_get_context(self);
     if (ctx)
-        ctx->updateDraw();
+        ctx->run();
     return mp_const_none;
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(ghouls_mp_update_draw_obj, ghouls_mp_update_draw);
-
-mp_obj_t ghouls_mp_update_input(mp_obj_t self_in, mp_obj_t button_pressed_obj)
-{
-    ghouls_mp_obj_t *self = static_cast<ghouls_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    if (self->freed)
-    {
-        return mp_const_none;
-    }
-    GhoulsGame *ctx = ghouls_get_context(self);
-    if (ctx)
-    {
-        int button_pressed = mp_obj_get_int(button_pressed_obj);
-        ctx->updateInput(button_pressed, false);
-    }
-    return mp_const_none;
-}
-static MP_DEFINE_CONST_FUN_OBJ_2(ghouls_mp_update_input_obj, ghouls_mp_update_input);
+static MP_DEFINE_CONST_FUN_OBJ_1(ghouls_mp_run_obj, ghouls_mp_run);
 
 static const mp_rom_map_elem_t ghouls_mp_locals_dict_table[] = {
-    {MP_ROM_QSTR(MP_QSTR_update_draw), MP_ROM_PTR(&ghouls_mp_update_draw_obj)},
-    {MP_ROM_QSTR(MP_QSTR_update_input), MP_ROM_PTR(&ghouls_mp_update_input_obj)},
+    {MP_ROM_QSTR(MP_QSTR_run), MP_ROM_PTR(&ghouls_mp_run_obj)},
 };
 static MP_DEFINE_CONST_DICT(ghouls_mp_locals_dict, ghouls_mp_locals_dict_table);
 

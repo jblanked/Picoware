@@ -1,7 +1,11 @@
 """Ghouls - Downloadable game with asset management."""
 
 from micropython import const
-from picoware.system.decorator import storage_required, wifi_required, server_settings_required
+from picoware.system.decorator import (
+    storage_required,
+    wifi_required,
+    server_settings_required,
+)
 import ghouls
 
 
@@ -33,7 +37,9 @@ def __get_asset_info() -> dict:
     """
     global _asset_index
 
-    base_url = "https://raw.githubusercontent.com/pico-game-engine/Ghouls/dev/src/assets/"
+    base_url = (
+        "https://raw.githubusercontent.com/pico-game-engine/Ghouls/dev/src/assets/"
+    )
     base_path = "picoware/apps/games/ghouls/assets/"
 
     asset_list = __get_asset_list()
@@ -49,6 +55,7 @@ def __get_asset_info() -> dict:
     _asset_index += 1
 
     return _data
+
 
 def __get_asset_list() -> list:
     """Get the list of assets to download.
@@ -83,8 +90,9 @@ def __get_asset_list() -> list:
         "bully.sprite3d",
         "bullet.sprite3d",
         "arrow.sprite3d",
-        "ambience.wav"
+        "ambience.wav",
     ]
+
 
 def __init_ghouls() -> bool:
     """Initialize the Ghouls game.
@@ -192,24 +200,19 @@ def run(view_manager) -> None:
         view_manager (ViewManager): The view manager context.
     """
 
-    global _state, _ghouls, _loading
-
-    button = view_manager.button
+    global _state, _loading
 
     if _state == STATE_PLAYING:
         if _ghouls is None:
             return
 
-        if button != -1:
-            _ghouls.update_input(button)
+        while _ghouls.is_active:
+            _ghouls.run()
+            view_manager.thread_manager.run()
+        view_manager.back()
+        return
 
-        if not _ghouls.is_active:
-            view_manager.back()
-            return
-
-        _ghouls.update_draw()
-
-    elif _state == STATE_DOWNLOADING:
+    if _state == STATE_DOWNLOADING:
         if not _http.is_request_complete():
             if _loading:
                 _loading.animate(http=_http)

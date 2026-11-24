@@ -2,7 +2,7 @@
 #include "game.hpp"
 
 Pedestrian::Pedestrian(PicoGTA *city, int index, const char *personName, Vector position, uint16_t color)
-    : Entity(personName, ENTITY_3D_SPRITE, position, Vector(0.6f, 1.5f),
+    : Entity(personName, ENTITY_NPC, position, Vector(0.6f, 1.5f),
              nullptr, nullptr, nullptr, CallbackEntityGame(), CallbackEntityGame(),
              CallbackEntityGame(), CallbackEntityDrawGame(), CallbackEntityEntityGame(),
              false, SPRITE_3D_HUMANOID, color),

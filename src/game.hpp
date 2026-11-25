@@ -253,7 +253,7 @@ private:
     const float trafficOffset = 1.2f;
     const float trafficSpeed = 0.45f;
     const float turnLerp = 0.9f;
-    const float walkAccel = 0.30f;
+    const float walkAccel = 0.35f;
     const float walkFriction = 0.24f;
     const float walkSpeed = 1.4f;
     const float walkTurn = 0.5f;

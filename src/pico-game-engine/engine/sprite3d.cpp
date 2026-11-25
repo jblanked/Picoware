@@ -604,11 +604,6 @@ bool Sprite3D::fromUVPath(const char *path)
 
 bool Sprite3D::fromTexturePath(const char *path, uint16_t width, uint16_t height)
 {
-    return fromTexturePath(path, width, height, psramAllowed);
-}
-
-bool Sprite3D::fromTexturePath(const char *path, uint16_t width, uint16_t height, bool usePsram)
-{
 #ifdef ENGINE_STORAGE_READ
     if (!path || path[0] == '\0' || width == 0 || height == 0)
         return false;
@@ -618,10 +613,8 @@ bool Sprite3D::fromTexturePath(const char *path, uint16_t width, uint16_t height
         return false;
     const size_t texture_size = pixel_count * sizeof(uint16_t);
 #ifdef ENGINE_USE_PSRAM
-    if (usePsram && texture_size > 0xFFFFFFFFu)
+    if (psramAllowed && texture_size > 0xFFFFFFFFu)
         return false;
-#else
-    (void)usePsram;
 #endif
     if (ENGINE_STORAGE_SIZE(path) != texture_size)
         return false;
@@ -636,7 +629,7 @@ bool Sprite3D::fromTexturePath(const char *path, uint16_t width, uint16_t height
     }
 
 #ifdef ENGINE_USE_PSRAM
-    if (usePsram)
+    if (psramAllowed)
     {
         const uint32_t address = TrianglePSRAM::reserveBytes(static_cast<uint32_t>(texture_size));
         if (address == TrianglePSRAM::INVALID)
@@ -672,7 +665,6 @@ bool Sprite3D::fromTexturePath(const char *path, uint16_t width, uint16_t height
     (void)path;
     (void)width;
     (void)height;
-    (void)usePsram;
     return false;
 #endif
 }

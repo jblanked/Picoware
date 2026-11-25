@@ -43,7 +43,7 @@ namespace picogta
         {
             sprite_3d->setDepthSortEnabled(true);
             sprite_3d->fromUVPath(ASSETS_FOLDER "/woman.uv");
-            sprite_3d->fromTexturePath(ASSETS_FOLDER "/woman.rgb565", 128, 64, true);
+            sprite_3d->fromTexturePath(ASSETS_FOLDER "/woman.rgb565", 128, 64);
             // Leg rest pose for walk swing
             for (int block = 0; block < 8; block++)
             {

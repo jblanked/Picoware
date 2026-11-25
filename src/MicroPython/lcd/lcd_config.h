@@ -35,6 +35,7 @@
 #define LCD_MP_POLYGON lcd_polygon
 #define LCD_MP_FILL_POLYGON lcd_fill_polygon
 #define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
+#define LCD_MP_TEXTURED_TRIANGLE lcd_textured_triangle
 #elif defined(CARDPUTER)
 #define LCD_INCLUDE "../cardputer/lcd/lcd.h"
 #define LCD_MP_INIT lcd_init

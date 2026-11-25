@@ -32,10 +32,6 @@ Sprite3D::Sprite3D(bool usePsram) : active(false), position(Vector(0, 0)), psram
                                     triangle_capacity(0), triangle_count(0), triangles(nullptr),
                                     triangleUvs(nullptr), uvTriangleCount(0), textureData(nullptr),
                                     texturePsramAddress(0xFFFFFFFFu), textureWidth(0), textureHeight(0),
-#ifdef ENGINE_USE_PSRAM
-                                    textureRow(nullptr), textureRowCapacity(0), cachedTextureRow(0xFFFFu),
-                                    cachedTextureRowValid(false),
-#endif
                                     type(SPRITE_CUSTOM)
 {
 #ifdef ENGINE_USE_PSRAM
@@ -142,12 +138,6 @@ void Sprite3D::clearTriangles()
     textureWidth = 0;
     textureHeight = 0;
 #ifdef ENGINE_USE_PSRAM
-    if (textureRow)
-        ENGINE_MEM_FREE(textureRow);
-    textureRow = nullptr;
-    textureRowCapacity = 0;
-    cachedTextureRow = 0xFFFFu;
-    cachedTextureRowValid = false;
     if (psramAllowed)
     {
         triangle_count = 0;
@@ -662,7 +652,6 @@ bool Sprite3D::fromTexturePath(const char *path, uint16_t width, uint16_t height
         texturePsramAddress = address;
         textureWidth = width;
         textureHeight = height;
-        cachedTextureRowValid = false;
         if (!psramRetained)
         {
             TrianglePSRAM::retain();
@@ -678,9 +667,6 @@ bool Sprite3D::fromTexturePath(const char *path, uint16_t width, uint16_t height
     texturePsramAddress = 0xFFFFFFFFu;
     textureWidth = width;
     textureHeight = height;
-#ifdef ENGINE_USE_PSRAM
-    cachedTextureRowValid = false;
-#endif
     return true;
 #else
     (void)path;
@@ -717,49 +703,27 @@ bool Sprite3D::getTexture(const uint16_t *&pixels, uint16_t &width, uint16_t &he
     return true;
 }
 
-bool Sprite3D::getTexture(uint16_t row, const uint16_t *&pixels)
+bool Sprite3D::getTexture(void *buffer, size_t buffer_size) const
 {
-    pixels = nullptr;
-    if (!hasTexture() || row >= textureHeight)
+    if (!hasTexture() || !buffer)
+        return false;
+
+    const size_t pixel_count = static_cast<size_t>(textureWidth) * textureHeight;
+    if (pixel_count > static_cast<size_t>(-1) / sizeof(uint16_t))
+        return false;
+    const size_t texture_size = pixel_count * sizeof(uint16_t);
+    if (texture_size > buffer_size)
         return false;
 
     if (textureData)
     {
-        pixels = textureData + static_cast<size_t>(row) * textureWidth;
+        memcpy(buffer, textureData, texture_size);
         return true;
     }
 #ifdef ENGINE_USE_PSRAM
     if (texturePsramAddress != 0xFFFFFFFFu)
     {
-        if (cachedTextureRowValid && cachedTextureRow == row)
-        {
-            pixels = textureRow;
-            return true;
-        }
-
-        const size_t row_bytes = static_cast<size_t>(textureWidth) * sizeof(uint16_t);
-        const size_t row_offset = static_cast<size_t>(row) * row_bytes;
-        if (row_offset > 0xFFFFFFFFu || texturePsramAddress > 0xFFFFFFFFu - static_cast<uint32_t>(row_offset))
-            return false;
-
-        if (!textureRow || textureRowCapacity < textureWidth)
-        {
-            uint16_t *replacement = static_cast<uint16_t *>(ENGINE_MEM_MALLOC(row_bytes));
-            if (!replacement)
-            {
-                cachedTextureRowValid = false;
-                return false;
-            }
-            if (textureRow)
-                ENGINE_MEM_FREE(textureRow);
-            textureRow = replacement;
-            textureRowCapacity = textureWidth;
-        }
-
-        ENGINE_PSRAM_READ(texturePsramAddress + static_cast<uint32_t>(row_offset), textureRow, row_bytes);
-        cachedTextureRow = row;
-        cachedTextureRowValid = true;
-        pixels = textureRow;
+        ENGINE_PSRAM_READ(texturePsramAddress, buffer, texture_size);
         return true;
     }
 #endif

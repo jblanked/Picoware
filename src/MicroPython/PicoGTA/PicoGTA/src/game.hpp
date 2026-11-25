@@ -185,7 +185,7 @@ private:
     const float carFriction = 0.012f;
     const float carMaxReverse = -0.35f;
     const float carMaxSpeed = 1.8f;
-    const float carSteer = 0.22f;
+    const float carSteer = 0.15f;
     Map cityMap;
     const float cityPi = 3.14159265358979323846f;
     bool dayJustSwitched;
@@ -252,9 +252,29 @@ private:
         "Traffic 1", "Traffic 2", "Traffic 3", "Traffic 4", "Traffic 5", "Traffic 6"};
     const float trafficOffset = 1.2f;
     const float trafficSpeed = 0.45f;
-    const float turnLerp = 0.9f;
+#ifndef PICO_GTA_TURN_LERP
+    const float turnLerp = 1.1f;
+#else
+    const float turnLerp = PICO_GTA_TURN_LERP;
+#endif
+#ifndef PICO_GTA_WALK_ACCEL
     const float walkAccel = 0.35f;
+#else
+    const float walkAccel = PICO_GTA_WALK_ACCEL;
+#endif
+#ifndef PICO_GTA_WALK_FRICTION
     const float walkFriction = 0.24f;
+#else
+    const float walkFriction = PICO_GTA_WALK_FRICTION;
+#endif
+#ifndef PICO_GTA_WALK_SPEED
     const float walkSpeed = 1.4f;
-    const float walkTurn = 0.5f;
+#else
+    const float walkSpeed = PICO_GTA_WALK_SPEED;
+#endif
+#ifndef PICO_GTA_WALK_TURN
+    const float walkTurn = 0.4f;
+#else
+    const float walkTurn = PICO_GTA_WALK_TURN;
+#endif
 };

@@ -12,7 +12,8 @@ Vehicle::Vehicle(PicoGTA *city, const char *vehicleName, Vector position, uint16
       trafficAxis(0),
       trafficDirection(1),
       trafficIndex(-1),
-      trafficLine(0)
+      trafficLine(0),
+      turnCount(0)
 {
     speed = 0.0f;
 

@@ -21,9 +21,16 @@ public:
     int getTrafficIndex() const { return trafficIndex; }
     int getTrafficLine() const { return trafficLine; }
     float getTrafficSpeed() const { return speed; }
+    int getTurnCount() const { return turnCount; }
     void render(Draw *draw, Game *game) override;
     void setTrafficDirection(int direction) { trafficDirection = direction; }
     void setTrafficSpeed(float trafficSpeed) { speed = trafficSpeed; }
+    void setTarget(float x, float z)
+    {
+        end_position.x = x;
+        end_position.y = z;
+    }
+    void setTurnCount(int count) { turnCount = count; }
     void setTrafficState(int index, int axis, int line, int direction, float speed);
     void update(Game *game) override;
 
@@ -34,4 +41,5 @@ private:
     int trafficDirection;
     int trafficIndex;
     int trafficLine;
+    int turnCount;
 };

@@ -7,11 +7,12 @@ Pedestrian::Pedestrian(PicoGTA *city, int index, const char *personName, Vector 
              CallbackEntityGame(), CallbackEntityDrawGame(), CallbackEntityEntityGame(),
              false, SPRITE_3D_HUMANOID, color),
       city(city),
-      index(index)
+      index(index),
+      leg(0),
+      turnCount(0)
 {
     direction.x = 0.0f;
     direction.z = 1.0f;
-    elapsed_move_timer = 0.0f;
     speed = 0.02f;
     sprite_3d->setWireframe(false);
 }

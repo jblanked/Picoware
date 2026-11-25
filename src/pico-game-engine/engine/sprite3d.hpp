@@ -84,7 +84,6 @@ public:
     bool fromPath(const char *path, bool wireframe = false);
     bool fromUVPath(const char *path);
     bool fromTexturePath(const char *path, uint16_t width, uint16_t height);
-    bool fromTexturePath(const char *path, uint16_t width, uint16_t height, bool usePsram);
     bool getTexture(const uint16_t *&pixels, uint16_t &width, uint16_t &height) const;
     bool getTexture(void *buffer, size_t buffer_size) const;
     Vector getPosition() const { return position; }

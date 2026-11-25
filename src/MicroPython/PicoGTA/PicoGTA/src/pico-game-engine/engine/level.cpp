@@ -783,6 +783,20 @@ void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &p
     uint16_t texture_width = 0;
     uint16_t texture_height = 0;
     const bool has_texture = sprite3d->getTexture(texture, texture_width, texture_height);
+    uint16_t *texture_buffer = nullptr;
+#ifdef ENGINE_LCD_TEXTURED_TRIANGLE
+    if (has_texture && !texture)
+    {
+        const size_t pixel_count = static_cast<size_t>(texture_width) * texture_height;
+        if (pixel_count <= static_cast<size_t>(-1) / sizeof(uint16_t))
+        {
+            const size_t texture_size = pixel_count * sizeof(uint16_t);
+            texture_buffer = static_cast<uint16_t *>(ENGINE_MEM_MALLOC(texture_size));
+            if (texture_buffer && sprite3d->getTexture(texture_buffer, texture_size))
+                texture = texture_buffer;
+        }
+    }
+#endif
     bool sort_triangles = sprite3d->isDepthSortEnabled() && triangle_count > 1;
     if (sort_triangles && triangle_count > spriteTriangleCapacity)
     {
@@ -880,7 +894,7 @@ void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &p
             vertices[j] = Vector(wx * camA + wz * camB, ys[j] - view_height, wx * camC + wz * camD);
         }
         float uv[6];
-        if (has_texture && texture && sprite3d->getTriangleUVs(triangle_index, uv))
+        if (has_texture && sprite3d->getTriangleUVs(triangle_index, uv))
         {
             drawProjectedTexturedTriangle(draw, vertices, uv, screenSize, texture,
                                           texture_width, texture_height, triangle.color,
@@ -891,6 +905,9 @@ void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &p
             drawProjectedTriangle(draw, vertices, screenSize, triangle.color, triangle.wireframe, clamp);
         }
     }
+
+    if (texture_buffer)
+        ENGINE_MEM_FREE(texture_buffer);
 }
 
 void Level::render3DSprite(const char *path, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp, bool wireframe, bool drawShadow)

@@ -1,4 +1,5 @@
 #pragma once
+#include <stddef.h>
 #include "triangle3d.hpp"
 #include "vector.hpp"
 #include "../engine_config.hpp"
@@ -49,10 +50,6 @@ private:
     uint16_t textureWidth;
     uint16_t textureHeight;
 #ifdef ENGINE_USE_PSRAM
-    uint16_t *textureRow;
-    uint16_t textureRowCapacity;
-    uint16_t cachedTextureRow;
-    bool cachedTextureRowValid;
     TrianglePSRAM psramTriangles;
 #endif
     SpriteType type;
@@ -89,7 +86,7 @@ public:
     bool fromTexturePath(const char *path, uint16_t width, uint16_t height);
     bool fromTexturePath(const char *path, uint16_t width, uint16_t height, bool usePsram);
     bool getTexture(const uint16_t *&pixels, uint16_t &width, uint16_t &height) const;
-    bool getTexture(uint16_t row, const uint16_t *&pixels);
+    bool getTexture(void *buffer, size_t buffer_size) const;
     Vector getPosition() const { return position; }
     bool getTriangle(uint16_t index, Triangle3D &out) const;
     bool getTriangle(uint16_t index, float &x1, float &y1, float &z1,

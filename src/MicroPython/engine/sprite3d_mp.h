@@ -61,11 +61,16 @@ extern "C"
     mp_obj_t sprite3d_mp_set_active(mp_obj_t self_in, mp_obj_t active_obj);
     mp_obj_t sprite3d_mp_set_wireframe(mp_obj_t self_in, mp_obj_t wireframe_obj);
 
+    mp_obj_t sprite3d_mp_from_texture_path(size_t n_args, const mp_obj_t *args);
     mp_obj_t sprite3d_mp_from_path(size_t n_args, const mp_obj_t *args);
+    mp_obj_t sprite3d_mp_from_uv_path(mp_obj_t self_in, mp_obj_t path_obj);
     mp_obj_t sprite3d_mp_to_path(mp_obj_t self_in, mp_obj_t path_obj);
     mp_obj_t sprite3d_mp_bake_transform(mp_obj_t self_in);
 
     mp_obj_t sprite3d_mp_reserve_triangles(mp_obj_t self_in, mp_obj_t count_in);
+
+    mp_obj_t sprite3d_mp_get_texture(size_t n_args, const mp_obj_t *args);
+    mp_obj_t sprite3d_mp_get_triangle_uvs(mp_obj_t self_in, mp_obj_t index_obj);
 
 #ifdef __cplusplus
 }

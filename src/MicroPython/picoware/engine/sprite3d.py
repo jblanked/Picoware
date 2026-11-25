@@ -22,6 +22,8 @@ class Sprite3D(engine.Sprite3D):
         scale_factor (float): Sprite scale factor. Writable.
         type (int): Sprite type constant. Read-only.
         active (bool): Whether the sprite is active. Writable.
+        has_texture (bool): Whether the sprite has a texture. Read-only.
+        depth_sort_enabled (bool): Whether depth sorting is enabled. Writable.
         triangle_count (int): Number of triangles in the sprite. Read-only.
         MAX_TRIANGLES_PER_SPRITE (int): Maximum supported triangle count.
         SPRITE_HUMANOID (int): Humanoid sprite type.
@@ -56,6 +58,10 @@ class Sprite3D(engine.Sprite3D):
         - set_active(active): Set whether the sprite is active.
         - set_wireframe(wireframe): Set wireframe rendering for the mesh.
         - from_path(path, wireframe=True): Load a sprite mesh from a file. Returns True on success.
+        - from_uv_path(path): Load a sprite mesh with UV coordinates from a file. Returns True on success.
+        - from_texture_path(path, width, height): Load a texture from a file. Returns True on success.
+        - get_texture(buffer): Retrieve the sprite's texture into a buffer. Returns True on success.
+        - get_triangle_uvs(index): Retrieve the UV coordinates for a triangle by index. Returns a tuple of 6 floats on success.
         - to_path(path): Save the sprite mesh to a file. Returns True on success.
         - bake_transform(): Apply rotation and scale to stored triangles. Returns True on success.
         - __del__(): Release the native sprite resources.

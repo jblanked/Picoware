@@ -102,6 +102,12 @@ void sprite3d_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         case MP_QSTR_triangle_count:
             destination[0] = mp_obj_new_int(ctx->getTriangleCount());
             break;
+        case MP_QSTR_has_texture:
+            destination[0] = mp_obj_new_bool(ctx->hasTexture());
+            break;
+        case MP_QSTR_depth_sort_enabled:
+            destination[0] = mp_obj_new_bool(ctx->isDepthSortEnabled());
+            break;
         case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&sprite3d_mp_del_obj);
             break;
@@ -464,6 +470,18 @@ mp_obj_t sprite3d_mp_set_wireframe(mp_obj_t self_in, mp_obj_t wireframe_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_mp_set_wireframe_obj, sprite3d_mp_set_wireframe);
 
+mp_obj_t sprite3d_mp_from_texture_path(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, path, width, height
+    sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(args[0]));
+    const char *path = mp_obj_str_get_str(args[1]);
+    uint16_t width = static_cast<uint16_t>(mp_obj_get_int(args[2]));
+    uint16_t height = static_cast<uint16_t>(mp_obj_get_int(args[3]));
+    Sprite3D *ctx = sprite3d_get_context(self);
+    return ctx->fromTexturePath(path, width, height) ? mp_const_true : mp_const_false;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_from_texture_path_obj, 4, 4, sprite3d_mp_from_texture_path);
+
 mp_obj_t sprite3d_mp_from_path(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: self, path, wireframe (optional)
@@ -478,6 +496,16 @@ mp_obj_t sprite3d_mp_from_path(size_t n_args, const mp_obj_t *args)
     return ctx->fromPath(path, wireframe) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_from_path_obj, 2, 3, sprite3d_mp_from_path);
+
+mp_obj_t sprite3d_mp_from_uv_path(mp_obj_t self_in, mp_obj_t path_obj)
+{
+    // Arguments: self, path
+    sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    const char *path = mp_obj_str_get_str(path_obj);
+    Sprite3D *ctx = sprite3d_get_context(self);
+    return ctx->fromUVPath(path) ? mp_const_true : mp_const_false;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_mp_from_uv_path_obj, sprite3d_mp_from_uv_path);
 
 mp_obj_t sprite3d_mp_to_path(mp_obj_t self_in, mp_obj_t path_obj)
 {
@@ -504,6 +532,36 @@ mp_obj_t sprite3d_mp_reserve_triangles(mp_obj_t self_in, mp_obj_t count_in)
     return ctx->reserveTriangles(count) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_mp_reserve_triangles_obj, sprite3d_mp_reserve_triangles);
+
+mp_obj_t sprite3d_mp_get_texture(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, buffer
+    sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(args[0]));
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(args[1], &bufinfo, MP_BUFFER_WRITE);
+    Sprite3D *ctx = sprite3d_get_context(self);
+    return ctx->getTexture(bufinfo.buf, bufinfo.len) ? mp_const_true : mp_const_false;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_get_texture_obj, 2, 2, sprite3d_mp_get_texture);
+
+mp_obj_t sprite3d_mp_get_triangle_uvs(mp_obj_t self_in, mp_obj_t index_obj)
+{
+    sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    uint16_t index = static_cast<uint16_t>(mp_obj_get_int(index_obj));
+    Sprite3D *ctx = sprite3d_get_context(self);
+    float uvs[6];
+    if (!ctx->getTriangleUVs(index, uvs))
+    {
+        return mp_const_none;
+    }
+    mp_obj_t tuple[6];
+    for (uint8_t i = 0; i < 6; i++)
+    {
+        tuple[i] = mp_obj_new_float(uvs[i]);
+    }
+    return mp_obj_new_tuple(6, tuple);
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_mp_get_triangle_uvs_obj, sprite3d_mp_get_triangle_uvs);
 
 static const mp_rom_map_elem_t sprite3d_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_add_triangle), MP_ROM_PTR(&sprite3d_mp_add_triangle_obj)},
@@ -532,6 +590,10 @@ static const mp_rom_map_elem_t sprite3d_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_active), MP_ROM_PTR(&sprite3d_mp_set_active_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_wireframe), MP_ROM_PTR(&sprite3d_mp_set_wireframe_obj)},
     {MP_ROM_QSTR(MP_QSTR_from_path), MP_ROM_PTR(&sprite3d_mp_from_path_obj)},
+    {MP_ROM_QSTR(MP_QSTR_from_uv_path), MP_ROM_PTR(&sprite3d_mp_from_uv_path_obj)},
+    {MP_ROM_QSTR(MP_QSTR_from_texture_path), MP_ROM_PTR(&sprite3d_mp_from_texture_path_obj)},
+    {MP_ROM_QSTR(MP_QSTR_get_texture), MP_ROM_PTR(&sprite3d_mp_get_texture_obj)},
+    {MP_ROM_QSTR(MP_QSTR_get_triangle_uvs), MP_ROM_PTR(&sprite3d_mp_get_triangle_uvs_obj)},
     {MP_ROM_QSTR(MP_QSTR_to_path), MP_ROM_PTR(&sprite3d_mp_to_path_obj)},
     {MP_ROM_QSTR(MP_QSTR_bake_transform), MP_ROM_PTR(&sprite3d_mp_bake_transform_obj)},
     {MP_ROM_QSTR(MP_QSTR_reserve_triangles), MP_ROM_PTR(&sprite3d_mp_reserve_triangles_obj)},

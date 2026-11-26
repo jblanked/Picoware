@@ -350,10 +350,34 @@ bool Level::has_collided(Entity *entity) const
 // Determine if two entities are colliding
 bool Level::is_collision(const Entity *a, const Entity *b) const
 {
-    return a->position.x < b->position.x + b->size.x &&
-           a->position.x + a->size.x > b->position.x &&
-           a->position.y < b->position.y + b->size.y &&
-           a->position.y + a->size.y > b->position.y;
+    if (!a || !b)
+        return false;
+
+    float ax0 = a->position.x;
+    float ax1 = ax0 + a->size.x;
+    float az0 = a->position.y;
+    float az1 = az0 + (a->size.z > 0.0f ? a->size.z : a->size.y);
+    if (a->has3DSprite())
+    {
+        ax0 = a->aabb_min.x;
+        ax1 = a->aabb_max.x;
+        az0 = a->aabb_min.z;
+        az1 = a->aabb_max.z;
+    }
+
+    float bx0 = b->position.x;
+    float bx1 = bx0 + b->size.x;
+    float bz0 = b->position.y;
+    float bz1 = bz0 + (b->size.z > 0.0f ? b->size.z : b->size.y);
+    if (b->has3DSprite())
+    {
+        bx0 = b->aabb_min.x;
+        bx1 = b->aabb_max.x;
+        bz0 = b->aabb_min.z;
+        bz1 = b->aabb_max.z;
+    }
+
+    return ax0 < bx1 && ax1 > bx0 && az0 < bz1 && az1 > bz0;
 }
 
 void Level::project3DTo2D(const Vector &vertex, const Vector &player_pos, const Vector &player_dir, float view_height, const Vector &screen_size, Vector &result)

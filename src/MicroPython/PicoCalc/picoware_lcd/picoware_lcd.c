@@ -703,6 +703,47 @@ void picoware_lcd_swap_region(uint16_t x, uint16_t y, uint16_t width, uint16_t h
     }
     return;
 #else
+    const bool full_frame = x == 0 && y == 0 &&
+                            width == DISPLAY_WIDTH && height == DISPLAY_HEIGHT &&
+                            (lcd_mode == LCD_MODE_PSRAM ||
+                             (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL));
+    if (full_frame && lcd_stream_begin())
+    {
+        // Split the existing staging allocation: prepare one half while DMA
+        // sends the other. Eight-bit DMA matches the PIO byte autopull.
+        const uint16_t chunk_lines = LCD_CHUNK_LINES / 2;
+        const size_t buffer_bytes = (size_t)DISPLAY_WIDTH * chunk_lines * 2;
+        uint8_t *buffers = (uint8_t *)lcd_line_buffer;
+        uint8_t psram_row_buffer[DISPLAY_WIDTH];
+        unsigned buffer_index = 0;
+        for (uint16_t row = 0; row < height; row += chunk_lines)
+        {
+            uint16_t lines = height - row < chunk_lines ? height - row : chunk_lines;
+            uint8_t *destination = buffers + buffer_index * buffer_bytes;
+            for (uint16_t line = 0; line < lines; ++line)
+            {
+                const uint8_t *source;
+                if (lcd_mode == LCD_MODE_PSRAM)
+                {
+                    psram_read_span(0, row + line, psram_row_buffer, width);
+                    source = psram_row_buffer;
+                }
+                else
+                    source = &heap_framebuffer[(size_t)(row + line) * DISPLAY_WIDTH];
+                for (uint16_t col = 0; col < width; ++col)
+                {
+                    uint16_t color = palette[source[col]];
+                    size_t offset = ((size_t)line * width + col) * 2;
+                    destination[offset] = color >> 8;
+                    destination[offset + 1] = color & 0xff;
+                }
+            }
+            lcd_stream_write(destination, (size_t)width * lines * 2);
+            buffer_index ^= 1;
+        }
+        lcd_stream_end();
+        return;
+    }
     if (lcd_mode == LCD_MODE_PSRAM)
     {
         for (uint16_t row = 0; row < height; row += LCD_CHUNK_LINES)

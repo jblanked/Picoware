@@ -20,12 +20,12 @@ public:
     inline void run()
     {
         // Initialize the game if not already active.
-        if (!game->is_active)
+        if (game && !game->is_active)
         {
             game->start();
         }
 
-        while (game->is_active)
+        while (game && game->is_active)
         {
             // Update the game
             game->update();
@@ -42,7 +42,7 @@ public:
     inline void runAsync(bool shouldDelay = false, bool shouldRender = true)
     {
         // Initialize the game if not already active.
-        if (!game->is_active)
+        if (game && !game->is_active)
         {
             game->start();
         }
@@ -52,7 +52,10 @@ public:
 #endif
 
         // Update the game
-        game->update();
+        if (game)
+        {
+            game->update();
+        }
 
         if (shouldRender)
         {
@@ -81,6 +84,9 @@ public:
 
     inline void stop()
     {
+        if (!game)
+            return;
+
         // Stop the game
         game->stop();
 

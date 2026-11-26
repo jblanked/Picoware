@@ -840,6 +840,7 @@ def _run_sim_check(opts):
     _run_flipper_keyboard_preview_check()
     _run_uart_parity_check()
     _run_engine_parity_check()
+    _run_texture_parity_check()
     _run_billboard_parity_check()
     _run_board_parity_check()
     _run_font_parity_check()
@@ -1883,6 +1884,52 @@ def _run_engine_parity_check():
         sd_mp.remove(roundtrip)
         gc.collect()
     print("[sim-check:ok] engine Level and Sprite3D parity")
+
+
+def _run_texture_parity_check():
+    """Exercise the shared native Sprite3D texture and UV API."""
+    import sd_mp
+    import ustruct
+    from engine import Sprite3D
+
+    uv_path = "sim_reports/texture-parity.uv"
+    texture_path = "sim_reports/texture-parity.rgb565"
+    try:
+        # Exercise simulated PSRAM too when that build option is enabled.
+        for use_psram in (False, True):
+            sprite = Sprite3D(use_psram)
+            assert not sprite.has_texture
+            assert sprite.add_triangle(3, 0, -1, 3, 0, 1, 3, 2, 0, 0xFFFF, False)
+            assert sprite.get_triangle_uvs(0) is None
+            uvs = (0., 0., 1., 0., 0.5, 1.)
+            sd_mp.write(uv_path, ustruct.pack("<6f", *uvs))
+            assert sprite.from_uv_path(uv_path)
+            assert sprite.get_triangle_uvs(0) == uvs
+            assert sprite.get_triangle_uvs(1) is None
+            sd_mp.write(uv_path, b"invalid")
+            assert not sprite.from_uv_path(uv_path)
+            assert sprite.get_triangle_uvs(0) == uvs
+            for enabled in (False, True):
+                sprite.set_depth_sort_enabled(enabled)
+                assert sprite.depth_sort_enabled == enabled
+            for colors in ((0xF800, 0x07E0, 0x001F, 0xFFFF),
+                           (0x001F, 0xFFFF, 0xF800, 0x07E0)):
+                data = ustruct.pack("<4H", *colors)
+                sd_mp.write(texture_path, data)
+                assert sprite.from_texture_path(texture_path, 2, 2)
+                assert sprite.has_texture
+                copied = bytearray(8)
+                assert sprite.get_texture(copied) and copied == data
+                assert not sprite.get_texture(bytearray(7))
+                assert not sprite.from_texture_path(texture_path, 3, 2)
+                gc.collect()
+                assert sprite.get_texture(copied) and copied == data
+            sprite = None
+            gc.collect()
+    finally:
+        sd_mp.remove(uv_path)
+        sd_mp.remove(texture_path)
+    print("[sim-check:ok] native Sprite3D textures, UVs, replacement, and invalid assets")
 
 
 def _run_billboard_parity_check():

@@ -385,6 +385,7 @@
 #define LCD_MP_FILL_CIRCLE desktop_lcd_fill_circle
 #define LCD_MP_FILL_RECTANGLE desktop_lcd_fill_rectangle
 #define LCD_MP_FILL_ROUND_RECTANGLE desktop_lcd_fill_round_rectangle
+#define LCD_MP_TEXTURED_TRIANGLE desktop_lcd_textured_triangle
 #define LCD_MP_FILL_TRIANGLE desktop_lcd_fill_triangle
 #define LCD_MP_FILL_TRIANGLE_ALPHA desktop_lcd_fill_triangle_alpha
 #define LCD_MP_POLYGON desktop_lcd_polygon

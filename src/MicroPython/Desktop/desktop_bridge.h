@@ -34,6 +34,11 @@ void desktop_lcd_circle(uint16_t x, uint16_t y, uint16_t radius,
                         uint16_t color);
 void desktop_lcd_fill_circle(uint16_t x, uint16_t y, uint16_t radius,
                              uint16_t color);
+void desktop_lcd_textured_triangle(float x1, float y1, float u1, float v1,
+                           float x2, float y2, float u2, float v2,
+                           float x3, float y3, float u3, float v3,
+                           const uint16_t *texture, uint16_t texture_width, uint16_t texture_height, uint16_t tint);
+
 void desktop_lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2,
                                uint16_t y2, uint16_t x3, uint16_t y3,
                                uint16_t color);

@@ -864,6 +864,50 @@ bool PicoGTA::carBlocked(float x, float z, int skipIndex) const
     return false;
 }
 
+bool PicoGTA::personBlocked(float x, float z, int skipIndex) const
+{
+    for (int i = 0; i < PERSON_COUNT; ++i)
+    {
+        Pedestrian *person = people[i];
+        if (i == skipIndex || !person || !person->is_visible)
+            continue;
+        if (absoluteFloat(x - person->position.x) < 0.55f &&
+            absoluteFloat(z - person->position.y) < 0.75f)
+            return true;
+    }
+
+    for (int i = 0; i < TRAFFIC_COUNT; ++i)
+    {
+        Vehicle *car = traffic[i];
+        if (!car || !car->is_visible)
+            continue;
+        if (absoluteFloat(x - car->position.x) < 0.95f &&
+            absoluteFloat(z - car->position.y) < 1.30f)
+            return true;
+    }
+
+    if (player &&
+        absoluteFloat(x - player->position.x) < 0.55f &&
+        absoluteFloat(z - player->position.y) < 0.75f)
+        return true;
+
+    if (playerCar && playerCar->is_visible &&
+        absoluteFloat(x - playerCar->position.x) < 0.95f &&
+        absoluteFloat(z - playerCar->position.y) < 1.30f)
+        return true;
+
+    for (int i = 0; i < MAX_REMOTE_PLAYERS; ++i)
+    {
+        Vehicle *car = remotePlayers[i].car;
+        if (!remotePlayers[i].active || !car || !car->is_visible)
+            continue;
+        if (absoluteFloat(x - car->position.x) < 0.95f &&
+            absoluteFloat(z - car->position.y) < 1.30f)
+            return true;
+    }
+    return false;
+}
+
 void PicoGTA::spawnTraffic(int index)
 {
     if (index < 0 || index >= TRAFFIC_COUNT || !traffic[index] || !player)
@@ -1579,6 +1623,12 @@ void PicoGTA::updatePerson(Pedestrian *person)
         person->setLeg(nleg);
         person->setTurnCount(person->getTurnCount() + 1);
         person->set3DSpriteRotation(atan2f(ndz, ndx) - cityPi * 0.5f);
+    }
+
+    if (landscape.blocked(x, z, false) || personBlocked(x, z, index))
+    {
+        person->keepOnSidewalk();
+        return;
     }
 
     person->position_set(x, z);

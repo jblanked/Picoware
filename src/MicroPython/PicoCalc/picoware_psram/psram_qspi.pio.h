@@ -58,10 +58,10 @@ static const uint16_t qspi_psram_rw_program_instructions[] = {
     0x6004, //  3: out    pins, 4         side 0
     0x1043, //  4: jmp    x--, 3          side 2
     0x0060, //  5: jmp    !y, 0           side 0
-    0xf080, //  6: set    pindirs, 0      side 2
+    0xe080, //  6: set    pindirs, 0      side 0
     0x0009, //  7: jmp    9               side 0
     0x4004, //  8: in     pins, 4         side 0
-    0x1088, //  9: jmp    y--, 8          side 2
+    0x1388, //  9: jmp    y--, 8          side 2 [3]
     0xe88f, // 10: set    pindirs, 15     side 1
             //     .wrap
 };

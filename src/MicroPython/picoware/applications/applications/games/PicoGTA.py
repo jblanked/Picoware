@@ -18,7 +18,7 @@ class PicoGTA(pico_gta.PicoGTA):
 STATE_DOWNLOADING = const(0)
 STATE_PLAYING = const(1)
 
-_TOTAL_ASSETS = const(3)
+_TOTAL_ASSETS = const(22)
 
 _pico_gta = None
 _http = None
@@ -61,7 +61,30 @@ def __get_asset_list() -> list:
     Returns:
         list: Asset filenames to download.
     """
-    return ["woman.rgb565", "woman.sprite3d", "woman.uv"]
+    return [
+        "woman.uv",
+        "woman.sprite3d",
+        "woman.rgb565",
+        "woman-summer.uv",
+        "woman-summer.rgb565",
+        "woman-sport.rgb565",
+        "woman-sport.uv",
+        "woman-original.uv",
+        "woman-original.rgb565",
+        "woman-night.uv",
+        "woman-night.rgb565",
+        "man.uv",
+        "man.sprite3d",
+        "man.rgb565",
+        "man-summer.uv",
+        "man-summer.rgb565",
+        "man-sport.uv",
+        "man-sport.rgb565",
+        "man-original.uv",
+        "man-original.rgb565",
+        "man-night.uv",
+        "man-night.rgb565",
+    ]
 
 
 def __init_pico_gta() -> bool:

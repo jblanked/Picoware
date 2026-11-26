@@ -17,7 +17,7 @@
 namespace picogta
 {
     Player::Player(const char *user_name, const char *user_pass)
-        : Entity("", ENTITY_3D_SPRITE, Vector(3.35f, -10.0f), Vector(0.6f, 1.5f),
+        : Entity("", ENTITY_3D_SPRITE, Vector(3.35f, -10.0f), Vector(0.681f, 1.792f, 0.649f),
                  nullptr, nullptr, nullptr, CallbackEntityGame(), CallbackEntityGame(),
                  CallbackEntityGame(), CallbackEntityDrawGame(), CallbackEntityEntityGame(),
                  false, SPRITE_3D_CUSTOM, 0xFD20)

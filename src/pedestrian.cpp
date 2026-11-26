@@ -7,7 +7,10 @@
 #endif
 
 Pedestrian::Pedestrian(PicoGTA *city, int index, const char *personName, Vector position, uint16_t color)
-    : Entity(personName, ENTITY_NPC, position, Vector(0.6f, 1.5f),
+    : Entity(personName, ENTITY_NPC, position,
+             Vector((index % 2) == 0 ? 0.681f : 0.726f,
+                    (index % 2) == 0 ? 1.792f : 1.769f,
+                    (index % 2) == 0 ? 0.649f : 0.458f),
              nullptr, nullptr, nullptr, CallbackEntityGame(), CallbackEntityGame(),
              CallbackEntityGame(), CallbackEntityDrawGame(), CallbackEntityEntityGame(),
              false, SPRITE_3D_CUSTOM, color),

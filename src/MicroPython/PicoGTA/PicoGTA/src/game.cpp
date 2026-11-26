@@ -848,8 +848,8 @@ bool PicoGTA::carBlocked(float x, float z, int skipIndex) const
     }
 
     if (skipIndex < TRAFFIC_COUNT && player &&
-        absoluteFloat(x - player->position.x) < 1.05f &&
-        absoluteFloat(z - player->position.y) < 1.85f)
+        absoluteFloat(x - player->position.x) < (1.05f + player->size.x) * 0.5f &&
+        absoluteFloat(z - player->position.y) < (1.85f + player->size.z) * 0.5f)
         return true;
 
     for (int i = 0; i < PERSON_COUNT; ++i)
@@ -857,8 +857,8 @@ bool PicoGTA::carBlocked(float x, float z, int skipIndex) const
         Pedestrian *person = people[i];
         if (!person || !person->is_visible)
             continue;
-        if (absoluteFloat(x - person->position.x) < 0.825f &&
-            absoluteFloat(z - person->position.y) < 1.675f)
+        if (absoluteFloat(x - person->position.x) < 0.525f + person->size.x * 0.5f &&
+            absoluteFloat(z - person->position.y) < 0.925f + person->size.z * 0.5f)
             return true;
     }
     return false;
@@ -866,13 +866,23 @@ bool PicoGTA::carBlocked(float x, float z, int skipIndex) const
 
 bool PicoGTA::personBlocked(float x, float z, int skipIndex) const
 {
+    float selfWidth = 0.681f;
+    float selfDepth = 0.649f;
+    if (skipIndex >= 0 && skipIndex < PERSON_COUNT && people[skipIndex])
+    {
+        selfWidth = people[skipIndex]->size.x;
+        selfDepth = people[skipIndex]->size.z;
+    }
+
     for (int i = 0; i < PERSON_COUNT; ++i)
     {
         Pedestrian *person = people[i];
         if (i == skipIndex || !person || !person->is_visible)
             continue;
-        if (absoluteFloat(x - person->position.x) < 0.55f &&
-            absoluteFloat(z - person->position.y) < 0.75f)
+        const float collisionX = (person->size.x + selfWidth) * 0.5f;
+        const float collisionZ = (person->size.z + selfDepth) * 0.5f;
+        if (absoluteFloat(x - person->position.x) < collisionX &&
+            absoluteFloat(z - person->position.y) < collisionZ)
             return true;
     }
 
@@ -881,19 +891,19 @@ bool PicoGTA::personBlocked(float x, float z, int skipIndex) const
         Vehicle *car = traffic[i];
         if (!car || !car->is_visible)
             continue;
-        if (absoluteFloat(x - car->position.x) < 0.95f &&
-            absoluteFloat(z - car->position.y) < 1.30f)
+        if (absoluteFloat(x - car->position.x) < (selfWidth + car->size.x) * 0.5f &&
+            absoluteFloat(z - car->position.y) < (selfDepth + car->size.z) * 0.5f)
             return true;
     }
 
     if (player &&
-        absoluteFloat(x - player->position.x) < 0.55f &&
-        absoluteFloat(z - player->position.y) < 0.75f)
+        absoluteFloat(x - player->position.x) < (player->size.x + selfWidth) * 0.5f &&
+        absoluteFloat(z - player->position.y) < (player->size.z + selfDepth) * 0.5f)
         return true;
 
     if (playerCar && playerCar->is_visible &&
-        absoluteFloat(x - playerCar->position.x) < 0.95f &&
-        absoluteFloat(z - playerCar->position.y) < 1.30f)
+        absoluteFloat(x - playerCar->position.x) < (selfWidth + playerCar->size.x) * 0.5f &&
+        absoluteFloat(z - playerCar->position.y) < (selfDepth + playerCar->size.z) * 0.5f)
         return true;
 
     for (int i = 0; i < MAX_REMOTE_PLAYERS; ++i)
@@ -901,8 +911,8 @@ bool PicoGTA::personBlocked(float x, float z, int skipIndex) const
         Vehicle *car = remotePlayers[i].car;
         if (!remotePlayers[i].active || !car || !car->is_visible)
             continue;
-        if (absoluteFloat(x - car->position.x) < 0.95f &&
-            absoluteFloat(z - car->position.y) < 1.30f)
+        if (absoluteFloat(x - car->position.x) < (selfWidth + car->size.x) * 0.5f &&
+            absoluteFloat(z - car->position.y) < (selfDepth + car->size.z) * 0.5f)
             return true;
     }
     return false;

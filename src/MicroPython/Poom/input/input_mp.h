@@ -8,6 +8,10 @@ extern "C"
 #include "py/runtime.h"
 #include "py/obj.h"
 
+    bool input_mp_init(void);
+    void input_mp_deinit(void);
+    int input_mp_read(void);
+
     mp_obj_t poom_input_init(void);
     mp_obj_t poom_input_deinit(void);
     mp_obj_t poom_input_poll(void);

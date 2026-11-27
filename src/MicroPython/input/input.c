@@ -2,6 +2,20 @@
 
 bool input_back_special = false;
 
+bool input_noop_init(void)
+{
+    return true;
+}
+
+void input_noop_deinit(void)
+{
+}
+
+int input_noop_read(void)
+{
+    return -1;
+}
+
 int input_char_to_button(int c)
 {
     switch (c)

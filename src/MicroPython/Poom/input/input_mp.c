@@ -170,6 +170,38 @@ mp_obj_t poom_input_get_key_nonblocking(void)
 static MP_DEFINE_CONST_FUN_OBJ_0(poom_input_get_key_nonblocking_obj,
                                  poom_input_get_key_nonblocking);
 
+bool input_mp_init(void)
+{
+    if (!g_input_ready)
+    {
+        if (!input_init())
+        {
+            return false;
+        }
+        g_input_ready = true;
+        poom_input_queue_reset();
+    }
+    return true;
+}
+
+void input_mp_deinit(void)
+{
+    g_input_ready = false;
+    poom_input_queue_reset();
+    input_deinit();
+}
+
+int input_mp_read(void)
+{
+    poom_input_poll_internal();
+    uint8_t key = 0;
+    if (poom_input_queue_pop(&key))
+    {
+        return key;
+    }
+    return -1;
+}
+
 static const mp_rom_map_elem_t poom_input_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_poom_input)},
     {MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&poom_input_init_obj)},

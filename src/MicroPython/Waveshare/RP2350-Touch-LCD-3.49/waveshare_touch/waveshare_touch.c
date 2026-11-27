@@ -82,3 +82,80 @@ const mp_obj_module_t waveshare_touch_user_cmodule = {
 
 // Register the module with MicroPython
 MP_REGISTER_MODULE(MP_QSTR_waveshare_touch, waveshare_touch_user_cmodule);
+
+static bool touch_input_pressed = false;
+
+static int touch_input_map_point(uint16_t x, uint16_t y)
+{
+    const uint16_t width = 172;
+    const uint16_t height = 640;
+
+    if (x <= (width * 15 / 100) &&
+        y <= (height * 12 / 100))
+    {
+        return 5;
+    }
+    if (width * 85 / 100 <= x &&
+        height * 30 / 100 <= y &&
+        y <= height * 70 / 100)
+    {
+        return 2;
+    }
+    if (x <= width * 15 / 100 &&
+        height * 30 / 100 <= y &&
+        y <= height * 70 / 100)
+    {
+        return 3;
+    }
+    if (width * 20 / 100 <= x &&
+        x <= width * 80 / 100 &&
+        y <= height * 20 / 100)
+    {
+        return 0;
+    }
+    if (width * 20 / 100 <= x &&
+        x <= width * 80 / 100 &&
+        y >= height * 80 / 100)
+    {
+        return 1;
+    }
+    if (width * 40 / 100 <= x &&
+        x <= width * 60 / 100 &&
+        height * 40 / 100 <= y &&
+        y <= height * 60 / 100)
+    {
+        return 4;
+    }
+    return -1;
+}
+
+bool touch_input_init(void)
+{
+    touch_input_pressed = false;
+    touch_init();
+    return true;
+}
+
+void touch_input_deinit(void)
+{
+    touch_input_pressed = false;
+    touch_reset_state();
+    touch_reset();
+}
+
+int touch_input_read(void)
+{
+    TouchVector point = touch_get_point();
+    if (point.x == 0 && point.y == 0)
+    {
+        touch_input_pressed = false;
+        return -1;
+    }
+
+    if (touch_input_pressed)
+    {
+        return -1;
+    }
+    touch_input_pressed = true;
+    return touch_input_map_point(point.x, point.y);
+}

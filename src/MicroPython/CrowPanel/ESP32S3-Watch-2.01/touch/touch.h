@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "board_config.h"
 
 typedef struct
 {
@@ -16,3 +17,6 @@ bool touch_init(void);
 bool touch_read(void);
 TouchPoint touch_get_point(void);
 void touch_deinit(void);
+bool touch_input_init(void);
+void touch_input_deinit(void);
+int touch_input_read(void);

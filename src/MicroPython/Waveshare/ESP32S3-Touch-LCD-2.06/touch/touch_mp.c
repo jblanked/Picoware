@@ -187,3 +187,81 @@ const mp_obj_module_t touch_user_cmodule = {
 };
 
 MP_REGISTER_MODULE(MP_QSTR_touch, touch_user_cmodule);
+
+static bool touch_input_pressed = false;
+
+static int touch_input_map_point(uint16_t x, uint16_t y)
+{
+    if (x <= (WATCH_TOUCH_WIDTH * 15 / 100) &&
+        y <= (WATCH_TOUCH_HEIGHT * 12 / 100))
+    {
+        return 5;
+    }
+    if (WATCH_TOUCH_WIDTH * 85 / 100 <= x &&
+        WATCH_TOUCH_HEIGHT * 30 / 100 <= y &&
+        y <= WATCH_TOUCH_HEIGHT * 70 / 100)
+    {
+        return 2;
+    }
+    if (x <= WATCH_TOUCH_WIDTH * 15 / 100 &&
+        WATCH_TOUCH_HEIGHT * 30 / 100 <= y &&
+        y <= WATCH_TOUCH_HEIGHT * 70 / 100)
+    {
+        return 3;
+    }
+    if (WATCH_TOUCH_WIDTH * 20 / 100 <= x &&
+        x <= WATCH_TOUCH_WIDTH * 80 / 100 &&
+        y <= WATCH_TOUCH_HEIGHT * 20 / 100)
+    {
+        return 0;
+    }
+    if (WATCH_TOUCH_WIDTH * 20 / 100 <= x &&
+        x <= WATCH_TOUCH_WIDTH * 80 / 100 &&
+        y >= WATCH_TOUCH_HEIGHT * 80 / 100)
+    {
+        return 1;
+    }
+    if (WATCH_TOUCH_WIDTH * 40 / 100 <= x &&
+        x <= WATCH_TOUCH_WIDTH * 60 / 100 &&
+        WATCH_TOUCH_HEIGHT * 40 / 100 <= y &&
+        y <= WATCH_TOUCH_HEIGHT * 60 / 100)
+    {
+        return 4;
+    }
+    return -1;
+}
+
+bool touch_input_init(void)
+{
+    touch_input_pressed = false;
+    return touch_init();
+}
+
+void touch_input_deinit(void)
+{
+    touch_input_pressed = false;
+    touch_deinit();
+}
+
+int touch_input_read(void)
+{
+    if (!touch_read())
+    {
+        touch_input_pressed = false;
+        return -1;
+    }
+
+    TouchPoint point = touch_get_point();
+    if (!point.pressed)
+    {
+        touch_input_pressed = false;
+        return -1;
+    }
+
+    if (touch_input_pressed)
+    {
+        return -1;
+    }
+    touch_input_pressed = true;
+    return touch_input_map_point(point.x, point.y);
+}

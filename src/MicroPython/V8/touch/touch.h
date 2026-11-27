@@ -51,6 +51,9 @@ extern "C"
     void touch_deinit(void);          // deinitialize the touch panel (free resources)
     bool touch_init(void);            // initialize the XPT2046 touch panel
     bool touch_read(void);            // read the touch panel data and update coordinates
+    bool touch_input_init(void);
+    void touch_input_deinit(void);
+    int touch_input_read(void);
 
 #ifdef __cplusplus
 }

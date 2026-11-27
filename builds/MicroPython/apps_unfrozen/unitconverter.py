@@ -1,33 +1,32 @@
 import json
 import gc
 import os
+from math import isfinite
+from utime import ticks_ms, ticks_add, ticks_diff
+from picoware.system.boards import BOARD_HAS_KEYBOARD, BOARD_HAS_TOUCH, BOARD_ID, BOARD_DESKTOP, BOARD_CROWPANEL_WATCH_2_01
 
 from picoware.system.system import System
 from picoware.system.vector import Vector
-from picoware.system.colors import (
-    TFT_ORANGE, TFT_DARKGREY, TFT_LIGHTGREY, TFT_WHITE,
-    TFT_BLACK, TFT_BLUE, TFT_YELLOW, TFT_GREEN, TFT_RED
-)
+from picoware.system.font import FONT_XTRA_SMALL, FONT_SMALL, FONT_MEDIUM
+from picoware.system.colors import TFT_WHITE, TFT_BLACK
 
 from picoware.system.buttons import (
     BUTTON_BACK, BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_CENTER,
     BUTTON_0, BUTTON_1, BUTTON_2, BUTTON_3, BUTTON_4, 
     BUTTON_5, BUTTON_6, BUTTON_7, BUTTON_8, BUTTON_9,
     BUTTON_PERIOD, BUTTON_BACKSPACE,
-    BUTTON_C, BUTTON_F, BUTTON_T, BUTTON_V, BUTTON_H, BUTTON_ESCAPE,
-    BUTTON_M, BUTTON_O
+    BUTTON_C, BUTTON_F, BUTTON_T, BUTTON_R, BUTTON_H, BUTTON_ESCAPE,
+    BUTTON_M
 )
 
 _SETTINGS_FILE = "/picoware/settings/unit_converter_settings.json" 
-_VERSION = "1.96a"
-
-_THEMES = (
-    ("Green", TFT_GREEN),
-    ("Red", TFT_RED),
-    ("Blue", TFT_BLUE),
-    ("Yellow", TFT_YELLOW),
-    ("Orange", TFT_ORANGE)
-)
+_VERSION = "2.0"
+_SETTINGS_TEMP = _SETTINGS_FILE + ".tmp"
+_SETTINGS_BACKUP = _SETTINGS_FILE + ".bak"
+SAVE_DELAY_MS = 1000
+SAVE_RETRY_MS = 5000
+_USE_NUMBER_PAD = not BOARD_HAS_KEYBOARD and BOARD_ID != BOARD_DESKTOP
+_USE_TOUCH = bool(BOARD_HAS_TOUCH) or BOARD_ID == BOARD_CROWPANEL_WATCH_2_01
 
 # Static tuple for conversions to save RAM over using dictionaries
 _CONVERSIONS = (
@@ -47,14 +46,14 @@ _CONVERSIONS = (
 
 # View modes
 MODE_MAIN = 0
-MODE_OPTIONS = 1
 MODE_HELP = 2
-MODE_TYPING = 3
+MODE_LIST = 3
+MODE_NUMBER_PAD = 4
+MODE_SAVE_ERROR = 5
 
 state = {
     "category_idx": 0, "from_idx": 0, "to_idx": 1, "input_val": "1.0",
-    "cursor_idx": 0, "theme_idx": 0, "bg_r": 0, "bg_g": 0, "bg_b": 0,
-    "options_cursor_idx": 0
+    "cursor_idx": 0
 }
 
 # Volatile state
@@ -63,42 +62,51 @@ conv_result = "0.0"
 storage = None
 help_scroll = 0
 dirty_ui = True
-blink_counter = 0
-cursor_visible = True
+entering_value = False
+list_field = 0
+list_cursor = 0
 pending_save = False
-save_timer = 0
+save_due = 0
 _last_saved_json = ""
+save_error = False
+exit_cursor = 0
+pad_cursor = 0
+closing = False
 _cached_help_lines = []
-has_hardware = True
+_wrapped_help_lines = []
+_help_width = None
+_result_key = None
+_surface = None
+_surface_key = None
+_touch_targets = []
+_touch_held = False
 board_name = "Unknown"
 
 def get_help_lines():
-    global board_name, _cached_help_lines
-    
-    gc.collect() 
-    ram_str = f"RAM: {gc.mem_alloc() // 1024}KB / {gc.mem_free() // 1024}KB"
-    
-    # Surgically update RAM string to prevent full list recreation
+    global _cached_help_lines
     if _cached_help_lines:
-        _cached_help_lines[5] = ram_str
         return _cached_help_lines
-        
-    b_name = board_name[:18]
-    hw_fw = os.uname().release if hasattr(os, "uname") else "Unknown FW"
-        
+
+    if _USE_TOUCH:
+        _cached_help_lines = [
+            'UNIT CONVERTER v' + _VERSION, '',
+            'Tap the value to edit.', 'Tap CAT, FROM or TO to choose.',
+            'Tap a list row to select.', 'UP / DOWN browse list pages.',
+            'BACK cancels a selection.', '',
+            'KEYPAD:', 'First digit replaces the value.',
+            'More digits append.', 'DEL removes the last digit.',
+            'CLR resets the value to zero.',
+            '+/- is available for Temp,', 'Angle and Torque.',
+            'DONE or BACK finishes entry.', '',
+            'EXIT closes the converter.',
+            'Edits are saved automatically.',
+            'If saving fails: retry, stay,', 'or explicitly exit unsaved.'
+        ]
+        return _cached_help_lines
+
     _cached_help_lines = [
         f"UNIT CONVERTER v{_VERSION}",
         "--------------------",
-        "DEBUG INFO:",
-        f"Board: {b_name}",
-        f"FW: {hw_fw}",
-        ram_str,
-        "",
-        "CREDITS:",
-        "made by Slasher006",
-        "with the help of Gemini",
-        "Date: 2026-03-02",
-        "",
         "CATEGORIES:",
         "- Len, Area, Vol",
         "- Kitch, Wgt, Spd",
@@ -109,16 +117,27 @@ def get_help_lines():
         "[C] Cycle Cat",
         "[F] Edit From",
         "[T] Edit To",
-        "[V] Edit Value (Clears)",
+        "[0-9 / .] Type value directly",
+        "First digit starts a new value.",
+        "More digits append.",
+        "Navigation ends number entry.",
+        "[BACKSPACE] Delete last digit",
+        "[R] Reset value to 0",
+        "NUMBER PAD (no keyboard):",
+        "Arrows browse; ENTER uses key.",
+        "DONE / BACK returns to main.",
         "[H] Open Help",
-        "[O] Open Options",
         "[M] Toggle +/-",
         "[ESC] Exit App",
         "",
         "CONTROLS:",
         "[UP/DN]: Cursor Nav",
         "[L/R]: Select / Edit",
-        "[ENTER]: Confirm",
+        "[ENTER]: Open selection list",
+        "LISTS:",
+        "[UP/DN]: Browse (wraps)",
+        "[ENTER]: Select highlighted",
+        "[ESC/BACK]: Cancel list",
         "[BACK]: Exit App"
     ]
     return _cached_help_lines
@@ -127,41 +146,93 @@ def rgb_to_565(r, g, b):
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
 def queue_save():
-    global pending_save, save_timer
-    pending_save = True
-    save_timer = 150 # Defer writes to prevent SD wear
+    global pending_save, save_due
+    pending_save = storage is not None
+    save_due = ticks_add(ticks_ms(), SAVE_RETRY_MS if save_error else SAVE_DELAY_MS)
+
+
+def _write_verified(path, text):
+    if not storage.write(path, text, "w") or storage.read(path, "r") != text:
+        raise OSError("Save failed")
+
 
 def save_settings():
-    global storage, _last_saved_json, pending_save
-    if not storage or not pending_save: return
+    global _last_saved_json, pending_save, save_error, save_due, dirty_ui
+    global current_mode
+    if storage is None or not pending_save:
+        return True
     try:
-        json_str = json.dumps(state)
-        # Delta-check bypasses redundant hardware writes
-        if json_str != _last_saved_json:
-            storage.write(_SETTINGS_FILE, json_str, "w")
-            _last_saved_json = json_str
-        
+        serialized = json.dumps(state)
+        if serialized != _last_saved_json:
+            # Verify staging first; preserve the previous valid state before
+            # overwriting the main file. Loading falls back to backup/staging.
+            _write_verified(_SETTINGS_TEMP, serialized)
+            if _last_saved_json:
+                _write_verified(_SETTINGS_BACKUP, _last_saved_json)
+            _write_verified(_SETTINGS_FILE, serialized)
+            _last_saved_json = serialized
         pending_save = False
-        del json_str
-        gc.collect()
-    except Exception: pass
+        if save_error: dirty_ui = True
+        save_error = False
+        if current_mode == MODE_SAVE_ERROR:
+            current_mode = MODE_MAIN
+            dirty_ui = True
+        return True
+    except Exception:
+        pending_save = True
+        save_error = True
+        save_due = ticks_add(ticks_ms(), SAVE_RETRY_MS)
+        dirty_ui = True
+        return False
+
+
+def _valid_input(value):
+    if not isinstance(value, str): return False
+    unsigned = value[1:] if value.startswith("-") else value
+    if not unsigned or len(unsigned) > 32 or unsigned.count(".") > 1:
+        return False
+    digits = unsigned.replace(".", "")
+    if not digits or any(c < "0" or c > "9" for c in digits):
+        return False
+    try:
+        return isfinite(float(value))
+    except (ValueError, OverflowError):
+        return False
+
 
 def validate_and_load_settings():
-    global state, storage, _last_saved_json
-    if storage and storage.exists(_SETTINGS_FILE):
+    global _last_saved_json, pending_save, save_due
+    if storage is None: return
+    for path in (_SETTINGS_FILE, _SETTINGS_BACKUP, _SETTINGS_TEMP):
+        if not storage.exists(path): continue
         try:
-            raw_data = storage.read(_SETTINGS_FILE, "r")
-            loaded = json.loads(raw_data)
-            for key in state:
-                if key in loaded: state[key] = loaded[key]
-            
+            loaded = json.loads(storage.read(path, "r"))
+            if not isinstance(loaded, dict): continue
+            # Missing or invalid values invalidate the snapshot; try recovery files.
+            if not _valid_input(loaded.get("input_val")):
+                continue
+            candidate = dict(state)
+            limits = {"category_idx": len(_CONVERSIONS), "from_idx": 15,
+                      "to_idx": 15, "cursor_idx": 5 if _USE_NUMBER_PAD else 4}
+            for key in candidate:
+                value = loaded.get(key)
+                if key == "input_val":
+                    candidate[key] = value
+                elif isinstance(value, int) and not isinstance(value, bool):
+                    if 0 <= value < limits[key]: candidate[key] = value
+            state.update(candidate)
+            clamp_unit_indices()
             _last_saved_json = json.dumps(state)
-            del raw_data, loaded
-            gc.collect()
-        except Exception: pass
+            if path != _SETTINGS_FILE:
+                # Recommit recovered data, even if it is identical in memory.
+                _last_saved_json = ""
+                queue_save()
+            return
+        except Exception:
+            continue
 
-def validate_hardware_and_time(view_manager):
-    global board_name, has_hardware
+def identify_board():
+    global board_name
     sys_inst = System()
     try:
         b_name = sys_inst.board_name
@@ -169,41 +240,43 @@ def validate_hardware_and_time(view_manager):
     except Exception:
         b_name = os.uname().machine if hasattr(os, "uname") else "Unknown Board"
     board_name = str(b_name)
-    try:
-        hw = sys_inst.has_wifi
-        if callable(hw): hw = hw()
-    except Exception:
-        hw = False
-    has_hardware = bool(hw)
+
+def conversion_key():
+    return (state["category_idx"], state["from_idx"], state["to_idx"],
+            state["input_val"])
 
 def calculate_conversion():
     try:
         val = float(state["input_val"])
+        if not isfinite(val): return "Error"
         c_idx, f_idx, t_idx = state["category_idx"], state["from_idx"], state["to_idx"]
         cat_name = _CONVERSIONS[c_idx][0]
-        
+
         # Temp conversions require additive logic instead of multipliers
         if cat_name == "Temp":
             from_name = _CONVERSIONS[c_idx][1][f_idx][0]
             to_name = _CONVERSIONS[c_idx][1][t_idx][0]
             celsius_val = 0.0
-            
+
             if from_name == "C": celsius_val = val
             elif from_name == "F": celsius_val = (val - 32) * 5.0 / 9.0
             elif from_name == "K": celsius_val = val - 273.15
-            
+
             if to_name == "C": final_val = celsius_val
             elif to_name == "F": final_val = (celsius_val * 9.0 / 5.0) + 32
             elif to_name == "K": final_val = celsius_val + 273.15
+            if not isfinite(final_val): return "Error"
+            if 0 < abs(final_val) < 0.001: return f"{final_val:.2e}"
             return f"{final_val:.3f}"
-            
+
         else:
             from_mult = _CONVERSIONS[c_idx][1][f_idx][1]
             to_mult = _CONVERSIONS[c_idx][1][t_idx][1]
             base_val = val * from_mult
             final_val = base_val / to_mult
-            
-            if final_val < 0.0001 and final_val > 0: return f"{final_val:.2e}"
+
+            if not isfinite(final_val): return "Error"
+            if 0 < abs(final_val) < 0.0001: return f"{final_val:.2e}"
             return f"{final_val:.4f}"
     except Exception:
         return "Error"
@@ -213,79 +286,40 @@ def clamp_unit_indices():
     max_units = len(_CONVERSIONS[c_idx][1])
     if state["from_idx"] >= max_units: state["from_idx"] = max_units - 1
     if state["to_idx"] >= max_units: state["to_idx"] = max_units - 1
-    
+
     if _CONVERSIONS[c_idx][0] not in ("Temp", "Angle", "Torque"):
         if state["input_val"].startswith("-"):
             state["input_val"] = state["input_val"][1:]
             if state["input_val"] == "": state["input_val"] = "0"
 
-def handle_input_typing(button, view_manager):
-    global current_mode, dirty_ui, cursor_visible, blink_counter
-    
-    if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
-        current_mode = MODE_MAIN; dirty_ui = True; return
-        
-    current_val = state["input_val"]
-    digit = -1
-    
-    if button == BUTTON_0: digit = 0
-    elif button == BUTTON_1: digit = 1
-    elif button == BUTTON_2: digit = 2
-    elif button == BUTTON_3: digit = 3
-    elif button == BUTTON_4: digit = 4
-    elif button == BUTTON_5: digit = 5
-    elif button == BUTTON_6: digit = 6
-    elif button == BUTTON_7: digit = 7
-    elif button == BUTTON_8: digit = 8
-    elif button == BUTTON_9: digit = 9
-
-    if digit != -1:
-        if current_val in ("0", "0.0"): state["input_val"] = str(digit)
-        elif current_val in ("-0", "-0.0"): state["input_val"] = "-" + str(digit)
-        else: state["input_val"] += str(digit)
-        dirty_ui = True
-        
-    elif button == BUTTON_PERIOD:
-        if "." not in current_val:
-            state["input_val"] += "."
-            dirty_ui = True
-            
+def handle_value_input(button):
+    """Edit the LCD value directly, without a separate view or focused field."""
+    global dirty_ui, entering_value
+    digits = (BUTTON_0, BUTTON_1, BUTTON_2, BUTTON_3, BUTTON_4,
+              BUTTON_5, BUTTON_6, BUTTON_7, BUTTON_8, BUTTON_9)
+    if button == BUTTON_R:
+        state["input_val"] = "0"
+        entering_value = False
+    elif button in digits or button == BUTTON_PERIOD:
+        value = state["input_val"] if entering_value else "0"
+        if button == BUTTON_PERIOD:
+            if "." not in value and len(value.lstrip("-")) < 32:
+                value += "."
+        else:
+            digit = str(digits.index(button))
+            if value == "0": value = digit
+            elif value == "-0": value = "-" + digit
+            elif len(value.lstrip("-")) < 32: value += digit
+        state["input_val"] = value
+        entering_value = True
     elif button == BUTTON_BACKSPACE:
-        if len(current_val) > 0:
-            state["input_val"] = current_val[:-1]
-            if state["input_val"] in ("", "-"): state["input_val"] = "0"
-            dirty_ui = True
-            
-    elif button == BUTTON_M:
-        if _CONVERSIONS[state["category_idx"]][0] in ("Temp", "Angle", "Torque"):
-            if current_val.startswith("-"): state["input_val"] = current_val[1:]
-            else: state["input_val"] = "-" + current_val
-            dirty_ui = True
-
-    if dirty_ui:
-        cursor_visible = True
-        blink_counter = 0
-
-def handle_input_options(button, view_manager):
-    global current_mode, dirty_ui
-    if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
-        current_mode = MODE_MAIN; dirty_ui = True; queue_save()
-    elif button == BUTTON_DOWN: state["options_cursor_idx"] = (state["options_cursor_idx"] + 1) % 4; dirty_ui = True
-    elif button == BUTTON_UP: state["options_cursor_idx"] = (state["options_cursor_idx"] - 1) % 4; dirty_ui = True
-    elif button == BUTTON_RIGHT:
-        o_idx = state["options_cursor_idx"]
-        if o_idx == 0: state["theme_idx"] = (state["theme_idx"] + 1) % len(_THEMES)
-        elif o_idx == 1: state["bg_r"] = (state["bg_r"] + 5) % 256
-        elif o_idx == 2: state["bg_g"] = (state["bg_g"] + 5) % 256
-        elif o_idx == 3: state["bg_b"] = (state["bg_b"] + 5) % 256
-        dirty_ui = True; queue_save()
-    elif button == BUTTON_LEFT:
-        o_idx = state["options_cursor_idx"]
-        if o_idx == 0: state["theme_idx"] = (state["theme_idx"] - 1) % len(_THEMES)
-        elif o_idx == 1: state["bg_r"] = (state["bg_r"] - 5) % 256
-        elif o_idx == 2: state["bg_g"] = (state["bg_g"] - 5) % 256
-        elif o_idx == 3: state["bg_b"] = (state["bg_b"] - 5) % 256
-        dirty_ui = True; queue_save()
+        value = state["input_val"][:-1]
+        state["input_val"] = "0" if value in ("", "-") else value
+        entering_value = True
+    else:
+        return False
+    dirty_ui = True
+    return True
 
 def handle_input_help(button, view_manager):
     global current_mode, help_scroll, dirty_ui
@@ -295,11 +329,18 @@ def handle_input_help(button, view_manager):
     elif button == BUTTON_UP: help_scroll = max(0, help_scroll - 1); dirty_ui = True
 
 def handle_input_main(button, view_manager):
-    global current_mode, dirty_ui, cursor_visible, blink_counter
-    
+    global current_mode, dirty_ui, entering_value
+
+    if handle_value_input(button):
+        return
+    if button in (BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT,
+                  BUTTON_C, BUTTON_F, BUTTON_T, BUTTON_H, BUTTON_CENTER):
+        entering_value = False
+
     if button in (BUTTON_BACK, BUTTON_ESCAPE):
-        save_settings(); view_manager.back(); return
-        
+        request_exit(view_manager)
+        return
+
     elif button == BUTTON_C:
         state["cursor_idx"] = 0
         state["category_idx"] = (state["category_idx"] + 1) % len(_CONVERSIONS)
@@ -310,21 +351,18 @@ def handle_input_main(button, view_manager):
     elif button == BUTTON_T:
         state["cursor_idx"] = 2
         state["to_idx"] = (state["to_idx"] + 1) % len(_CONVERSIONS[state["category_idx"]][1]); dirty_ui = True
-    elif button == BUTTON_V:
-        state["cursor_idx"] = 3; current_mode = MODE_TYPING; state["input_val"] = "0"
-        blink_counter = 0; cursor_visible = True; dirty_ui = True
-    elif button == BUTTON_H: current_mode = MODE_HELP; state["cursor_idx"] = 4; dirty_ui = True
-    elif button == BUTTON_O: current_mode = MODE_OPTIONS; state["cursor_idx"] = 5; dirty_ui = True
-        
+    elif button == BUTTON_H: current_mode = MODE_HELP; state["cursor_idx"] = 3; dirty_ui = True
+
     elif button == BUTTON_M:
         if _CONVERSIONS[state["category_idx"]][0] in ("Temp", "Angle", "Torque"):
             if state["input_val"].startswith("-"): state["input_val"] = state["input_val"][1:]
             else: state["input_val"] = "-" + state["input_val"]
+            entering_value = True
             dirty_ui = True
-            
-    elif button == BUTTON_DOWN: state["cursor_idx"] = (state["cursor_idx"] + 1) % 6; dirty_ui = True
-    elif button == BUTTON_UP: state["cursor_idx"] = (state["cursor_idx"] - 1) % 6; dirty_ui = True
-        
+
+    elif button == BUTTON_DOWN: state["cursor_idx"] = (state["cursor_idx"] + 1) % (5 if _USE_NUMBER_PAD else 4); dirty_ui = True
+    elif button == BUTTON_UP: state["cursor_idx"] = (state["cursor_idx"] - 1) % (5 if _USE_NUMBER_PAD else 4); dirty_ui = True
+
     elif button in (BUTTON_LEFT, BUTTON_RIGHT):
         c_idx = state["cursor_idx"]
         if c_idx == 0:
@@ -341,215 +379,555 @@ def handle_input_main(button, view_manager):
             if button == BUTTON_RIGHT: state["to_idx"] = (state["to_idx"] + 1) % max_u
             else: state["to_idx"] = (state["to_idx"] - 1) % max_u
             dirty_ui = True
-            
+
     elif button == BUTTON_CENTER:
         c_idx = state["cursor_idx"]
-        if c_idx == 0: state["category_idx"] = (state["category_idx"] + 1) % len(_CONVERSIONS); clamp_unit_indices()
-        elif c_idx == 1: state["from_idx"] = (state["from_idx"] + 1) % len(_CONVERSIONS[state["category_idx"]][1])
-        elif c_idx == 2: state["to_idx"] = (state["to_idx"] + 1) % len(_CONVERSIONS[state["category_idx"]][1])
-        elif c_idx == 3: current_mode = MODE_TYPING; state["input_val"] = "0"; blink_counter = 0; cursor_visible = True
-        elif c_idx == 4: current_mode = MODE_HELP
-        elif c_idx == 5: current_mode = MODE_OPTIONS
+        if c_idx < 3: open_selection_list(c_idx)
+        elif c_idx == 3: current_mode = MODE_HELP
+        elif c_idx == 4: open_number_pad()
         dirty_ui = True
+
+_LIST_FIELDS = ("category_idx", "from_idx", "to_idx")
+_LIST_TITLES = ("CATEGORY", "FROM UNIT", "TO UNIT")
+
+
+def selection_items():
+    if list_field == 0:
+        return _CONVERSIONS
+    return _CONVERSIONS[state["category_idx"]][1]
+
+
+def open_selection_list(field):
+    global list_field, list_cursor, current_mode, entering_value, dirty_ui
+    list_field = field
+    list_cursor = state[_LIST_FIELDS[field]]
+    current_mode = MODE_LIST
+    entering_value = False
+    dirty_ui = True
+
+
+def handle_input_list(button, view_manager):
+    global list_cursor, current_mode, dirty_ui
+    if button in (BUTTON_BACK, BUTTON_ESCAPE):
+        current_mode = MODE_MAIN
+    elif button in (BUTTON_UP, BUTTON_DOWN):
+        step = -1 if button == BUTTON_UP else 1
+        list_cursor = (list_cursor + step) % len(selection_items())
+    elif button == BUTTON_CENTER:
+        state[_LIST_FIELDS[list_field]] = list_cursor
+        if list_field == 0:
+            clamp_unit_indices()
+        current_mode = MODE_MAIN
+    else:
+        return
+    dirty_ui = True
+
+
+_PAD_LABELS = ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+               ".", "DELETE", "ZERO", "DONE")
+_PAD_BUTTONS = (BUTTON_0, BUTTON_1, BUTTON_2, BUTTON_3, BUTTON_4,
+                BUTTON_5, BUTTON_6, BUTTON_7, BUTTON_8, BUTTON_9,
+                BUTTON_PERIOD, BUTTON_BACKSPACE, BUTTON_R)
+
+
+def open_number_pad():
+    global current_mode, pad_cursor, entering_value, dirty_ui
+    current_mode = MODE_NUMBER_PAD
+    pad_cursor = 0
+    entering_value = False
+    dirty_ui = True
+
+
+def pad_labels():
+    if _CONVERSIONS[state["category_idx"]][0] in ("Temp", "Angle", "Torque"):
+        return _PAD_LABELS + ("+/-",)
+    return _PAD_LABELS
+
+
+def handle_input_pad(button, view_manager):
+    global current_mode, pad_cursor, dirty_ui, entering_value
+    if button in (BUTTON_BACK, BUTTON_ESCAPE):
+        current_mode = MODE_MAIN
+        entering_value = False
+    elif button in (BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT):
+        step = -1 if button in (BUTTON_UP, BUTTON_LEFT) else 1
+        pad_cursor = (pad_cursor + step) % len(pad_labels())
+    elif button == BUTTON_CENTER:
+        if pad_cursor == 13:
+            current_mode = MODE_MAIN
+            entering_value = False
+        elif pad_cursor == 14:
+            handle_input_main(BUTTON_M, view_manager)
+        else:
+            handle_value_input(_PAD_BUTTONS[pad_cursor])
+    elif button == BUTTON_M:
+        handle_input_main(button, view_manager)
+    elif not handle_value_input(button):
+        return
+    dirty_ui = True
+
+
+def request_exit(view_manager):
+    global current_mode, exit_cursor, closing, dirty_ui
+    if save_settings():
+        closing = True
+        view_manager.back()
+    else:
+        current_mode = MODE_SAVE_ERROR
+        exit_cursor = 0
+        dirty_ui = True
+
+
+def handle_input_save_error(button, view_manager):
+    global current_mode, exit_cursor, pending_save, closing, dirty_ui
+    if button in (BUTTON_BACK, BUTTON_ESCAPE):
+        current_mode = MODE_MAIN
+    elif button in (BUTTON_UP, BUTTON_DOWN):
+        exit_cursor = (exit_cursor + (-1 if button == BUTTON_UP else 1)) % 3
+    elif button == BUTTON_CENTER:
+        if exit_cursor == 0:
+            request_exit(view_manager)
+        elif exit_cursor == 1:
+            current_mode = MODE_MAIN
+        else:
+            pending_save = False
+            closing = True
+            view_manager.back()
+    else:
+        return
+    if not closing: dirty_ui = True
+
 
 INPUT_DISPATCH = {
     MODE_MAIN: handle_input_main,
-    MODE_OPTIONS: handle_input_options,
     MODE_HELP: handle_input_help,
-    MODE_TYPING: handle_input_typing
+    MODE_LIST: handle_input_list,
+    MODE_NUMBER_PAD: handle_input_pad,
+    MODE_SAVE_ERROR: handle_input_save_error,
 }
 
-def draw_options(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
-    draw.fill_rectangle(Vector(0, 0), Vector(screen_w, screen_h), TFT_DARKGREY)
-    draw.fill_rectangle(Vector(0, 0), Vector(screen_w, 30), theme_color)
-    draw.text(Vector(10, 10), "OPTIONS MENU", TFT_WHITE)
+# Same powder-coated shell, LCD and focus palette as SimpleRPN.
+COLOR_BG = rgb_to_565(15, 18, 19)
+COLOR_EDGE = rgb_to_565(91, 101, 100)
+COLOR_SHADOW = rgb_to_565(7, 9, 9)
+COLOR_LCD = rgb_to_565(177, 193, 160)
+COLOR_LCD_DARK = rgb_to_565(25, 38, 28)
+COLOR_LCD_MID = rgb_to_565(72, 91, 72)
+COLOR_KEY = rgb_to_565(54, 61, 62)
+COLOR_KEY_TOP = rgb_to_565(77, 85, 85)
+COLOR_AMBER = rgb_to_565(245, 166, 57)
+COLOR_MUTED = rgb_to_565(161, 168, 164)
 
-    o_idx = state["options_cursor_idx"]
-    opt_r_height = 24
 
-    if o_idx == 0: draw.fill_rectangle(Vector(0, 46), Vector(screen_w, opt_r_height), TFT_BLACK)
-    c0 = theme_color if o_idx == 0 else TFT_LIGHTGREY
-    draw.text(Vector(15, 50), "Theme Color:", c0)
-    draw.text(Vector(140, 50), f"< {_THEMES[state['theme_idx']][0]} >", c0)
-    
-    if o_idx == 1: draw.fill_rectangle(Vector(0, 76), Vector(screen_w, opt_r_height), TFT_BLACK)
-    c1 = theme_color if o_idx == 1 else TFT_LIGHTGREY
-    draw.text(Vector(15, 80), "Back R (0-255):", c1)
-    draw.text(Vector(140, 80), f"< {state['bg_r']} >", c1)
-    
-    if o_idx == 2: draw.fill_rectangle(Vector(0, 106), Vector(screen_w, opt_r_height), TFT_BLACK)
-    c2 = theme_color if o_idx == 2 else TFT_LIGHTGREY
-    draw.text(Vector(15, 110), "Back G (0-255):", c2)
-    draw.text(Vector(140, 110), f"< {state['bg_g']} >", c2)
-    
-    if o_idx == 3: draw.fill_rectangle(Vector(0, 136), Vector(screen_w, opt_r_height), TFT_BLACK)
-    c3 = theme_color if o_idx == 3 else TFT_LIGHTGREY
-    draw.text(Vector(15, 140), "Back B (0-255):", c3)
-    draw.text(Vector(140, 140), f"< {state['bg_b']} >", c3)
-    
-    draw.text(Vector(15, 180), "Background Preview:", TFT_LIGHTGREY)
-    draw.rect(Vector(15, 200), Vector(screen_w - 30, 40), theme_color)
-    draw.fill_rectangle(Vector(16, 201), Vector(screen_w - 32, 38), bg_color)
+def _text(draw, x, y, text, width, color, preferred=FONT_XTRA_SMALL,
+          right=False, number=False, entry=False):
+    font = preferred
+    while font > FONT_XTRA_SMALL and draw.len(text, font) > width:
+        font -= 1
+    if number and not entry and draw.len(text, font) > width:
+        try:
+            value = float(text)
+            for precision in range(7, -1, -1):
+                candidate = ("%.*e" % (precision, value)).replace("e", "E")
+                if draw.len(candidate, font) <= width:
+                    text = candidate
+                    break
+        except ValueError:
+            pass
+    if draw.len(text, font) > width:
+        if entry:
+            while text and draw.len("<" + text, font) > width:
+                text = text[1:]
+            text = "<" + text
+        else:
+            while text and draw.len(text + ">", font) > width:
+                text = text[:-1]
+            text += ">"
+    if right:
+        x += width - draw.len(text, font)
+    draw.text(Vector(x, y), text, color, font)
 
-    draw.text(Vector(5, screen_h - 20), "[L/R] Edit  [ENT] Close", TFT_WHITE)
 
-def draw_help(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
+def _header(draw, width, title, accent):
+    _text(draw, 4, 3, "SAVE FAILED" if save_error else title, width - 8, COLOR_AMBER if save_error else COLOR_MUTED)
+    draw.fill_rectangle(Vector(4, 13), Vector(width - 8, 1), accent)
+
+
+def _key(draw, x, y, w, h, text, selected, accent):
+    draw.fill_rectangle(Vector(x + 1, y + 2), Vector(w, h), COLOR_SHADOW)
+    draw.fill_rectangle(Vector(x, y), Vector(w, h), COLOR_KEY)
+    draw.fill_rectangle(Vector(x + 1, y + 1), Vector(w - 2, 1), COLOR_KEY_TOP)
+    if selected:
+        draw.rect(Vector(x, y), Vector(w, h), accent)
+    font = FONT_SMALL if h >= 20 else FONT_XTRA_SMALL
+    _text(draw, x + 4, y + (h - (12 if font == FONT_SMALL else 8)) // 2,
+          text, w - 8, accent if selected else TFT_WHITE, font)
+
+
+def _rows(draw, labels, selected, x, y, w, h, accent):
+    # Scroll a complete row at a time; selection is always visible.
+    count = min(len(labels), max(1, h // 19))
+    row_h = min(36, h // count)
+    first = min(max(0, selected - count + 1), len(labels) - count)
+    for row in range(count):
+        index = first + row
+        _key(draw, x, y + row * row_h, w - 2, row_h - 3,
+             labels[index], index == selected, accent)
+
+
+def draw_selection_list(view_manager, draw, screen_w, screen_h, accent):
+    items = selection_items()
+    title = "%s %d/%d" % (_LIST_TITLES[list_field], list_cursor + 1, len(items))
+    _header(draw, screen_w, title, accent)
+    # Reserve two footer lines even on 128x64, scrolling whole items.
+    _rows(draw, tuple(item[0] for item in items), list_cursor,
+          4, 17, screen_w - 8, screen_h - 40, accent)
+    hints = ("UP/DN WRAP ENT PICK", "ESC/BACK CANCEL")
+    for row, hint in enumerate(hints):
+        _text(draw, 4, screen_h - 20 + row * 10, hint, screen_w - 8, COLOR_MUTED)
+
+
+def draw_number_pad(view_manager, draw, screen_w, screen_h, accent):
+    _header(draw, screen_w, "NUMBER PAD", accent)
+    _text(draw, 4, 17, state["input_val"], screen_w - 8, TFT_WHITE, entry=True)
+    _rows(draw, pad_labels(), pad_cursor, 4, 29, screen_w - 8,
+          screen_h - 49, accent)
+    _text(draw, 4, screen_h - 18, "ARROWS PICK ENT USE", screen_w - 8, COLOR_MUTED)
+    _text(draw, 4, screen_h - 8, "BACK DONE", screen_w - 8, COLOR_MUTED)
+
+
+def draw_save_error(view_manager, draw, screen_w, screen_h, accent):
+    _header(draw, screen_w, "SAVE FAILED", accent)
+    _rows(draw, ("RETRY SAVE / EXIT", "STAY IN APP", "EXIT UNSAVED"),
+          exit_cursor, 4, 17, screen_w - 8, screen_h - 30, accent)
+    _text(draw, 4, screen_h - 10, "UP/DN ENT BACK STAY", screen_w - 8, COLOR_MUTED)
+
+
+def wrapped_help_lines(draw, width):
+    global _wrapped_help_lines, _help_width
+    if _help_width != width:
+        # Draw.len uses a fixed character width for each font.
+        columns = max(1, width // draw.len("M", FONT_XTRA_SMALL))
+        lines = []
+        for source in get_help_lines():
+            if not source:
+                lines.append("")
+            else:
+                for offset in range(0, len(source), columns):
+                    lines.append(source[offset:offset + columns])
+        _wrapped_help_lines = lines
+        _help_width = width
+    return _wrapped_help_lines
+
+
+def draw_help(view_manager, draw, screen_w, screen_h, accent):
     global help_scroll
-    lines = get_help_lines()
-    max_scroll = max(0, len(lines) - 12)
-    help_scroll = min(help_scroll, max_scroll)
-    
-    for i in range(12):
-        if help_scroll + i < len(lines):
-            draw.text(Vector(10, 10 + i * 20), lines[help_scroll + i], TFT_WHITE)
-            
-    draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 40), bg_color)
-    draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color)
-    draw.text(Vector(5, screen_h - 32), "[UP/DN] Scroll  [ESC/H] Close", theme_color)
+    _header(draw, screen_w, "HELP / MANUAL", accent)
+    lines = wrapped_help_lines(draw, screen_w - 8)
+    count = max(1, (screen_h - 30) // 10)
+    help_scroll = min(help_scroll, max(0, len(lines) - count))
+    for i, line in enumerate(lines[help_scroll:help_scroll + count]):
+        _text(draw, 4, 17 + i * 10, line, screen_w - 8, TFT_WHITE)
+    _text(draw, 4, screen_h - 10, "UP/DN SCROLL H CLOSE", screen_w - 8, COLOR_MUTED)
 
-def draw_main(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
+
+def draw_main(view_manager, draw, screen_w, screen_h, accent):
     cat = _CONVERSIONS[state["category_idx"]]
-    c_idx = state["cursor_idx"]
     f_name = cat[1][state["from_idx"]][0]
     t_name = cat[1][state["to_idx"]][0]
-    
-    cat_text = f"MODE: {cat[0].upper()}"
-    draw.text(Vector(10, 10), cat_text, theme_color if c_idx == 0 else TFT_WHITE)
-    if c_idx == 0: draw.text(Vector(screen_w - 20, 10), "<", theme_color)
-    draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), theme_color)
-    
-    out_y = 45
-    draw.text(Vector(15, out_y + 5), f"RESULT ({t_name}):", TFT_LIGHTGREY)
-    draw.fill_rectangle(Vector(15, out_y + 25), Vector(screen_w - 30, 35), TFT_DARKGREY)
-    draw.rect(Vector(15, out_y + 25), Vector(screen_w - 30, 35), theme_color)
-    draw.text(Vector(25, out_y + 33), f"{conv_result}", theme_color, 2)
+    compact = screen_h < 100
+    side = screen_w > screen_h and not compact
+    _header(draw, screen_w, "UNIT CONVERTER", accent)
+    if side:
+        x, y, w, h = 4, 17, max(90, (screen_w - 16) * 2 // 5), screen_h - 41
+        kx, ky, kw, kh = x + w + 6, y, screen_w - w - 14, h
+    else:
+        x, y, w = 4, 17, screen_w - 10
+        h = 24 if compact else min(100, max(52, (screen_h - 55) // 3))
+        gap = 2 if compact else 5
+        kx, ky, kw, kh = 4, y + h + gap, screen_w - 8, screen_h - (y + h + gap) - 24
+    draw.fill_rectangle(Vector(x + 1, y + 2), Vector(w, h), COLOR_SHADOW)
+    draw.fill_rectangle(Vector(x, y), Vector(w, h), COLOR_EDGE)
+    draw.fill_rectangle(Vector(x + 1, y + 1), Vector(w - 2, h - 2), COLOR_LCD)
+    if compact:
+        _text(draw, x + 3, y + 3, state["input_val"] + " " + f_name,
+              w - 6, COLOR_LCD_DARK, right=True, entry=True)
+        unit_width = draw.len(t_name, FONT_XTRA_SMALL)
+        _text(draw, x + 3, y + 13, conv_result, w - unit_width - 12,
+              COLOR_LCD_DARK, number=True, right=True)
+        _text(draw, x + w - unit_width - 3, y + 13, t_name, unit_width, COLOR_LCD_MID)
+    else:
+        _text(draw, x + 5, y + 5, "RESULT / " + t_name, w - 10, COLOR_LCD_MID)
+        _text(draw, x + 5, y + 17, conv_result, w - 10, COLOR_LCD_DARK,
+              FONT_MEDIUM if h >= 52 else FONT_SMALL, right=True, number=True)
+        if h >= 52:
+            _text(draw, x + 5, y + h - 14, state["input_val"] + " " + f_name,
+                  w - 10, COLOR_LCD_MID, right=True, entry=True)
+    sign_hint = " M:+/-" if cat[0] in ("Temp", "Angle", "Torque") else ""
+    labels = ("CAT: " + cat[0], "FROM: " + f_name, "TO: " + t_name,
+              "HELP / MANUAL")
+    if _USE_NUMBER_PAD: labels += ("NUMBER PAD",)
+    if compact:
+        # One selected control on 128x64; arrows reach every control.
+        _key(draw, kx, ky, kw - 2, 10, labels[state["cursor_idx"]], True, accent)
+        hint = "0-9 . R:0" + sign_hint + " ENT" if sign_hint else "0-9 . R:0 ENT:LIST"
+        if _USE_NUMBER_PAD: hint = "ARROWS NAV ENT OPEN"
+        _text(draw, 4, screen_h - 8, hint, screen_w - 8, COLOR_MUTED)
+    else:
+        _rows(draw, labels, state["cursor_idx"], kx, ky, kw, kh, accent)
+        if screen_w < 200:
+            hints = (("0-9 . R:0 BS" + sign_hint) if sign_hint else "0-9 . TYPE R:0 BS:DEL", "ENT:LIST ARROWS:NAV H:HELP")
+        else:
+            hints = ("0-9 . TYPE R:0 BS:DEL" + sign_hint, "ENT:LIST C:CAT F:FROM T:TO H:HELP")
+        if _USE_NUMBER_PAD:
+            hints = ("ARROWS NAV ENT OPEN", "NUMBER PAD: TYPE VALUE")
+        for row, hint in enumerate(hints):
+            _text(draw, 4, screen_h - 20 + row * 10, hint, screen_w - 8, COLOR_MUTED)
 
-    in_y = 120; r_height = 24
-    
-    if c_idx == 1: draw.fill_rectangle(Vector(0, in_y - 4), Vector(screen_w, r_height), TFT_DARKGREY)
-    draw.text(Vector(15, in_y + 1), "From Unit:", theme_color if c_idx == 1 else TFT_LIGHTGREY)
-    draw.rect(Vector(110, in_y - 4), Vector(110, r_height), theme_color if c_idx == 1 else TFT_DARKGREY)
-    draw.text(Vector(120, in_y + 1), f"{f_name}", theme_color if c_idx == 1 else TFT_WHITE)
-    if c_idx == 1: draw.text(Vector(screen_w - 20, in_y + 1), "<", theme_color)
-    
-    r2_y = in_y + 28
-    if c_idx == 2: draw.fill_rectangle(Vector(0, r2_y - 4), Vector(screen_w, r_height), TFT_DARKGREY)
-    draw.text(Vector(15, r2_y + 1), "To Unit:", theme_color if c_idx == 2 else TFT_LIGHTGREY)
-    draw.rect(Vector(110, r2_y - 4), Vector(110, r_height), theme_color if c_idx == 2 else TFT_DARKGREY)
-    draw.text(Vector(120, r2_y + 1), f"{t_name}", theme_color if c_idx == 2 else TFT_WHITE)
-    if c_idx == 2: draw.text(Vector(screen_w - 20, r2_y + 1), "<", theme_color)
-    
-    r3_y = in_y + 56
-    if c_idx == 3: draw.fill_rectangle(Vector(0, r3_y - 4), Vector(screen_w, r_height), TFT_DARKGREY)
-    draw.text(Vector(15, r3_y + 1), "Value:", theme_color if c_idx == 3 else TFT_LIGHTGREY)
-    draw.rect(Vector(110, r3_y - 4), Vector(110, r_height), theme_color if c_idx == 3 else TFT_DARKGREY)
-    val_cursor = "_" if (current_mode == MODE_TYPING and cursor_visible) else ""
-    draw.text(Vector(120, r3_y + 1), f"{state['input_val']}{val_cursor}", theme_color if c_idx == 3 else TFT_WHITE)
-    if c_idx == 3: draw.text(Vector(screen_w - 20, r3_y + 1), "<", theme_color)
 
-    r4_y = in_y + 84
-    if c_idx == 4: draw.fill_rectangle(Vector(0, r4_y - 4), Vector(screen_w, r_height), TFT_DARKGREY)
-    draw.text(Vector(15, r4_y + 1), "View Help / Manual", theme_color if c_idx == 4 else TFT_LIGHTGREY)
-    if c_idx == 4: draw.text(Vector(screen_w - 20, r4_y + 1), "<", theme_color)
-    
-    r5_y = in_y + 112
-    if c_idx == 5: draw.fill_rectangle(Vector(0, r5_y - 4), Vector(screen_w, r_height), TFT_DARKGREY)
-    draw.text(Vector(15, r5_y + 1), "Options", theme_color if c_idx == 5 else TFT_LIGHTGREY)
-    if c_idx == 5: draw.text(Vector(screen_w - 20, r5_y + 1), "<", theme_color)
+class _Surface:
+    """Keep all content inside the inscribed square on round displays."""
+    def __init__(self, draw):
+        self.draw = draw
+        self.mono = "flipper" in board_name.lower()
+        w, h = int(draw.size.x), int(draw.size.y)
+        self.inset = w * 15 // 100 if w == h and w in (240, 466) else 0
+        self.size = Vector(w - self.inset * 2, h - self.inset * 2)
 
-    draw.fill_rectangle(Vector(0, screen_h - 55), Vector(screen_w, 2), theme_color)
-    draw.text(Vector(5, screen_h - 47), "[C]Cat [F]From [T]To [V]Val", theme_color)
-    
-    if cat[0] in ("Temp", "Angle", "Torque"): footer_row_2 = "[H]Help [O]Opt [M]+/- [ESC]Exit"
-    else: footer_row_2 = "[H]Help [O]Opt [ESC]Exit"
-        
-    draw.text(Vector(5, screen_h - 32), footer_row_2, theme_color)
-    draw.text(Vector(5, screen_h - 15), "[UP/DN]Nav [ENT]Select", TFT_LIGHTGREY)
+    def len(self, text, font):
+        return self.draw.len(text, font)
+
+    def _color(self, color):
+        if not self.mono: return color
+        return TFT_BLACK if color in (COLOR_BG, COLOR_SHADOW, COLOR_KEY, COLOR_LCD_DARK, COLOR_LCD_MID) else TFT_WHITE
+
+    def _position(self, position):
+        if not self.inset: return position
+        return Vector(position.x + self.inset, position.y + self.inset)
+
+    def text(self, position, text, color, font):
+        self.draw.text(self._position(position), text, self._color(color), font)
+
+    def fill_rectangle(self, position, size, color):
+        self.draw.fill_rectangle(self._position(position), size, self._color(color))
+
+    def rect(self, position, size, color):
+        self.draw.rect(self._position(position), size, self._color(color))
+
+def _touch_key(draw, x, y, w, h, label, action, selected=False):
+    _key(draw, x, y, w - 2, h - 3, label, selected, COLOR_AMBER)
+    _touch_targets.append((x, y, w, h, action))
+
+
+def _touch_footer(draw, width, height, controls):
+    cell = (width - 8) // len(controls)
+    for index, (label, action) in enumerate(controls):
+        _touch_key(draw, 4 + index * cell, height - 28, cell, 24,
+                   label, action)
+
+
+def draw_touch(view_manager, draw, screen_w, screen_h, accent):
+    global _touch_targets, help_scroll
+    _touch_targets = []
+    titles = {MODE_MAIN: 'UNIT CONVERTER', MODE_HELP: 'HELP',
+              MODE_LIST: _LIST_TITLES[list_field], MODE_NUMBER_PAD: 'ENTER VALUE',
+              MODE_SAVE_ERROR: 'SAVE FAILED'}
+    _header(draw, screen_w, titles[current_mode], accent)
+    if current_mode == MODE_MAIN:
+        cat = _CONVERSIONS[state['category_idx']]
+        source = cat[1][state['from_idx']][0]
+        target = cat[1][state['to_idx']][0]
+        draw.fill_rectangle(Vector(4, 17), Vector(screen_w - 8, 40), COLOR_LCD)
+        unit_width = draw.len(target, FONT_XTRA_SMALL)
+        _text(draw, 8, 20, conv_result, screen_w - unit_width - 20,
+              COLOR_LCD_DARK, right=True, number=True)
+        _text(draw, screen_w - unit_width - 8, 20, target, unit_width, COLOR_LCD_MID)
+        _text(draw, 8, 33, state['input_val'] + ' ' + source, screen_w - 16,
+              COLOR_LCD_DARK, right=True, entry=True)
+        _text(draw, 8, 45, 'TAP TO EDIT', screen_w - 16, COLOR_LCD_MID)
+        _touch_targets.append((4, 17, screen_w - 8, 40, ('value', 0)))
+        labels = ('CAT: ' + cat[0], 'FROM: ' + source, 'TO: ' + target)
+        row_h = min(48, (screen_h - 93) // 3)
+        for i, label in enumerate(labels):
+            _touch_key(draw, 4, 61 + i * row_h, screen_w - 8, row_h,
+                       label, ('field', i), state['cursor_idx'] == i)
+        _touch_footer(draw, screen_w, screen_h,
+                      (('EXIT', ('button', BUTTON_ESCAPE)), ('HELP', ('button', BUTTON_H))))
+    elif current_mode == MODE_NUMBER_PAD:
+        _text(draw, 4, 18, state['input_val'], screen_w - 8, TFT_WHITE, entry=True)
+        labels = pad_labels()
+        cell_w = (screen_w - 8) // 4
+        cell_h = min(52, (screen_h - 62) // 4)
+        for i, label in enumerate(labels):
+            if label == 'DELETE': label = 'DEL'
+            elif label == 'ZERO': label = 'CLR'
+            _touch_key(draw, 4 + (i % 4) * cell_w, 30 + (i // 4) * cell_h,
+                       cell_w, cell_h, label, ('pad', i), i == pad_cursor)
+        _touch_footer(draw, screen_w, screen_h, (('BACK', ('button', BUTTON_BACK)),))
+    elif current_mode == MODE_HELP:
+        lines = wrapped_help_lines(draw, screen_w - 8)
+        count = max(1, (screen_h - 49) // 10)
+        help_scroll = min(help_scroll, max(0, len(lines) - count))
+        for i, line in enumerate(lines[help_scroll:help_scroll + count]):
+            _text(draw, 4, 17 + i * 10, line, screen_w - 8, TFT_WHITE)
+        _touch_footer(draw, screen_w, screen_h,
+                      (('BACK', ('button', BUTTON_BACK)), ('UP', ('help', -count)),
+                       ('DOWN', ('help', count))))
+    else:
+        if current_mode == MODE_LIST:
+            labels = tuple(item[0] for item in selection_items())
+            selected = list_cursor
+            kind = 'item'
+        else:
+            labels = ('RETRY SAVE / EXIT', 'STAY IN APP', 'EXIT UNSAVED')
+            selected = exit_cursor
+            kind = 'exit'
+        count = min(len(labels), max(1, (screen_h - 49) // 28))
+        row_h = min(48, (screen_h - 49) // count)
+        first = min(max(0, selected - count + 1), len(labels) - count)
+        for row in range(count):
+            index = first + row
+            _touch_key(draw, 4, 17 + row * row_h, screen_w - 8, row_h,
+                       labels[index], (kind, index), index == selected)
+        controls = (('BACK', ('button', BUTTON_BACK)),)
+        if current_mode == MODE_LIST:
+            controls += (('UP', ('page', -count)), ('DOWN', ('page', count)))
+        _touch_footer(draw, screen_w, screen_h, controls)
+
+
+def handle_touch(view_manager):
+    """Consume screen taps before their generic directional-button mapping."""
+    global _touch_held, list_cursor, pad_cursor, exit_cursor, help_scroll, dirty_ui
+    input_manager = getattr(view_manager, 'input_manager', None)
+    if input_manager is None: return False
+    point = input_manager.point
+    gesture = input_manager.gesture
+    down = getattr(input_manager, 'touch_down', False)
+    if point == (0, 0):
+        if not down: _touch_held = False
+        return down
+    if gesture:
+        from waveshare_touch import TOUCH_GESTURE_CLICK
+        if gesture != TOUCH_GESTURE_CLICK:
+            input_manager.reset()
+            return True
+    if _touch_held:
+        input_manager.reset()
+        return True
+    _touch_held = True
+    input_manager.reset()
+    if _surface is None: return True
+    x, y = point[0] - _surface.inset, point[1] - _surface.inset
+    for left, top, width, height, action in _touch_targets:
+        if left <= x < left + width and top <= y < top + height:
+            kind, value = action
+            if kind == 'value': open_number_pad()
+            elif kind == 'field':
+                state['cursor_idx'] = value
+                open_selection_list(value)
+            elif kind == 'button': INPUT_DISPATCH[current_mode](value, view_manager)
+            elif kind == 'item':
+                list_cursor = value
+                handle_input_list(BUTTON_CENTER, view_manager)
+            elif kind == 'page':
+                list_cursor = max(0, min(len(selection_items()) - 1, list_cursor + value))
+            elif kind == 'pad':
+                pad_cursor = value
+                handle_input_pad(BUTTON_CENTER, view_manager)
+            elif kind == 'exit':
+                exit_cursor = value
+                handle_input_save_error(BUTTON_CENTER, view_manager)
+            elif kind == 'help': help_scroll = max(0, help_scroll + value)
+            dirty_ui = True
+            break
+    return True
+
 
 VIEW_DISPATCH = {
     MODE_MAIN: draw_main,
-    MODE_OPTIONS: draw_options,
     MODE_HELP: draw_help,
-    MODE_TYPING: draw_main
+    MODE_LIST: draw_selection_list,
+    MODE_NUMBER_PAD: draw_number_pad,
+    MODE_SAVE_ERROR: draw_save_error,
 }
 
 def start(view_manager):
-    global conv_result, storage, dirty_ui, current_mode
+    global conv_result, storage, dirty_ui, current_mode, entering_value, closing
+    global _result_key, _touch_held
+    _touch_held = False
     current_mode = MODE_MAIN
-    storage = view_manager.storage
-    validate_hardware_and_time(view_manager)
-    validate_and_load_settings()
+    entering_value = False
+    closing = False
+    storage = view_manager.storage if System().has_storage and BOARD_ID != BOARD_CROWPANEL_WATCH_2_01 else None
+    identify_board()
+    if not pending_save:
+        validate_and_load_settings()
     clamp_unit_indices()
     conv_result = calculate_conversion()
+    _result_key = conversion_key()
     dirty_ui = True
     return True
 
 def run(view_manager):
-    global conv_result, current_mode, dirty_ui, blink_counter, cursor_visible, pending_save, save_timer
-    
+    global conv_result, dirty_ui, _result_key, _surface, _surface_key
+
     draw = view_manager.draw; button = view_manager.button
     screen_w = draw.size.x; screen_h = draw.size.y
-    
-    # Handle typing cursor blink state
-    if current_mode == MODE_TYPING:
-        blink_counter += 1
-        if blink_counter > 15:
-            blink_counter = 0; cursor_visible = not cursor_visible; dirty_ui = True
+
+    before_touch = conversion_key() if _USE_TOUCH else None
+    if _USE_TOUCH and handle_touch(view_manager):
+        button = -1  # A touch must not also dispatch its mapped keyboard event.
+        if closing: return
+        if conversion_key() != before_touch: queue_save()
 
     if button == -1 and not dirty_ui and not pending_save: return
 
     if button != -1:
+        before = conversion_key()
         handler = INPUT_DISPATCH.get(current_mode)
         if handler: handler(button, view_manager)
-        
-        if dirty_ui: queue_save()
+
+        if closing: return
+        # Focus is saved opportunistically with edits, never on its own.
+        if conversion_key() != before: queue_save()
 
     # Process pending SD saves when idle
     if pending_save and button == -1:
-        if save_timer > 0: save_timer -= 1
-        else: save_settings() # Pending state clears within save_settings natively
+        if ticks_diff(ticks_ms(), save_due) >= 0:
+            save_settings()
 
-    if dirty_ui and current_mode in (MODE_MAIN, MODE_TYPING):
-        conv_result = calculate_conversion()
+    if dirty_ui and current_mode == MODE_MAIN:
+        key = conversion_key()
+        if key != _result_key:
+            conv_result = calculate_conversion()
+            _result_key = key
 
     if dirty_ui:
-        bg_color = rgb_to_565(state["bg_r"], state["bg_g"], state["bg_b"])
-        theme_color = _THEMES[state["theme_idx"]][1]
+        draw.fill_rectangle(Vector(0, 0), Vector(screen_w, screen_h), COLOR_BG)
+        surface_key = (screen_w, screen_h, board_name)
+        if (_surface is None or _surface.draw is not draw
+                or _surface_key != surface_key):
+            _surface = _Surface(draw)
+            _surface_key = surface_key
+        surface = _surface
 
-        if current_mode != MODE_OPTIONS:
-            draw.clear()
-            draw.fill_rectangle(Vector(0, 0), Vector(screen_w, screen_h), bg_color)
-        
-        handler = VIEW_DISPATCH.get(current_mode)
-        if handler: handler(view_manager, draw, screen_w, screen_h, theme_color, bg_color)
-        
+        if _USE_TOUCH:
+            handler = draw_touch
+        else:
+            handler = VIEW_DISPATCH.get(current_mode)
+        if handler: handler(view_manager, surface, int(surface.size.x), int(surface.size.y), COLOR_AMBER)
+
         draw.swap(); dirty_ui = False
 
 def stop(view_manager):
-    global state, _CONVERSIONS, _THEMES, _last_saved_json, _cached_help_lines
-    global INPUT_DISPATCH, VIEW_DISPATCH
-    global conv_result, storage, current_mode
-    global dirty_ui, blink_counter, cursor_visible, pending_save, save_timer, help_scroll
-    
-    save_settings()
-    
-    # Teardown large persistent objects to free RAM for OS
-    if state is not None: state.clear()
-    state = None
-    
-    _CONVERSIONS = None
-    _THEMES = None
-    INPUT_DISPATCH = None
-    VIEW_DISPATCH = None
-    _last_saved_json = ""
-    _cached_help_lines = []
-    
-    conv_result = "0.0"
-    storage = None
-    current_mode = MODE_MAIN
-    
-    dirty_ui = pending_save = False
-    blink_counter = save_timer = help_scroll = 0
-    cursor_visible = True
-    
+    # Normal exit is handled before leaving the app. If the OS stops this view
+    # directly, make a best-effort save and retain state for a resumed view.
+    global closing, _surface, _surface_key, _touch_targets, _touch_held
+    if not closing:
+        save_settings()
+    closing = True
+    _surface = None
+    _surface_key = None
+    _touch_targets = []
+    _touch_held = False
     gc.collect()

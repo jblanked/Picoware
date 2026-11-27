@@ -251,6 +251,8 @@ mp_obj_t view_manager_mp_get_view(mp_obj_t self_in, mp_obj_t view_name)
         mp_obj_t iterable = mp_getiter(self->views, &iter_buf);
         while ((item = mp_iternext(iterable)) != MP_OBJ_STOP_ITERATION)
         {
+            if (item == mp_const_none)
+                continue;
             mp_obj_t name = mp_load_attr(item, MP_QSTR_name);
             if (strcmp(mp_obj_str_get_str(name), mp_obj_str_get_str(view_name)) == 0)
             {

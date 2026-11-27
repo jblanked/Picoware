@@ -80,9 +80,4 @@
 #define INPUT_MP_DEINIT input_noop_deinit
 #define INPUT_MP_INIT input_noop_init
 #define INPUT_MP_READ input_noop_read
-#else
-#define INPUT_MP_INCLUDE "input.h"
-#define INPUT_MP_DEINIT input_noop_deinit
-#define INPUT_MP_INIT input_noop_init
-#define INPUT_MP_READ input_noop_read
 #endif

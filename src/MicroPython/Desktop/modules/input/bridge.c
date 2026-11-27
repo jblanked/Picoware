@@ -1,4 +1,5 @@
 #include "desktop_input.h"
+#include "../../../input/input.h"
 #include "py/runtime.h"
 
 static mp_obj_t call_input(const char *name)
@@ -19,5 +20,10 @@ void desktop_input_deinit(void)
 
 int desktop_input_read(void)
 {
-    return mp_obj_get_int(call_input("read"));
+    const int key = mp_obj_get_int(call_input("read"));
+    mp_obj_t *sample;
+    mp_obj_get_array_fixed_n(call_input("touch_state"), 4, &sample);
+    input_set_touch(mp_obj_get_int(sample[0]), mp_obj_get_int(sample[1]),
+                    mp_obj_get_int(sample[2]), mp_obj_is_true(sample[3]));
+    return key;
 }

@@ -67,14 +67,14 @@
 #define INPUT_MP_READ touch_input_read
 #elif defined(POOM)
 #define INPUT_MP_INCLUDE "input.h"
-#define INPUT_MP_DEINIT input_mp_deinit
-#define INPUT_MP_INIT input_mp_init
-#define INPUT_MP_READ input_mp_read
+#define INPUT_MP_DEINIT poom_input_mp_deinit
+#define INPUT_MP_INIT poom_input_mp_init
+#define INPUT_MP_READ poom_input_mp_read
 #elif defined(FLIPPER_ZERO)
 #define INPUT_MP_INCLUDE "input.h"
-#define INPUT_MP_DEINIT input_mp_deinit
-#define INPUT_MP_INIT input_mp_init
-#define INPUT_MP_READ input_mp_read
+#define INPUT_MP_DEINIT flipper_input_mp_deinit
+#define INPUT_MP_INIT flipper_input_mp_init
+#define INPUT_MP_READ flipper_input_mp_read
 #elif defined(PICO_DUO)
 #define INPUT_MP_INCLUDE "input.h"
 #define INPUT_MP_DEINIT input_noop_deinit

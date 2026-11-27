@@ -170,7 +170,7 @@ mp_obj_t poom_input_get_key_nonblocking(void)
 static MP_DEFINE_CONST_FUN_OBJ_0(poom_input_get_key_nonblocking_obj,
                                  poom_input_get_key_nonblocking);
 
-bool input_mp_init(void)
+bool poom_input_mp_init(void)
 {
     if (!g_input_ready)
     {
@@ -184,14 +184,14 @@ bool input_mp_init(void)
     return true;
 }
 
-void input_mp_deinit(void)
+void poom_input_mp_deinit(void)
 {
     g_input_ready = false;
     poom_input_queue_reset();
     input_deinit();
 }
 
-int input_mp_read(void)
+int poom_input_mp_read(void)
 {
     poom_input_poll_internal();
     uint8_t key = 0;

@@ -127,7 +127,7 @@ static void flipper_input_poll_internal(void)
     }
 }
 
-bool input_mp_init(void)
+bool flipper_input_mp_init(void)
 {
     if (!g_input_ready)
     {
@@ -141,7 +141,7 @@ bool input_mp_init(void)
     return g_input_ready;
 }
 
-void input_mp_deinit(void)
+void flipper_input_mp_deinit(void)
 {
     if (g_input_ready)
     {
@@ -151,7 +151,7 @@ void input_mp_deinit(void)
     }
 }
 
-int input_mp_read(void)
+int flipper_input_mp_read(void)
 {
     flipper_input_poll_internal();
     uint8_t key = 0;
@@ -164,13 +164,13 @@ int input_mp_read(void)
 
 mp_obj_t flipper_input_init(void)
 {
-    return input_mp_init() ? mp_const_true : mp_const_false;
+    return flipper_input_mp_init() ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(flipper_input_init_obj, flipper_input_init);
 
 mp_obj_t flipper_input_deinit(void)
 {
-    input_mp_deinit();
+    flipper_input_mp_deinit();
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(flipper_input_deinit_obj, flipper_input_deinit);

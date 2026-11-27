@@ -9,9 +9,12 @@ extern "C"
 #endif
 
     extern bool input_back_special;
-    bool input_mp_init(void);
-    void input_mp_deinit(void);
-    int input_mp_read(void);
+    bool poom_input_mp_init(void);
+    void poom_input_mp_deinit(void);
+    int poom_input_mp_read(void);
+    bool flipper_input_mp_init(void);
+    void flipper_input_mp_deinit(void);
+    int flipper_input_mp_read(void);
     bool input_noop_init(void);
     void input_noop_deinit(void);
     int input_noop_read(void);

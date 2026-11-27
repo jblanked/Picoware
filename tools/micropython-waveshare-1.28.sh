@@ -174,9 +174,6 @@ cp -r "$picoware_dir"/src/MicroPython/audio "$micropython_dir"/modules/audio
 # copy uf2loader module
 cp -r "$picoware_dir"/src/MicroPython/uf2loader "$micropython_dir"/modules/uf2loader
 
-# copy ghouls module
-cp -r "$picoware_dir"/src/MicroPython/ghouls "$micropython_dir"/modules/ghouls
-
 # copy jsmn module
 cp -r "$picoware_dir"/src/MicroPython/jsmn "$micropython_dir"/modules/jsmn
 
@@ -206,9 +203,6 @@ cp -r "$picoware_dir"/src/MicroPython/view "$micropython_dir"/modules/view
 
 # copy view_manager module
 cp -r "$picoware_dir"/src/MicroPython/view_manager "$micropython_dir"/modules/view_manager
-
-# copy PicoGTA module
-cp -r "$picoware_dir"/src/MicroPython/PicoGTA "$micropython_dir"/modules/PicoGTA
 
 # copy input module
 cp -r "$picoware_dir"/src/MicroPython/input "$micropython_dir"/modules/input

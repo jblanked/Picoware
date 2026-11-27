@@ -35,7 +35,3 @@ include(${CMAKE_CURRENT_LIST_DIR}/../../vt/micropython.cmake)
 # Network modules (HTTP, WebSocket)
 include(${CMAKE_CURRENT_LIST_DIR}/../../http/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../../websocket/micropython.cmake)
-
-# Game modules
-include(${CMAKE_CURRENT_LIST_DIR}/../../ghouls/micropython.cmake)
-include(${CMAKE_CURRENT_LIST_DIR}/../../PicoGTA/micropython.cmake)

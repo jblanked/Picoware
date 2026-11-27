@@ -388,62 +388,11 @@ def _install_view_tracking():
         note(self)
         return result
 
+    Input._sim_original_button = Input.button
+
     def tracked_input_button(self):
-        from picoware.system.boards import (
-            BOARD_CARDPUTER, BOARD_CROWPANEL_10_1, BOARD_CROWPANEL_WATCH_2_01,
-            BOARD_FLIPPER_ZERO, BOARD_PANCAKE, BOARD_V8, BOARD_POOM,
-            BOARD_WAVESHARE_1_69_RP2350, BOARD_WAVESHARE_2_06,
-            BOARD_WAVESHARE_1_28_RP2350, BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-            BOARD_WAVESHARE_C5_3_5, BOARD_WAVESHARE_C6_2_06,
-        )
         sim_runtime.input_polled()
-        if self._current_board_id == BOARD_CROWPANEL_WATCH_2_01:
-            self._poll_touch()
-            if self._poll_watch_power_button():
-                self.on_key_callback()
-        elif self._current_board_id in (
-            BOARD_CROWPANEL_10_1,
-            BOARD_PANCAKE,
-            BOARD_WAVESHARE_C5_3_5,
-            BOARD_V8,
-        ):
-            self._poll_touch()
-        elif self._current_board_id in (
-            BOARD_WAVESHARE_1_43_RP2350, BOARD_WAVESHARE_1_69_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        ):
-            self._poll_waveshare_touch()
-        elif self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
-            from gpio_buttons import key_available
-
-            if key_available():
-                self.on_key_callback()
-            else:
-                self._poll_touch()
-        elif self._current_board_id == BOARD_CARDPUTER:
-            from cardputer_keyboard import key_available, poll
-
-            poll()
-            if key_available():
-                self.on_key_callback()
-        elif self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_input import key_available, poll
-
-            poll()
-            if key_available():
-                self.on_key_callback()
-        elif self._current_board_id == BOARD_POOM:
-            from poom_input import key_available, poll
-
-            poll()
-            if key_available():
-                self.on_key_callback()
-        elif self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
-            return self._last_button
-        else:
-            return self.get_last_button()
-        return self._last_button
+        return self._sim_original_button
 
     ViewManager.switch_to = tracked_switch_to
     ViewManager.back = tracked_back

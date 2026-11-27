@@ -1,6 +1,7 @@
 #include "desktop_bridge.h"
 
 #include <stdbool.h>
+#include <math.h>
 #include <string.h>
 
 #include "py/nlr.h"
@@ -667,4 +668,213 @@ bool desktop_http_websocket_stop(void)
     return desktop_module_bool(DESKTOP_QSTR("websocket"),
                                DESKTOP_QSTR("http_websocket_stop"), 0,
                                NULL);
+}
+
+void desktop_lcd_textured_triangle(float x1, float y1, float u1, float v1,
+                           float x2, float y2, float u2, float v2,
+                           float x3, float y3, float u3, float v3,
+                           const uint16_t *texture, uint16_t texture_width, uint16_t texture_height, uint16_t tint)
+{
+    if (!texture || texture_width == 0 || texture_height == 0)
+        return;
+
+    mp_obj_t lcd = desktop_lcd();
+    if (lcd == mp_const_none)
+        return;
+    mp_int_t width = mp_obj_get_int(mp_load_attr(lcd, MP_QSTR_width));
+    mp_int_t height = mp_obj_get_int(mp_load_attr(lcd, MP_QSTR_height));
+    mp_buffer_info_t target;
+    mp_get_buffer_raise(mp_load_attr(lcd, MP_QSTR__buffer), &target, MP_BUFFER_WRITE);
+    if (width <= 0 || height <= 0 || (size_t)width > target.len / 2 / (size_t)height)
+        return;
+    bool monochrome = mp_obj_is_true(mp_load_attr(lcd, MP_QSTR__is_flipper));
+    if (mp_obj_is_true(mp_load_attr(lcd, MP_QSTR_scale_position)))
+    {
+        float sx = mp_obj_get_float(mp_load_attr(lcd, MP_QSTR__scale_x_factor));
+        float sy = mp_obj_get_float(mp_load_attr(lcd, MP_QSTR__scale_y_factor));
+        x1 *= sx; x2 *= sx; x3 *= sx;
+        y1 *= sy; y2 *= sy; y3 *= sy;
+    }
+    // Bound float-to-int conversion and reject NaN/Inf from malformed meshes.
+    const float values[] = {x1, y1, u1, v1, x2, y2, u2, v2, x3, y3, u3, v3};
+    for (size_t i = 0; i < sizeof(values) / sizeof(values[0]); ++i)
+        if (!(values[i] >= -1000000.f && values[i] <= 1000000.f))
+            return;
+    uint8_t *pixels = target.buf;
+
+    // Match PicoCalc lcd_textured_triangle scanlines, UV sampling and tint.
+    // Tint as 8-bit multipliers (matches SDL vertex color)
+    const uint8_t tint_r5 = (tint >> 11) & 0x1F;
+    const uint8_t tint_g6 = (tint >> 5) & 0x3F;
+    const uint8_t tint_b5 = tint & 0x1F;
+    const uint16_t tint_r8 = (uint16_t)((tint_r5 << 3) | (tint_r5 >> 2));
+    const uint16_t tint_g8 = (uint16_t)((tint_g6 << 2) | (tint_g6 >> 4));
+    const uint16_t tint_b8 = (uint16_t)((tint_b5 << 3) | (tint_b5 >> 2));
+
+    // Vertices, sorted by Y (A top, B mid, C bot)
+    float ax = x1, ay = y1, au = u1, av = v1;
+    float bx = x2, by = y2, bu = u2, bv = v2;
+    float cx = x3, cy = y3, cu = u3, cv = v3;
+    if (ay > by)
+    {
+        float t;
+        t = ax;
+        ax = bx;
+        bx = t;
+        t = ay;
+        ay = by;
+        by = t;
+        t = au;
+        au = bu;
+        bu = t;
+        t = av;
+        av = bv;
+        bv = t;
+    }
+    if (by > cy)
+    {
+        float t;
+        t = bx;
+        bx = cx;
+        cx = t;
+        t = by;
+        by = cy;
+        cy = t;
+        t = bu;
+        bu = cu;
+        cu = t;
+        t = bv;
+        bv = cv;
+        cv = t;
+    }
+    if (ay > by)
+    {
+        float t;
+        t = ax;
+        ax = bx;
+        bx = t;
+        t = ay;
+        ay = by;
+        by = t;
+        t = au;
+        au = bu;
+        bu = t;
+        t = av;
+        av = bv;
+        bv = t;
+    }
+
+    const int iy_top = ay < 0 ? 0 : (int)ay;
+    const int iy_bot = cy >= height ? height - 1 : (int)cy;
+    if (cy <= ay)
+        return;
+
+    const float total_h = cy - ay;
+
+    for (int scanY = iy_top; scanY <= iy_bot; scanY++)
+    {
+        if (scanY < 0 || scanY >= height)
+            continue;
+
+        const float sy = (float)scanY + 0.5f;
+        if (sy < ay || sy >= cy)
+            continue;
+
+        // Full-height A->C edge
+        const float f2 = total_h != 0.f ? (sy - ay) / total_h : 0.f;
+        float e2x = ax + (cx - ax) * f2;
+        float e2u = au + (cu - au) * f2;
+        float e2v = av + (cv - av) * f2;
+
+        // Upper: A->B, lower: B->C
+        float e1x, e1u, e1v;
+        if (sy <= by)
+        {
+            const float d1 = by - ay;
+            const float f1 = d1 != 0.f ? (sy - ay) / d1 : 0.f;
+            e1x = ax + (bx - ax) * f1;
+            e1u = au + (bu - au) * f1;
+            e1v = av + (bv - av) * f1;
+        }
+        else
+        {
+            const float d1 = cy - by;
+            const float f1 = d1 != 0.f ? (sy - by) / d1 : 0.f;
+            e1x = bx + (cx - bx) * f1;
+            e1u = bu + (cu - bu) * f1;
+            e1v = bv + (cv - bv) * f1;
+        }
+
+        // Left/right bounds with matching coords
+        float x_left = e1x, x_right = e2x, u_left = e1u, u_right = e2u, v_left = e1v, v_right = e2v;
+        if (e1x > e2x)
+        {
+            x_left = e2x;
+            u_left = e2u;
+            v_left = e2v;
+            x_right = e1x;
+            u_right = e1u;
+            v_right = e1v;
+        }
+        if (x_left == x_right)
+            continue;
+
+        int start_x = (int)x_left;
+        if ((float)start_x + 0.5f < x_left)
+            start_x++;
+        int end_x = (int)x_right;
+        if ((float)end_x + 0.5f >= x_right)
+            end_x--;
+        if (start_x < 0)
+            start_x = 0;
+        if (end_x >= width)
+            end_x = width - 1;
+        if (start_x > end_x)
+            continue;
+
+        // Pixel-center UV interpolation
+        const float inv_w = 1.0f / (x_right - x_left);
+        const float u_step = (u_right - u_left) * inv_w;
+        const float v_step = (v_right - v_left) * inv_w;
+        float u_cur = u_left + ((float)start_x + 0.5f - x_left) * u_step;
+        float v_cur = v_left + ((float)start_x + 0.5f - x_left) * v_step;
+
+        const int span = end_x - start_x + 1;
+        for (int col = 0; col < span; col++)
+        {
+            // Normalized UV to clamped texel
+            int tu = (int)(fminf(1.f, fmaxf(0.f, u_cur)) * (float)texture_width);
+            if (tu < 0)
+                tu = 0;
+            else if (tu >= texture_width)
+                tu = texture_width - 1;
+            int tv = (int)(fminf(1.f, fmaxf(0.f, v_cur)) * (float)texture_height);
+            if (tv < 0)
+                tv = 0;
+            else if (tv >= texture_height)
+                tv = texture_height - 1;
+            const uint16_t texel = texture[(size_t)tv * texture_width + tu];
+
+            // Modulate texel by tint, keep RGB565
+            const uint8_t tr5 = (texel >> 11) & 0x1F;
+            const uint8_t tg6 = (texel >> 5) & 0x3F;
+            const uint8_t tb5 = texel & 0x1F;
+            const uint16_t tr8 = (uint16_t)((tr5 << 3) | (tr5 >> 2));
+            const uint16_t tg8 = (uint16_t)((tg6 << 2) | (tg6 >> 4));
+            const uint16_t tb8 = (uint16_t)((tb5 << 3) | (tb5 >> 2));
+            const uint16_t mod_r5 = (uint16_t)((tint_r8 * tr8) / 2040);
+            const uint16_t mod_g6 = (uint16_t)((tint_g8 * tg8) / 1020);
+            const uint16_t mod_b5 = (uint16_t)((tint_b8 * tb8) / 2040);
+            uint16_t color = (mod_r5 << 11) | (mod_g6 << 5) | mod_b5;
+            if (monochrome)
+                color = mod_r5 * 299 + mod_g6 * 587 + mod_b5 * 114 > 44800 ? 0xffff : 0;
+            size_t offset = ((size_t)scanY * width + start_x + col) * 2;
+            pixels[offset] = color & 0xff;
+            pixels[offset + 1] = color >> 8;
+
+            u_cur += u_step;
+            v_cur += v_step;
+        }
+
+    }
 }

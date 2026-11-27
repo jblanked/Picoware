@@ -12,9 +12,9 @@
 #define INPUT_MP_READ keyboard_get_input
 #elif defined(WAVESHARE_1_28)
 #define INPUT_MP_INCLUDE "../Waveshare/RP2350-Touch-LCD-1.28/waveshare_touch/touch.h"
-#define INPUT_MP_DEINIT input_deinit
-#define INPUT_MP_INIT input_init
-#define INPUT_MP_READ input_read
+#define INPUT_MP_DEINIT touch_mp_deinit
+#define INPUT_MP_INIT touch_mp_init
+#define INPUT_MP_READ touch_mp_read
 #elif defined(CARDPUTER) || defined(CARDPUTER_ORIGINAL)
 #define INPUT_MP_INCLUDE "../Cardputer/keyboard/keyboard_mp.h"
 #define INPUT_MP_DEINIT keyboard_deinit

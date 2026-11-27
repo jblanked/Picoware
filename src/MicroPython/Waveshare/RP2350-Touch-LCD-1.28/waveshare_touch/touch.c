@@ -115,18 +115,18 @@ void touch_write(uint8_t reg, uint8_t value)
     i2c_write_blocking(SENSOR_I2C_PORT, TOUCH_ADDR, data, 2, false);
 }
 
-void input_deinit(void)
+void touch_mp_deinit(void)
 {
     touch_reset();
     initialized = false;
 }
 
-bool input_init(void)
+bool touch_mp_init(void)
 {
     return touch_init(TOUCH_GESTURE_MODE);
 }
 
-int input_read(void)
+int touch_mp_read(void)
 {
     int current_time = mp_hal_ticks_ms();
     if (current_time - last_time < debounce_time)

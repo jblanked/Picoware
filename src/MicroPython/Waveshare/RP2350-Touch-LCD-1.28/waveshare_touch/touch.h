@@ -101,9 +101,9 @@ extern "C"
 	void touch_set_callback(gpio_irq_callback_t callback);
 	void touch_write(uint8_t reg, uint8_t value);
 
-	void input_deinit(void);
-	bool input_init(void);
-	int input_read(void);
+	void touch_mp_deinit(void);
+	bool touch_mp_init(void);
+	int touch_mp_read(void);
 
 #ifdef __cplusplus
 }

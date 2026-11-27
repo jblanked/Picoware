@@ -57,8 +57,17 @@ void view_manager_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destinatio
         case MP_QSTR__active:
             destination[0] = mp_obj_new_bool(self->_active);
             break;
+        case MP_QSTR__background_color:
+            destination[0] = mp_obj_new_int(self->_background_color);
+            break;
         case MP_QSTR__current_view:
             destination[0] = self->_current_view;
+            break;
+        case MP_QSTR__foreground_color:
+            destination[0] = mp_obj_new_int(self->_foreground_color);
+            break;
+        case MP_QSTR__selected_color:
+            destination[0] = mp_obj_new_int(self->_selected_color);
             break;
         case MP_QSTR__stack_depth:
             destination[0] = mp_obj_new_int(self->_stack_depth);
@@ -87,8 +96,20 @@ void view_manager_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destinatio
         case MP_QSTR__active:
             view_manager_mp_set_active(self_in, destination[0]);
             break;
+        case MP_QSTR__background_color:
+            view_manager_mp_set_background_color(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
         case MP_QSTR__current_view:
             view_manager_mp_set_current_view(self_in, destination[0]);
+            break;
+        case MP_QSTR__foreground_color:
+            view_manager_mp_set_foreground_color(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
+        case MP_QSTR__selected_color:
+            view_manager_mp_set_selected_color(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
             break;
         case MP_QSTR__stack_depth:
             view_manager_mp_set_stack_depth(self_in, destination[0]);

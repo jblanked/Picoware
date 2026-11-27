@@ -1,4 +1,6 @@
 #include "view_manager_mp.h"
+#include "../lcd/lcd_config.h"
+#include LCD_INCLUDE
 
 void view_manager_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
@@ -16,7 +18,10 @@ mp_obj_t view_manager_mp_make_new(const mp_obj_type_t *type, size_t n_args, size
     view_manager_mp_obj_t *self = mp_obj_malloc_with_finaliser(view_manager_mp_obj_t, &view_manager_mp_type);
     self->base.type = &view_manager_mp_type;
     self->_active = true;
+    self->_background_color = 0x0000;
+    self->_foreground_color = 0xFFFF;
     self->_current_view = mp_const_none;
+    self->_selected_color = 0x001F;
     self->_stack_depth = 0;
     self->_view_count = 0;
     self->views = mp_obj_new_list(10, NULL);
@@ -113,6 +118,15 @@ mp_obj_t view_manager_mp_set_active(mp_obj_t self_in, mp_obj_t active)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(view_manager_mp_set_active_obj, view_manager_mp_set_active);
 
+mp_obj_t view_manager_mp_set_background_color(mp_obj_t self_in, mp_obj_t color)
+{
+    view_manager_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (self)
+        self->_background_color = mp_obj_get_int(color);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(view_manager_mp_set_background_color_obj, view_manager_mp_set_background_color);
+
 mp_obj_t view_manager_mp_set_current_view(mp_obj_t self_in, mp_obj_t view)
 {
     view_manager_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -121,6 +135,24 @@ mp_obj_t view_manager_mp_set_current_view(mp_obj_t self_in, mp_obj_t view)
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(view_manager_mp_set_current_view_obj, view_manager_mp_set_current_view);
+
+mp_obj_t view_manager_mp_set_foreground_color(mp_obj_t self_in, mp_obj_t color)
+{
+    view_manager_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (self)
+        self->_foreground_color = mp_obj_get_int(color);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(view_manager_mp_set_foreground_color_obj, view_manager_mp_set_foreground_color);
+
+mp_obj_t view_manager_mp_set_selected_color(mp_obj_t self_in, mp_obj_t color)
+{
+    view_manager_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (self)
+        self->_selected_color = mp_obj_get_int(color);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(view_manager_mp_set_selected_color_obj, view_manager_mp_set_selected_color);
 
 mp_obj_t view_manager_mp_set_stack_depth(mp_obj_t self_in, mp_obj_t depth)
 {
@@ -158,13 +190,71 @@ mp_obj_t view_manager_mp_set_view_stack(mp_obj_t self_in, mp_obj_t view_stack)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(view_manager_mp_set_view_stack_obj, view_manager_mp_set_view_stack);
 
+mp_obj_t view_manager_mp_clear(mp_obj_t self_in)
+{
+    view_manager_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (self)
+    {
+        LCD_MP_CLEAR(self->_background_color);
+        LCD_SWAP();
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(view_manager_mp_clear_obj, view_manager_mp_clear);
+
+mp_obj_t view_manager_mp_clear_stack(mp_obj_t self_in)
+{
+    view_manager_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (self)
+    {
+        mp_obj_t item;
+        mp_obj_iter_buf_t iter_buf;
+        mp_obj_t iterable = mp_getiter(self->views, &iter_buf);
+        while ((item = mp_iternext(iterable)) != MP_OBJ_STOP_ITERATION)
+        {
+            item = mp_const_none;
+        }
+        self->_stack_depth = 0;
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(view_manager_mp_clear_stack_obj, view_manager_mp_clear_stack);
+
+mp_obj_t view_manager_mp_get_view(mp_obj_t self_in, mp_obj_t view_name)
+{
+    view_manager_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (self)
+    {
+        mp_obj_t item;
+        mp_obj_iter_buf_t iter_buf;
+        mp_obj_t iterable = mp_getiter(self->views, &iter_buf);
+        while ((item = mp_iternext(iterable)) != MP_OBJ_STOP_ITERATION)
+        {
+            mp_obj_t name = mp_load_attr(item, MP_QSTR_name);
+            if (strcmp(mp_obj_str_get_str(name), mp_obj_str_get_str(view_name)) == 0)
+            {
+                return item;
+            }
+        }
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(view_manager_mp_get_view_obj, view_manager_mp_get_view);
+
 static const mp_rom_map_elem_t view_manager_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_active), MP_ROM_PTR(&view_manager_mp_set_active_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_background_color), MP_ROM_PTR(&view_manager_mp_set_background_color_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_current_view), MP_ROM_PTR(&view_manager_mp_set_current_view_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_foreground_color), MP_ROM_PTR(&view_manager_mp_set_foreground_color_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_selected_color), MP_ROM_PTR(&view_manager_mp_set_selected_color_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_stack_depth), MP_ROM_PTR(&view_manager_mp_set_stack_depth_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_view_count), MP_ROM_PTR(&view_manager_mp_set_view_count_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_views), MP_ROM_PTR(&view_manager_mp_set_views_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_view_stack), MP_ROM_PTR(&view_manager_mp_set_view_stack_obj)},
+    //
+    {MP_ROM_QSTR(MP_QSTR_clear), MP_ROM_PTR(&view_manager_mp_clear_obj)},
+    {MP_ROM_QSTR(MP_QSTR_clear_stack), MP_ROM_PTR(&view_manager_mp_clear_stack_obj)},
+    {MP_ROM_QSTR(MP_QSTR_get_view), MP_ROM_PTR(&view_manager_mp_get_view_obj)},
 };
 static MP_DEFINE_CONST_DICT(view_manager_mp_locals_dict, view_manager_mp_locals_dict_table);
 

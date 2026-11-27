@@ -67,8 +67,6 @@ class ViewManager(view_manager.ViewManager):
         from picoware.system.app_loader import AppLoader
         from picoware.system.timer import Timer
 
-        self._selected_color = TFT_BLUE
-
         syst = System()
         self._current_board_id = syst.board_id
 
@@ -82,10 +80,6 @@ class ViewManager(view_manager.ViewManager):
 
         settings = Settings(self._storage)
         self._gmt_offset = settings.gmt_offset
-
-        # Set up colors
-        self._background_color = TFT_BLACK
-        self._foreground_color = TFT_WHITE
 
         # dark mode
         if not settings.dark_mode:
@@ -191,13 +185,19 @@ class ViewManager(view_manager.ViewManager):
         """Route attribute assignment through the underlying setters.
 
         Args:
-            name (str): The attribute name being set (``"_active"``, ``"_current_view"``, ``"_stack_depth"``, ``"_view_count"``, ``"_views"``, ``"_view_stack"``).
+            name (str): The attribute name being set (``"_active"``,  ``"_background_color"``, ``"_current_view"``, ``"_foreground_color"``, ``"_selected_color"``, ``"_stack_depth"``, ``"_view_count"``, ``"_views"``, ``"_view_stack"``).
             value (int or float): The new value for the attribute.
         """
         if name == "_active":
             self.set_active(value)
+        elif name == "_background_color":
+            self.set_background_color(value)
         elif name == "_current_view":
             self.set_current_view(value)
+        elif name == "_foreground_color":
+            self.set_foreground_color(value)
+        elif name == "_selected_color":
+            self.set_selected_color(value)
         elif name == "_stack_depth":
             self.set_stack_depth(value)
         elif name == "_view_count":
@@ -684,17 +684,6 @@ class ViewManager(view_manager.ViewManager):
         """
         self._battery.sample()
 
-    def clear(self):
-        """Clear the screen with the background color."""
-        self._draw.fill_screen(self._background_color)
-        self._draw.swap()
-
-    def clear_stack(self):
-        """Clear the navigation stack."""
-        for i in range(self._stack_depth):
-            self.view_stack[i] = None
-        self._stack_depth = 0
-
     def create_view(
         self,
         file_path: str,
@@ -800,27 +789,6 @@ class ViewManager(view_manager.ViewManager):
 
         return freq(self.FREQ_RP2350)
 
-    def get_view(self, view_name: str):
-        """Get a view by name.
-
-        Args:
-            view_name (str): The name of the view to find.
-
-        Returns:
-            View: The view object if found, None otherwise.
-        """
-        for i in range(self._view_count):
-            if self.views[i] is not None:
-                if self.views[i].name == view_name:
-                    return self.views[i]
-            else:
-                self.log(
-                    "ViewManager: View '%s' found in views array but is None."
-                    % view_name,
-                    2,
-                )
-        return None
-
     def log(self, message: str, log_type: int = -1) -> bool:
         """Log a message with an optional log type.
 
@@ -925,24 +893,6 @@ class ViewManager(view_manager.ViewManager):
 
         return self._active
 
-    def set(self, view_name: str):
-        """Set the current view by name, clearing the stack.
-
-        Args:
-            view_name (str): The name of the view to set as current.
-        """
-        if self._current_view is not None:
-            self._current_view.stop(self)
-            self.clear()
-
-        self._current_view = self.get_view(view_name)
-        if self._current_view is not None:
-            if not self._current_view.start(self):
-                self.back()
-
-        # Clear the stack when explicitly setting a view
-        self.clear_stack()
-
     def switch_to(self, view_name: str, clear_stack=False, push_view=True):
         """Switch to a view by name with options for stack management.
 
@@ -961,30 +911,15 @@ class ViewManager(view_manager.ViewManager):
             if clear_stack:
                 self.clear_stack()
             if push_view:
-                self._push_view(self._current_view)
+                if (
+                    self._stack_depth < self.MAX_STACK_SIZE
+                    and self._current_view is not None
+                ):
+                    self.view_stack[self._stack_depth] = self._current_view
+                    self._stack_depth += 1
             self._current_view.stop(self)
             self.clear()
 
         self._current_view = view
         if not self._current_view.start(self):
             self.back()
-
-    def _push_view(self, view):
-        """Push a view onto the navigation stack.
-
-        Args:
-            view (View): The view to push.
-        """
-        if self._stack_depth < self.MAX_STACK_SIZE and view is not None:
-            self.view_stack[self._stack_depth] = view
-            self._stack_depth += 1
-
-    def push_view(self, view_name: str):
-        """Push a view to the stack by name.
-
-        Args:
-            view_name (str): The name of the view to push.
-        """
-        view = self.get_view(view_name)
-        if view is not None:
-            self._push_view(view)

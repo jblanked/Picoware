@@ -23,7 +23,10 @@ extern "C"
     {
         mp_obj_base_t base;
         bool _active;
+        uint16_t _background_color;
         mp_obj_t _current_view; // View
+        uint16_t _foreground_color;
+        uint16_t _selected_color;
         uint8_t _stack_depth;
         uint8_t _view_count;
         mp_obj_t views;      // array
@@ -38,11 +41,18 @@ extern "C"
     void view_manager_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);
 
     mp_obj_t view_manager_mp_set_active(mp_obj_t self_in, mp_obj_t active);
+    mp_obj_t view_manager_mp_set_background_color(mp_obj_t self_in, mp_obj_t color);
+    mp_obj_t view_manager_mp_set_foreground_color(mp_obj_t self_in, mp_obj_t color);
     mp_obj_t view_manager_mp_set_current_view(mp_obj_t self_in, mp_obj_t view);
+    mp_obj_t view_manager_mp_set_selected_color(mp_obj_t self_in, mp_obj_t color);
     mp_obj_t view_manager_mp_set_stack_depth(mp_obj_t self_in, mp_obj_t depth);
     mp_obj_t view_manager_mp_set_view_count(mp_obj_t self_in, mp_obj_t count);
     mp_obj_t view_manager_mp_set_views(mp_obj_t self_in, mp_obj_t views);
     mp_obj_t view_manager_mp_set_view_stack(mp_obj_t self_in, mp_obj_t view_stack);
+
+    mp_obj_t view_manager_mp_clear(mp_obj_t self_in);
+    mp_obj_t view_manager_mp_clear_stack(mp_obj_t self_in);
+    mp_obj_t view_manager_mp_get_view(mp_obj_t self_in, mp_obj_t view_name);
 
 #ifdef __cplusplus
 }

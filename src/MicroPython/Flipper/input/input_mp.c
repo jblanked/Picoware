@@ -127,7 +127,7 @@ static void flipper_input_poll_internal(void)
     }
 }
 
-mp_obj_t flipper_input_init(void)
+bool input_mp_init(void)
 {
     if (!g_input_ready)
     {
@@ -138,15 +138,39 @@ mp_obj_t flipper_input_init(void)
         g_input_ready = true;
         flipper_input_queue_reset();
     }
-    return mp_const_none;
+    return g_input_ready;
+}
+
+void input_mp_deinit(void)
+{
+    if (g_input_ready)
+    {
+        g_input_ready = false;
+        flipper_input_queue_reset();
+        input_deinit();
+    }
+}
+
+int input_mp_read(void)
+{
+    flipper_input_poll_internal();
+    uint8_t key = 0;
+    if (flipper_input_queue_pop(&key))
+    {
+        return key;
+    }
+    return -1;
+}
+
+mp_obj_t flipper_input_init(void)
+{
+    return input_mp_init() ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(flipper_input_init_obj, flipper_input_init);
 
 mp_obj_t flipper_input_deinit(void)
 {
-    g_input_ready = false;
-    flipper_input_queue_reset();
-    input_deinit();
+    input_mp_deinit();
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(flipper_input_deinit_obj, flipper_input_deinit);

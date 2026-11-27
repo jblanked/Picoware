@@ -10,6 +10,8 @@ picoware_dir="$(cd "$script_dir/.." && pwd)"
 micropython_dir="${MICROPYTHON_STM32_PORT:-/Users/user/pico/micropython/ports/stm32}"
 micropython_root="${MICROPYTHON_ROOT:-/Users/user/pico/micropython}"
 
+export MICROPY_USE_COMPILER_PLUGIN=none
+
 flipper_src_dir="$picoware_dir/src/MicroPython/Flipper"
 output_dir="$picoware_dir/builds/MicroPython"
 build_dir="$micropython_dir/build-FLIPPER_ZERO"

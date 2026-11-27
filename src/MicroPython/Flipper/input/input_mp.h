@@ -16,6 +16,10 @@ extern "C"
     mp_obj_t flipper_input_get_key(void);
     mp_obj_t flipper_input_get_key_nonblocking(void);
 
+    bool input_mp_init(void);
+    void input_mp_deinit(void);
+    int input_mp_read(void);
+
 #ifdef __cplusplus
 }
 #endif

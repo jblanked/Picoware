@@ -20,4 +20,9 @@
 #define INPUT_MP_DEINIT keyboard_deinit
 #define INPUT_MP_INIT keyboard_mp_init
 #define INPUT_MP_READ keyboard_get_key
+#elif defined(FLIPPER_ZERO)
+#define INPUT_MP_INCLUDE "../Flipper/input/inputmp.h"
+#define INPUT_MP_DEINIT input_mp_deinit
+#define INPUT_MP_INIT input_mp_init
+#define INPUT_MP_READ input_mp_read
 #endif

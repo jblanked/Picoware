@@ -17,7 +17,6 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_C5_3_5,
     BOARD_V8,
     BOARD_HAS_TOUCH,
-    BOARD_FLIPPER_ZERO,
     BOARD_PICO_DUO,
     BOARD_POOM,
 )
@@ -167,11 +166,6 @@ class Input(input_mp.Input):
             self._touch = Touch()
             self._last_point = (0, 0)
             self._delay_ms = 120
-
-            init()
-
-        elif self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_input import init
 
             init()
         elif self._current_board_id == BOARD_POOM:
@@ -377,12 +371,6 @@ class Input(input_mp.Input):
                 self.on_key_callback()
             else:
                 self._poll_touch()
-        elif self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_input import key_available, poll
-
-            poll()
-            if key_available():
-                self.on_key_callback()
         elif self._current_board_id == BOARD_POOM:
             from poom_input import key_available, poll
 
@@ -432,10 +420,6 @@ class Input(input_mp.Input):
 
             deinit()
 
-        elif self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_input import deinit
-
-            deinit()
         elif self._current_board_id == BOARD_POOM:
             from poom_input import deinit
 
@@ -481,10 +465,6 @@ class Input(input_mp.Input):
             return get_key()
         if self.has_touch_support:
             return -1  # Not applicable for touch input
-        if self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_input import get_key
-
-            return get_key()
         if self._current_board_id == BOARD_POOM:
             from poom_input import get_key
 
@@ -508,10 +488,6 @@ class Input(input_mp.Input):
             return get_key()
         if self.has_touch_support:
             return -1  # Not applicable for touch input
-        if self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_input import get_key_nonblocking
-
-            return get_key_nonblocking()
         if self._current_board_id == BOARD_POOM:
             from poom_input import get_key_nonblocking
 

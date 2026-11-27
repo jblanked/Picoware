@@ -71,3 +71,5 @@ void flipper_board_early_init(void);
 #define MICROPY_HW_USB_CDC_TX_DATA_SIZE (256)
 // No USB MSC
 #define MICROPY_HW_USB_MSC (0)
+
+#define MICROPY_USE_COMPILER_PLUGIN none

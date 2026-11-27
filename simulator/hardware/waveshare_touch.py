@@ -53,14 +53,9 @@ def read_data(_=None):
 
 
 def reset_state():
+    """Clear cached data without pretending that the finger was lifted."""
     global _cached_point
     _cached_point = (0, 0)
-    try:
-        import sim_runtime
-
-        sim_runtime.clear_touch()
-    except Exception:
-        pass
     return True
 
 

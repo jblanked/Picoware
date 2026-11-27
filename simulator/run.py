@@ -368,17 +368,9 @@ def _install_view_tracking():
         except Exception:
             pass
 
-    original_set = ViewManager.set
     original_switch_to = ViewManager.switch_to
     original_back = ViewManager.back
     original_remove = ViewManager.remove
-    def tracked_set(self, *args, **kwargs):
-        if args:
-            note_name(args[0])
-        result = original_set(self, *args, **kwargs)
-        note(self)
-        return result
-
     def tracked_switch_to(self, *args, **kwargs):
         if args:
             note_name(args[0])
@@ -401,6 +393,8 @@ def _install_view_tracking():
             BOARD_CARDPUTER, BOARD_CROWPANEL_10_1, BOARD_CROWPANEL_WATCH_2_01,
             BOARD_FLIPPER_ZERO, BOARD_PANCAKE, BOARD_V8, BOARD_POOM,
             BOARD_WAVESHARE_1_69_RP2350, BOARD_WAVESHARE_2_06,
+            BOARD_WAVESHARE_1_28_RP2350, BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
             BOARD_WAVESHARE_C5_3_5, BOARD_WAVESHARE_C6_2_06,
         )
         sim_runtime.input_polled()
@@ -415,8 +409,11 @@ def _install_view_tracking():
             BOARD_V8,
         ):
             self._poll_touch()
-        elif self._current_board_id == BOARD_WAVESHARE_1_69_RP2350:
-            self._poll_touch_1_69()
+        elif self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350, BOARD_WAVESHARE_1_69_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
+            self._poll_waveshare_touch()
         elif self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
             from gpio_buttons import key_available
 
@@ -442,11 +439,12 @@ def _install_view_tracking():
             poll()
             if key_available():
                 self.on_key_callback()
+        elif self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+            return self._last_button
         else:
             return self.get_last_button()
         return self._last_button
 
-    ViewManager.set = tracked_set
     ViewManager.switch_to = tracked_switch_to
     ViewManager.back = tracked_back
     ViewManager.remove = tracked_remove

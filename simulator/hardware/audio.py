@@ -747,18 +747,18 @@ class Audio:
 
 class AudioNote:
     def __init__(self, left_frequency=0, right_frequency=0, duration_ms=0):
-        self.left_frequency = left_frequency
-        self.right_frequency = right_frequency
-        self.duration_ms = duration_ms
+        object.__setattr__(self, "left_frequency", left_frequency)
+        object.__setattr__(self, "right_frequency", right_frequency)
+        object.__setattr__(self, "duration_ms", duration_ms)
 
     def set_left_frequency(self, value):
-        self.left_frequency = value
+        object.__setattr__(self, "left_frequency", value)
 
     def set_right_frequency(self, value):
-        self.right_frequency = value
+        object.__setattr__(self, "right_frequency", value)
 
     def set_duration_ms(self, value):
-        self.duration_ms = value
+        object.__setattr__(self, "duration_ms", value)
 
 
 class AudioSong:

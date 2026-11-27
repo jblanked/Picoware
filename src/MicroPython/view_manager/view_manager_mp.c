@@ -54,6 +54,15 @@ void view_manager_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destinatio
     {
         switch (attribute)
         {
+        case MP_QSTR__background_color:
+            destination[0] = mp_obj_new_int(self->_background_color);
+            break;
+        case MP_QSTR__foreground_color:
+            destination[0] = mp_obj_new_int(self->_foreground_color);
+            break;
+        case MP_QSTR__selected_color:
+            destination[0] = mp_obj_new_int(self->_selected_color);
+            break;
         case MP_QSTR__active:
             destination[0] = mp_obj_new_bool(self->_active);
             break;
@@ -84,6 +93,18 @@ void view_manager_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destinatio
     {
         switch (attribute)
         {
+        case MP_QSTR__background_color:
+            view_manager_mp_set_background_color(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
+        case MP_QSTR__foreground_color:
+            view_manager_mp_set_foreground_color(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
+        case MP_QSTR__selected_color:
+            view_manager_mp_set_selected_color(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
         case MP_QSTR__active:
             view_manager_mp_set_active(self_in, destination[0]);
             break;

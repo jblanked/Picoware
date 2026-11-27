@@ -21,10 +21,10 @@ static TouchVector last_touch_point = {0, 0};
 // Function to get the touch point
 STATIC mp_obj_t waveshare_touch_get_touch_point(void)
 {
+    last_touch_point = touch_get_point();
     mp_obj_t tuple[2];
     tuple[0] = mp_obj_new_int(last_touch_point.x);
     tuple[1] = mp_obj_new_int(last_touch_point.y);
-    last_touch_point = touch_get_point();
     return mp_obj_new_tuple(2, tuple);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_touch_get_touch_point_obj, waveshare_touch_get_touch_point);

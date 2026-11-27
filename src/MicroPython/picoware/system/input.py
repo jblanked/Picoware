@@ -1,7 +1,7 @@
 """Input - Keyboard and touch input handling."""
 
 import input_mp
-from utime import ticks_ms
+from utime import ticks_ms, ticks_add, ticks_diff
 from picoware.system import buttons
 from picoware.system.boards import (
     BOARD_CROWPANEL_10_1,
@@ -43,13 +43,13 @@ class Input(input_mp.Input):
         "_button_map",
         "_screen_size",
         "_touch",
-        "_touch_read_data_fast",
-        "_touch_down_1_69",
         "touch_down",
         "_uart",
         "_gpio_buttons",
         "_gpio_button_state",
         "_gpio_button_pending",
+        "_touch_poll_at",
+        "_touch_irq_pending",
     )
 
     def __init__(self, back_button=buttons.BUTTON_BACK):
@@ -75,8 +75,8 @@ class Input(input_mp.Input):
             buttons.BUTTON_BACK if not _back_special else buttons.BUTTON_BACKSPACE
         )
         self._touch = None
-        self._touch_read_data_fast = None
-        self._touch_down_1_69 = False
+        self._touch_poll_at = ticks_add(ticks_ms(), -20)
+        self._touch_irq_pending = False
         self._gpio_buttons = None
         self._gpio_button_state = None
         self._gpio_button_pending = False
@@ -85,9 +85,10 @@ class Input(input_mp.Input):
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             from machine import Pin
-            from waveshare_touch import TOUCH_GESTURE_NONE
+            from waveshare_touch import TOUCH_GESTURE_NONE, TOUCH_GESTURE_MODE, init
 
             # Initialize touch in gesture mode
+            init(TOUCH_GESTURE_MODE)
             # set pin
             self.pin = Pin(21, Pin.IN, Pin.PULL_UP)
             # set callback
@@ -104,22 +105,18 @@ class Input(input_mp.Input):
             # set pin
             self.pin = Pin(20, Pin.IN, Pin.PULL_UP)
             # set callback
-            self.pin.irq(handler=self.__touch_callback, trigger=Pin.IRQ_FALLING)
+            self.pin.irq(handler=self._wake_touch, trigger=Pin.IRQ_FALLING)
 
             self._last_point = (0, 0)
         elif self._current_board_id == BOARD_WAVESHARE_1_69_RP2350:
             from machine import Pin
-            from waveshare_touch import init, read_data
+            from waveshare_touch import init
 
             # Initialize touch in point mode
             init()
             # set pin
             self.pin = Pin(21, Pin.IN, Pin.PULL_UP)
-            self._touch_read_data_fast = read_data
-
-            self.pin.irq(
-                handler=self._touch_read_data_fast, trigger=Pin.IRQ_FALLING, hard=True
-            )
+            self.pin.irq(handler=self._wake_touch, trigger=Pin.IRQ_FALLING)
 
             self._last_point = (0, 0)
         elif self._current_board_id == BOARD_WAVESHARE_3_49_RP2350:
@@ -133,7 +130,7 @@ class Input(input_mp.Input):
             self.pin = Pin(11, Pin.IN, Pin.PULL_UP)
 
             # set callback
-            self.pin.irq(handler=self.__touch_callback, trigger=Pin.IRQ_FALLING)
+            self.pin.irq(handler=self._wake_touch, trigger=Pin.IRQ_FALLING)
 
             self._last_point = (0, 0)
 
@@ -368,8 +365,12 @@ class Input(input_mp.Input):
             BOARD_V8,
         ):
             self._poll_touch()
-        elif self._current_board_id == BOARD_WAVESHARE_1_69_RP2350:
-            self._poll_touch_1_69()
+        elif self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
+            self._poll_waveshare_touch()
         elif self._current_board_id in (BOARD_WAVESHARE_2_06, BOARD_WAVESHARE_C6_2_06):
             from gpio_buttons import key_available
 
@@ -389,6 +390,9 @@ class Input(input_mp.Input):
             poll()
             if key_available():
                 self.on_key_callback()
+        elif self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+            # These boards deliver touch events through the IRQ callback.
+            return self._last_button
         else:
             return self.get_last_button()
 
@@ -599,31 +603,34 @@ class Input(input_mp.Input):
 
         return _button
 
-    def _poll_touch_1_69(self):
-        """Poll the touch data and map it to a button event."""
-        from waveshare_touch import get_cached_point, reset_state
+    def _wake_touch(self, _=None):
+        """Request a sample; keep I2C transactions out of the IRQ callback."""
+        self._touch_irq_pending = True
 
-        point = get_cached_point()
+    def _poll_waveshare_touch(self):
+        """Latch one event per physical contact, including between IRQ bursts."""
+        now = ticks_ms()
+        if not self._touch_irq_pending and ticks_diff(now, self._touch_poll_at) < 20:
+            return
+        self._touch_irq_pending = False
+        self._touch_poll_at = now
+        from waveshare_touch import get_touch_point
+
+        point = get_touch_point()
         if point == (0, 0):
+            self.touch_down = False
             self._last_point = (0, 0)
             self._last_button = buttons.BUTTON_NONE
             self._was_pressed = False
             self._elapsed_time = 0
-            self._touch_down_1_69 = False
             return
-
-        if self._touch_down_1_69:
-            reset_state()
+        if self.touch_down:
             return
-
-        self._touch_down_1_69 = True
+        self.touch_down = True
         self._last_point = point
-        x, y = point
-        self._last_button = self.touch_to_button(x, y)
+        self._last_button = self.touch_to_button(*point)
         self._elapsed_time += 1
         self._was_pressed = True
-        reset_state()
-        reset_state()
 
     def _poll_touch(self):
         """Poll the touch controller and map touch areas to button events."""
@@ -658,73 +665,44 @@ class Input(input_mp.Input):
         Args:
             pin (Pin): The pin that triggered the interrupt.
         """
-        # if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
-        #     from waveshare_touch import (
-        #         TOUCH_GESTURE_CLICK,
-        #         TOUCH_GESTURE_DOWN,
-        #         TOUCH_GESTURE_LEFT,
-        #         TOUCH_GESTURE_LONG_PRESS,
-        #         TOUCH_GESTURE_NONE,
-        #         TOUCH_GESTURE_RIGHT,
-        #         TOUCH_GESTURE_UP,
-        #         get_gesture,
-        #         get_touch_point,
-        #     )
+        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+            from waveshare_touch import (
+                TOUCH_GESTURE_CLICK,
+                TOUCH_GESTURE_DOWN,
+                TOUCH_GESTURE_LEFT,
+                TOUCH_GESTURE_LONG_PRESS,
+                TOUCH_GESTURE_NONE,
+                TOUCH_GESTURE_RIGHT,
+                TOUCH_GESTURE_UP,
+                get_gesture,
+                get_touch_point,
+            )
 
-        #     self._last_gesture = get_gesture()
-        #     if self._last_gesture != TOUCH_GESTURE_NONE:
-        #         self._elapsed_touch_now = int(ticks_ms())
+            self._last_gesture = get_gesture()
+            if self._last_gesture != TOUCH_GESTURE_NONE:
+                self._elapsed_touch_now = int(ticks_ms())
 
-        #         if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:
-        #             self._last_gesture = TOUCH_GESTURE_NONE
-        #             return
+                if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:
+                    self._last_gesture = TOUCH_GESTURE_NONE
+                    return
 
-        #         self._elapsed_touch_start = self._elapsed_touch_now
-        #         self._last_point = get_touch_point()
+                self._elapsed_touch_start = self._elapsed_touch_now
+                self._last_point = get_touch_point()
 
-        #         # set last button based on gesture
-        #         gesture_to_button = {
-        #             TOUCH_GESTURE_UP: buttons.BUTTON_UP,
-        #             TOUCH_GESTURE_DOWN: buttons.BUTTON_DOWN,
-        #             TOUCH_GESTURE_LEFT: buttons.BUTTON_LEFT,
-        #             TOUCH_GESTURE_RIGHT: buttons.BUTTON_RIGHT,
-        #             TOUCH_GESTURE_LONG_PRESS: buttons.BUTTON_BACK,
-        #             TOUCH_GESTURE_CLICK: buttons.BUTTON_CENTER,
-        #         }
-        #         self._last_button = gesture_to_button.get(
-        #             self._last_gesture, buttons.BUTTON_NONE
-        #         )
-        #         self._elapsed_time += 1
-        #         self._was_pressed = True
-
-        if self._current_board_id in (
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        ):
-            from waveshare_touch import get_touch_point, reset_state
-
-            point = get_touch_point()
-            if point == (0, 0):
-                self._last_point = (0, 0)
-                self._last_button = buttons.BUTTON_NONE
-                self._was_pressed = False
-                self._elapsed_time = 0
-                return
-
-            self._elapsed_touch_now = int(ticks_ms())
-
-            if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:
-                self._last_point = (0, 0)
-                reset_state()
-                return
-
-            self._elapsed_touch_start = self._elapsed_touch_now
-            self._last_point = point
-            x, y = point
-            self._last_button = self.touch_to_button(x, y)
-            self._elapsed_time += 1
-            self._was_pressed = True
-            reset_state()
+                # set last button based on gesture
+                gesture_to_button = {
+                    TOUCH_GESTURE_UP: buttons.BUTTON_UP,
+                    TOUCH_GESTURE_DOWN: buttons.BUTTON_DOWN,
+                    TOUCH_GESTURE_LEFT: buttons.BUTTON_LEFT,
+                    TOUCH_GESTURE_RIGHT: buttons.BUTTON_RIGHT,
+                    TOUCH_GESTURE_LONG_PRESS: buttons.BUTTON_BACK,
+                    TOUCH_GESTURE_CLICK: buttons.BUTTON_CENTER,
+                }
+                self._last_button = gesture_to_button.get(
+                    self._last_gesture, buttons.BUTTON_NONE
+                )
+                self._elapsed_time += 1
+                self._was_pressed = True
 
     def __uart_callback(self, uart_instance) -> None:
         """UART callback to handle incoming data.

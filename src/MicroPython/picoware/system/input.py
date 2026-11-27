@@ -293,7 +293,7 @@ class Input(input_mp.Input):
     @property
     def gesture(self):
         """Returns the last touch gesture."""
-        return self._last_gesture
+        return self.get_touch_gesture()
 
     @property
     def has_touch_support(self) -> bool:
@@ -303,7 +303,12 @@ class Input(input_mp.Input):
     @property
     def point(self) -> tuple:
         """Returns the last touch point as (x, y)."""
-        return self._last_point
+        return self.get_touch_point()
+
+    @property
+    def touch_down(self) -> bool:
+        """Whether the most recent native input sample contains a contact."""
+        return self.is_touch_down()
 
     @property
     def was_capitalized(self) -> bool:

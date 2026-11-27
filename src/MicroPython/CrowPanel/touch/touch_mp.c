@@ -1,3 +1,4 @@
+#include "../../input/input.h"
 #include "py/runtime.h"
 #include "py/obj.h"
 #include "py/objarray.h"
@@ -241,11 +242,13 @@ int touch_input_read(void)
 {
     if (!touch_read())
     {
+        input_set_touch(0, 0, 0, false);
         touch_input_pressed = false;
         return -1;
     }
 
     TouchPoint point = touch_get_point();
+    input_set_touch(point.x, point.y, 0, point.pressed);
     if (!point.pressed)
     {
         touch_input_pressed = false;

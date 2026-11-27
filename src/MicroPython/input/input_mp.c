@@ -16,6 +16,7 @@ mp_obj_t input_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw
     input_mp_obj_t *self = mp_obj_malloc_with_finaliser(input_mp_obj_t, &input_mp_type);
     self->base.type = &input_mp_type;
     self->was_capitalized = false;
+    input_set_touch(0, 0, 0, false);
     self->initialized = INPUT_MP_INIT();
     input_back_special = n_args > 0 ? mp_obj_get_int(args[0]) != BUTTON_BACK : false;
     return MP_OBJ_FROM_PTR(self);
@@ -27,6 +28,7 @@ mp_obj_t input_mp_del(mp_obj_t self_in)
     if (self && self->initialized)
     {
         INPUT_MP_DEINIT();
+        input_set_touch(0, 0, 0, false);
         self->was_capitalized = false;
         self->initialized = false;
     }
@@ -85,6 +87,7 @@ mp_obj_t input_mp_deinit(mp_obj_t self_in)
     if (self && self->initialized)
     {
         INPUT_MP_DEINIT();
+        input_set_touch(0, 0, 0, false);
         self->was_capitalized = false;
         self->initialized = false;
     }
@@ -121,7 +124,33 @@ mp_obj_t input_mp_key_to_button(mp_obj_t self_in, mp_obj_t key)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(input_mp_key_to_button_obj, input_mp_key_to_button);
 
+static mp_obj_t input_mp_get_touch_point(mp_obj_t self_in)
+{
+    (void)self_in;
+    const InputTouchState *state = input_touch_state();
+    mp_obj_t point[2] = {mp_obj_new_int(state->x), mp_obj_new_int(state->y)};
+    return mp_obj_new_tuple(2, point);
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(input_mp_get_touch_point_obj, input_mp_get_touch_point);
+
+static mp_obj_t input_mp_get_touch_gesture(mp_obj_t self_in)
+{
+    (void)self_in;
+    return mp_obj_new_int(input_touch_state()->gesture);
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(input_mp_get_touch_gesture_obj, input_mp_get_touch_gesture);
+
+static mp_obj_t input_mp_is_touch_down(mp_obj_t self_in)
+{
+    (void)self_in;
+    return mp_obj_new_bool(input_touch_state()->pressed);
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(input_mp_is_touch_down_obj, input_mp_is_touch_down);
+
 static const mp_rom_map_elem_t input_mp_locals_dict_table[] = {
+    {MP_ROM_QSTR(MP_QSTR_get_touch_point), MP_ROM_PTR(&input_mp_get_touch_point_obj)},
+    {MP_ROM_QSTR(MP_QSTR_get_touch_gesture), MP_ROM_PTR(&input_mp_get_touch_gesture_obj)},
+    {MP_ROM_QSTR(MP_QSTR_is_touch_down), MP_ROM_PTR(&input_mp_is_touch_down_obj)},
     {MP_ROM_QSTR(MP_QSTR_button_to_char), MP_ROM_PTR(&input_mp_button_to_char_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_input), MP_ROM_PTR(&input_mp_get_input_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_last_button), MP_ROM_PTR(&input_mp_get_last_button_obj)},

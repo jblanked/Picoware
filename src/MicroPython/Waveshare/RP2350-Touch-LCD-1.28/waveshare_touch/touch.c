@@ -1,3 +1,4 @@
+#include "../../../input/input.h"
 #include "touch.h"
 #include "py/mphal.h"
 
@@ -128,6 +129,7 @@ bool touch_mp_init(void)
 
 int touch_mp_read(void)
 {
+    input_set_touch(0, 0, 0, false);
     int current_time = mp_hal_ticks_ms();
     if (current_time - last_time < debounce_time)
     {
@@ -139,6 +141,8 @@ int touch_mp_read(void)
     {
         return -1;
     }
+    TouchVector point = touch_get_point();
+    input_set_touch(point.x, point.y, gesture, true);
     switch (gesture)
     {
     case TOUCH_GESTURE_UP:

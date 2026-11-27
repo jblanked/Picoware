@@ -1,6 +1,20 @@
 #include "input.h"
 
 bool input_back_special = false;
+static InputTouchState touch_state = {0};
+
+const InputTouchState *input_touch_state(void)
+{
+    return &touch_state;
+}
+
+void input_set_touch(uint16_t x, uint16_t y, uint8_t gesture, bool pressed)
+{
+    touch_state.x = pressed ? x : 0;
+    touch_state.y = pressed ? y : 0;
+    touch_state.gesture = gesture;
+    touch_state.pressed = pressed;
+}
 
 bool input_noop_init(void)
 {

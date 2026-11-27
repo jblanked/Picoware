@@ -1,3 +1,4 @@
+#include "../../../input/input.h"
 /*
  * Waveshare Touch Native C Extension for MicroPython
  *
@@ -146,6 +147,7 @@ void touch_input_deinit(void)
 int touch_input_read(void)
 {
     TouchVector point = touch_get_point();
+    input_set_touch(point.x, point.y, 0, point.x != 0 || point.y != 0);
     if (point.x == 0 && point.y == 0)
     {
         touch_input_pressed = false;

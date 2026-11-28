@@ -141,11 +141,14 @@ void touch_input_deinit(void)
     touch_input_pressed = false;
     touch_reset_state();
     touch_reset();
+    last_touch_point.x = 0;
+    last_touch_point.y = 0;
 }
 
 int touch_input_read(void)
 {
     TouchVector point = touch_get_point();
+    last_touch_point = point;
     if (point.x == 0 && point.y == 0)
     {
         touch_input_pressed = false;
@@ -158,4 +161,12 @@ int touch_input_read(void)
     }
     touch_input_pressed = true;
     return touch_input_map_point(point.x, point.y);
+}
+
+void touch_input_point(uint16_t *x, uint16_t *y)
+{
+    *x = last_touch_point.x;
+    *y = last_touch_point.y;
+    last_touch_point.x = 0;
+    last_touch_point.y = 0;
 }

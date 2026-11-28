@@ -2,6 +2,7 @@
 // Can be set by mpconfigboard.cmake.
 #define MICROPY_HW_BOARD_NAME "CrowPanel 10.1 ESP32-P4-WIFI6"
 #endif
+#define CROWPANEL_10_1 (1)
 #define MICROPY_HW_MCU_NAME "ESP32P4"
 
 // Enable UART REPL for modules that have an external USB-UART and don't use native USB.

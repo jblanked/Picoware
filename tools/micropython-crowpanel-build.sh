@@ -3,11 +3,11 @@
 
 set -euo pipefail
 
-# Some ESP-IDF installs on Apple Silicon are provisioned in x86_64 virtualenvs.
-# Re-run this script under Rosetta once when needed.
-if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ] && [ "${CROWPANEL_ROSETTA_REEXEC:-0}" != "1" ]; then
+# Optional Rosetta mode for legacy x86_64-only ESP-IDF toolchains.
+# Default is native architecture; set CROWPANEL_USE_ROSETTA=1 to force re-exec.
+if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ] && [ "${CROWPANEL_USE_ROSETTA:-0}" = "1" ] && [ "${CROWPANEL_ROSETTA_REEXEC:-0}" != "1" ]; then
      if command -v arch >/dev/null 2>&1; then
-          echo "Detected Apple Silicon. Re-running build script under Rosetta (x86_64)..."
+          echo "Re-running build script under Rosetta (x86_64) because CROWPANEL_USE_ROSETTA=1..."
           export CROWPANEL_ROSETTA_REEXEC=1
           exec arch -x86_64 /bin/bash "$0" "$@"
      fi
@@ -20,6 +20,7 @@ picoware_dir="$(cd "$script_dir/.." && pwd)"
 micropython_dir="${MICROPYTHON_ESP32_PORT:-/Users/user/pico/micropython/ports/esp32}"
 micropython_root="${MICROPYTHON_ROOT:-/Users/user/pico/micropython}"
 esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.5/esp-idf}"
+idf_tools_dir="${IDF_TOOLS_PATH:-$HOME/.espressif}"
 
 crowpanel_src_dir="$picoware_dir/src/MicroPython/CrowPanel"
 output_dir="$picoware_dir/builds/MicroPython"
@@ -36,6 +37,31 @@ require_file() {
      if [ ! -f "$1" ]; then
           echo "ERROR: Missing file: $1"
           exit 1
+     fi
+}
+
+stage_required_module_dir() {
+     local module_name="$1"
+     local src_dir="$picoware_dir/src/MicroPython/$module_name"
+     local dst_dir="$micropython_dir/modules/$module_name"
+
+     if [ ! -d "$src_dir" ]; then
+          echo "ERROR: Required module directory missing: $src_dir"
+          exit 1
+     fi
+
+     rm -rf "$dst_dir"
+     cp -r "$src_dir" "$dst_dir"
+}
+
+stage_optional_module_dir() {
+     local module_name="$1"
+     local src_dir="$picoware_dir/src/MicroPython/$module_name"
+     local dst_dir="$micropython_dir/modules/$module_name"
+
+     if [ -d "$src_dir" ]; then
+          rm -rf "$dst_dir"
+          cp -r "$src_dir" "$dst_dir"
      fi
 }
 
@@ -69,6 +95,12 @@ for module_path in \
      picoware \
      picoware_boards \
      crowpanel \
+     PicoGTA \
+     view \
+     view_manager \
+     input \
+     engine \
+     lcd \
      auto_complete \
      vector \
      response \
@@ -77,11 +109,9 @@ for module_path in \
      PicoCalc \
      Waveshare \
      sd \
-     lcd \
      JPEGDEC \
      jpeg \
      vt \
-     engine \
      textbox \
      gameboy \
      audio \
@@ -89,25 +119,57 @@ for module_path in \
      ghouls \
      jsmn \
      http \
-     websocket; do
+     websocket \
+     c \
+     mjs \
+     mmbasic \
+     video \
+     usb_video; do
      rm -rf "$micropython_dir/modules/$module_path"
 done
 
 echo "Installing Picoware and CrowPanel modules into MicroPython ports/esp32/modules..."
 cp "$picoware_dir/src/MicroPython/main.py" "$micropython_dir/modules/main.py"
-cp -r "$picoware_dir/src/MicroPython/picoware" "$micropython_dir/modules/picoware"
-cp -r "$picoware_dir/src/MicroPython/picoware_boards" "$micropython_dir/modules/picoware_boards"
-
-cp -r "$picoware_dir/src/MicroPython/auto_complete" "$micropython_dir/modules/auto_complete"
-cp -r "$picoware_dir/src/MicroPython/vector" "$micropython_dir/modules/vector"
-cp -r "$picoware_dir/src/MicroPython/response" "$micropython_dir/modules/response"
-cp -r "$picoware_dir/src/MicroPython/font" "$micropython_dir/modules/font"
-cp -r "$picoware_dir/src/MicroPython/log" "$micropython_dir/modules/log"
+stage_required_module_dir "picoware"
+stage_required_module_dir "picoware_boards"
+stage_required_module_dir "lcd"
+stage_required_module_dir "auto_complete"
+stage_required_module_dir "jsmn"
 
 mkdir -p "$micropython_dir/modules/crowpanel"
 cp "$crowpanel_src_dir/micropython.cmake" "$micropython_dir/modules/crowpanel/micropython.cmake"
 cp -r "$crowpanel_src_dir/lcd" "$micropython_dir/modules/crowpanel/lcd"
 cp -r "$crowpanel_src_dir/touch" "$micropython_dir/modules/crowpanel/touch"
+
+echo "Staging shared C modules referenced by CrowPanel CMake..."
+shared_c_modules="$(sed -nE '
+     s#^[[:space:]]*include\(\$\{CMAKE_CURRENT_LIST_DIR\}/\.\./([^/]+)/micropython\.cmake\).*#\1#p
+     s#^[[:space:]]*include_directories\(\$\{CMAKE_CURRENT_LIST_DIR\}/\.\./([^/]+)(/[^)]*)?\).*#\1#p
+' "$crowpanel_src_dir/micropython.cmake" | sort -u)"
+
+if [ -z "$shared_c_modules" ]; then
+     echo "ERROR: No shared C modules found in $crowpanel_src_dir/micropython.cmake"
+     exit 1
+fi
+
+while IFS= read -r module_name; do
+     [ -n "$module_name" ] || continue
+     stage_required_module_dir "$module_name"
+done <<EOF
+$shared_c_modules
+EOF
+
+echo "Staging optional runtime modules when available..."
+for module_name in \
+     gameboy \
+     audio \
+     uf2loader \
+     ghouls \
+     http \
+     websocket \
+     sd; do
+     stage_optional_module_dir "$module_name"
+done
 
 echo "Configuring ESP-IDF managed dependencies for CrowPanel modules..."
 idf_component_yml="$micropython_dir/main/idf_component.yml"
@@ -128,10 +190,25 @@ cp "$crowpanel_src_dir/mpconfigboard.h" "$micropython_dir/boards/ESP32_GENERIC_P
 
 echo "Building mpy-cross with native toolchain..."
 cd "$micropython_root"
-make -C mpy-cross clean
-make -C mpy-cross -j4
+if [ "$(uname -s)" = "Darwin" ] && arch -arm64 /usr/bin/true >/dev/null 2>&1; then
+     arch -arm64 make -C mpy-cross clean
+     arch -arm64 make -C mpy-cross CC=/usr/bin/cc -j4
+else
+     make -C mpy-cross clean
+     make -C mpy-cross -j4
+fi
 
 echo "Setting up ESP-IDF environment..."
+# Prefer an already-installed ESP-IDF Python env (for example idf5.5_py3.11_env)
+# so export.sh doesn't fail when the current shell uses a different Python version.
+if [ -z "${IDF_PYTHON_ENV_PATH:-}" ]; then
+     idf_py_env_candidate="$(ls -d "$idf_tools_dir/python_env"/idf5.5_py*_env 2>/dev/null | head -n 1 || true)"
+     if [ -n "$idf_py_env_candidate" ]; then
+          export IDF_PYTHON_ENV_PATH="$idf_py_env_candidate"
+          echo "Using detected ESP-IDF Python environment: $IDF_PYTHON_ENV_PATH"
+     fi
+fi
+
 # shellcheck source=/dev/null
 source "$esp_idf_dir/export.sh"
 

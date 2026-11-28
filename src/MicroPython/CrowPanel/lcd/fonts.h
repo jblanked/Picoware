@@ -36,39 +36,12 @@
  */
 
 #pragma once
-#include <stdlib.h>
-#include <stdint.h>
+#include "../../font/font.h"
 
-typedef enum
-{
-  FONT_XTRA_SMALL = 0, // Extra small (English)
-  FONT_SMALL = 1,      // Small (English)
-  FONT_MEDIUM = 2,     // Medium (English)
-  FONT_LARGE = 3,      // Large (English)
-  FONT_XTRA_LARGE = 4, // Extra large (English)
-} FontSize;
-
-// ASCII
-typedef struct
-{
-  const uint8_t *table;
-  uint8_t width;
-  uint8_t height;
-} FontTable;
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
-  extern const FontTable Font8;
-  extern const FontTable Font12;
-  extern const FontTable Font16;
-  extern const FontTable Font20;
-  extern const FontTable Font24;
-
-#ifdef __cplusplus
-}
-#endif
+#define FONT_XTRA_SMALL FONT_SIZE_XTRA_SMALL
+#define FONT_SMALL FONT_SIZE_SMALL
+#define FONT_MEDIUM FONT_SIZE_MEDIUM
+#define FONT_LARGE FONT_SIZE_LARGE
+#define FONT_XTRA_LARGE FONT_SIZE_XTRA_LARGE
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

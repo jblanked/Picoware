@@ -34,6 +34,7 @@ extern "C"
     mp_obj_t input_mp_deinit(mp_obj_t self_in);
     mp_obj_t input_mp_get_input(mp_obj_t self_in);
     mp_obj_t input_mp_get_last_button(mp_obj_t self_in);
+    mp_obj_t input_mp_get_point(mp_obj_t self_in);
     mp_obj_t input_mp_key_to_button(mp_obj_t self_in, mp_obj_t key);
 
 #ifdef __cplusplus

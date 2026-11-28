@@ -4,6 +4,7 @@
 static bool initialized = false;
 static int last_time = 0;
 static int debounce_time = 100; // debounce time in ms
+static TouchVector last_point;
 
 // read gesture ID
 uint8_t touch_get_gesture(void)
@@ -119,6 +120,8 @@ void touch_mp_deinit(void)
 {
     touch_reset();
     initialized = false;
+    last_point.x = 0;
+    last_point.y = 0;
 }
 
 bool touch_mp_init(void)
@@ -128,6 +131,8 @@ bool touch_mp_init(void)
 
 int touch_mp_read(void)
 {
+    last_point.x = 0;
+    last_point.y = 0;
     int current_time = mp_hal_ticks_ms();
     if (current_time - last_time < debounce_time)
     {
@@ -139,6 +144,7 @@ int touch_mp_read(void)
     {
         return -1;
     }
+    last_point = touch_get_point();
     switch (gesture)
     {
     case TOUCH_GESTURE_UP:
@@ -156,4 +162,12 @@ int touch_mp_read(void)
     default:
         return -1;
     }
+}
+
+void touch_mp_point(uint16_t *x, uint16_t *y)
+{
+    *x = last_point.x;
+    *y = last_point.y;
+    last_point.x = 0;
+    last_point.y = 0;
 }

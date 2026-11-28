@@ -190,6 +190,8 @@ const mp_obj_module_t touch_user_cmodule = {
 MP_REGISTER_MODULE(MP_QSTR_touch, touch_user_cmodule);
 
 static bool touch_input_pressed = false;
+static uint16_t touch_input_last_x = 0;
+static uint16_t touch_input_last_y = 0;
 
 static int touch_input_map_point(uint16_t x, uint16_t y)
 {
@@ -241,6 +243,8 @@ bool touch_input_init(void)
 void touch_input_deinit(void)
 {
     touch_input_pressed = false;
+    touch_input_last_x = 0;
+    touch_input_last_y = 0;
     touch_deinit();
 }
 
@@ -253,6 +257,8 @@ int touch_input_read(void)
     }
 
     TouchPoint point = touch_get_point();
+    touch_input_last_x = point.pressed ? point.x : 0;
+    touch_input_last_y = point.pressed ? point.y : 0;
     if (!point.pressed)
     {
         touch_input_pressed = false;
@@ -265,4 +271,12 @@ int touch_input_read(void)
     }
     touch_input_pressed = true;
     return touch_input_map_point(point.x, point.y);
+}
+
+void touch_input_point(uint16_t *x, uint16_t *y)
+{
+    *x = touch_input_last_x;
+    *y = touch_input_last_y;
+    touch_input_last_x = 0;
+    touch_input_last_y = 0;
 }

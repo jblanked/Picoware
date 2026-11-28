@@ -81,8 +81,8 @@ typedef enum
 
 typedef struct
 {
-	uint8_t x;
-	uint8_t y;
+	uint16_t x;
+	uint16_t y;
 } TouchVector;
 
 #ifdef __cplusplus
@@ -104,6 +104,8 @@ extern "C"
 	void touch_mp_deinit(void);
 	bool touch_mp_init(void);
 	int touch_mp_read(void);
+
+	void touch_mp_point(uint16_t *x, uint16_t *y);
 
 #ifdef __cplusplus
 }

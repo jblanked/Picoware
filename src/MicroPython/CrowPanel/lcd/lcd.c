@@ -29,6 +29,8 @@ static FontTable *current_font = NULL; // Pointer to current font table structur
 
 static uint8_t backlight_level; // Variable to store current backlight brightness level (0-100)
 
+bool (*_lcd_usb_video_cb)(void) = NULL; // USB video streaming callback
+
 /* Static frame buffer in PSRAM - LCD_WIDTH * LCD_HEIGHT * 2 bytes (16bpp RGB565) */
 static EXT_RAM_BSS_ATTR uint16_t frame_buffer[LCD_WIDTH * LCD_HEIGHT]; // Frame buffer in external PSRAM
 
@@ -365,6 +367,13 @@ void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t 
     }
 }
 
+void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color)
+{
+    lcd_draw_line(x1, y1, x2, y2, color);
+    lcd_draw_line(x2, y2, x3, y3, color);
+    lcd_draw_line(x3, y3, x1, y1, color);
+}
+
 /******************************************************************************
 function: Draw a rectangle outline to the frame_buffer
 parameter:
@@ -540,6 +549,12 @@ void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color)
         }
         text++;
     }
+}
+
+void lcd_draw_text_sized(uint16_t x, uint16_t y, const char *text, uint16_t color, FontSize size)
+{
+    lcd_set_font(size);
+    lcd_draw_text(x, y, text, color);
 }
 
 /******************************************************************************
@@ -854,6 +869,28 @@ void lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uin
             {
                 frame_buffer[(y + j) * LCD_WIDTH + (x + i)] = buffer[j * width + i];
             }
+        }
+    }
+}
+
+void lcd_blit_rgb332(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t *buffer)
+{
+    if (!buffer)
+        return;
+
+    for (uint16_t j = 0; j < height; j++)
+    {
+        for (uint16_t i = 0; i < width; i++)
+        {
+            if ((x + i) >= LCD_WIDTH || (y + j) >= LCD_HEIGHT)
+                continue;
+
+            uint8_t rgb332 = buffer[j * width + i];
+            uint16_t red = (uint16_t)((((rgb332 >> 5) & 7u) << 2) | (((rgb332 >> 5) & 7u) >> 1));
+            uint16_t green = (uint16_t)((((rgb332 >> 2) & 7u) << 3) | ((rgb332 >> 2) & 7u));
+            uint16_t blue = (uint16_t)(((rgb332 & 3u) << 3) | ((rgb332 & 3u) << 1) | ((rgb332 & 3u) >> 1));
+            frame_buffer[(y + j) * LCD_WIDTH + (x + i)] =
+                (uint16_t)((red << 11) | (green << 5) | blue);
         }
     }
 }

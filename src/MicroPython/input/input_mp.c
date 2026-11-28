@@ -34,40 +34,6 @@ mp_obj_t input_mp_del(mp_obj_t self_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(input_mp_del_obj, input_mp_del);
 
-void input_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
-{
-    input_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (!self)
-        return;
-    if (destination[0] == MP_OBJ_NULL)
-    {
-        switch (attribute)
-        {
-        case MP_QSTR__was_capitalized:
-            destination[0] = mp_obj_new_bool(self->was_capitalized);
-            break;
-        case MP_QSTR___del__:
-            destination[0] = MP_OBJ_FROM_PTR(&input_mp_del_obj);
-            break;
-        default:
-            destination[1] = MP_OBJ_SENTINEL;
-            break;
-        };
-    }
-    else
-    {
-        switch (attribute)
-        {
-        case MP_QSTR_was_capitalized:
-            self->was_capitalized = mp_obj_is_true(destination[0]);
-            break;
-        default:
-            destination[1] = MP_OBJ_SENTINEL;
-            break;
-        };
-    }
-}
-
 mp_obj_t input_mp_button_to_char(mp_obj_t self_in, mp_obj_t button)
 {
     input_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -110,6 +76,21 @@ mp_obj_t input_mp_get_last_button(mp_obj_t self_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(input_mp_get_last_button_obj, input_mp_get_last_button);
 
+mp_obj_t input_mp_get_point(mp_obj_t self_in)
+{
+    input_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self || !self->initialized)
+        return mp_obj_new_tuple(2, (mp_obj_t[]){mp_obj_new_int(-1), mp_obj_new_int(-1)});
+#ifdef INPUT_MP_POINT
+    uint16_t x, y;
+    INPUT_MP_POINT(&x, &y);
+    return mp_obj_new_tuple(2, (mp_obj_t[]){mp_obj_new_int(x), mp_obj_new_int(y)});
+#else
+    return mp_obj_new_tuple(2, (mp_obj_t[]){mp_obj_new_int(0), mp_obj_new_int(0)});
+#endif
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(input_mp_get_point_obj, input_mp_get_point);
+
 mp_obj_t input_mp_key_to_button(mp_obj_t self_in, mp_obj_t key)
 {
     input_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -121,10 +102,48 @@ mp_obj_t input_mp_key_to_button(mp_obj_t self_in, mp_obj_t key)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(input_mp_key_to_button_obj, input_mp_key_to_button);
 
+void input_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
+{
+    input_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self)
+        return;
+    if (destination[0] == MP_OBJ_NULL)
+    {
+        switch (attribute)
+        {
+        case MP_QSTR__was_capitalized:
+            destination[0] = mp_obj_new_bool(self->was_capitalized);
+            break;
+        case MP_QSTR_point:
+            destination[0] = input_mp_get_point(self_in);
+            break;
+        case MP_QSTR___del__:
+            destination[0] = MP_OBJ_FROM_PTR(&input_mp_del_obj);
+            break;
+        default:
+            destination[1] = MP_OBJ_SENTINEL;
+            break;
+        };
+    }
+    else
+    {
+        switch (attribute)
+        {
+        case MP_QSTR_was_capitalized:
+            self->was_capitalized = mp_obj_is_true(destination[0]);
+            break;
+        default:
+            destination[1] = MP_OBJ_SENTINEL;
+            break;
+        };
+    }
+}
+
 static const mp_rom_map_elem_t input_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_button_to_char), MP_ROM_PTR(&input_mp_button_to_char_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_input), MP_ROM_PTR(&input_mp_get_input_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_last_button), MP_ROM_PTR(&input_mp_get_last_button_obj)},
+    {MP_ROM_QSTR(MP_QSTR_get_point), MP_ROM_PTR(&input_mp_get_point_obj)},
     {MP_ROM_QSTR(MP_QSTR_deinit), MP_ROM_PTR(&input_mp_deinit_obj)},
     {MP_ROM_QSTR(MP_QSTR_key_to_button), MP_ROM_PTR(&input_mp_key_to_button_obj)},
 };

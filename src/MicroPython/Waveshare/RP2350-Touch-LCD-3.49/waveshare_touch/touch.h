@@ -49,6 +49,7 @@ extern "C"
 	bool touch_input_init(void);
 	void touch_input_deinit(void);
 	int touch_input_read(void);
+	void touch_input_point(uint16_t *x, uint16_t *y);
 
 #ifdef __cplusplus
 }

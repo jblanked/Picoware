@@ -48,7 +48,9 @@ writeloop:
     jmp x--, writeloop  side 0b10  ; Clock high - PSRAM reads value, loop if more
 
     jmp !y, begin       side 0b00  ; If y=0 (write-only), go back to beginning
-    set pindirs 0       side 0b10  ; Switch SIO0-3 to inputs for reading
+    ; Keep SCK low while releasing the bus: a rising edge here consumes
+    ; the first data nibble before readloop samples it.
+    set pindirs 0       side 0b00  ; Switch SIO0-3 to inputs for reading
 
 readloop_entry:
     jmp readloop_mid    side 0b00  ; Jump to middle for proper clock phase
@@ -56,7 +58,7 @@ readloop_entry:
 readloop:
     in pins, 4          side 0b00  ; Read 4 bits from SIO0-3, clock low
 readloop_mid:
-    jmp y--, readloop   side 0b10  ; Clock high, loop if more to read
+    jmp y--, readloop   side 0b10 [3] ; Allow data to settle before sampling
 
     set pindirs 0xF     side 0b01  ; Restore SIO0-3 to outputs, CS high
 

@@ -348,13 +348,21 @@ static void psram_free(uint32_t addr, uint32_t size)
     }
 }
 
+// Keep commands below the RP PIO's 8-bit nibble-count limit and within
+// 64-byte boundaries. This also handles unaligned pointers and tail bytes.
 void picoware_psram_write_data(uint32_t addr, const void *data, size_t length)
 {
     psram_ensure_init();
     const uint8_t *bytes = (const uint8_t *)data;
-    for (size_t i = 0; i < length; i++)
+    while (length > 0)
     {
-        psram_qspi_write8(&psram_instance, addr + i, bytes[i]);
+        size_t count = 64 - (addr & 63);
+        if (count > length)
+            count = length;
+        psram_qspi_write(&psram_instance, addr, bytes, count);
+        addr += count;
+        bytes += count;
+        length -= count;
     }
 }
 
@@ -362,9 +370,15 @@ void picoware_psram_read_data(uint32_t addr, void *data, size_t length)
 {
     psram_ensure_init();
     uint8_t *bytes = (uint8_t *)data;
-    for (size_t i = 0; i < length; i++)
+    while (length > 0)
     {
-        bytes[i] = psram_qspi_read8(&psram_instance, addr + i);
+        size_t count = 64 - (addr & 63);
+        if (count > length)
+            count = length;
+        psram_qspi_read(&psram_instance, addr, bytes, count);
+        addr += count;
+        bytes += count;
+        length -= count;
     }
 }
 

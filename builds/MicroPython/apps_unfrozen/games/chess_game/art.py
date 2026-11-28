@@ -13,8 +13,12 @@ class Assets:
         self.colors = BASIC_COLORS
         self.error = ''
         self.buffer = None
+        self.tiles = {}
+        self.tile_order = []
+        self.tile_cell = None
 
     def clear(self):
+        self.tiles.clear(); self.tile_order.clear(); self.tile_cell=None
         self.revision += 1
         self.mask = self.board = self.pieces = self.ui = self.buffer = None
         self.colors = BASIC_COLORS
@@ -34,10 +38,21 @@ class Assets:
                     self.clear(); self.error = 'Basic graphics: artwork unavailable'
             return self.board is not None
         self.clear(); self.key = key; self.error = ''
+        from gc import collect
+        collect()
         if not enabled: return False
         try:
             self.board = self.binary(storage, NAMES[options['board']] + '_board', 4096)
-            self.pieces = self.binary(storage, NAMES[options['pieces']] + '_pieces', 24576)
+            # Keep each sprite separate to avoid a contiguous 24 KiB allocation.
+            pieces=[]
+            with open(storage.vfs_prefix+'/'+PATH+NAMES[options['pieces']]+'_pieces.bin','rb') as source:
+                if source.seek(0,2)!=24576: raise ValueError('Invalid pieces')
+                source.seek(0)
+                for _ in range(12):
+                    sprite=bytearray(2048)
+                    if source.readinto(sprite)!=2048: raise ValueError('Invalid piece')
+                    pieces.append(sprite)
+            self.pieces=pieces
             self.mask = self.binary(storage, NAMES[options['pieces']] + '_pieces.mask', 1536)
             self.ui = self.binary(storage, NAMES[options['ui']] + '_ui', 4096)
             palette = self.binary(storage, NAMES[options['ui']] + '_palette', 10)
@@ -50,10 +65,30 @@ class Assets:
             return False
 
     def square(self, parity, piece, cell):
+        if cell!=self.tile_cell:
+            self.tiles.clear(); self.tile_order.clear(); self.tile_cell=cell
+        key=(parity,piece)
+        cached=self.tiles.get(key)
+        if cached is not None:
+            self.tile_order.remove(key); self.tile_order.append(key)
+            return cached
+        result=self.compose_square(parity,piece,cell)
+        # Bound retained pixel data to 16 KiB, including on larger displays.
+        limit=min(8,16384//len(result))
+        if limit:
+            while len(self.tile_order)>=limit:
+                del self.tiles[self.tile_order.pop(0)]
+            try:
+                self.tiles[key]=bytes(result); self.tile_order.append(key)
+            except MemoryError:
+                self.tiles.clear(); self.tile_order.clear()
+        return result
+
+    def compose_square(self, parity, piece, cell):
         buf, board, pieces = self.buffer, self.board, self.pieces
         tile = parity * 2048
         index = (0 if piece > 0 else 6) + abs(piece) - 1 if piece else 0
-        sprite = index * 2048
+        sprite = pieces[index] if piece else None
         for y in range(cell):
             sy = y * 32 // cell
             for x in range(cell):
@@ -62,8 +97,8 @@ class Assets:
                 source = board
                 offset = tile + at * 2
                 if piece and self.mask[index * 128 + sy * 4 + sx // 8] & (128 >> (sx & 7)):
-                    source = pieces
-                    offset = sprite + at * 2
+                    source = sprite
+                    offset = at * 2
                 dest = (y * cell + x) * 2
                 buf[dest] = source[offset]
                 buf[dest + 1] = source[offset + 1]

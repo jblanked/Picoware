@@ -801,16 +801,10 @@ def handle_touch(view_manager):
     input_manager = getattr(view_manager, 'input_manager', None)
     if input_manager is None: return False
     point = input_manager.point
-    gesture = input_manager.gesture
     down = getattr(input_manager, 'touch_down', False)
     if point == (0, 0):
         if not down: _touch_held = False
         return down
-    if gesture:
-        from waveshare_touch import TOUCH_GESTURE_CLICK
-        if gesture != TOUCH_GESTURE_CLICK:
-            input_manager.reset()
-            return True
     if _touch_held:
         input_manager.reset()
         return True

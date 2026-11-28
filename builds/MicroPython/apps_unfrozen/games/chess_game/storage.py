@@ -50,7 +50,7 @@ class Store:
         if not self.available: return prefs
         data = self.read_json(ROOT + '/options.json')
         if not isinstance(data, dict): return prefs
-        choices = {'sound': (False,True), 'save': range(4), 'assets': (False, True), 'board': range(4),
+        choices = {'splash': (False,True), 'sound': (False,True), 'save': range(4), 'assets': (False, True), 'board': range(4),
                    'pieces': range(4), 'ui': range(4), 'split': (False, True),
                    'mode': (0, 1, 2), 'white_level': range(3), 'black_level': range(3), 'human': (-1, 1), 'level': range(3), 'time': range(7), 'custom_minutes': range(1,181)}
         for k in prefs:
@@ -78,7 +78,7 @@ class Store:
         names = set()
         for entry in entries:
             name = entry['filename'].split('/')[-1]
-            if name.endswith('.json') or name.endswith('.json.bak'):
+            if any(name.endswith(suffix) for suffix in ('.json','.json.bak','.txt','.txt.bak','.pgn','.pgn.bak')):
                 stem = name.split('.')[0]
                 if len(stem) == 8 and stem.isdigit(): names.add(stem)
         return sorted(names, reverse=True)
@@ -135,13 +135,28 @@ class Store:
             self.error = 'Export failed: ' + str(e)
             return False
 
+    def has_resume(self, preference):
+        if not self.available: return False
+        data=self.read_json(ROOT+'/active.json')
+        return bool(isinstance(data,dict) and (preference or data.get('mode')==2))
+
     def resume(self):
         if self.available: return self.read_json(ROOT + '/active.json', Game.restore)
         return None
 
     def load(self, ident):
         if len(ident) != 8 or not ident.isdigit(): return None
-        return self.read_json(GAMES + '/' + ident + '.json', Game.restore)
+        base=GAMES+'/'+ident
+        game=self.read_json(base+'.json',Game.restore)
+        if game is not None: return game
+        for suffix in ('.txt','.txt.bak','.pgn','.pgn.bak'):
+            try:
+                if not self.storage.exists(base+suffix): continue
+                game=Game.from_text(self.storage.read(base+suffix))
+                game.game_id=ident
+                return game
+            except (OSError,ValueError,TypeError,KeyError,IndexError): pass
+        return None
 
     def delete(self, ident):
         """Remove an archive and its exports; keep the active resume game."""

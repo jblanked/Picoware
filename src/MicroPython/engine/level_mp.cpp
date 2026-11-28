@@ -1,5 +1,6 @@
 #include "level_mp.h"
 #include "game_mp.h"
+#include "sprite3d_mp.h"
 #include "pico-game-engine/engine/game.hpp"
 #include "pico-game-engine/engine/level.hpp"
 #include "pico-game-engine/engine/entity.hpp"
@@ -365,7 +366,20 @@ mp_obj_t level_mp_render_3d_sprite(size_t n_args, const mp_obj_t *args)
     // Arguments: self, path (char *), view_height (float - optional), clamp (bool - optional), wireframe (bool - optional)
     level_mp_obj_t *self = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(args[0]));
     Level *ctx = level_get_context(self);
-    const char *path = mp_obj_str_get_str(args[1]);
+    const char *path = nullptr;
+    Sprite3D *sprite = nullptr;
+    if (mp_obj_is_str(args[1]))
+        path = mp_obj_str_get_str(args[1]);
+    else
+    {
+        mp_obj_t native = mp_obj_cast_to_native_base(args[1], MP_OBJ_FROM_PTR(&sprite3d_mp_type));
+        if (native == MP_OBJ_NULL)
+            mp_raise_TypeError(MP_ERROR_TEXT("expected path or Sprite3D"));
+        sprite3d_mp_obj_t *wrapper = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(native));
+        if (wrapper->freed || !wrapper->context)
+            mp_raise_ValueError(MP_ERROR_TEXT("expected live Sprite3D"));
+        sprite = static_cast<Sprite3D *>(wrapper->context);
+    }
     float view_height = 0.0f;
     bool clamp = false;
     bool wireframe = true;
@@ -386,7 +400,11 @@ mp_obj_t level_mp_render_3d_sprite(size_t n_args, const mp_obj_t *args)
         Entity *entity_ctx = ctx->getEntity(i);
         if (entity_ctx != nullptr && entity_ctx->is_player)
         {
-            ctx->render3DSprite(path, g_draw_ctx, entity_ctx->position, entity_ctx->direction, view_height, clamp, wireframe);
+            // Borrow for this call; the Python wrapper remains the sole owner.
+            if (sprite)
+                ctx->render3DSprite(sprite, g_draw_ctx, entity_ctx->position, entity_ctx->direction, view_height, clamp);
+            else
+                ctx->render3DSprite(path, g_draw_ctx, entity_ctx->position, entity_ctx->direction, view_height, clamp, wireframe);
             break;
         }
     }

@@ -1011,5 +1011,60 @@
             "picoware/apps/CSIRadar.mpy"
         ],
         "version": "1.0"
+    },
+    {
+        "title": "CADV-Earthreader",
+        "description": "M5Stack Unit Earth moisture reader: Cardputer shared ADC or configurable MicroPython ADC.",
+        "file_structure": [
+            "picoware/apps/CADV-Earthreader.mpy"
+        ],
+        "version": "1.13"
+    },
+    {
+        "title": "PicoChess",
+        "description": "Chess with local, computer and CPU-vs-CPU play, adjustable difficulty, clocks, named saved games, replay and PGN/TXT export. Keyboard and touch controls, selectable themes and move sounds. Pure Python chess rules and AI; no chess-specific firmware module required.",
+        "file_structure": [
+            "picoware/apps/games/PicoChess.mpy",
+            "picoware/apps/games/chess_game/__init__.py",
+            "picoware/apps/games/chess_game/ai.mpy",
+            "picoware/apps/games/chess_game/app.mpy",
+            "picoware/apps/games/chess_game/art.mpy",
+            "picoware/apps/games/chess_game/assets/simple_dark_board.bin",
+            "picoware/apps/games/chess_game/assets/simple_dark_palette.bin",
+            "picoware/apps/games/chess_game/assets/simple_dark_pieces.bin",
+            "picoware/apps/games/chess_game/assets/simple_dark_pieces.mask.bin",
+            "picoware/apps/games/chess_game/assets/simple_dark_ui.bin",
+            "picoware/apps/games/chess_game/assets/simple_light_board.bin",
+            "picoware/apps/games/chess_game/assets/simple_light_palette.bin",
+            "picoware/apps/games/chess_game/assets/simple_light_pieces.bin",
+            "picoware/apps/games/chess_game/assets/simple_light_pieces.mask.bin",
+            "picoware/apps/games/chess_game/assets/simple_light_ui.bin",
+            "picoware/apps/games/chess_game/assets/stone_board.bin",
+            "picoware/apps/games/chess_game/assets/stone_palette.bin",
+            "picoware/apps/games/chess_game/assets/stone_pieces.bin",
+            "picoware/apps/games/chess_game/assets/stone_pieces.mask.bin",
+            "picoware/apps/games/chess_game/assets/stone_ui.bin",
+            "picoware/apps/games/chess_game/assets/wood_board.bin",
+            "picoware/apps/games/chess_game/assets/wood_palette.bin",
+            "picoware/apps/games/chess_game/assets/wood_pieces.bin",
+            "picoware/apps/games/chess_game/assets/wood_pieces.mask.bin",
+            "picoware/apps/games/chess_game/assets/wood_ui.bin",
+            "picoware/apps/games/chess_game/audio/klock.bin",
+            "picoware/apps/games/chess_game/basic.mpy",
+            "picoware/apps/games/chess_game/model.mpy",
+            "picoware/apps/games/chess_game/render.mpy",
+            "picoware/apps/games/chess_game/rules.mpy",
+            "picoware/apps/games/chess_game/scene.mpy",
+            "picoware/apps/games/chess_game/sound.mpy",
+            "picoware/apps/games/chess_game/storage.mpy",
+            "picoware/apps/games/chess_game/splash.mpy",
+            "picoware/apps/games/chess_game/assets/loading.bin",
+            "picoware/apps/games/chess_game/motion.mpy",
+            "picoware/apps/games/chess_game/assets/victory_white.bin",
+            "picoware/apps/games/chess_game/assets/victory_black.bin",
+            "picoware/apps/games/chess_game/assets/defeat_white.bin",
+            "picoware/apps/games/chess_game/assets/defeat_black.bin"
+        ],
+        "version": "1.0"
     }
 ]

@@ -7,7 +7,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent
 PACKAGES = (
-    ('picoware-blender-1.5.0', 'picoware-blender-1.5.0.zip', ''),
+    ('picoware-blender-1.6.0', 'picoware-blender-1.6.0.zip', ''),
     ('picoware-ai', 'picoware-ai-helper-1.0.0.zip', 'picoware-ai/'),
 )
 

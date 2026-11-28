@@ -21,6 +21,7 @@ alloc_emergency_exception_buf(100)
 assert hasattr(pico_gta.PicoGTA, "run")
 assert hasattr(ghouls.Ghouls, "run")
 assert hasattr(input_mp.Input, "get_last_button")
+input_mp.Input.get_point  # Require the consuming touch API before launching.
 assert hasattr(engine, "Billboard")
 assert hasattr(engine.Entity, "set_billboard")
 assert hasattr(engine.Entity, "set_billboard_pose")

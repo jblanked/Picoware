@@ -251,6 +251,7 @@ class Keyboard:
         self.KEY_SPACING = 1
         self._touch_enabled = self.vm.input_manager.has_touch_support
         self._touch_latched = False
+        self._touch_point = (0, 0)
 
         font_height = draw.font_size.y
         padding_x = 1 if self._is_flipper else max(1, draw.scale_x(3))
@@ -547,15 +548,13 @@ class Keyboard:
                 BUTTON_DOWN: BUTTON_LEFT,
                 BUTTON_LEFT: BUTTON_UP,
             }.get(self.dpad_input, self.dpad_input)
-        if self._touch_latched and not self.vm.input_manager.touch_down:
+        # The native getter consumes its sample; share one read for this frame.
+        self._touch_point = self.vm.input_manager.point if self._touch_enabled else (0, 0)
+        has_touch_point = bool(self._touch_point and self._touch_point != (0, 0))
+        if not has_touch_point:
             self._touch_latched = False
-        has_touch_point = (
-            self._touch_enabled
-            and self.vm.input_manager.point
-            and self.vm.input_manager.point != (0, 0)
-        )
         if self.dpad_input != -1 or force or has_touch_point:
-            if self.dpad_input == BUTTON_BACK:
+            if self.dpad_input == BUTTON_BACK and not has_touch_point:
                 # Exit keyboard without saving
                 self.just_stopped = True
                 return False
@@ -729,7 +728,7 @@ class Keyboard:
 
     def _handle_touch_input(self) -> bool:
         """Press the key under the touch point. True if the touch was used."""
-        point = self.vm.input_manager.point
+        point = self._touch_point
         if not point or point == (0, 0):
             return False
 

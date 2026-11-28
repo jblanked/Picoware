@@ -58,7 +58,9 @@ class Input(input_mp.Input):
     @property
     def button(self) -> int:
         """Returns the last button pressed."""
-        return self.read()
+        key = self.read()
+        self._was_capitalized = 65 <= key <= 90
+        return self.key_to_button(key)
 
     @property
     def has_touch_support(self) -> bool:

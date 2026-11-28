@@ -113,6 +113,12 @@ extern "C"
     void lcd_ppa_srm_deinit(void);
 #endif
 
+#if !defined(PICOCALC_ESP32_P4)
+    bool lcd_stream_begin(void);
+    void lcd_stream_write(const uint8_t *bytes, size_t count);
+    void lcd_stream_end(void);
+#endif
+
     // Display window and drawing functions
     void lcd_set_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
     void lcd_blit(uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t height);

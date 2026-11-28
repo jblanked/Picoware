@@ -5,6 +5,7 @@
 #include "pico/multicore.h"
 #include "hardware/pio.h"
 #include "hardware/clocks.h"
+#include "hardware/dma.h"
 
 #include "lcd.h"
 #include "st7789_lcd.pio.h"
@@ -13,6 +14,8 @@
 #define LCD_PIO pio1
 static uint lcd_pio_sm = 0;
 static uint lcd_pio_offset = 0;
+
+static int lcd_dma_chan = -1;
 
 static bool lcd_initialised = false; // flag to indicate if the LCD is initialised
 
@@ -122,6 +125,52 @@ void lcd_write16_buf(const uint16_t *buffer, size_t len)
 
     st7789_lcd_wait_idle(LCD_PIO, lcd_pio_sm);
     lcd_set_dc_cs(0, 1); // CS=1 (inactive)
+}
+
+// The caller owns LCD access until lcd_stream_end(). Data must already be
+// in wire byte order and remain valid until the next write or stream end.
+bool lcd_stream_begin(void)
+{
+    lcd_acquire();
+    if (lcd_y_offset != 0 || lcd_scroll_top != 0 || lcd_scroll_bottom != 0)
+    {
+        lcd_release();
+        return false;
+    }
+    if (lcd_dma_chan < 0)
+        lcd_dma_chan = dma_claim_unused_channel(false);
+    if (lcd_dma_chan < 0)
+    {
+        lcd_release();
+        return false;
+    }
+
+    dma_channel_config config = dma_channel_get_default_config(lcd_dma_chan);
+    channel_config_set_transfer_data_size(&config, DMA_SIZE_8);
+    channel_config_set_read_increment(&config, true);
+    channel_config_set_write_increment(&config, false);
+    channel_config_set_dreq(&config, pio_get_dreq(LCD_PIO, lcd_pio_sm, true));
+    dma_channel_configure(lcd_dma_chan, &config, &LCD_PIO->txf[lcd_pio_sm], NULL, 0, false);
+    lcd_set_window(0, 0, WIDTH - 1, HEIGHT - 1);
+    lcd_set_dc_cs(1, 0);
+    return true;
+}
+
+void lcd_stream_write(const uint8_t *bytes, size_t count)
+{
+    dma_channel_wait_for_finish_blocking(lcd_dma_chan);
+    dma_channel_set_read_addr(lcd_dma_chan, bytes, false);
+    dma_channel_set_trans_count(lcd_dma_chan, count, true);
+}
+
+void lcd_stream_end(void)
+{
+    dma_channel_wait_for_finish_blocking(lcd_dma_chan);
+    st7789_lcd_wait_idle(LCD_PIO, lcd_pio_sm);
+    lcd_set_dc_cs(0, 1);
+    dma_channel_unclaim(lcd_dma_chan);
+    lcd_dma_chan = -1;
+    lcd_release();
 }
 
 //

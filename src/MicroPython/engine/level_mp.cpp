@@ -1,5 +1,6 @@
 #include "level_mp.h"
 #include "game_mp.h"
+#include "sprite3d_mp.h"
 #include "pico-game-engine/engine/game.hpp"
 #include "pico-game-engine/engine/level.hpp"
 #include "pico-game-engine/engine/entity.hpp"
@@ -362,37 +363,68 @@ mp_obj_t level_mp_render_3d_sprite(size_t n_args, const mp_obj_t *args)
     {
         mp_raise_ValueError(MP_ERROR_TEXT("Draw context is null"));
     }
-    // Arguments: self, path (char *), view_height (float - optional), clamp (bool - optional), wireframe (bool - optional)
+    // Arguments: self, path (char *) or Sprite3D, player_pos (Vector), player_dir (Vector), view_height, clamp (bool - optional/false), wireframe (bool - optional/false), drawShadow (bool - optional/false)
     level_mp_obj_t *self = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(args[0]));
     Level *ctx = level_get_context(self);
-    const char *path = mp_obj_str_get_str(args[1]);
-    float view_height = 0.0f;
+    const char *path = nullptr;
+    Sprite3D *sprite = nullptr;
+    Vector player_pos;
+    {
+        mp_obj_t native_vec = mp_obj_cast_to_native_base(args[2], MP_OBJ_FROM_PTR(&vector_mp_type));
+        if (native_vec == MP_OBJ_NULL)
+            mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+        vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+        player_pos.x = vec->x;
+        player_pos.y = vec->y;
+        player_pos.z = vec->z;
+        player_pos.integer = vec->integer;
+    }
+    Vector player_dir;
+    {
+        mp_obj_t native_vec = mp_obj_cast_to_native_base(args[3], MP_OBJ_FROM_PTR(&vector_mp_type));
+        if (native_vec == MP_OBJ_NULL)
+            mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+        vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+        player_dir.x = vec->x;
+        player_dir.y = vec->y;
+        player_dir.z = vec->z;
+        player_dir.integer = vec->integer;
+    }
     bool clamp = false;
-    bool wireframe = true;
-    if (n_args > 2)
+    bool wireframe = false;
+    bool drawShadow = false;
+    float view_height = mp_obj_get_float(args[4]);
+    if (n_args > 5)
     {
-        view_height = mp_obj_get_float(args[2]);
+        clamp = mp_obj_is_true(args[5]);
     }
-    if (n_args > 3)
+    if (n_args > 6)
     {
-        clamp = mp_obj_is_true(args[3]);
+        wireframe = mp_obj_is_true(args[6]);
     }
-    if (n_args > 4)
+    if (n_args > 7)
     {
-        wireframe = mp_obj_is_true(args[4]);
+        drawShadow = mp_obj_is_true(args[7]);
     }
-    for (int i = 0; i < ctx->getEntityCount(); i++)
+    if (mp_obj_is_str(args[1]))
     {
-        Entity *entity_ctx = ctx->getEntity(i);
-        if (entity_ctx != nullptr && entity_ctx->is_player)
-        {
-            ctx->render3DSprite(path, g_draw_ctx, entity_ctx->position, entity_ctx->direction, view_height, clamp, wireframe);
-            break;
-        }
+        path = mp_obj_str_get_str(args[1]);
+        ctx->render3DSprite(path, g_draw_ctx, player_pos, player_dir, view_height, clamp, wireframe, drawShadow);
+    }
+    else
+    {
+        mp_obj_t native = mp_obj_cast_to_native_base(args[1], MP_OBJ_FROM_PTR(&sprite3d_mp_type));
+        if (native == MP_OBJ_NULL)
+            mp_raise_TypeError(MP_ERROR_TEXT("expected path or Sprite3D"));
+        sprite3d_mp_obj_t *wrapper = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(native));
+        if (wrapper->freed || !wrapper->context)
+            mp_raise_ValueError(MP_ERROR_TEXT("expected live Sprite3D"));
+        sprite = static_cast<Sprite3D *>(wrapper->context);
+        ctx->render3DSprite(sprite, g_draw_ctx, player_pos, player_dir, view_height, clamp, drawShadow);
     }
     return mp_const_none;
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(level_mp_render_3d_sprite_obj, 2, 5, level_mp_render_3d_sprite);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(level_mp_render_3d_sprite_obj, 5, 8, level_mp_render_3d_sprite);
 
 static const mp_rom_map_elem_t level_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_clear), MP_ROM_PTR(&level_mp_clear_obj)},

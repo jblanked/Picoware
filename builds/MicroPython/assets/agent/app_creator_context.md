@@ -1136,7 +1136,7 @@ The engine module provides classes and functions for managing 3D game logic, ren
 - `entity_remove(entity)`: Stop and remove an entity. Non-player entities are deleted; player entities are managed externally.
 - `clear()`: Stop all entities and delete non-player entities.
 - Other methods: `get_entity(index)` (raises `ValueError` for an invalid index), `set_name`, `set_size`, `set_clear_allowed`, `set_light_direction(x, y, z)`, and `set_shadow_color(color)`.
-- `render_3d_sprite(path, view_height=0.0, clamp=False, wireframe=True)`: Render a file-backed 3D sprite using the first player entity's position and direction.
+- `render_3d_sprite(path or Sprite3D, player_pos (Vector), player_dir (Vector), view_height (float), clamp=False, wireframe=False, drawShadow=False)`: Render a file-backed or in-memory 3D sprite using the first player entity's position and direction.
 
 #### picoware-engine-image
 - `Image(size, is_8bit, data=None, path="", mask=None, psram_address=None, psram_mask_address=None)`: Store image dimensions, optional pixel data/path, and optional mask or PSRAM addresses. Pixel data, masks, and paths are copied into native-owned storage.

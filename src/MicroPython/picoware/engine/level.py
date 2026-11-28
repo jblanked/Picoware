@@ -33,7 +33,7 @@ class Level(engine.Level):
         - set_light_direction(x, y, z): Set the 3D lighting direction.
         - set_shadow_color(color): Set the 3D shadow color.
         - get_entity(index): Return an entity by index.
-        - render_3d_sprite(path, view_height=0.0, clamp=False, wireframe=True): Render a file-backed 3D sprite for the player.
+        - render_3d_sprite(path or Sprite3D, player_pos (Vector), player_dir (Vector), view_height (float), clamp=False, wireframe=False, drawShadow=False): Render a file-backed or in-memory 3D sprite.
         - __del__(): Release the native level resources.
     """
 

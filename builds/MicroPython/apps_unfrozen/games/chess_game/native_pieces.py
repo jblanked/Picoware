@@ -8,9 +8,10 @@ class NativePieces:
         self.engine_module=engine;self.assets={};self.game=self.level=self.entity=self.engine=None
         self.width,self.height=draw.size.x,draw.size.y
         self.camera=None
-        self.cache={};self.order=[];self.source=None;self.side=32
+        self.cache={};self.order=[];self.source=None;self.source_path=None;self.side=32
         self.pixels=bytearray(1024);self.mask=bytearray(128)
         self.small_pixels=memoryview(self.pixels)[:256];self.small_mask=memoryview(self.mask)[:32]
+        self.frame_buffer=None;self.frame_rows=();self.frame_side=None;self.frame_view=None
         try:
             self.game=engine.Game('Chess sprites',draw.size,65535,0,None,None,None,None,draw)
             self.level=engine.Level('Sprites',draw.size,self.game)
@@ -20,6 +21,12 @@ class NativePieces:
             self.camera=engine.Camera(Vector(0,0),Vector(0,1),Vector(1,0),0,1,0)
             self.game.set_camera(self.camera)
             self.engine=engine.Engine(self.game,30)
+            # Three sequential chunk reads avoid small pixel/mask SD reads
+            # without retaining a full 14 KB frame. Stream on smaller heaps.
+            from gc import mem_free
+            if mem_free()>49152:
+                try:self.frame_buffer=bytearray(4608)
+                except MemoryError:pass
         except Exception:
             self.close();raise
 
@@ -34,40 +41,61 @@ class NativePieces:
         self.release(self.assets)
 
     def load_frame(self,path,frame,side):
+        if path!=self.source_path:
+            self.clear()
+            if self.source:self.source.close();self.source=None
+            self.source_path=path
         key=(frame,side)
         if key in self.cache:
             self.entity.set_billboard(None)
             self.assets=self.cache[key];self.side=side
             self.order.remove(key);self.order.append(key)
             return
-        # Evict BEFORE allocating: retain only the currently displayed frame.
+        # Recycle the non-visible slot. Keep the displayed frame untouched
+        # until all twelve replacements are ready, including on read failure.
+        pending={}
         for old in self.order[:]:
             if self.cache[old] is not self.assets:
-                self.release(self.cache.pop(old));self.order.remove(old)
+                pending=self.cache.pop(old);self.order.remove(old)
         from gc import collect
+        # Collect at the known frame-change boundary. Deferring this until
+        # allocation pressure made the slowest rotation frames worse on device.
         collect()
-        if self.source is None:
-            source=open(path,'rb')
-            if source.read(8)!=b'PCS33201':
-                source.close();raise ValueError('Invalid native sprites')
-            self.source=source
         pixels=self.pixels if side==32 else self.small_pixels
         mask=self.mask if side==32 else self.small_mask
         offset=8+(110592 if side==32 else 0)+frame*12*(len(pixels)+len(mask))
-        pending={}
-        try:
-            self.source.seek(offset)
-            for item in range(12):
-                if self.source.readinto(pixels)!=len(pixels) or self.source.readinto(mask)!=len(mask):
-                    raise OSError('Incomplete native sprites')
-                asset=self.engine_module.Billboard(1,1)
-                kind=item+1 if item<6 else -(item-5)
-                pending[kind]=asset
-                if not self.engine_module.Billboard.set_direction_pose_data(asset,0,0,side,side,pixels,mask):
-                    raise MemoryError('Native sprite')
-        except Exception:
-            self.release(pending)
-            raise
+        for attempt in range(2):
+            try:
+                if self.source is None:
+                    source=open(path,'rb')
+                    if source.read(8)!=b'PCS33201':
+                        source.close();raise ValueError('Invalid native sprites')
+                    self.source=source
+                if self.frame_buffer is not None and self.frame_side!=side:
+                    view=memoryview(self.frame_buffer);count=side*side;stride=count+count//8
+                    rows=tuple((view[i*stride:i*stride+count],view[i*stride+count:(i+1)*stride]) for i in range(4))
+                    self.frame_view=view[:4*stride];self.frame_rows=rows;self.frame_side=side
+                self.source.seek(offset)
+                for item in range(12):
+                    if self.frame_buffer is not None:
+                        if item%4==0 and self.source.readinto(self.frame_view)!=len(self.frame_view):
+                            raise OSError('Incomplete native sprites')
+                        pixels,mask=self.frame_rows[item%4]
+                    elif self.source.readinto(pixels)!=len(pixels) or self.source.readinto(mask)!=len(mask):
+                        raise OSError('Incomplete native sprites')
+                    kind=item+1 if item<6 else -(item-5)
+                    asset=pending.get(kind)
+                    if asset is None:
+                        asset=self.engine_module.Billboard(1,1);pending[kind]=asset
+                    if not self.engine_module.Billboard.set_direction_pose_data(asset,0,0,side,side,pixels,mask):
+                        raise MemoryError('Native sprite')
+                break
+            except (OSError,ValueError,MemoryError) as error:
+                self.release(pending)
+                if not isinstance(error,MemoryError) or attempt:raise
+                # Fragmentation can matter even with enough total free RAM.
+                # Retry once after releasing the incomplete, invisible slot.
+                collect()
         self.entity.set_billboard(None)
         self.cache[key]=pending;self.order.append(key)
         self.assets=pending;self.side=side
@@ -95,6 +123,7 @@ class NativePieces:
     def close(self):
         self.clear()
         if self.source:self.source.close();self.source=None
+        self.source_path=None
         if self.engine:self.engine.__del__(self.engine);self.engine=None
         if self.game:self.game.set_current_level(None)
         if self.entity:
@@ -104,6 +133,5 @@ class NativePieces:
         if self.level:self.level.__del__(self.level);self.level=None
         if self.game:self.game.__del__(self.game);self.game=None
         if self.camera:self.camera.__del__(self.camera);self.camera=None
-        self.cache={};self.order=[];self.source=None;self.side=32
-        self.pixels=bytearray(1024);self.mask=bytearray(128)
-        self.small_pixels=memoryview(self.pixels)[:256];self.small_mask=memoryview(self.mask)[:32]
+        self.pixels=self.mask=self.small_pixels=self.small_mask=None
+        self.frame_buffer=self.frame_view=None;self.frame_rows=();self.frame_side=None

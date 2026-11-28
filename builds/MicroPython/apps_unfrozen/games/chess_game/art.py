@@ -29,35 +29,36 @@ class Assets:
             raise ValueError('Invalid artwork: ' + name)
         return data
 
-    def load(self, storage, options, enabled, cell):
-        key = (enabled, options['board'], options['pieces'], options['ui'])
+    def load(self, storage, options, enabled, cell, board_art=True):
+        key = (enabled, options['board'], options['pieces'], options['ui'], board_art)
         if key == self.key:
-            if self.board is not None and len(self.buffer) != cell * cell * 2:
+            if self.buffer is not None and len(self.buffer) != cell * cell * 2:
                 try: self.buffer = bytearray(cell * cell * 2)
                 except MemoryError:
                     self.clear(); self.error = 'Basic graphics: artwork unavailable'
-            return self.board is not None
+            return self.ui is not None
         self.clear(); self.key = key; self.error = ''
         from gc import collect
         collect()
         if not enabled: return False
         try:
-            self.board = self.binary(storage, NAMES[options['board']] + '_board', 4096)
-            # Keep each sprite separate to avoid a contiguous 24 KiB allocation.
-            pieces=[]
-            with open(storage.vfs_prefix+'/'+PATH+NAMES[options['pieces']]+'_pieces.bin','rb') as source:
-                if source.seek(0,2)!=24576: raise ValueError('Invalid pieces')
-                source.seek(0)
-                for _ in range(12):
-                    sprite=bytearray(2048)
-                    if source.readinto(sprite)!=2048: raise ValueError('Invalid piece')
-                    pieces.append(sprite)
-            self.pieces=pieces
-            self.mask = self.binary(storage, NAMES[options['pieces']] + '_pieces.mask', 1536)
+            if board_art:
+                self.board = self.binary(storage, NAMES[options['board']] + '_board', 4096)
+                # Keep each sprite separate to avoid a contiguous 24 KiB allocation.
+                pieces=[]
+                with open(storage.vfs_prefix+'/'+PATH+NAMES[options['pieces']]+'_pieces.bin','rb') as source:
+                    if source.seek(0,2)!=24576: raise ValueError('Invalid pieces')
+                    source.seek(0)
+                    for _ in range(12):
+                        sprite=bytearray(2048)
+                        if source.readinto(sprite)!=2048: raise ValueError('Invalid piece')
+                        pieces.append(sprite)
+                self.pieces=pieces
+                self.mask = self.binary(storage, NAMES[options['pieces']] + '_pieces.mask', 1536)
+                self.buffer = bytearray(cell * cell * 2)
             self.ui = self.binary(storage, NAMES[options['ui']] + '_ui', 4096)
             palette = self.binary(storage, NAMES[options['ui']] + '_palette', 10)
             self.colors = tuple(palette[i] | (palette[i + 1] << 8) for i in range(0, 10, 2))
-            self.buffer = bytearray(cell * cell * 2)
             return True
         except (ValueError, TypeError, OSError, MemoryError) as e:
             self.clear()

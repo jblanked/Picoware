@@ -1073,7 +1073,13 @@
             "picoware/apps_unfrozen/games/chess_game/assets/victory_white.bin",
             "picoware/apps_unfrozen/games/chess_game/assets/victory_black.bin",
             "picoware/apps_unfrozen/games/chess_game/assets/defeat_white.bin",
-            "picoware/apps_unfrozen/games/chess_game/assets/defeat_black.bin"
+            "picoware/apps_unfrozen/games/chess_game/assets/defeat_black.bin",
+            "picoware/apps_unfrozen/games/chess_game/assets/rotating_pieces_1.bin",
+            "picoware/apps_unfrozen/games/chess_game/assets/rotating_pieces_1.bin.332",
+            "picoware/apps_unfrozen/games/chess_game/assets/rotating_pieces_2.bin",
+            "picoware/apps_unfrozen/games/chess_game/assets/rotating_pieces_2.bin.332",
+            "picoware/apps_unfrozen/games/chess_game/assets/rotating_pieces_3.bin",
+            "picoware/apps_unfrozen/games/chess_game/assets/rotating_pieces_3.bin.332"
         ],
         "version": "1.0"
     }

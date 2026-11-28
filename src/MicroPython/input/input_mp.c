@@ -72,7 +72,9 @@ mp_obj_t input_mp_get_last_button(mp_obj_t self_in)
     input_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (!self || !self->initialized)
         return mp_obj_new_int(-1);
-    return mp_obj_new_int(input_char_to_button(INPUT_MP_READ()));
+    const int key_char = INPUT_MP_READ();
+    self->was_capitalized = key_char >= 65 && key_char <= 90;
+    return mp_obj_new_int(input_char_to_button(key_char));
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(input_mp_get_last_button_obj, input_mp_get_last_button);
 

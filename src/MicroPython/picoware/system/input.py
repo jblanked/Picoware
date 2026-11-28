@@ -16,6 +16,7 @@ class Input(input_mp.Input):
         "_button_map",
         "_last_button",
         "_was_capitalized",
+        "point",
         "_uart",
     )
 
@@ -66,11 +67,6 @@ class Input(input_mp.Input):
         return BOARD_HAS_TOUCH == 1
 
     @property
-    def point(self) -> tuple:
-        """Returns and clears the last touch point as (x, y)."""
-        return self.get_point()
-
-    @property
     def was_capitalized(self) -> bool:
         """Returns True if the last key pressed was a capital letter."""
         return self._was_capitalized
@@ -85,15 +81,15 @@ class Input(input_mp.Input):
         self.deinit()
 
     def read(self) -> int:
-        """Returns the key code as an integer.
+        """Reads the last button pressed.
 
         Returns:
-            int: The button code corresponding to the last input.
+            int: The button pressed.
         """
         if BOARD_ID == BOARD_PICO_DUO:
             return self._last_button
 
-        return self.get_input()
+        return self.get_last_button()
 
     def reset(self) -> None:
         """Resets the input state."""

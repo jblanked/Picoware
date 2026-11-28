@@ -2,7 +2,12 @@
 from .model import Game, TIME_LABELS
 from .storage import Store, SAVE_LABELS
 from .rules import Position, square_name
-from .ai import Search, ticks_ms, ticks_diff
+try:
+    from time import ticks_ms, ticks_diff
+except ImportError:
+    from time import monotonic
+    def ticks_ms(): return int(monotonic()*1000)
+    def ticks_diff(a,b): return a-b
 from .render import Renderer
 from .art import LABELS
 from .motion import Motion
@@ -19,9 +24,8 @@ class App:
         self.options = self.store.preferences()
         self.split = self.options['split']
         self.game = Game(self.options)
-        self.date_game()
-        self.resume_game = self.store.resume()
-        if self.resume_game and not self.resume_game.save_mode(self.options['save']): self.resume_game=None
+        self._resume_game=None
+        self._resume_pending=self.store.has_resume(self.options['save'])
         self.renderer = Renderer(vm.draw, BOARD_ID in (4, 5), BOARD_ID in (12, 17), bool(BOARD_HAS_TOUCH), bool(BOARD_HAS_KEYBOARD))
         self.screen, self.menu_index = 'home', 0
         self.menu_parents = {}
@@ -47,6 +51,24 @@ class App:
         self.dirty = True
         self.last_second = -1
         self.draw()
+
+    @property
+    def resume_game(self):
+        if self._resume_pending:
+            self._resume_pending=False
+            self._resume_game=self.store.resume()
+            if self._resume_game and not self._resume_game.save_mode(self.options['save']): self._resume_game=None
+        return self._resume_game
+
+    @resume_game.setter
+    def resume_game(self,game):
+        self._resume_game=game
+        self._resume_pending=False
+
+    def prepare_ai(self):
+        if self.game.mode!=1:
+            # Import before the game clock starts, not on the first CPU turn.
+            from .ai import Search
 
     def date_game(self):
         try:
@@ -76,7 +98,7 @@ class App:
         sd = self.store.available
         if self.screen == 'home':
             return [('Play', 'setup', True),
-                    ('Continue', 'continue', self.started or bool(self.resume_game)),
+                    ('Continue', 'continue', self.started or self._resume_pending or bool(self._resume_game)),
                     ('Previous games', 'library', sd), ('Options', 'options', True),
                     ('Exit', 'exit', True)]
         if self.screen == 'setup':
@@ -103,7 +125,8 @@ class App:
         if self.screen == 'options':
             o=self.options
             reason='SD card unavailable' if self.store.has_sd else 'SD card required'
-            return [('Default view: '+('Board + moves' if o['split'] else 'Board'),('option','split'),True),
+            return [('Startup splash: '+('On' if o['splash'] else 'Off'),('option','splash'),True),
+                    ('Default view: '+('Board + moves' if o['split'] else 'Board'),('option','split'),True),
                     ('Save games: '+(SAVE_LABELS[o['save']] if sd else reason),('option','save'),sd),
                     ('Graphics: '+('Basic (fallback)' if self.renderer.assets.error else 'Assets' if o['assets'] and sd else 'Basic'),('option','assets'),sd),
                     ('Board: '+LABELS[o['board']],('option','board'),sd and o['assets']),
@@ -228,7 +251,7 @@ class App:
         self.dirty=True
 
     def change_option(self, value, direction):
-        if value in ('assets','split','sound'): self.options[value]=not self.options[value]
+        if value in ('assets','split','sound','splash'): self.options[value]=not self.options[value]
         elif value=='human': self.options[value]=-self.options[value]
         elif value=='custom_minutes': self.options[value]=(self.options[value]-1+direction)%180+1
         else: self.options[value]=(self.options[value]+direction)%({'mode':3,'level':3,'white_level':3,'black_level':3,'time':len(TIME_LABELS)}.get(value,4))
@@ -294,8 +317,10 @@ class App:
         elif action=='continue':
             if self.started: self.screen='board'; self.last_ms=ticks_ms()
             elif self.resume_game: self.action('resume')
+            else: self.message='No valid saved game available'; self.dirty=True
         elif action=='resume' and self.resume_game:
             self.game,self.resume_game=self.resume_game,None
+            self.prepare_ai()
             self.started=True; self.split=self.options['split']
             self.screen='board'; self.last_ms=ticks_ms()
             self.flipped=self.game.human==-1 and not self.game.mode
@@ -384,7 +409,7 @@ class App:
                 self.message=self.store.error; return
         if self.game.moves and not self.save(True):
             self.message='Save failed; current game retained'; self.menu('game'); return
-        self.pref(); self.split=self.options['split']; self.game=Game(self.options); self.date_game(); self.started=True
+        self.pref(); self.split=self.options['split']; self.game=Game(self.options); self.prepare_ai(); self.date_game(); self.started=True
         self.resume_game=None; self.replay=self.replay_position=None; self.search=None
         self.motion=None; self.cpu_settled_ms=None; self.result_pending_ms=None
         self.selected=None; self.destinations=(); self.cursor=20
@@ -514,17 +539,10 @@ class App:
     def touch(self):
         inp=self.vm.input_manager
         if not getattr(inp,'has_touch_support',False): return False
-        down=getattr(inp,'touch_down',False)
-        if not down: self.touch_held=False; return False
+        point=inp.point
+        if not point or point==(0,0): self.touch_held=False; return False
         if self.touch_held: inp.reset(); return True
         self.touch_held=True
-        gesture=getattr(inp,'gesture',0)
-        if gesture:
-            try:
-                from waveshare_touch import TOUCH_GESTURE_CLICK
-                if gesture!=TOUCH_GESTURE_CLICK: inp.reset(); return True
-            except ImportError: pass
-        point=inp.point
         inp.reset()
         if point:
             action=self.renderer.hit(int(point[0]),int(point[1]))
@@ -567,7 +585,9 @@ class App:
                     self.replay_ms=now; self.seek(self.replay_index+1)
             # Leave the settled board visible for 200 ms before CPU search.
             elif not animating and not cpu_wait and not self.motion and self.game.result=='*' and self.game.cpu_turn():
-                if self.search is None: self.search=Search(self.game.position,self.game.ai_level(),self.game.keys); self.dirty=True
+                if self.search is None:
+                    from .ai import Search
+                    self.search=Search(self.game.position,self.game.ai_level(),self.game.keys); self.dirty=True
                 move=self.search.step()
                 if move is not None:
                     # Account for this slice before accepting a move at the flag.

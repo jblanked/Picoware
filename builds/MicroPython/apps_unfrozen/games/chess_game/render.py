@@ -40,6 +40,8 @@ class Renderer:
         self.targets = []
         self.geometry = None
         self.board_key = None
+        self.header_key = self.footer_key = self.menu_key = None
+        self.menu_selected = None
         self.square_states = {}
         self.motion_squares = set()
         self.sprite_cache = {}
@@ -164,6 +166,7 @@ class Renderer:
         self.scene.draw(app)
 
     def board_frame(self, app):
+        self.menu_key=None
         self.prepare(app)
         g=self.geometry; d=self.draw
         bg,panel,fg,accent,muted=self.colors()
@@ -174,38 +177,41 @@ class Renderer:
             d.fill_screen(bg)
             self.square_states.clear()
         x,y,w,h=g['x'],g['y'],g['w'],g['h']
-        self.panel(x,y,w,g['header'])
         game=app.replay or app.game
         position=app.replay_position if app.replay else game.position
         clocks=game.clock_history[app.replay_index] if app.replay and app.replay_index<len(game.moves) else game.clocks
-        # Reserve the right side for turn and search status; no animated redraws.
-        turn=('White' if position.turn==1 else 'Black') if w>=240 else ('W' if position.turn==1 else 'B')
-        if not app.replay and game.result!='*': turn='End'
-        turn_w=d.len('White' if w>=240 else 'End',self.font)+8
-        cpu_label='CPU...' if w>=180 else 'CPU'
-        cpu_w=d.len(cpu_label,self.font)+6
-        clock_w=max(1,(w-turn_w-cpu_w-8)//2)
-        ty=y+(1 if g['compact'] else 7)
-        notice=app.move_notice if not app.replay else ''
-        if notice:
-            self.text(x+2,y+(g['header']-self.footer_font_height)//2,notice,fg if self.monochrome else accent,clock_w*2-4,0)
-        else:
-            for side in range(2):
-                label=('W ' if side==0 else 'B ')+clock_label(clocks[side],game.time_control)
-                tx=x+side*clock_w+2
-                active=(position.turn==1)==(side==0)
-                self.text(tx,ty,label,accent if active else fg,clock_w-4)
-        turn_x=x+w-cpu_w-turn_w-4
-        pill_y=y if g['compact'] else y+3
-        pill_h=10 if g['compact'] else 18
-        turn_bg=0xFFFF if position.turn==1 else 0
-        turn_fg=0 if position.turn==1 else 0xFFFF
-        self.rect(turn_x,pill_y,turn_w,pill_h,turn_bg)
-        self.outline(turn_x,pill_y,turn_w,pill_h,turn_fg)
-        self.text(turn_x+4,ty,turn,turn_fg,turn_w-8)
         thinking=not app.replay and game.result=='*' and app.search is not None and not app.search.done
-        if thinking:
-            self.text(x+w-cpu_w+2,ty,cpu_label,accent,cpu_w-4)
+        header_key=(tuple(clocks),game.time_control,position.turn,game.result,app.move_notice if not app.replay else '',thinking)
+        if full or header_key!=self.header_key:
+            self.header_key=header_key
+            self.panel(x,y,w,g['header'])
+            # Reserve the right side for turn and search status; no animated redraws.
+            turn=('White' if position.turn==1 else 'Black') if w>=240 else ('W' if position.turn==1 else 'B')
+            if not app.replay and game.result!='*': turn='End'
+            turn_w=d.len('White' if w>=240 else 'End',self.font)+8
+            cpu_label='CPU...' if w>=180 else 'CPU'
+            cpu_w=d.len(cpu_label,self.font)+6
+            clock_w=max(1,(w-turn_w-cpu_w-8)//2)
+            ty=y+(1 if g['compact'] else 7)
+            notice=app.move_notice if not app.replay else ''
+            if notice:
+                self.text(x+2,y+(g['header']-self.footer_font_height)//2,notice,fg if self.monochrome else accent,clock_w*2-4,0)
+            else:
+                for side in range(2):
+                    label=('W ' if side==0 else 'B ')+clock_label(clocks[side],game.time_control)
+                    tx=x+side*clock_w+2
+                    active=(position.turn==1)==(side==0)
+                    self.text(tx,ty,label,accent if active else fg,clock_w-4)
+            turn_x=x+w-cpu_w-turn_w-4
+            pill_y=y if g['compact'] else y+3
+            pill_h=10 if g['compact'] else 18
+            turn_bg=0xFFFF if position.turn==1 else 0
+            turn_fg=0 if position.turn==1 else 0xFFFF
+            self.rect(turn_x,pill_y,turn_w,pill_h,turn_bg)
+            self.outline(turn_x,pill_y,turn_w,pill_h,turn_fg)
+            self.text(turn_x+4,ty,turn,turn_fg,turn_w-8)
+            if thinking:
+                self.text(x+w-cpu_w+2,ty,cpu_label,accent,cpu_w-4)
         cell,bx,by=g['cell'],g['bx'],g['by']
         last=game.moves[app.replay_index-1] if app.replay and app.replay_index else game.moves[-1] if not app.replay and game.moves else None
         legal=app.destinations if not app.replay else ()
@@ -269,7 +275,7 @@ class Renderer:
                 self.target(px,py,cell,cell,('square',sq))
         for px,py,piece in sprites:
             self.moving_piece(px,py,cell,piece)
-        if not g['compact']:
+        if full and not g['compact']:
             for i in range(8):
                 f=7-i if app.flipped else i
                 self.text(bx+i*cell+cell//2-2,by+cell*8+1,chr(97+f),muted,cell,0)
@@ -282,19 +288,23 @@ class Renderer:
         labels=('VIEW','MENU','MOVES') if not app.replay else ('VIEW','MENU','PAUSE' if app.autoplay else 'PLAY')
         if not app.replay and not app.split: labels=('VIEW','MENU')
         if move_controls: labels=('UP','DONE','DOWN')
+        footer_key=(labels,move_controls,app.notation_focus,bool(app.replay and app.replay.moves))
+        footer_dirty=full or footer_key!=self.footer_key
+        self.footer_key=footer_key
         for i,label in enumerate(labels):
             cx=x+i*w//len(labels); cw=x+(i+1)*w//len(labels)-cx
-            self.panel(cx,fy,cw,g['footer'])
-            self.rect(cx,fy,cw,1,fg if self.monochrome else muted)
-            if i: self.rect(cx,fy,1,g['footer'],fg if self.monochrome else muted)
             enabled=move_controls or not (app.replay and i==2 and not app.replay.moves)
-            if self.keyboard and not move_controls:
-                key=('Tab','Esc','Enter' if app.replay else '')[i]
-                hint=(key+' ' if key else '')+label[0]+label[1:].lower()
-                if self.draw.len(hint,0)<=cw-4: label=hint
-            if not enabled: label='EMPTY'
-            color=fg if self.monochrome else muted if not enabled else accent if i==2 and app.notation_focus else fg
-            self.text(cx+max(2,(cw-self.draw.len(label,0))//2),fy+(g['footer']-self.footer_font_height)//2,label,color,cw-4,0)
+            if footer_dirty:
+                self.panel(cx,fy,cw,g['footer'])
+                self.rect(cx,fy,cw,1,fg if self.monochrome else muted)
+                if i: self.rect(cx,fy,1,g['footer'],fg if self.monochrome else muted)
+                if self.keyboard and not move_controls:
+                    key=('Tab','Esc','Enter' if app.replay else '')[i]
+                    hint=(key+' ' if key else '')+label[0]+label[1:].lower()
+                    if self.draw.len(hint,0)<=cw-4: label=hint
+                if not enabled: label='EMPTY'
+                color=fg if self.monochrome else muted if not enabled else accent if i==2 and app.notation_focus else fg
+                self.text(cx+max(2,(cw-self.draw.len(label,0))//2),fy+(g['footer']-self.footer_font_height)//2,label,color,cw-4,0)
             if enabled:
                 action=(('scroll_moves',-1),'notation',('scroll_moves',1))[i] if move_controls else ('footer',i)
                 self.target(cx,fy,cw,g['footer'],action)
@@ -320,7 +330,7 @@ class Renderer:
             try:
                 runs=[]
                 index=(0 if piece>0 else 6)+abs(piece)-1
-                pixels,mask=self.assets.pieces,self.assets.mask
+                pixels,mask=self.assets.pieces[index],self.assets.mask
                 for yy in range(cell):
                     sy=yy*32//cell
                     start=None; data=None
@@ -329,7 +339,7 @@ class Renderer:
                         opaque=xx<cell and mask[index*128+sy*4+sx//8] & (128>>(sx&7))
                         if opaque:
                             if start is None: start=xx; data=bytearray()
-                            at=index*2048+(sy*32+sx)*2
+                            at=(sy*32+sx)*2
                             data.append(pixels[at]); data.append(pixels[at+1])
                         elif start is not None:
                             runs.append((start,yy,data)); start=None
@@ -347,7 +357,7 @@ class Renderer:
             self.basic_piece(x,y,cell,piece)
             return
         index=(0 if piece>0 else 6)+abs(piece)-1
-        pixels=self.assets.pieces; mask=self.assets.mask
+        pixels=self.assets.pieces[index]; mask=self.assets.mask
         # Transparent horizontal runs use native fills without a full-board buffer.
         for yy in range(cell):
             sy=yy*32//cell
@@ -357,7 +367,7 @@ class Renderer:
                 if xx<cell:
                     sx=xx*32//cell
                     if mask[index*128+sy*4+sx//8] & (128>>(sx&7)):
-                        at=index*2048+(sy*32+sx)*2
+                        at=(sy*32+sx)*2
                         value=pixels[at]|(pixels[at+1]<<8)
                 if value!=color:
                     if color is not None: self.rect(x+start,y+yy,xx-start,1,color)
@@ -381,6 +391,7 @@ class Renderer:
 
     def home(self, app):
         """Title screen with a separate, touch-friendly primary navigation."""
+        self.menu_key=None
         self.prepare(app)
         g=self.geometry; bg,panel,fg,accent,muted=self.colors()
         x,y,w,h=g['x'],g['y'],g['w'],g['h']
@@ -431,7 +442,6 @@ class Renderer:
     def menu(self, app, title, items, index):
         self.prepare(app)
         g=self.geometry; bg,panel,fg,accent,muted=self.colors()
-        self.draw.fill_screen(bg)
         x,y,w,h=g['x'],g['y'],g['w'],g['h']
         status=(app.message or self.assets.error) if self.touch else ''
         roomy=w>=240 and h>=240
@@ -442,24 +452,39 @@ class Renderer:
         row_h=(36 if self.touch else 33) if roomy else max(self.line+4,22 if h>=200 else self.line+2)
         rows=max(1,(h-header-result_header-footer)//row_h)
         first=(index//rows)*rows
-        self.panel(x,y,w,header)
-        if roomy:
-            self.text(x+10,y+4,'PICOCHESS',muted,w-20,0)
-            self.text(x+10,y+14,title,fg,w-58)
-            page=str(index//rows+1)+'/'+str((len(items)+rows-1)//rows)
-            self.text(x+w-44,y+17,page,muted,38,0)
-            self.rect(x+10,y+header-5,w-20,1,accent)
-        else: self.text(x+4,y+3,title,accent,w-8)
-        if status: self.text(x+4,y+header-self.line,status,fg,w-8,0)
-        if art_size:
-            self.result_image(app,x+(w-art_size)//2,y+header,art_size)
-            self.text(x+4,y+header+art_size+2,app.game.reason,fg,w-8)
+        menu_key=(app.screen,title,tuple(items),first,tuple(g.values()),self.assets.revision,
+                  app.message,app.game.reason,app.game.result,self.colors())
+        full=menu_key!=self.menu_key
+        previous=self.menu_selected
+        self.menu_key=menu_key; self.menu_selected=index
+        if full: self.draw.fill_screen(bg)
+        if full:
+            self.panel(x,y,w,header)
+            if roomy:
+                self.text(x+10,y+4,'PICOCHESS',muted,w-20,0)
+                self.text(x+10,y+14,title,fg,w-58)
+                page=str(index//rows+1)+'/'+str((len(items)+rows-1)//rows)
+                self.text(x+w-44,y+17,page,muted,38,0)
+                self.rect(x+10,y+header-5,w-20,1,accent)
+            else: self.text(x+4,y+3,title,accent,w-8)
+            if status: self.text(x+4,y+header-self.line,status,fg,w-8,0)
+            if art_size:
+                self.result_image(app,x+(w-art_size)//2,y+header,art_size)
+                self.text(x+4,y+header+art_size+2,app.game.reason,fg,w-8)
         for row,item in enumerate(items[first:first+rows]):
             label,action,enabled=item
             yy=y+header+result_header+row*row_h
             selected=first+row==index
             left=x+6 if roomy else x
             width=w-12 if roomy else w
+            adjustable=isinstance(action,tuple) and action[0]=='option'
+            if not full and first+row not in (previous,index):
+                self.target(left,yy,width,row_h,('menu',first+row))
+                if adjustable and enabled:
+                    self.target(left+width-42,yy,21,row_h,('option_back',action[1]))
+                    self.target(left+width-21,yy,21,row_h,('option_forward',action[1]))
+                continue
+            if not full: self.rect(left,yy,width,row_h,bg)
             if selected:
                 self.rect(left,yy,width,row_h-3,panel)
                 self.outline(left,yy,width,row_h-3,accent)

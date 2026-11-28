@@ -3,7 +3,8 @@ from .rules import Position, parse_move, uci, san, square_name, SQUARES, KING
 
 TIME_CONTROLS = ((0, 0), (180, 2), (300, 0), (600, 0), (900, 10), (3600, 0), (0, 0))
 TIME_LABELS = ('Untimed', '3+2', '5+0', '10+0', '15+10', '60 min', 'Custom')
-DEFAULTS = {'splash': True, 'sound': True, 'save': 0, 'assets': True, 'board': 0, 'pieces': 0, 'ui': 2,
+CAMERA_NAMES = ('Classic', 'Battle', 'High')
+DEFAULTS = {'zoom3d': 100, 'camera3d': 0, 'angle3d': 0, 'view3d': False, 'splash': True, 'sound': True, 'save': 0, 'assets': True, 'board': 0, 'pieces': 0, 'ui': 2,
             'split': False, 'mode': 0, 'human': 1, 'level': 0, 'time': 0, 'custom_minutes': 15, 'white_name': '', 'black_name': '', 'white_level': 0, 'black_level': 0}
 
 

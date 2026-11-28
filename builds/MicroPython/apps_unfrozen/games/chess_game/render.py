@@ -169,12 +169,16 @@ class Renderer:
 
     def prepare(self, app):
         d=self.draw
+        board_art=app.screen=='home' or not app.options.get('view3d',False) or self.monochrome
+        if not board_art and self.assets.board is not None:
+            self.sprite_cache.clear(); self.basic_cache.clear()
+            self.square_states.clear(); self.motion_squares.clear()
         if app.screen!='board': self.board_key=None; self.active_3d=False
         if app.screen!='end' or not app.options['assets']:
             self.result_key=self.result_data=None
         self.geometry=layout(int(d.size.x),int(d.size.y),app.split,self.rounded,self.touch)
         enabled=app.options['assets'] and app.store.available and not self.monochrome
-        self.assets.load(app.store.storage,app.options,enabled,self.geometry['cell'])
+        self.assets.load(app.store.storage,app.options,enabled,self.geometry['cell'],board_art)
         self.targets=[]
 
     def board(self, app):
@@ -187,6 +191,8 @@ class Renderer:
         self.active_3d=wants_3d
         if wants_3d:
             if self.board3d is None:
+                # Release the previous view's artwork before native allocation.
+                self.prepare(app)
                 from .board3d import Board3D
                 self.board3d=Board3D(self)
             self.menu_key=None
@@ -312,7 +318,6 @@ class Renderer:
         fy=y+h-g['footer']
         move_controls=self.touch and app.split and app.notation_focus
         labels=('VIEW','MENU','MOVES') if not app.replay else ('VIEW','MENU','PAUSE' if app.autoplay else 'PLAY')
-        if not app.replay and not app.split: labels=('VIEW','MENU')
         if move_controls: labels=('UP','DONE','DOWN')
         footer_key=(labels,move_controls,app.notation_focus,bool(app.replay and app.replay.moves))
         footer_dirty=full or footer_key!=self.footer_key
@@ -576,22 +581,20 @@ class Renderer:
             piece=6*(winner if app.game.mode else app.game.human)
             self.basic_piece(x+side//4,y+side//4,side//2,piece)
             return
-        if name!=self.result_key:
-            self.result_key=name; self.result_data=None
-            try:
-                data=app.store.storage.read('picoware/apps/games/chess_game/assets/'+name+'.bin','rb')
-                if len(data)==128*128*2: self.result_data=data
-            except (OSError,TypeError,MemoryError): pass
-        if self.result_data is None:
-            self.basic_piece(x+side//4,y+side//4,side//2,6)
-            return
         try:
-            row=bytearray(side*2)
-            data=self.result_data
-            for yy in range(side):
-                for xx in range(side):
-                    src=(yy*128//side*128+xx*128//side)*2
-                    row[xx*2]=data[src]; row[xx*2+1]=data[src+1]
-                self.draw._bytearray(x,y+yy,side,1,row)
-        except MemoryError:
-            self.result_data=None
+            # A full 32 KiB read can fail after 3D play on a fragmented heap.
+            source_row=bytearray(128*2)
+            row=source_row if side==128 else bytearray(side*2)
+            path=app.store.storage.vfs_prefix+'/picoware/apps/games/chess_game/assets/'+name+'.bin'
+            with open(path,'rb') as source:
+                if source.seek(0,2)!=128*128*2: raise ValueError('Invalid result artwork')
+                for yy in range(side):
+                    source.seek((yy*128//side)*128*2)
+                    if source.readinto(source_row)!=128*2: raise ValueError('Invalid result artwork row')
+                    if side!=128:
+                        for xx in range(side):
+                            src=(xx*128//side)*2
+                            row[xx*2]=source_row[src]; row[xx*2+1]=source_row[src+1]
+                    self.draw._bytearray(x,y+yy,side,1,row)
+        except (OSError,ValueError,TypeError,MemoryError):
+            self.basic_piece(x+side//4,y+side//4,side//2,6)

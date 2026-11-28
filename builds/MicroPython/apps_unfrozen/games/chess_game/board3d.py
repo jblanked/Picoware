@@ -1,7 +1,8 @@
 """Rotatable board mesh and upright transparent piece sprites, projected through native filled triangles.
 
-Board geometry is cached per viewport; rules, animation and replay remain
-owned by App. No native mesh ownership or additional framebuffer is needed.
+Board geometry and the displayed scene are retained while the camera is still.
+HUD-only updates reuse the existing board pixels without a second framebuffer.
+Rules, animation and replay remain owned by App.
 """
 from .model import CAMERA_NAMES
 
@@ -11,10 +12,13 @@ class Board3D:
         self.key=None
         self.squares=[];self.sprites={};self.sprite_key=None
         self.mesh=None;self.mesh_failed=False
-        self.sprite_source=None;self.sprite_header=None
+        self.sprite_source=None;self.sprite_header=None;self.asset_path=None
         self.frame_cache={};self.frame_order=[]
         self.sprite_attempt=None;self.sprite_error=None
         self.native=None
+        self.scene_state=None;self.scene_style=None
+        self.pieces_key=None;self.projected_pieces=[]
+        self.square_triangles=[];self.base_triangles=[];self.labels=[]
         try:
             from .native_pieces import NativePieces
             self.native=NativePieces(renderer.draw)
@@ -50,6 +54,27 @@ class Board3D:
                 i=row*9+col
                 polygon=(grid[i],grid[i+1],grid[i+10],grid[i+9])
                 self.squares.append((sq,polygon))
+        self.square_triangles=[];self.base_triangles=[];self.labels=[]
+
+    def cache_geometry(self):
+        self.square_triangles=[self.triangles(points) for _,points in self.squares]
+        top=tuple(self.project(u,v) for u,v in ((0,0),(8,0),(8,8),(0,8)))
+        bottom=tuple(self.project(u,v,-.18) for u,v in ((0,0),(8,0),(8,8),(0,8)))
+        self.base_triangles=[]
+        for i in range(4):
+            j=(i+1)%4
+            if (top[i][1]+top[j][1])/2>=self.oy:
+                self.base_triangles.extend(self.triangles((top[i],top[j],bottom[j],bottom[i])))
+        self.labels=[]
+        for i in range(8):
+            x,y=self.project(i+.5,8.28);self.labels.append((x-3,y,chr(104-i if self.flipped else 97+i)))
+            x,y=self.project(-.33,i+.5);self.labels.append((x-3,y-4,str(i+1 if self.flipped else 8-i)))
+
+    def triangles(self,points):
+        points=self.clip_polygon(points)
+        if len(points)<3:return ()
+        a=points[0]
+        return tuple(a+points[i]+points[i+1] for i in range(1,len(points)-1))
 
     def clip_polygon(self,points):
         left,top,right,bottom=self.bounds
@@ -190,6 +215,9 @@ class Board3D:
         self.sprites.clear();self.frame_cache.clear();self.frame_order=[]
         if self.sprite_source:self.sprite_source.close();self.sprite_source=None
         self.sprite_header=None
+        self.scene_state=self.scene_style=None
+        self.pieces_key=None;self.projected_pieces=[]
+        self.square_triangles=[];self.base_triangles=[];self.labels=[]
 
     def step(self,square,dx,dy):
         # Transform screen directions to the nearest file/rank direction.
@@ -208,13 +236,57 @@ class Board3D:
             if all(v>=0 for v in signs) or all(v<=0 for v in signs):return ('square',square)
         return None
 
-    def draw(self,app):
-        from .render import clock_label,footer_hint
-        r=self.r;r.prepare(app);g=r.geometry;self.setup(g,app.flipped,app.options.get('angle3d',0),app.options.get('camera3d',0),app.options.get('zoom3d',100))
-        self.flipped=app.flipped
-        self.asset_path=app.vm.storage.vfs_prefix+'/picoware/apps/games/chess_game/assets/rotating_pieces.bin'
-        d=r.draw;bg,panel,fg,accent,muted=r.colors();d.fill_screen(bg)
-        game=app.replay or app.game;p=app.replay_position if app.replay else game.position
+    def draw_scene(self,app,g,p,game,bg,muted):
+        r=self.r;d=r.draw
+        last=game.moves[app.replay_index-1] if app.replay and app.replay_index else game.moves[-1] if not app.replay and game.moves else None
+        checked=p.board.index(p.turn*6) if p.in_check() else -1
+        overlays=(tuple(last[:2]) if last else None,checked,
+                  () if app.replay else tuple(app.threats),
+                  () if app.replay else tuple(app.destinations),
+                  None if app.replay else app.selected,None if app.replay else app.cursor)
+        motion=(app.motion.fraction(),tuple(app.motion.slides)) if app.motion else None
+        style=(self.key,app.options['board'],app.options['pieces'],r.assets.revision,r.colors())
+        state=(style,tuple(app.motion.board if app.motion else p.board),overlays,motion)
+        full=style!=self.scene_style or r.board_key is None
+        if not full and state==self.scene_state:return
+        # Cache clipped geometry only after the camera has settled. Building
+        # throwaway triangle lists on every rotation frame adds allocation/GC
+        # cost; a moving camera uses the direct raster path instead.
+        if not self.square_triangles and self.scene_style and self.scene_style[0]==self.key:
+            self.cache_geometry()
+        pieces_key=(self.key,state[1],motion)
+        if pieces_key!=self.pieces_key:
+            self.projected_pieces=[]
+            pieces=[]
+            board=app.motion.board if app.motion else p.board
+            for index,(sq,_) in enumerate(self.squares):
+                if board[sq]:pieces.append((index//8,index%8,board[sq]))
+            if app.motion:
+                t=app.motion.fraction()/1024
+                for source,target,kind in app.motion.slides:
+                    sx,sy=source&7,7-(source>>4);tx,ty=target&7,7-(target>>4)
+                    if app.flipped:sx,sy,tx,ty=7-sx,7-sy,7-tx,7-ty
+                    pieces.append((sy+(ty-sy)*t,sx+(tx-sx)*t,kind))
+            # MicroPython recomputes sort keys during comparisons. Decorate once:
+            # retain insertion order for equal depths and reuse screen positions.
+            projected=[]
+            for index,(row,col,kind) in enumerate(pieces):
+                cx,cy=self.project(col+.5,row+.5)
+                projected.append((cy,index,cx,row,col,kind))
+            projected.sort()
+            self.projected_pieces=projected;self.pieces_key=pieces_key
+        projected=self.projected_pieces
+        # Load/collect after releasing the previous projected frame, so a
+        # sprite direction change does not retain both frames during GC.
+        self.prepare_pieces()
+        d.fill_screen(bg)
+        self.paint_scene(app,g,p,game,last,checked,projected,muted)
+        self.scene_state=state;self.scene_style=style
+        r.board_key=('3d',)
+
+    def paint_scene(self,app,g,p,game,last,checked,projected,muted):
+        r=self.r;d=r.draw
+        colors=((54671, 27139), (50809, 21293), (36020, 12810), (61275, 40245))[app.options['board']]
         native_board=False
         # The native box uses affine UVs; projected square quads keep the
         # perspective preset's artwork aligned with its actual hit targets.
@@ -227,20 +299,24 @@ class Board3D:
             except (AttributeError,TypeError,OSError,MemoryError):
                 if self.mesh:self.mesh.close();self.mesh=None
                 self.mesh_failed=True
-        # A shallow base makes the board's volume visible.
-        top=tuple(self.project(u,v) for u,v in ((0,0),(8,0),(8,8),(0,8)))
-        bottom=tuple(self.project(u,v,-.18) for u,v in ((0,0),(8,0),(8,8),(0,8)))
-        for i in (() if native_board else range(4)):
-            j=(i+1)%4
-            if (top[i][1]+top[j][1])/2>=self.oy:
-                self.polygon((top[i],top[j],bottom[j],bottom[i]),0x6206)
-        palettes=((0xD58C,0x7A85),(0xAD55,0x52AA),(0x632C,0x2945),(0xEF5D,0x8410))
-        colors=palettes[app.options['board']]
-        last=game.moves[app.replay_index-1] if app.replay and app.replay_index else game.moves[-1] if not app.replay and game.moves else None
-        checked=p.board.index(p.turn*6) if p.in_check() else -1
+        # A stationary view reuses the exact original clipping/raster inputs.
+        if not native_board:
+            if self.square_triangles:
+                for triangle in self.base_triangles:d._fill_triangle(*triangle,colors[1])
+            else:
+                top=tuple(self.project(u,v) for u,v in ((0,0),(8,0),(8,8),(0,8)))
+                bottom=tuple(self.project(u,v,-.18) for u,v in ((0,0),(8,0),(8,8),(0,8)))
+                for i in range(4):
+                    j=(i+1)%4
+                    if (top[i][1]+top[j][1])/2>=self.oy:
+                        self.polygon((top[i],top[j],bottom[j],bottom[i]),colors[1])
         for index,(sq,points) in enumerate(self.squares):
             row,col=divmod(index,8)
-            if not native_board:self.polygon(points,colors[(row+col)%2])
+            if not native_board:
+                color=colors[(row+col)%2]
+                if self.square_triangles:
+                    for triangle in self.square_triangles[index]:d._fill_triangle(*triangle,color)
+                else:self.polygon(points,color)
             if last and sq in last[:2]:self.outline(points,0xFFE0)
             if sq==checked or (not app.replay and sq in app.threats):self.outline(points,0xF800)
             if not app.replay and sq in app.destinations:
@@ -250,24 +326,6 @@ class Board3D:
                 for inset in (0.03,.07):
                     edge=tuple(self.project(col+u,row+v,.02) for u,v in ((inset,inset),(1-inset,inset),(1-inset,1-inset),(inset,1-inset)))
                     self.outline(edge,0x07FF if sq==app.cursor else 0xFFE0)
-        pieces=[]
-        board=app.motion.board if app.motion else p.board
-        for index,(sq,_) in enumerate(self.squares):
-            if board[sq]:pieces.append((index//8,index%8,board[sq]))
-        if app.motion:
-            t=app.motion.fraction()/1024
-            for source,target,kind in app.motion.slides:
-                sx,sy=source&7,7-(source>>4);tx,ty=target&7,7-(target>>4)
-                if app.flipped:sx,sy,tx,ty=7-sx,7-sy,7-tx,7-ty
-                pieces.append((sy+(ty-sy)*t,sx+(tx-sx)*t,kind))
-        # MicroPython recomputes sort keys during comparisons. Decorate once:
-        # retain insertion order for equal depths and reuse screen positions.
-        projected=[]
-        for index,(row,col,kind) in enumerate(pieces):
-            cx,cy=self.project(col+.5,row+.5)
-            projected.append((cy,index,cx,row,col,kind))
-        projected.sort()
-        self.prepare_pieces()
         # Twelve silhouettes maximum; reuse them across the entire board.
         old_limit=self.r.sprite_cache_limit
         side=max(8,min(48,int(self.cell*.94)))
@@ -275,9 +333,27 @@ class Board3D:
         try:
             for cy,_,cx,row,col,kind in projected:self.piece(kind,col,row,(cx,cy))
         finally:self.r.sprite_cache_limit=old_limit
-        for i in range(8):
-            x,y=self.project(i+.5,8.28);r.text(x-3,y,chr(104-i if app.flipped else 97+i),muted,12,0)
-            x,y=self.project(-.33,i+.5);r.text(x-3,y-4,str(i+1 if app.flipped else 8-i),muted,12,0)
+        if self.labels:
+            for x,y,label in self.labels:r.text(x,y,label,muted,12,0)
+        else:
+            for i in range(8):
+                x,y=self.project(i+.5,8.28);r.text(x-3,y,chr(104-i if app.flipped else 97+i),muted,12,0)
+                x,y=self.project(-.33,i+.5);r.text(x-3,y-4,str(i+1 if app.flipped else 8-i),muted,12,0)
+
+    def draw(self,app):
+        from .render import clock_label,footer_hint
+        r=self.r;r.prepare(app);g=r.geometry;self.setup(g,app.flipped,app.options.get('angle3d',0),app.options.get('camera3d',0),app.options.get('zoom3d',100))
+        self.flipped=app.flipped
+        theme=app.options['pieces']
+        path=app.vm.storage.vfs_prefix+'/picoware/apps/games/chess_game/assets/rotating_pieces'+('_'+str(theme) if theme else '')+'.bin'
+        if path!=self.asset_path:
+            self.asset_path=path;self.sprite_key=self.sprite_attempt=None;self.sprite_error=None
+            self.sprites.clear();self.frame_cache.clear();self.frame_order=[]
+            if self.sprite_source:self.sprite_source.close();self.sprite_source=None
+            self.sprite_header=None
+        d=r.draw;bg,panel,fg,accent,muted=r.colors()
+        game=app.replay or app.game;p=app.replay_position if app.replay else game.position
+        self.draw_scene(app,g,p,game,bg,muted)
         turn='White' if p.turn==1 else 'Black'
         thinking=app.search is not None and not app.search.done and not app.replay
         r.rect(g['x'],g['y'],g['w'],g['header'],panel)
@@ -286,13 +362,14 @@ class Board3D:
         r.text(g['x']+3,g['y']+5,label,fg,max(1,g['w'] if app.rotation_mode else g['w']-110),0)
         if not app.rotation_mode:r.text(g['x']+g['w']-106,g['y']+5,turn+(' CPU...' if thinking else ' / 3D'),accent,104,0)
         if g['nw']:r.notation(app,game,g,fg,accent,muted)
-        labels=('VIEW','MENU','MOVES') if app.split else ('VIEW','MENU')
+        labels=('VIEW','MENU','MOVES')
         if app.replay:labels=('VIEW','MENU','PAUSE' if app.autoplay else 'PLAY')
         move_controls=r.touch and app.split and app.notation_focus
         if move_controls:labels=('UP','DONE','DOWN')
         elif app.rotation_mode:labels=('<','PRESET','ZOOM-','ZOOM+','DONE','>')
         else:labels=labels+('CAMERA',)
         y=g['y']+g['h']-g['footer']
+        r.rect(g['x'],y,g['w'],g['footer'],bg)
         for i,label in enumerate(labels):
             x=g['x']+i*g['w']//len(labels);w=g['w']//len(labels)
             r.rect(x,y,w,g['footer'],panel);r.outline(x,y,w,g['footer'],muted)

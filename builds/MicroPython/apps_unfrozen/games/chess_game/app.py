@@ -1,5 +1,5 @@
 """PicoChess application controller; all game work remains on the UI thread."""
-from .model import Game, TIME_LABELS
+from .model import Game, TIME_LABELS, CAMERA_NAMES
 from .storage import Store, SAVE_LABELS
 from .rules import Position, square_name
 try:
@@ -32,6 +32,8 @@ class App:
         self.started, self.closed = False, False
         self.cursor, self.selected = 20, None
         self.destinations = ()
+        self.rotation_mode=False
+        self.camera_turn_ms=None;self.camera_turn_direction=0
         self.flipped = self.game.human == -1 and not self.game.mode
         self.notation_focus, self.notation_scroll = False, -1
         self.search = None
@@ -91,6 +93,7 @@ class App:
         if remember_parent and screen in ('options', 'setup', 'library', 'confirm') and self.screen != screen:
             self.menu_parents[screen] = self.screen
         self.screen, self.menu_index = screen, 0
+        self.rotation_mode=False
         self.dirty = True
         self.notation_focus = False
 
@@ -125,7 +128,11 @@ class App:
         if self.screen == 'options':
             o=self.options
             reason='SD card unavailable' if self.store.has_sd else 'SD card required'
-            return [('Startup splash: '+('On' if o['splash'] else 'Off'),('option','splash'),True),
+            return [('Board view: '+('3D' if o['view3d'] else '2D'),('option','view3d'),not self.renderer.monochrome),
+                    ('3D camera: '+CAMERA_NAMES[o.get('camera3d',0)],('option','camera3d'),o['view3d'] and self.rotation_allowed()),
+                    ('3D zoom: '+str(o.get('zoom3d',100))+'%',('option','zoom3d'),o['view3d'] and self.rotation_allowed()),
+                    ('3D rotation: '+str(round(o['angle3d'],1))+' deg',('option','angle3d'),o['view3d'] and self.rotation_allowed()),
+                    ('Startup splash: '+('On' if o['splash'] else 'Off'),('option','splash'),True),
                     ('Default view: '+('Board + moves' if o['split'] else 'Board'),('option','split'),True),
                     ('Save games: '+(SAVE_LABELS[o['save']] if sd else reason),('option','save'),sd),
                     ('Graphics: '+('Basic (fallback)' if self.renderer.assets.error else 'Assets' if o['assets'] and sd else 'Basic'),('option','assets'),sd),
@@ -158,10 +165,10 @@ class App:
             return [('Return to replay','board',True),('Previous move','prev',True),('Next move','next',True),
                     ('Start position','first',True),('Final position','last',True),
                     ('Pause replay' if self.autoplay else 'Autoplay','autoplay',bool(self.replay.moves)),
-                    ('Toggle view (Tab)','view',True),('Flip board','flip',True),
-                    ('Move list','notation',True),('Close replay','close_replay',True)]
-        return [('Return to board','board',True),('Toggle view (Tab)','view',True),
-                ('Move list','notation',True),('Flip board','flip',True),
+                    ('2D / 3D (Tab)','view',not self.renderer.monochrome),('Flip board','flip',True),('Camera (F5)', 'rotate3d',self.options['view3d'] and self.rotation_allowed()),
+                    ('Notation panel (N)','toggle_notation',True),('Close replay','close_replay',True)]
+        return [('Return to board','board',True),('2D / 3D (Tab)','view',not self.renderer.monochrome),
+                ('Notation panel (N)','toggle_notation',True),('Flip board','flip',True),('Camera (F5)', 'rotate3d',self.options['view3d'] and self.rotation_allowed()),
                 ('Undo','undo',bool(self.game.moves)),('Options','options',True),
                 ('Name: '+(self.game.name or 'Unnamed'),'name',True),
                 ('Save game now','save',sd and bool((self.replay or self.game).save_mode(self.options['save']))),
@@ -250,8 +257,16 @@ class App:
         if self.replay_index==len(self.replay.moves): self.autoplay=False
         self.dirty=True
 
+    def rotation_allowed(self):
+        return bool(self.replay) or self.search is None or self.search.done
+
     def change_option(self, value, direction):
-        if value in ('assets','split','sound','splash'): self.options[value]=not self.options[value]
+        if value in ('angle3d','camera3d','zoom3d') and not self.rotation_allowed():return
+        if value in ('assets','split','sound','splash','view3d'): self.options[value]=not self.options[value]
+        elif value=='zoom3d': self.options[value]=max(70,min(130,self.options.get(value,100)+direction*10))
+        elif value=='camera3d':
+            self.options[value]=(self.options.get(value,0)+direction)%len(CAMERA_NAMES);self.options['angle3d']=0
+        elif value=='angle3d': self.options[value]=(self.options[value]+direction*5)%360
         elif value=='human': self.options[value]=-self.options[value]
         elif value=='custom_minutes': self.options[value]=(self.options[value]-1+direction)%180+1
         else: self.options[value]=(self.options[value]+direction)%({'mode':3,'level':3,'white_level':3,'black_level':3,'time':len(TIME_LABELS)}.get(value,4))
@@ -270,6 +285,16 @@ class App:
             if kind=='option':
                 if value=='custom_minutes': self.action('custom_time')
                 else: self.change_option(value,1)
+            elif kind=='zoom':
+                if not self.rotation_allowed():return
+                self.options['zoom3d']=max(70,min(130,self.options.get('zoom3d',100)+value*10))
+            elif kind=='camera':
+                if not self.rotation_allowed():return
+                self.options['camera3d']=(self.options.get('camera3d',0)+value)%len(CAMERA_NAMES)
+                self.options['angle3d']=0
+            elif kind=='rotate':
+                if not self.rotation_allowed():return
+                self.options['angle3d']=(self.options['angle3d']+value*5)%360
             elif kind=='player_name':
                 self.name_parent=self.screen;self.player_name_key=value
                 kb=self.vm.keyboard;kb.reset();kb.title=('White' if value=='white_name' else 'Black')+' player / Enter: save'
@@ -282,6 +307,7 @@ class App:
                 self.pending=('delete',value); self.menu('confirm'); self.menu_index=1
                 self.message='Removes archive, PGN and TXT'
             elif kind=='square':
+                if self.rotation_mode and self.renderer.active_3d:return
                 if self.selected==value and not self.replay and not self.motion:
                     self.selected=None; self.destinations=(); self.clear_move_notice()
                 else:
@@ -349,8 +375,15 @@ class App:
                 self.game.resign(); self.search=None; self.motion=None; self.save(True); self.menu('end')
             elif pending=='exit': self.vm.back()
         elif action=='view':
-            self.split=not self.split; self.notation_focus=False
+            self.options['view3d']=not self.options['view3d'] and not self.renderer.monochrome
+            self.notation_focus=False;self.rotation_mode=False
             if self.screen not in ('promotion','confirm'): self.screen='board'
+        elif action=='toggle_notation':
+            self.split=not self.split;self.notation_focus=False;self.notation_scroll=-1
+            self.rotation_mode=False;self.screen='board'
+        elif action=='rotate3d':
+            if not self.rotation_allowed():return
+            self.rotation_mode=not self.rotation_mode;self.notation_focus=False;self.screen='board'
         elif action=='flip': self.flipped=not self.flipped; self.screen='board'
         elif action=='notation':
             self.split=True
@@ -496,10 +529,40 @@ class App:
             self.last_ms=ticks_ms()
         self.dirty=True
 
+    def turn_camera(self, direction):
+        # Integrate angular speed, not key-repeat count. Keep fractional degrees
+        # for the projector; no target queue or inertia after input stops.
+        now=ticks_ms()
+        elapsed=ticks_diff(now,self.camera_turn_ms) if self.camera_turn_ms is not None else 0
+        if direction!=self.camera_turn_direction or elapsed<=0 or elapsed>250:
+            step=0.75  # precise tap, also used after a pause or reversal
+        else:
+            step=elapsed*0.018  # 18 degrees/sec, including slower device frames
+        self.options['angle3d']=(self.options['angle3d']+direction*step)%360
+        self.camera_turn_ms=now;self.camera_turn_direction=direction
+
     def key(self, button):
-        if button==B.BUTTON_TAB:
-            if self.screen in ('board','game') and (self.started or self.replay): self.action('view')
+        if button not in (B.BUTTON_LEFT,B.BUTTON_RIGHT):
+            self.camera_turn_ms=None;self.camera_turn_direction=0
+        if button in (B.BUTTON_TAB,B.BUTTON_N):
+            if self.screen in ('board','game') and (self.started or self.replay):
+                self.action('view' if button==B.BUTTON_TAB else 'toggle_notation')
             return
+        if self.screen=='board' and self.renderer.active_3d:
+            if button==B.BUTTON_F5:
+                self.action('rotate3d');return
+            if self.rotation_mode:
+                if not self.rotation_allowed():
+                    self.rotation_mode=False;self.dirty=True;return
+                if button in (B.BUTTON_LEFT,B.BUTTON_RIGHT):
+                    self.turn_camera(-1 if button==B.BUTTON_LEFT else 1)
+                elif button in (B.BUTTON_PLUS,B.BUTTON_EQUAL,B.BUTTON_MINUS):
+                    self.action(('zoom',-1 if button==B.BUTTON_MINUS else 1))
+                elif button in (B.BUTTON_UP,B.BUTTON_DOWN):
+                    self.action(('camera',-1 if button==B.BUTTON_UP else 1))
+                elif button in (B.BUTTON_BACK,B.BUTTON_ESCAPE,B.BUTTON_ENTER,B.BUTTON_CENTER):self.rotation_mode=False
+                self.dirty=True
+                return
         if self.screen!='board':
             items=self.items()
             item=items[self.menu_index]
@@ -532,6 +595,9 @@ class App:
         elif button in (B.BUTTON_UP,B.BUTTON_DOWN,B.BUTTON_LEFT,B.BUTTON_RIGHT):
             direction={B.BUTTON_UP:16,B.BUTTON_DOWN:-16,B.BUTTON_LEFT:-1,B.BUTTON_RIGHT:1}[button]
             target=self.cursor+(-direction if self.flipped else direction)
+            if self.renderer.active_3d:
+                dx,dy={B.BUTTON_UP:(0,-1),B.BUTTON_DOWN:(0,1),B.BUTTON_LEFT:(-1,0),B.BUTTON_RIGHT:(1,0)}[button]
+                target=self.renderer.board3d.step(self.cursor,dx,dy)
             if not target&0x88: self.cursor=target
         elif button in (B.BUTTON_ENTER,B.BUTTON_CENTER): self.select()
         self.dirty=True
@@ -548,6 +614,35 @@ class App:
             action=self.renderer.hit(int(point[0]),int(point[1]))
             if action: self.action(action)
         return True
+
+    def camera_button(self, button):
+        # Native Engine disables background keyboard polling on PicoCalc.
+        # Consume accumulated direction repeats before the expensive draw, so
+        # a held key requests one step per frame rather than future frames.
+        if not (self.screen=='board' and self.rotation_mode and
+                self.renderer.active_3d and self.rotation_allowed() and
+                button in (B.BUTTON_LEFT,B.BUTTON_RIGHT)):
+            return button
+        started=ticks_ms()
+        for _ in range(32):
+            if ticks_diff(ticks_ms(),started)>=8: break
+            latest=self.vm.input_manager.button
+            if latest==-1: break
+            button=latest
+            if latest not in (B.BUTTON_LEFT,B.BUTTON_RIGHT):
+                # Stop at the first command: never drain past a mode change.
+                # These two keys normally belong to ViewManager.run(), which
+                # has already read this frame's original direction key.
+                if latest==B.BUTTON_HOME:
+                    while self.vm._stack_depth>0:
+                        last=self.vm._stack_depth==1
+                        self.vm.back(should_clear=last,should_start=last)
+                    return -1
+                if latest==B.BUTTON_F1:
+                    self.vm.draw.screenshot('screenshot%s.bmp'%self.vm.time.date)
+                    return -1
+                break
+        return button
 
     def run(self):
         now=ticks_ms(); elapsed=max(0,ticks_diff(now,self.last_ms)); self.last_ms=now
@@ -576,7 +671,12 @@ class App:
                 clock_elapsed=min(elapsed,max(0,ticks_diff(now,self.cpu_settled_ms)-200))
                 self.cpu_settled_ms=None
             if self.game.tick(clock_elapsed): self.search=None; self.save(True); self.menu('end')
-        button=self.vm.button
+        if self.rotation_mode and not self.rotation_allowed():
+            self.rotation_mode=False;self.dirty=True
+        button=self.camera_button(self.vm.button)
+        if button==-1 or not self.rotation_mode:
+            self.camera_turn_ms=None;self.camera_turn_direction=0
+        if self.closed: return
         if not self.touch() and button!=-1: self.key(button)
         if self.closed: return
         if self.screen=='board':
@@ -587,6 +687,7 @@ class App:
             elif not animating and not cpu_wait and not self.motion and self.game.result=='*' and self.game.cpu_turn():
                 if self.search is None:
                     from .ai import Search
+                    self.rotation_mode=False
                     self.search=Search(self.game.position,self.game.ai_level(),self.game.keys); self.dirty=True
                 move=self.search.step()
                 if move is not None:
@@ -608,5 +709,8 @@ class App:
         self.search=None
         self.sound.close()
         self.renderer.scene.close()
+        if self.renderer.board3d:self.renderer.board3d.close()
+        self.renderer.board3d=None
+        self.renderer.sprite_cache.clear()
         self.renderer.assets.clear()
         self.renderer.result_data=None

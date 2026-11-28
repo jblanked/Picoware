@@ -4,6 +4,17 @@ from .basic import MASKS
 from .rules import square_name
 
 
+def footer_hint(draw,label,width,rotation=False):
+    key={'VIEW':'Tab','MENU':'Esc','MOVES':'N','PLAY':'Enter','PAUSE':'Enter',
+         'ZOOM-':'-','ZOOM+':'+','CAMERA':'F5','PRESET':'Up/Dn','DONE':'F5' if rotation else 'Enter','<':'Left','>':'Right'}.get(label,'')
+    if not key:return label
+    if label in ('ZOOM-','ZOOM+'):
+        hint=key+' Zoom'
+        return hint if draw.len(hint,0)<=width else key
+    hint=key if label in ('<','>') else key+' '+label[0]+label[1:].lower()
+    return hint if draw.len(hint,0)<=width else key
+
+
 def layout(width, height, split, rounded=False, touch=False):
     if rounded:
         safe = int(min(width, height) * 0.70)
@@ -45,6 +56,9 @@ class Renderer:
         self.square_states = {}
         self.motion_squares = set()
         self.sprite_cache = {}
+        self.sprite_cache_limit = 2
+        self.board3d = None
+        self.active_3d = False
         self.sprite_cache_key = None
         self.basic_cache = {}
         self.basic_cell = None
@@ -79,6 +93,7 @@ class Renderer:
     def hit(self, x, y):
         for left,top,w,h,action in reversed(self.targets):
             if left <= x < left+w and top <= y < top+h: return action
+        if self.active_3d and self.board3d is not None: return self.board3d.hit(x,y)
         return None
 
     def colors(self):
@@ -154,7 +169,7 @@ class Renderer:
 
     def prepare(self, app):
         d=self.draw
-        if app.screen!='board': self.board_key=None
+        if app.screen!='board': self.board_key=None; self.active_3d=False
         if app.screen!='end' or not app.options['assets']:
             self.result_key=self.result_data=None
         self.geometry=layout(int(d.size.x),int(d.size.y),app.split,self.rounded,self.touch)
@@ -166,6 +181,17 @@ class Renderer:
         self.scene.draw(app)
 
     def board_frame(self, app):
+        wants_3d=app.options.get('view3d',False) and not self.monochrome
+        if wants_3d!=self.active_3d:
+            self.board_key=None; self.sprite_cache.clear()
+        self.active_3d=wants_3d
+        if wants_3d:
+            if self.board3d is None:
+                from .board3d import Board3D
+                self.board3d=Board3D(self)
+            self.menu_key=None
+            self.board3d.draw(app)
+            return
         self.menu_key=None
         self.prepare(app)
         g=self.geometry; d=self.draw
@@ -299,9 +325,7 @@ class Renderer:
                 self.rect(cx,fy,cw,1,fg if self.monochrome else muted)
                 if i: self.rect(cx,fy,1,g['footer'],fg if self.monochrome else muted)
                 if self.keyboard and not move_controls:
-                    key=('Tab','Esc','Enter' if app.replay else '')[i]
-                    hint=(key+' ' if key else '')+label[0]+label[1:].lower()
-                    if self.draw.len(hint,0)<=cw-4: label=hint
+                    label=footer_hint(self.draw,label,cw-4)
                 if not enabled: label='EMPTY'
                 color=fg if self.monochrome else muted if not enabled else accent if i==2 and app.notation_focus else fg
                 self.text(cx+max(2,(cw-self.draw.len(label,0))//2),fy+(g['footer']-self.footer_font_height)//2,label,color,cw-4,0)
@@ -326,7 +350,7 @@ class Renderer:
         runs=self.sprite_cache.get(piece)
         if runs is None:
             # At most two sprites are needed concurrently (castling).
-            if len(self.sprite_cache)>=2: self.sprite_cache.clear()
+            if len(self.sprite_cache)>=self.sprite_cache_limit: self.sprite_cache.clear()
             try:
                 runs=[]
                 index=(0 if piece>0 else 6)+abs(piece)-1

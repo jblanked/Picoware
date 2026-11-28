@@ -50,7 +50,7 @@ class Store:
         if not self.available: return prefs
         data = self.read_json(ROOT + '/options.json')
         if not isinstance(data, dict): return prefs
-        choices = {'splash': (False,True), 'sound': (False,True), 'save': range(4), 'assets': (False, True), 'board': range(4),
+        choices = {'zoom3d': range(70,131,10), 'camera3d': range(3), 'view3d': (False,True), 'splash': (False,True), 'sound': (False,True), 'save': range(4), 'assets': (False, True), 'board': range(4),
                    'pieces': range(4), 'ui': range(4), 'split': (False, True),
                    'mode': (0, 1, 2), 'white_level': range(3), 'black_level': range(3), 'human': (-1, 1), 'level': range(3), 'time': range(7), 'custom_minutes': range(1,181)}
         for k in prefs:
@@ -58,6 +58,9 @@ class Store:
                 value = data.get(k, '')
                 if isinstance(value, str) and len(value) <= 32 and all(ord(c) >= 32 and ord(c) != 127 for c in value):
                     prefs[k] = value
+            elif k=='angle3d':
+                value=data.get(k)
+                if isinstance(value,(int,float)) and 0<=value<360: prefs[k]=value
             elif data.get(k) in choices[k]: prefs[k] = data[k]
         return prefs
 

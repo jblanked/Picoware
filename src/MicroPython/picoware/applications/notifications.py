@@ -339,7 +339,7 @@ def __content_cards(view_manager) -> list:
     latest_date = social.get("latest_feed_item_date", "")
     if latest_user or latest_date:
         social_details.append(
-            "%s %s" % (latest_user, latest_date).strip()
+            ("%s %s" % (latest_user, latest_date)).strip()
         )
     latest_message = social.get("latest_feed_item_message", "")
     if latest_message:

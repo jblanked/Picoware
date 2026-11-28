@@ -16,18 +16,22 @@ def show(vm):
     font=0 if compact else 2
     title='PicoChess'
     d._text(x+max(0,(width-d.len(title,font))//2),y+3 if compact else y+12,title,fg,font)
-    side=min(192,width-12,height-(32 if compact else 80))
+    side=min(128,width-12,height-(32 if compact else 80))
     left=x+(width-side)//2; top=y+(height-side)//2
     try:
-        data=vm.storage.read(PATH,'rb')
-        if len(data)!=192*192*2: raise ValueError('Invalid splash')
-        row=bytearray(side*2)
-        for yy in range(side):
-            src_y=yy*192//side
-            for xx in range(side):
-                src=(src_y*192+xx*192//side)*2
-                row[xx*2]=data[src]; row[xx*2+1]=data[src+1]
-            d._bytearray(left,top+yy,side,1,row)
+        # Stream rows: a full 72 KiB allocation can fail on a fragmented heap.
+        source_row=bytearray(192*2)
+        row=source_row if side==192 else bytearray(side*2)
+        with open(vm.storage.vfs_prefix+'/'+PATH,'rb') as source:
+            if source.seek(0,2)!=192*192*2: raise ValueError('Invalid splash')
+            for yy in range(side):
+                source.seek((yy*192//side)*192*2)
+                if source.readinto(source_row)!=192*2: raise ValueError('Invalid splash row')
+                if side!=192:
+                    for xx in range(side):
+                        src=(xx*192//side)*2
+                        row[xx*2]=source_row[src]; row[xx*2+1]=source_row[src+1]
+                d._bytearray(left,top+yy,side,1,row)
     except (OSError,ValueError,TypeError,MemoryError):
         # Text still communicates startup if the optional illustration is absent.
         pass

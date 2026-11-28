@@ -1,9 +1,9 @@
 """Game history, clocks and portable notation. No hardware dependencies."""
-from .rules import Position, parse_move, uci, san, SQUARES, KING
+from .rules import Position, parse_move, uci, san, square_name, SQUARES, KING
 
 TIME_CONTROLS = ((0, 0), (180, 2), (300, 0), (600, 0), (900, 10), (3600, 0), (0, 0))
 TIME_LABELS = ('Untimed', '3+2', '5+0', '10+0', '15+10', '60 min', 'Custom')
-DEFAULTS = {'sound': True, 'save': 0, 'assets': True, 'board': 0, 'pieces': 0, 'ui': 2,
+DEFAULTS = {'splash': True, 'sound': True, 'save': 0, 'assets': True, 'board': 0, 'pieces': 0, 'ui': 2,
             'split': False, 'mode': 0, 'human': 1, 'level': 0, 'time': 0, 'custom_minutes': 15, 'white_name': '', 'black_name': '', 'white_level': 0, 'black_level': 0}
 
 
@@ -27,6 +27,7 @@ class Game:
         self.game_id = None
         self.date = '????.??.??'
         self.name = ''
+        self.text_time_control = None
         self.white_name = options.get('white_name', '')
         self.black_name = options.get('black_name', '')
 
@@ -82,7 +83,7 @@ class Game:
         self.reason = 'Resignation'
 
     def record(self):
-        return {'version': 1, 'id': self.game_id, 'date': self.date, 'name': self.name,
+        return {'version': 1, 'text_time_control': self.text_time_control, 'id': self.game_id, 'date': self.date, 'name': self.name,
                 'white_name': self.white_name, 'black_name': self.black_name,
                 'white_level': self.white_level, 'black_level': self.black_level,
                 'moves': [uci(m) for m in self.moves], 'clocks': self.clocks,
@@ -122,12 +123,90 @@ class Game:
         name = data.get('name', '')
         if not isinstance(name, str) or len(name) > 32 or any(ord(c) < 32 or ord(c) == 127 for c in name):
             raise ValueError('Invalid game name')
+        g.text_time_control=Game.text_clock(data.get('text_time_control'))
         g.name = name
         g.game_id, g.date = ident, data.get('date', '????.??.??')
         g.clocks = data['clocks'][:]
         g.clock_history = [p[:] for p in history]
         g.result, g.reason = data['result'], data.get('reason', '')
         return g
+
+    @staticmethod
+    def text_clock(value):
+        if value is None: return None
+        if not isinstance(value,str) or len(value)>24: raise ValueError('Invalid time control')
+        if value!='-':
+            parts=value.split('+')
+            if len(parts)!=2 or not all(part.isdigit() for part in parts): raise ValueError('Invalid time control')
+        return value
+
+    @staticmethod
+    def from_text(text):
+        """Replay PicoChess's SAN text exports without JSON or invented clocks."""
+        import json
+        tags={}; tokens=[]
+        for line in text.splitlines():
+            line=line.strip()
+            if not line: continue
+            if line.startswith('['):
+                if tokens or not line.endswith(']'): raise ValueError('Invalid text header')
+                key,value=line[1:-1].split(' ',1)
+                value=json.loads(value)
+                if not isinstance(value,str): raise ValueError('Invalid text tag')
+                tags[key]=value
+            else: tokens.extend(line.split())
+        if tags.get('SetUp','0')!='0' or 'FEN' in tags:
+            raise ValueError('Custom starting positions are not supported')
+        options=DEFAULTS.copy();options['mode']=1;options['time']=0
+        for tag,key,allowed in (('PicoChessMode','mode',(0,1,2)),
+                                ('PicoChessHuman','human',(-1,1)),
+                                ('PicoChessLevel','level',(0,1,2)),
+                                ('PicoChessWhiteLevel','white_level',(0,1,2)),
+                                ('PicoChessBlackLevel','black_level',(0,1,2))):
+            if tag in tags:
+                value=int(tags[tag])
+                if value not in allowed: raise ValueError('Invalid text settings')
+                options[key]=value
+        game=Game(options)
+        game.text_time_control=Game.text_clock(tags.get('TimeControl'))
+        if tags.get('PicoChessFormat','1')!='1': raise ValueError('Unsupported text format')
+        result=None
+        for token in tokens:
+            if result is not None: raise ValueError('Text after game result')
+            if token.endswith('.') and token[:-1].isdigit():
+                if game.position.turn!=1 or int(token[:-1])!=len(game.moves)//2+1:
+                    raise ValueError('Invalid move number')
+                continue
+            if token in ('*','1-0','0-1','1/2-1/2'):
+                result=token; continue
+            # Filter by destination before computing SAN (which checks legality).
+            base=token.rstrip('+#')
+            target=base.split('=')[0][-2:]
+            matches=[]
+            for move in game.position.legal():
+                if base not in ('O-O','O-O-O') and square_name(move[1])!=target: continue
+                if san(game.position,move)==token: matches.append(move)
+            if len(matches)!=1 or not game.play(matches[0]):
+                raise ValueError('Invalid text move: '+token)
+        if result is None or tags.get('Result',result)!=result:
+            raise ValueError('Missing or inconsistent result')
+        if game.result!='*' and game.result!=result:
+            raise ValueError('Result contradicts moves')
+        game.result=result
+        if result!='*' and not game.reason: game.reason='Result from text export'
+        for tag,attr in (('Event','name'),('White','white_name'),('Black','black_name'),('Date','date')):
+            value=tags.get(tag,getattr(game,attr))
+            if len(value)>32 or any(ord(c)<32 or ord(c)==127 for c in value):
+                raise ValueError('Invalid text metadata')
+            setattr(game,attr,value)
+        if 'PicoChessReason' in tags:
+            reason=tags['PicoChessReason']
+            if len(reason)>80 or any(ord(c)<32 for c in reason): raise ValueError('Invalid reason')
+            game.reason=reason
+        ident=tags.get('PicoChessID')
+        if ident and (len(ident)!=8 or not ident.isdigit()): raise ValueError('Invalid text ID')
+        game.game_id=ident or None
+        return game
 
     def players(self):
         names = [self.white_name or 'White', self.black_name or 'Black']
@@ -142,7 +221,11 @@ class Game:
         seconds, inc = self.initial_seconds, self.increment
         tags = [('Event', self.name or 'Casual Game'), ('Site', 'PicoChess'), ('Date', self.date),
                 ('Round', '-'), ('White', white), ('Black', black), ('Result', self.result),
-                ('TimeControl', '%d+%d' % (seconds, inc) if seconds else '-')]
+                ('TimeControl', self.text_time_control or ('%d+%d' % (seconds, inc) if seconds else '-')),
+                ('PicoChessFormat', '1'), ('PicoChessID', self.game_id or ''),
+                ('PicoChessMode', self.mode), ('PicoChessHuman', self.human),
+                ('PicoChessLevel', self.level), ('PicoChessWhiteLevel', self.white_level),
+                ('PicoChessBlackLevel', self.black_level), ('PicoChessReason', self.reason)]
         lines = ['[%s "%s"]' % (k, str(v).replace('\\', '\\\\').replace('"', '\\"').replace('\n', ' ')) for k, v in tags]
         lines.append('')
         tokens = []
